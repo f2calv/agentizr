@@ -1,6 +1,8 @@
 # agentizr
 
-agentizr is currently a vanilla .NET 10 ASP.NET Core host scaffold. It provides only the application bootstrap, observability wiring, root endpoint, controller registration, Problem Details, health checks, and a credential-free smoke test.
+agentizr is a .NET 10 ASP.NET Core host for the multi-tenant CasCap agent runtime. The current first
+slice establishes tenant-owned definitions, credentials, sessions, overrides, and execution
+orchestration behind application-local contracts; it does not expose a runtime protocol yet.
 
 ## Quick Start
 
@@ -22,17 +24,23 @@ The running host exposes:
 
 Configuration follows the standard ASP.NET Core provider order. `AppConfig` supplies public-safe telemetry defaults in code, while `appsettings.json` configures Serilog and allowed hosts.
 
+`AgentRuntimeConfig` contains versioned provider and agent definitions keyed by tenant. The initial
+`ConfiguredTenantContext` uses `DefaultTenantId`; authenticated request claims will replace that
+bootstrap adapter before a public execution endpoint is added. Provider API keys remain separate
+from returned `AgentDefinition` values and must arrive through a private configuration provider.
+
 Set `AppConfig__OtlpExporterEndpoint` to an OTLP gRPC endpoint to enable OpenTelemetry export. When it is unset, the shared hosting library skips OpenTelemetry registration.
 
 ## Current Boundaries
 
-This repository does not yet implement an agent domain or runtime protocol. The following work is deliberately deferred until its requirements and contracts are defined:
+The host now owns runtime contracts for definition and credential lookup, tenant-qualified session
+and override state, and execution coordination around an `IAgentExecutor`. The following work remains:
 
-- Agent orchestration, sessions, tools, and protocol endpoints
-- Authentication and authorization
-- Database, cache, and durable state
+- Authentication-derived tenant context and authorization
+- Durable session, override, and definition stores
+- Versioned protocol contracts and the client SDK
+- Tenant tool allowlists, tool composition, and remote MCP connection ownership
 - MCP or another agent transport
-- Cloud-provider integrations
 - Frontend assets
 - Container, Helm, and deployment configuration
 

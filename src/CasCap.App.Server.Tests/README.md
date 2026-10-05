@@ -1,6 +1,6 @@
 # CasCap.App.Server.Tests
 
-Credential-free integration smoke tests for the `CasCap.App.Server` ASP.NET Core host.
+Credential-free unit and integration tests for the `CasCap.App.Server` host and runtime ownership boundary.
 
 ## Purpose
 
@@ -11,12 +11,16 @@ The tests launch the real application through `WebApplicationFactory<Program>` a
 | Class | Method count | Test-case count | Description |
 | --- | ---: | ---: | --- |
 | `EndpointSmokeTests` | 1 | 2 | Verifies `/` and `/healthz` return HTTP 200 |
+| `AgentExecutionCoordinatorTests` | 2 | 2 | Verifies definition, credential, override, session, and executor orchestration |
+| `TenantStateIsolationTests` | 2 | 2 | Proves tenant isolation and collision-free composite state keys |
 
 ## Trait Categories
 
 | Category | Test-case count | Purpose |
 | --- | ---: | --- |
 | `Integration` | 2 | In-memory ASP.NET Core host tests |
+| `Agent Runtime` | 2 | Runtime orchestration without network or external services |
+| `Tenant Isolation` | 2 | Cross-tenant state isolation |
 
 ## Skipped Tests
 
@@ -26,8 +30,11 @@ There are no skipped tests.
 
 ```text
 Tests/
-└── Integration/
-    └── EndpointSmokeTests.cs
+├── Integration/
+│   └── EndpointSmokeTests.cs
+└── Unit/
+    ├── AgentExecutionCoordinatorTests.cs
+    └── TenantStateIsolationTests.cs
 ```
 
 ## Run

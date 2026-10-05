@@ -7,15 +7,21 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="CasCap.App.Server.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="..\..\appsettings.json" Link="appsettings.json" CopyToOutputDirectory="Always" />
     <Content Include="..\..\appsettings.Development.json" Link="appsettings.Development.json" CopyToOutputDirectory="Always" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)'=='Release'">
+    <PackageReference Include="CasCap.Common.AI" />
     <PackageReference Include="CasCap.Common.Hosting.AspNetCore" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)'!='Release'">
+    <ProjectReference Include="..\..\..\CasCap.Common\src\CasCap.Common.AI\CasCap.Common.AI.csproj" />
     <ProjectReference Include="..\..\..\CasCap.Common\src\CasCap.Common.Hosting.AspNetCore\CasCap.Common.Hosting.AspNetCore.csproj" />
   </ItemGroup>
 
