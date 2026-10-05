@@ -48,6 +48,31 @@ public sealed class AgentExecutionCoordinatorTests
         Assert.Null(sessionStore.SavedState);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_RequestBypassSkipsSessionState()
+    {
+        var sessionStore = new RecordingSessionStore("before");
+        var executor = new RecordingExecutor(new AgentExecutionResult
+        {
+            OutputText = "done",
+            SessionStateJson = "after",
+        });
+        var coordinator = CreateCoordinator(sessionStore, new AgentOverrideState(), executor);
+        var request = new AgentExecutionRequest
+        {
+            AgentName = "assistant",
+            SessionId = "session",
+            Input = "hello",
+            BypassSession = true,
+        };
+
+        await coordinator.ExecuteAsync(request, CancellationToken.None);
+
+        Assert.Null(executor.Context?.SessionStateJson);
+        Assert.Equal(0, sessionStore.GetCount);
+        Assert.Null(sessionStore.SavedState);
+    }
+
     private static AgentExecutionCoordinator CreateCoordinator(
         RecordingSessionStore sessionStore,
         AgentOverrideState overrides,

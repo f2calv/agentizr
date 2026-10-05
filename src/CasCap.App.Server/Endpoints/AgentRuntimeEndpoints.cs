@@ -35,6 +35,9 @@ public static class AgentRuntimeEndpoints
             AgentName = agentName,
             SessionId = request.SessionId,
             Input = request.Input,
+            BinaryContent = request.BinaryContent,
+            MimeType = request.MimeType,
+            BypassSession = request.BypassSession,
         }, cancellationToken);
 
         return result is null
@@ -44,6 +47,42 @@ public static class AgentRuntimeEndpoints
                 SessionId = request.SessionId,
                 OutputText = result.OutputText,
                 DefinitionVersion = result.DefinitionVersion,
+                ModelName = result.ModelName,
+                FinishReason = result.Diagnostics?.FinishReason,
+                ElapsedMilliseconds = result.Diagnostics?.Elapsed.TotalMilliseconds ?? 0,
+                TimeToFirstTokenMilliseconds = result.Diagnostics?.TimeToFirstToken?.TotalMilliseconds,
+                Usage = result.Diagnostics?.Usage is { } usage
+                    ? new RunAgentUsage
+                    {
+                        InputTokenCount = usage.InputTokenCount,
+                        OutputTokenCount = usage.OutputTokenCount,
+                        TotalTokenCount = usage.TotalTokenCount,
+                    }
+                    : null,
+                ToolCalls = result.Diagnostics?.ToolCalls
+                    .Select(toolCall => new RunAgentToolCall { Name = toolCall.Name })
+                    .ToArray() ?? [],
+                Attachments = result.Diagnostics?.Attachments
+                    .Select(attachment => new RunAgentAttachment
+                    {
+                        MimeType = attachment.MimeType,
+                        FileName = attachment.FileName,
+                        Base64Content = attachment.Base64Content,
+                    })
+                    .ToArray() ?? [],
+                Events = result.Events.Select(executionEvent => new RunAgentEvent
+                {
+                    Type = executionEvent.Type,
+                    AgentName = executionEvent.AgentName,
+                    Depth = executionEvent.Depth,
+                    ModelName = executionEvent.ModelName,
+                    ElapsedMilliseconds = executionEvent.Elapsed?.TotalMilliseconds,
+                    InputMessageCount = executionEvent.InputMessageCount,
+                    OutputMessageCount = executionEvent.OutputMessageCount,
+                    ToolMessagesDropped = executionEvent.ToolMessagesDropped,
+                    WindowMessagesTrimmed = executionEvent.WindowMessagesTrimmed,
+                    TargetMessageCount = executionEvent.TargetMessageCount,
+                }).ToArray(),
             });
     }
 }

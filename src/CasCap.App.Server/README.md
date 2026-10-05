@@ -9,8 +9,16 @@ configuration adapters and exposes the v1 execution contract in Development.
 
 The runtime service layer resolves a versioned `AgentDefinition` and provider credential for the
 current `ITenantContext`, then coordinates tenant-qualified session and override state around an
-`IAgentExecutor`. The initial stores are process-local and exist to prove isolation and orchestration;
-durable implementations replace them before horizontal scaling.
+`IAgentExecutor`. Development may use process-local stores; non-Development hosts require Redis-backed
+state so sessions and overrides survive replica and pod replacement.
+
+The v1 execution response projects Common.AI diagnostics into a stable wire surface: provider model,
+finish reason, timing, token usage, tool-call names, tool-produced attachments, and structured
+delegation/compaction events. Tool arguments are not exposed.
+
+Tool composition is tenant-scoped: service tools resolve from request DI, remote MCP connections are
+owned for one execution, and sub-agent tools recursively use the same definition and credential
+stores with stateless delegated sessions.
 
 ## Public Surface
 

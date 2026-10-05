@@ -58,10 +58,19 @@ The host now owns runtime contracts for definition and credential lookup, tenant
 and override state, and execution coordination around an `IAgentExecutor`. The following work remains:
 
 - Durable dynamic definition storage and invalidation
-- Tenant tool allowlists, tool composition, and remote MCP connection ownership
+- Host-specific execution enrichers after their measurements have a tenant-safe contract
 - MCP or another agent transport
 - Frontend assets
 - Container, Helm, and deployment configuration
+
+Version 1 execution accepts optional binary content and session bypass, and returns model identity,
+finish reason, timing, token usage, tool-call names, attachments, and structured delegation and
+compaction events. Signal delivery metadata, reactions, polls, spoken replies, and monitor-group
+formatting remain Comms responsibilities.
+
+Tools resolve from the current tenant's agent definition. In-process service tools are resolved from
+the request scope, remote MCP clients are owned and disposed per run, and sub-agent tools recursively
+resolve definitions and credentials through the same tenant-scoped stores.
 
 ## Development
 

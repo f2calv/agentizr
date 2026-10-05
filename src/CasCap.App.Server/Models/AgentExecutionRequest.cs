@@ -14,4 +14,13 @@ public sealed record AgentExecutionRequest
     /// <summary>Gets the user input for this turn.</summary>
     [Required, MinLength(1)]
     public required string Input { get; init; }
+
+    /// <summary>Gets optional binary input.</summary>
+    public byte[]? BinaryContent { get; init; }
+
+    /// <summary>Gets the MIME type paired with <see cref="BinaryContent" />.</summary>
+    public string? MimeType { get; init; }
+
+    /// <summary>Gets whether session state is bypassed for this turn.</summary>
+    public bool BypassSession { get; init; }
 }
