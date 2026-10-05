@@ -18,6 +18,7 @@ public sealed class AgentExecutionCoordinatorTests
 
         var result = await coordinator.ExecuteAsync(request, CancellationToken.None);
 
+        Assert.NotNull(result);
         Assert.Equal("done", result.OutputText);
         Assert.Equal("before", executor.Context?.SessionStateJson);
         Assert.Equal("after", sessionStore.SavedState);

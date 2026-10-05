@@ -8,6 +8,8 @@
     <File Path="Directory.Packages.props" />
   </Folder>
   <Folder Name="/agentizr/">
+    <Project Path="src/CasCap.AgentRuntime.Client/CasCap.AgentRuntime.Client.csproj" />
+    <Project Path="src/CasCap.AgentRuntime.Contracts/CasCap.AgentRuntime.Contracts.csproj" />
     <Project Path="src/CasCap.App.Server/CasCap.App.Server.csproj" />
     <Project Path="src/CasCap.App.Server.Tests/CasCap.App.Server.Tests.csproj" />
   </Folder>

@@ -8,5 +8,6 @@ public static partial class AppHost
         builder.Services.AddProblemDetails();
         builder.Services.AddHealthChecks();
         builder.Services.AddControllers();
+        builder.Services.AddValidation();
     }
 }

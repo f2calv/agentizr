@@ -11,6 +11,8 @@ public static partial class AppHost
         {
             Service = "agentizr"
         }));
+        if (app.Environment.IsDevelopment())
+            app.MapAgentRuntime();
         app.MapControllers();
         app.MapHealthChecks("/healthz");
     }

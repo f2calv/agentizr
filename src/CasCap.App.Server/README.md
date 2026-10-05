@@ -1,7 +1,7 @@
 # CasCap.App.Server
 
 The .NET 10 ASP.NET Core host for agentizr. It owns the initial multi-tenant runtime contracts and
-configuration adapters but does not yet expose an agent protocol endpoint.
+configuration adapters and exposes the v1 execution contract in Development.
 
 ## Purpose
 
@@ -18,8 +18,11 @@ durable implementations replace them before horizontal scaling.
 | --- | --- |
 | `/` | Host identity |
 | `/healthz` | ASP.NET Core health status |
+| `POST /api/v1/agents/{agentName}/runs` | Version 1 agent execution; Development only until tenant authentication exists |
 
 Controllers are registered and mapped, but no controller exists in the initial scaffold.
+The execution surface uses minimal APIs and derives tenancy from `ITenantContext`, never from the
+request body.
 
 ## Configuration
 
@@ -35,5 +38,6 @@ configuration contains no tenant identifiers or credentials.
 | --- | --- |
 | `CasCap.Common.Hosting.AspNetCore` | Shared Serilog, OpenTelemetry, configuration abstractions, and build metadata |
 | `CasCap.Common.AI` | Agent and provider definition types used by the initial configuration adapter |
+| `CasCap.AgentRuntime.Contracts` | Version 1 request and response DTOs |
 
 Debug builds resolve the dependency from the adjacent `CasCap.Common` checkout. Release builds use the centrally versioned NuGet package.

@@ -9,12 +9,13 @@ public sealed class AgentExecutionCoordinator(
     IAgentExecutor executor)
 {
     /// <summary>Executes one agent turn and persists returned session state when enabled.</summary>
-    public async ValueTask<AgentExecutionResult> ExecuteAsync(
+    public async ValueTask<AgentExecutionResult?> ExecuteAsync(
         AgentExecutionRequest request,
         CancellationToken cancellationToken)
     {
-        var definition = await definitionStore.GetAsync(request.AgentName, cancellationToken)
-            ?? throw new KeyNotFoundException($"Agent '{request.AgentName}' is not available to the current tenant.");
+        var definition = await definitionStore.GetAsync(request.AgentName, cancellationToken);
+        if (definition is null)
+            return null;
 
         var overrides = await overrideStore.GetAsync(request.AgentName, request.SessionId, cancellationToken);
         var sessionStateJson = overrides.SessionEnabled
@@ -34,6 +35,6 @@ public sealed class AgentExecutionCoordinator(
         if (overrides.SessionEnabled && result.SessionStateJson is not null)
             await sessionStore.SetAsync(request.AgentName, request.SessionId, result.SessionStateJson, cancellationToken);
 
-        return result;
+        return result with { DefinitionVersion = definition.Version };
     }
 }

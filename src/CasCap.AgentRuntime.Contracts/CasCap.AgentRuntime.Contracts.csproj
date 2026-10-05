@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>true</IsPackable>
+    <PackageId>CasCap.AgentRuntime.Contracts</PackageId>
+    <Description>Versioned HTTP contracts for the CasCap multi-tenant Agent Runtime.</Description>
+    <PackageTags>ai;agents;runtime;contracts;multi-tenant</PackageTags>
+  </PropertyGroup>
+
+</Project>

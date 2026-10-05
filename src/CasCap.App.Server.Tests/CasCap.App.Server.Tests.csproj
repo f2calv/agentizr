@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\CasCap.AgentRuntime.Client\CasCap.AgentRuntime.Client.csproj" />
     <ProjectReference Include="..\CasCap.App.Server\CasCap.App.Server.csproj" />
   </ItemGroup>
 

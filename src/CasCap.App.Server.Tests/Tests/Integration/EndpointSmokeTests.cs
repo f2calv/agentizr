@@ -2,8 +2,8 @@ namespace CasCap.IntegrationTests;
 
 /// <summary>Credential-free smoke tests for the application host endpoints.</summary>
 [Trait("Category", "Integration")]
-public sealed class EndpointSmokeTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
+public sealed class EndpointSmokeTests(AgentizrWebApplicationFactory factory)
+    : IClassFixture<AgentizrWebApplicationFactory>
 {
     [Theory]
     [InlineData("/")]

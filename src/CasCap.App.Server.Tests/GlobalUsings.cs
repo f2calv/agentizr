@@ -1,7 +1,11 @@
 global using CasCap.Abstractions;
+global using CasCap.AgentRuntime.Client;
+global using CasCap.AgentRuntime.Contracts.V1;
 global using CasCap.Common.Models;
 global using CasCap.Models;
 global using CasCap.Services;
 global using Microsoft.AspNetCore.Mvc.Testing;
+global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.Extensions.DependencyInjection.Extensions;
 global using System.Net;
 global using Xunit;

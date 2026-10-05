@@ -2,7 +2,7 @@
 
 agentizr is a .NET 10 ASP.NET Core host for the multi-tenant CasCap agent runtime. The current first
 slice establishes tenant-owned definitions, credentials, sessions, overrides, and execution
-orchestration behind application-local contracts; it does not expose a runtime protocol yet.
+orchestration behind a versioned HTTP contract and typed client.
 
 ## Quick Start
 
@@ -19,6 +19,17 @@ The running host exposes:
 | --- | --- |
 | `/` | Identifies the host |
 | `/healthz` | Reports host health |
+| `POST /api/v1/agents/{agentName}/runs` | Runs one tenant-scoped agent turn in Development |
+
+The execution route is deliberately mapped only in Development until authentication derives a
+trusted tenant identity. `RunAgentRequest` therefore contains no caller-supplied tenant identifier.
+
+## NuGet Packages
+
+| Package | Purpose |
+| --- | --- |
+| `CasCap.AgentRuntime.Contracts` | Versioned request and response DTOs |
+| `CasCap.AgentRuntime.Client` | Typed HTTP client; authentication remains caller-owned |
 
 ## Configuration
 
@@ -26,7 +37,7 @@ Configuration follows the standard ASP.NET Core provider order. `AppConfig` supp
 
 `AgentRuntimeConfig` contains versioned provider and agent definitions keyed by tenant. The initial
 `ConfiguredTenantContext` uses `DefaultTenantId`; authenticated request claims will replace that
-bootstrap adapter before a public execution endpoint is added. Provider API keys remain separate
+bootstrap adapter before the execution endpoint is enabled outside Development. Provider API keys remain separate
 from returned `AgentDefinition` values and must arrive through a private configuration provider.
 
 Set `AppConfig__OtlpExporterEndpoint` to an OTLP gRPC endpoint to enable OpenTelemetry export. When it is unset, the shared hosting library skips OpenTelemetry registration.
@@ -38,7 +49,6 @@ and override state, and execution coordination around an `IAgentExecutor`. The f
 
 - Authentication-derived tenant context and authorization
 - Durable session, override, and definition stores
-- Versioned protocol contracts and the client SDK
 - Tenant tool allowlists, tool composition, and remote MCP connection ownership
 - MCP or another agent transport
 - Frontend assets

@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="CasCap.App.Server.Tests" />
+    <ProjectReference Include="..\CasCap.AgentRuntime.Contracts\CasCap.AgentRuntime.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>
