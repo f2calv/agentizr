@@ -1,0 +1,51 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
+using System.Security.Claims;
+
+namespace CasCap.Tests.Unit;
+
+/// <summary>Tests claim-derived tenant identity and persistent key confidentiality.</summary>
+[Trait("Category", "Tenant Isolation")]
+public sealed class AuthenticatedTenantContextTests
+{
+    [Fact]
+    public void TenantId_AuthenticatedClaimIsReturned()
+    {
+        var httpContext = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                [new Claim("tenant_id", "tenant-a")],
+                authenticationType: "Test")),
+        };
+        var context = new AuthenticatedTenantContext(
+            new HttpContextAccessor { HttpContext = httpContext },
+            Options.Create(new TenantAuthenticationConfig { Enabled = true }));
+
+        Assert.Equal("tenant-a", context.TenantId);
+    }
+
+    [Fact]
+    public void TenantId_MissingClaimIsRejected()
+    {
+        var httpContext = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(authenticationType: "Test")),
+        };
+        var context = new AuthenticatedTenantContext(
+            new HttpContextAccessor { HttpContext = httpContext },
+            Options.Create(new TenantAuthenticationConfig { Enabled = true }));
+
+        Assert.Throws<UnauthorizedAccessException>(() => context.TenantId);
+    }
+
+    [Fact]
+    public void CreateRedis_DoesNotDiscloseIdentifiers()
+    {
+        var key = AgentStateKey.CreateRedis("session", "tenant-a", "assistant", "conversation-42");
+
+        Assert.StartsWith("agentizr:v1:session:", key, StringComparison.Ordinal);
+        Assert.DoesNotContain("tenant-a", key, StringComparison.Ordinal);
+        Assert.DoesNotContain("assistant", key, StringComparison.Ordinal);
+        Assert.DoesNotContain("conversation-42", key, StringComparison.Ordinal);
+    }
+}

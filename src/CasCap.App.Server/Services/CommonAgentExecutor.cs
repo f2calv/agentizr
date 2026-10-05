@@ -1,7 +1,6 @@
 using CasCap.Common.Extensions;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
-using System.Text.Json;
 
 namespace CasCap.Services;
 

@@ -12,6 +12,11 @@ public sealed record AgentRuntimeConfig : IAppConfig
 
     /// <summary>Gets tenant definitions keyed by stable tenant identifier.</summary>
     public Dictionary<string, TenantAgentConfig> Tenants { get; init; } = [];
+
+    /// <summary>Gets the sliding expiry in hours for session and override state.</summary>
+    /// <remarks>Used by Redis-backed runtime state stores. Defaults to seven days.</remarks>
+    [Range(1, 24 * 365)]
+    public int StateSlidingExpirationHours { get; init; } = 24 * 7;
 }
 
 /// <summary>Versioned provider and agent definitions for one tenant.</summary>

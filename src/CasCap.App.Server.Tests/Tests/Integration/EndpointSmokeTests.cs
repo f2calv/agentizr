@@ -2,6 +2,7 @@ namespace CasCap.IntegrationTests;
 
 /// <summary>Credential-free smoke tests for the application host endpoints.</summary>
 [Trait("Category", "Integration")]
+[Collection(HostIntegrationCollection.Name)]
 public sealed class EndpointSmokeTests(AgentizrWebApplicationFactory factory)
     : IClassFixture<AgentizrWebApplicationFactory>
 {

@@ -40,6 +40,16 @@ Configuration follows the standard ASP.NET Core provider order. `AppConfig` supp
 bootstrap adapter before the execution endpoint is enabled outside Development. Provider API keys remain separate
 from returned `AgentDefinition` values and must arrive through a private configuration provider.
 
+Outside Development, `TenantAuthenticationConfig` must enable JWT validation with a trusted
+authority, audience, and tenant claim (default `tenant_id`). Redis must also be configured through
+`CasCap:CachingConfig:RemoteCacheConnectionString`. Sessions and overrides use opaque
+tenant/agent/session key digests and a configurable sliding expiry; definitions remain versioned
+configuration and provider credentials remain in the final private configuration provider.
+
+Development may omit JWT and Redis. It then uses the configured default tenant and process-local
+state so the host and tests remain credential-free. Production startup fails when either control is
+missing.
+
 Set `AppConfig__OtlpExporterEndpoint` to an OTLP gRPC endpoint to enable OpenTelemetry export. When it is unset, the shared hosting library skips OpenTelemetry registration.
 
 ## Current Boundaries
@@ -47,8 +57,7 @@ Set `AppConfig__OtlpExporterEndpoint` to an OTLP gRPC endpoint to enable OpenTel
 The host now owns runtime contracts for definition and credential lookup, tenant-qualified session
 and override state, and execution coordination around an `IAgentExecutor`. The following work remains:
 
-- Authentication-derived tenant context and authorization
-- Durable session, override, and definition stores
+- Durable dynamic definition storage and invalidation
 - Tenant tool allowlists, tool composition, and remote MCP connection ownership
 - MCP or another agent transport
 - Frontend assets

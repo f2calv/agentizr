@@ -9,6 +9,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="CasCap.App.Server.Tests" />
     <ProjectReference Include="..\CasCap.AgentRuntime.Contracts\CasCap.AgentRuntime.Contracts.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
   </ItemGroup>
 
   <ItemGroup>
@@ -18,11 +19,13 @@
 
   <ItemGroup Condition="'$(Configuration)'=='Release'">
     <PackageReference Include="CasCap.Common.AI" />
+    <PackageReference Include="CasCap.Common.Caching" />
     <PackageReference Include="CasCap.Common.Hosting.AspNetCore" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)'!='Release'">
     <ProjectReference Include="..\..\..\CasCap.Common\src\CasCap.Common.AI\CasCap.Common.AI.csproj" />
+    <ProjectReference Include="..\..\..\CasCap.Common\src\CasCap.Common.Caching\CasCap.Common.Caching.csproj" />
     <ProjectReference Include="..\..\..\CasCap.Common\src\CasCap.Common.Hosting.AspNetCore\CasCap.Common.Hosting.AspNetCore.csproj" />
   </ItemGroup>
 

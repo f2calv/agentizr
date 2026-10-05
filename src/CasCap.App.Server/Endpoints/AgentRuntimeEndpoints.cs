@@ -8,15 +8,18 @@ namespace Microsoft.AspNetCore.Builder;
 public static class AgentRuntimeEndpoints
 {
     /// <summary>Maps the version 1 agent execution surface.</summary>
-    public static WebApplication MapAgentRuntime(this WebApplication app)
+    public static WebApplication MapAgentRuntime(this WebApplication app, bool authorizationRequired)
     {
-        app.MapPost("/api/v1/agents/{agentName}/runs", RunAgentAsync)
+        var endpoint = app.MapPost("/api/v1/agents/{agentName}/runs", RunAgentAsync)
             .WithName("RunAgentV1")
             .WithTags("Agent Runtime")
             .WithSummary("Runs one turn against a tenant-scoped agent session")
             .Produces<RunAgentResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound)
             .ProducesValidationProblem();
+
+        if (authorizationRequired)
+            endpoint.RequireAuthorization();
 
         return app;
     }

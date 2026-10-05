@@ -1,8 +1,9 @@
+using System.Security.Cryptography;
 using System.Text;
 
 namespace CasCap.Services;
 
-/// <summary>Builds collision-free process-local keys from tenant, agent, and session identifiers.</summary>
+/// <summary>Builds collision-free state keys from tenant, agent, and session identifiers.</summary>
 internal static class AgentStateKey
 {
     /// <summary>Creates a length-prefixed composite key.</summary>
@@ -17,6 +18,15 @@ internal static class AgentStateKey
         Append(builder, agentName);
         Append(builder, sessionId);
         return builder.ToString();
+    }
+
+    /// <summary>Creates an opaque namespaced Redis key that does not disclose its identifiers.</summary>
+    public static string CreateRedis(string stateKind, string tenantId, string agentName, string sessionId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(stateKind);
+        var composite = Create(tenantId, agentName, sessionId);
+        var digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(composite)));
+        return $"agentizr:v1:{stateKind}:{digest}";
     }
 
     private static void Append(StringBuilder builder, string value) =>

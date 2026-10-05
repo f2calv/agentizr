@@ -32,12 +32,22 @@ request body.
 each with an explicit `DefinitionVersion`, provider dictionary, and agent dictionary. The tracked
 configuration contains no tenant identifiers or credentials.
 
+`TenantAuthenticationConfig` binds from `CasCap:TenantAuthenticationConfig`. When enabled, JWT
+validation derives `ITenantContext.TenantId` from the configured claim. Authentication and Redis
+state are mandatory outside Development; startup fails closed when either is missing.
+
+Sessions and overrides use `CasCap.Common.Caching` Redis storage with opaque SHA-256 keys and
+`AgentRuntimeConfig.StateSlidingExpirationHours`. Redis stores only serialized runtime state, not
+definitions or provider credentials. Development falls back to process-local stores.
+
 ## Dependencies
 
 | Dependency | Purpose |
 | --- | --- |
 | `CasCap.Common.Hosting.AspNetCore` | Shared Serilog, OpenTelemetry, configuration abstractions, and build metadata |
 | `CasCap.Common.AI` | Agent and provider definition types used by the initial configuration adapter |
+| `CasCap.Common.Caching` | Redis-backed tenant session and override state |
 | `CasCap.AgentRuntime.Contracts` | Version 1 request and response DTOs |
+| `Microsoft.AspNetCore.Authentication.JwtBearer` | Trusted token validation and tenant-claim identity |
 
 Debug builds resolve the dependency from the adjacent `CasCap.Common` checkout. Release builds use the centrally versioned NuGet package.

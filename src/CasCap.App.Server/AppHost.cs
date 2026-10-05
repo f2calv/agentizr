@@ -29,12 +29,12 @@ public static partial class AppHost
         var gitMetadata = new GitMetadata();
         builder.InitializeOpenTelemetry(appConfig, gitMetadata);
 
-        AddFeatures(builder, gitMetadata);
-        AddWebApi(builder);
+        var tenantAuthenticationEnabled = AddWebApi(builder);
+        AddFeatures(builder, gitMetadata, tenantAuthenticationEnabled);
 
         var app = builder.Build();
 
-        MapEndpoints(app);
+        MapEndpoints(app, tenantAuthenticationEnabled);
 
         await app.RunAsync();
     }

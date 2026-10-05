@@ -1,9 +1,8 @@
-using System.Net.Http.Json;
-
 namespace CasCap.IntegrationTests;
 
 /// <summary>Exercises the v1 HTTP contract through the published typed client.</summary>
 [Trait("Category", "Integration")]
+[Collection(HostIntegrationCollection.Name)]
 public sealed class AgentRuntimeProtocolTests(AgentizrWebApplicationFactory factory)
     : IClassFixture<AgentizrWebApplicationFactory>
 {
