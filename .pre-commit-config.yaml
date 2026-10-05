@@ -1,0 +1,45 @@
+# Shared pre-commit configuration, kept as close to identical as possible across every
+# repository; only repository-specific paths in the top-level exclude differ.
+#
+# Linting is run manually; the lint job in CI is the authoritative gate:
+#   pre-commit run --all-files
+#   pre-commit autoupdate
+#
+# The per-commit hook is deliberately not installed. The opt-in local hook runs once per push.
+default_install_hook_types: [pre-push]
+
+exclude: |
+  (?x)^(
+    \.editorconfig|
+    Directory\.Packages\.props
+  )$
+
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v6.0.0
+  hooks:
+  - id: check-xml
+  - id: check-yaml
+    args: [--allow-multiple-documents]
+  - id: check-toml
+  - id: check-merge-conflict
+  - id: check-case-conflict
+  - id: check-added-large-files
+    args: [--maxkb=150]
+  - id: end-of-file-fixer
+    exclude: |
+      (?x)(
+        appsettings.*\.json$|
+        launchSettings\.json$|
+        ^\.vscode/.*\.json$
+      )
+  - id: trailing-whitespace
+- repo: https://gitlab.com/bmares/check-json5
+  rev: v1.0.1
+  hooks:
+  - id: check-json5
+- repo: https://github.com/igorshubovych/markdownlint-cli
+  rev: v0.49.1
+  hooks:
+  - id: markdownlint
+    args: ["--disable", "MD013", "--disable", "MD034", "--"]

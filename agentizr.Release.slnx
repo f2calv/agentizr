@@ -1,0 +1,14 @@
+<Solution>
+  <Configurations>
+    <BuildType Name="Release" />
+  </Configurations>
+  <Folder Name="/agentizr/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+  </Folder>
+  <Folder Name="/agentizr/">
+    <Project Path="src/CasCap.App.Server/CasCap.App.Server.csproj" />
+    <Project Path="src/CasCap.App.Server.Tests/CasCap.App.Server.Tests.csproj" />
+  </Folder>
+</Solution>
