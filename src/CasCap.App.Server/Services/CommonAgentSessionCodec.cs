@@ -22,7 +22,7 @@ internal sealed class CommonAgentSessionCodec(
         return new AgentSessionInspection
         {
             SizeBytes = Encoding.UTF8.GetByteCount(sessionStateJson),
-            Entries = ChatCommandParser.GetStateBagEntries(session),
+            Entries = GetStateBagEntries(session),
         };
     }
 
@@ -37,7 +37,7 @@ internal sealed class CommonAgentSessionCodec(
         ArgumentOutOfRangeException.ThrowIfLessThan(retainMessageCount, 1);
         var agent = CreateAgent(definition, providerApiKey);
         var session = await DeserializeAsync(agent, sessionStateJson, cancellationToken);
-        if (!ChatCommandParser.TryCompactSession(session, retainMessageCount, out var removedMessageCount))
+        if (!TryCompactSession(session, retainMessageCount, out var removedMessageCount))
         {
             return new AgentSessionCompactionResult
             {
@@ -82,5 +82,67 @@ internal sealed class CommonAgentSessionCodec(
             document.RootElement.Clone(),
             JsonSerializerOptions.Web,
             cancellationToken);
+    }
+
+    private static bool TryCompactSession(AgentSession session, int retainMessageCount, out int removedMessageCount)
+    {
+        removedMessageCount = 0;
+        if (!session.TryGetInMemoryChatHistory(out var messages))
+            return false;
+
+        var excess = messages.Count - retainMessageCount;
+        if (excess <= 0)
+            return true;
+
+        messages.RemoveRange(0, excess);
+        session.SetInMemoryChatHistory(messages);
+        removedMessageCount = excess;
+        return true;
+    }
+
+    private static IReadOnlyList<AgentSessionEntryInspection> GetStateBagEntries(AgentSession session)
+    {
+        var entries = new List<AgentSessionEntryInspection>();
+        try
+        {
+            foreach (var property in session.StateBag.Serialize().EnumerateObject())
+            {
+                var messageCount = 0;
+                var userMessageCount = 0;
+                var assistantMessageCount = 0;
+                if (property.Value.ValueKind is JsonValueKind.Object
+                    && (property.Value.TryGetProperty("Messages", out var messages)
+                        || property.Value.TryGetProperty("messages", out messages))
+                    && messages.ValueKind is JsonValueKind.Array)
+                {
+                    messageCount = messages.GetArrayLength();
+                    foreach (var message in messages.EnumerateArray())
+                    {
+                        if (!(message.TryGetProperty("Role", out var role)
+                            || message.TryGetProperty("role", out role))
+                            || role.ValueKind is not JsonValueKind.String)
+                            continue;
+                        if (string.Equals(role.GetString(), "user", StringComparison.OrdinalIgnoreCase))
+                            userMessageCount++;
+                        else if (string.Equals(role.GetString(), "assistant", StringComparison.OrdinalIgnoreCase))
+                            assistantMessageCount++;
+                    }
+                }
+
+                entries.Add(new AgentSessionEntryInspection
+                {
+                    Key = string.IsNullOrEmpty(property.Name) ? "(default)" : property.Name,
+                    ByteSize = Encoding.UTF8.GetByteCount(property.Value.GetRawText()),
+                    MessageCount = messageCount,
+                    UserMessageCount = userMessageCount,
+                    AssistantMessageCount = assistantMessageCount,
+                });
+            }
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or NotSupportedException)
+        {
+            return [];
+        }
+        return entries;
     }
 }
