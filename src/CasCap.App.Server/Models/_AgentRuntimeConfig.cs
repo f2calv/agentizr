@@ -17,6 +17,10 @@ public sealed record AgentRuntimeConfig : IAppConfig
     /// <remarks>Used by Redis-backed runtime state stores. Defaults to seven days.</remarks>
     [Range(1, 24 * 365)]
     public int StateSlidingExpirationHours { get; init; } = 24 * 7;
+
+    /// <summary>Gets the Redis active-definition cache duration in minutes.</summary>
+    [Range(1, 24 * 60)]
+    public int DefinitionCacheExpirationMinutes { get; init; } = 60;
 }
 
 /// <summary>Versioned provider and agent definitions for one tenant.</summary>

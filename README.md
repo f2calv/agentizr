@@ -35,16 +35,24 @@ trusted tenant identity. `RunAgentRequest` therefore contains no caller-supplied
 
 Configuration follows the standard ASP.NET Core provider order. `AppConfig` supplies public-safe telemetry defaults in code, while `appsettings.json` configures Serilog and allowed hosts.
 
-`AgentRuntimeConfig` contains versioned provider and agent definitions keyed by tenant. The initial
-`ConfiguredTenantContext` uses `DefaultTenantId`; authenticated request claims will replace that
-bootstrap adapter before the execution endpoint is enabled outside Development. Provider API keys remain separate
-from returned `AgentDefinition` values and must arrive through a private configuration provider.
+`AgentRuntimeConfig` provides a read-only Development bootstrap adapter. Outside Development,
+PostgreSQL owns immutable schema-versioned JSONB definition snapshots and an active-version pointer;
+Redis caches active lookups. Provider API keys remain separate from stored `AgentDefinition` values
+and must arrive through a private configuration provider.
 
 Outside Development, `TenantAuthenticationConfig` must enable JWT validation with a trusted
 authority, audience, and tenant claim (default `tenant_id`). Redis must also be configured through
 `CasCap:CachingConfig:RemoteCacheConnectionString`. Sessions and overrides use opaque
 tenant/agent/session key digests and a configurable sliding expiry; definitions remain versioned
 configuration and provider credentials remain in the final private configuration provider.
+
+Development bootstrap definitions and credentials use immutable startup options. Every state key
+includes the definition version, so publishing a new PostgreSQL version selects a fresh namespace
+immediately while the previous version remains available for rollback until its TTL expires.
+
+Definition publication appends a new immutable snapshot and atomically advances the active pointer.
+The snapshot rows are the audit/change history; this is intentionally not replay-based event
+sourcing. No definitions are seeded through EF `HasData`.
 
 Development may omit JWT and Redis. It then uses the configured default tenant and process-local
 state so the host and tests remain credential-free. Production startup fails when either control is
@@ -57,7 +65,6 @@ Set `AppConfig__OtlpExporterEndpoint` to an OTLP gRPC endpoint to enable OpenTel
 The host now owns runtime contracts for definition and credential lookup, tenant-qualified session
 and override state, and execution coordination around an `IAgentExecutor`. The following work remains:
 
-- Durable dynamic definition storage and invalidation
 - Host-specific execution enrichers after their measurements have a tenant-safe contract
 - MCP or another agent transport
 - Frontend assets

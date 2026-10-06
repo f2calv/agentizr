@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Text.Json;
 
 namespace CasCap.Services;
 

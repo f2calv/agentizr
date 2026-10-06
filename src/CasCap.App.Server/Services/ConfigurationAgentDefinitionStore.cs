@@ -17,9 +17,36 @@ internal sealed class ConfigurationAgentDefinitionStore(
 
         return ValueTask.FromResult<AgentDefinition?>(new AgentDefinition
         {
+            Name = agentName,
             Version = tenant.DefinitionVersion,
             Agent = agent,
             Provider = provider with { ApiKey = null },
         });
+    }
+
+    /// <inheritdoc/>
+    public ValueTask PublishAsync(
+        AgentDefinition definition,
+        int schemaVersion,
+        string? publishedBy,
+        string? changeReason,
+        CancellationToken cancellationToken) =>
+        ValueTask.FromException(new NotSupportedException(
+            "Configuration-backed definitions are read-only. Configure PostgreSQL to publish definitions."));
+
+    /// <inheritdoc/>
+    public async ValueTask<IReadOnlyList<AgentDefinitionHistoryItem>> GetHistoryAsync(
+        string agentName,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+        return await GetAsync(agentName, cancellationToken) is { } definition
+            ? [new AgentDefinitionHistoryItem
+            {
+                DefinitionVersion = definition.Version,
+                SchemaVersion = 1,
+            }]
+            : [];
     }
 }

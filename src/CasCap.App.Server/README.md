@@ -38,15 +38,28 @@ request body.
 
 `AgentRuntimeConfig` binds from `CasCap:AgentRuntimeConfig`. Definitions are grouped under `Tenants`,
 each with an explicit `DefinitionVersion`, provider dictionary, and agent dictionary. The tracked
-configuration contains no tenant identifiers or credentials.
+configuration contains no tenant identifiers or credentials and is used only by the read-only
+Development adapter.
+
+Outside Development, `AgentRuntimeDatabaseConfig` supplies PostgreSQL. Immutable definition
+snapshots store schema-versioned JSONB plus publisher/reason metadata, while a separate active
+pointer selects one version per tenant agent. Redis is a read-through cache, not the authority.
 
 `TenantAuthenticationConfig` binds from `CasCap:TenantAuthenticationConfig`. When enabled, JWT
 validation derives `ITenantContext.TenantId` from the configured claim. Authentication and Redis
 state are mandatory outside Development; startup fails closed when either is missing.
 
 Sessions and overrides use `CasCap.Common.Caching` Redis storage with opaque SHA-256 keys and
-`AgentRuntimeConfig.StateSlidingExpirationHours`. Redis stores only serialized runtime state, not
-definitions or provider credentials. Development falls back to process-local stores.
+`AgentRuntimeConfig.StateSlidingExpirationHours`. Redis stores serialized runtime state and
+secret-free active-definition cache entries, never provider credentials. Development falls back to
+process-local stores.
+
+The definition version participates in every session and override key, so changing the active
+version invalidates state by namespace without scanning Redis. Previous snapshots and state remain
+available for rollback until normal retention expires.
+
+EF migrations are applied externally and create schema only. Definitions are published through
+`IAgentDefinitionStore`; the model deliberately contains no `HasData` payload.
 
 ## Dependencies
 

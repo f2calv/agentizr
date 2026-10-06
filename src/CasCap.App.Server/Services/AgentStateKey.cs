@@ -7,24 +7,31 @@ namespace CasCap.Services;
 internal static class AgentStateKey
 {
     /// <summary>Creates a length-prefixed composite key.</summary>
-    public static string Create(string tenantId, string agentName, string sessionId)
+    public static string Create(string tenantId, string agentName, string definitionVersion, string sessionId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
         ArgumentException.ThrowIfNullOrWhiteSpace(agentName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(definitionVersion);
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionId);
 
-        var builder = new StringBuilder(tenantId.Length + agentName.Length + sessionId.Length + 24);
+        var builder = new StringBuilder(tenantId.Length + agentName.Length + definitionVersion.Length + sessionId.Length + 32);
         Append(builder, tenantId);
         Append(builder, agentName);
+        Append(builder, definitionVersion);
         Append(builder, sessionId);
         return builder.ToString();
     }
 
     /// <summary>Creates an opaque namespaced Redis key that does not disclose its identifiers.</summary>
-    public static string CreateRedis(string stateKind, string tenantId, string agentName, string sessionId)
+    public static string CreateRedis(
+        string stateKind,
+        string tenantId,
+        string agentName,
+        string definitionVersion,
+        string sessionId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(stateKind);
-        var composite = Create(tenantId, agentName, sessionId);
+        var composite = Create(tenantId, agentName, definitionVersion, sessionId);
         var digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(composite)));
         return $"agentizr:v1:{stateKind}:{digest}";
     }

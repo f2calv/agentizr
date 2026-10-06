@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Options;
 using System.Security.Claims;
 
 namespace CasCap.Tests.Unit;
@@ -41,11 +40,13 @@ public sealed class AuthenticatedTenantContextTests
     [Fact]
     public void CreateRedis_DoesNotDiscloseIdentifiers()
     {
-        var key = AgentStateKey.CreateRedis("session", "tenant-a", "assistant", "conversation-42");
+        const string definitionVersion = "definition-version-one";
+        var key = AgentStateKey.CreateRedis("session", "tenant-a", "assistant", definitionVersion, "conversation-42");
 
         Assert.StartsWith("agentizr:v1:session:", key, StringComparison.Ordinal);
         Assert.DoesNotContain("tenant-a", key, StringComparison.Ordinal);
         Assert.DoesNotContain("assistant", key, StringComparison.Ordinal);
+        Assert.DoesNotContain(definitionVersion, key, StringComparison.Ordinal);
         Assert.DoesNotContain("conversation-42", key, StringComparison.Ordinal);
     }
 }

@@ -89,6 +89,7 @@ public sealed class AgentExecutionCoordinatorTests
         public ValueTask<AgentDefinition?> GetAsync(string agentName, CancellationToken cancellationToken) =>
             ValueTask.FromResult<AgentDefinition?>(new AgentDefinition
             {
+                Name = agentName,
                 Version = "1",
                 Agent = new AgentConfig
                 {
@@ -104,6 +105,20 @@ public sealed class AgentExecutionCoordinatorTests
                     ApiKey = null,
                 },
             });
+
+        public ValueTask PublishAsync(
+            AgentDefinition definition,
+            int schemaVersion,
+            string? publishedBy,
+            string? changeReason,
+            CancellationToken cancellationToken) =>
+            ValueTask.CompletedTask;
+
+        public ValueTask<IReadOnlyList<AgentDefinitionHistoryItem>> GetHistoryAsync(
+            string agentName,
+            int limit,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult<IReadOnlyList<AgentDefinitionHistoryItem>>([]);
     }
 
     private sealed class StaticCredentialStore : IProviderCredentialStore
@@ -118,29 +133,47 @@ public sealed class AgentExecutionCoordinatorTests
 
         public string? SavedState { get; private set; }
 
-        public ValueTask<string?> GetAsync(string agentName, string sessionId, CancellationToken cancellationToken)
+        public ValueTask<string?> GetAsync(
+            string agentName,
+            string definitionVersion,
+            string sessionId,
+            CancellationToken cancellationToken)
         {
             GetCount++;
             return ValueTask.FromResult(initialState);
         }
 
-        public ValueTask SetAsync(string agentName, string sessionId, string sessionStateJson, CancellationToken cancellationToken)
+        public ValueTask SetAsync(
+            string agentName,
+            string definitionVersion,
+            string sessionId,
+            string sessionStateJson,
+            CancellationToken cancellationToken)
         {
             SavedState = sessionStateJson;
             return ValueTask.CompletedTask;
         }
 
-        public ValueTask DeleteAsync(string agentName, string sessionId, CancellationToken cancellationToken) =>
+        public ValueTask DeleteAsync(
+            string agentName,
+            string definitionVersion,
+            string sessionId,
+            CancellationToken cancellationToken) =>
             ValueTask.CompletedTask;
     }
 
     private sealed class StaticOverrideStore(AgentOverrideState state) : IAgentOverrideStore
     {
-        public ValueTask<AgentOverrideState> GetAsync(string agentName, string sessionId, CancellationToken cancellationToken) =>
+        public ValueTask<AgentOverrideState> GetAsync(
+            string agentName,
+            string definitionVersion,
+            string sessionId,
+            CancellationToken cancellationToken) =>
             ValueTask.FromResult(state);
 
         public ValueTask SetAsync(
             string agentName,
+            string definitionVersion,
             string sessionId,
             AgentOverrideState stateValue,
             CancellationToken cancellationToken) =>

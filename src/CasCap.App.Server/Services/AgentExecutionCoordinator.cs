@@ -17,10 +17,14 @@ public sealed class AgentExecutionCoordinator(
         if (definition is null)
             return null;
 
-        var overrides = await overrideStore.GetAsync(request.AgentName, request.SessionId, cancellationToken);
+        var overrides = await overrideStore.GetAsync(
+            request.AgentName,
+            definition.Version,
+            request.SessionId,
+            cancellationToken);
         var sessionEnabled = overrides.SessionEnabled && !request.BypassSession;
         var sessionStateJson = sessionEnabled
-            ? await sessionStore.GetAsync(request.AgentName, request.SessionId, cancellationToken)
+            ? await sessionStore.GetAsync(request.AgentName, definition.Version, request.SessionId, cancellationToken)
             : null;
         var apiKey = await credentialStore.GetApiKeyAsync(definition.Agent.Provider, cancellationToken);
 
@@ -34,7 +38,12 @@ public sealed class AgentExecutionCoordinator(
         }, cancellationToken);
 
         if (sessionEnabled && result.SessionStateJson is not null)
-            await sessionStore.SetAsync(request.AgentName, request.SessionId, result.SessionStateJson, cancellationToken);
+            await sessionStore.SetAsync(
+                request.AgentName,
+                definition.Version,
+                request.SessionId,
+                result.SessionStateJson,
+                cancellationToken);
 
         return result with
         {

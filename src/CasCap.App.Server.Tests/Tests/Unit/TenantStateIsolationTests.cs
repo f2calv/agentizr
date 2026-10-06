@@ -15,22 +15,23 @@ public sealed class TenantStateIsolationTests
         var tenantAOverrides = new InMemoryAgentOverrideStore(state, tenantAContext);
         var tenantBOverrides = new InMemoryAgentOverrideStore(state, tenantBContext);
 
-        await tenantASessions.SetAsync("assistant", "shared-session", "tenant-a-state", CancellationToken.None);
+        await tenantASessions.SetAsync("assistant", "v1", "shared-session", "tenant-a-state", CancellationToken.None);
         await tenantAOverrides.SetAsync(
             "assistant",
+            "v1",
             "shared-session",
             new AgentOverrideState { ModelName = "tenant-a-model" },
             CancellationToken.None);
 
         Assert.Equal(
             "tenant-a-state",
-            await tenantASessions.GetAsync("assistant", "shared-session", CancellationToken.None));
-        Assert.Null(await tenantBSessions.GetAsync("assistant", "shared-session", CancellationToken.None));
+            await tenantASessions.GetAsync("assistant", "v1", "shared-session", CancellationToken.None));
+        Assert.Null(await tenantBSessions.GetAsync("assistant", "v1", "shared-session", CancellationToken.None));
         Assert.Equal(
             "tenant-a-model",
-            (await tenantAOverrides.GetAsync("assistant", "shared-session", CancellationToken.None)).ModelName);
+            (await tenantAOverrides.GetAsync("assistant", "v1", "shared-session", CancellationToken.None)).ModelName);
         Assert.Null(
-            (await tenantBOverrides.GetAsync("assistant", "shared-session", CancellationToken.None)).ModelName);
+            (await tenantBOverrides.GetAsync("assistant", "v1", "shared-session", CancellationToken.None)).ModelName);
     }
 
     [Fact]
@@ -40,11 +41,42 @@ public sealed class TenantStateIsolationTests
         var firstStore = new InMemoryAgentSessionStore(state, new StaticTenantContext("tenant:alpha"));
         var secondStore = new InMemoryAgentSessionStore(state, new StaticTenantContext("tenant"));
 
-        await firstStore.SetAsync("agent", "session", "first", CancellationToken.None);
-        await secondStore.SetAsync("alpha:agent", "session", "second", CancellationToken.None);
+        await firstStore.SetAsync("agent", "v1", "session", "first", CancellationToken.None);
+        await secondStore.SetAsync("alpha:agent", "v1", "session", "second", CancellationToken.None);
 
-        Assert.Equal("first", await firstStore.GetAsync("agent", "session", CancellationToken.None));
-        Assert.Equal("second", await secondStore.GetAsync("alpha:agent", "session", CancellationToken.None));
+        Assert.Equal("first", await firstStore.GetAsync("agent", "v1", "session", CancellationToken.None));
+        Assert.Equal("second", await secondStore.GetAsync("alpha:agent", "v1", "session", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RedisState_SurvivesStoreReplacementAndInvalidatesByDefinitionVersion()
+    {
+        var distributedCache = new InMemoryDistributedCache();
+        var runtimeConfig = Options.Create(new AgentRuntimeConfig());
+        var tenantContext = new StaticTenantContext("tenant-a");
+        var firstSessions = new RedisAgentSessionStore(distributedCache, runtimeConfig, tenantContext);
+        var firstOverrides = new RedisAgentOverrideStore(distributedCache, runtimeConfig, tenantContext);
+
+        await firstSessions.SetAsync("assistant", "v1", "session", "persisted", CancellationToken.None);
+        await firstOverrides.SetAsync(
+            "assistant",
+            "v1",
+            "session",
+            new AgentOverrideState { ModelName = "model-v1" },
+            CancellationToken.None);
+
+        var replacementSessions = new RedisAgentSessionStore(distributedCache, runtimeConfig, tenantContext);
+        var replacementOverrides = new RedisAgentOverrideStore(distributedCache, runtimeConfig, tenantContext);
+
+        Assert.Equal(
+            "persisted",
+            await replacementSessions.GetAsync("assistant", "v1", "session", CancellationToken.None));
+        Assert.Equal(
+            "model-v1",
+            (await replacementOverrides.GetAsync("assistant", "v1", "session", CancellationToken.None)).ModelName);
+        Assert.Null(await replacementSessions.GetAsync("assistant", "v2", "session", CancellationToken.None));
+        Assert.Null(
+            (await replacementOverrides.GetAsync("assistant", "v2", "session", CancellationToken.None)).ModelName);
     }
 
     private sealed class StaticTenantContext(string tenantId) : ITenantContext
