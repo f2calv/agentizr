@@ -24,4 +24,29 @@ public interface IAgentSessionStore
         string definitionVersion,
         string sessionId,
         CancellationToken cancellationToken);
+
+    /// <summary>Gets a named snapshot of serialized session state.</summary>
+    ValueTask<string?> GetSnapshotAsync(
+        string agentName,
+        string definitionVersion,
+        string sessionId,
+        string snapshotName,
+        CancellationToken cancellationToken);
+
+    /// <summary>Persists a named snapshot of serialized session state.</summary>
+    ValueTask SetSnapshotAsync(
+        string agentName,
+        string definitionVersion,
+        string sessionId,
+        string snapshotName,
+        string sessionStateJson,
+        CancellationToken cancellationToken);
+
+    /// <summary>Deletes a named snapshot of serialized session state.</summary>
+    ValueTask DeleteSnapshotAsync(
+        string agentName,
+        string definitionVersion,
+        string sessionId,
+        string snapshotName,
+        CancellationToken cancellationToken);
 }

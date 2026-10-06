@@ -160,6 +160,31 @@ public sealed class AgentExecutionCoordinatorTests
             string sessionId,
             CancellationToken cancellationToken) =>
             ValueTask.CompletedTask;
+
+        public ValueTask<string?> GetSnapshotAsync(
+            string agentName,
+            string definitionVersion,
+            string sessionId,
+            string snapshotName,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult<string?>(null);
+
+        public ValueTask SetSnapshotAsync(
+            string agentName,
+            string definitionVersion,
+            string sessionId,
+            string snapshotName,
+            string sessionStateJson,
+            CancellationToken cancellationToken) =>
+            ValueTask.CompletedTask;
+
+        public ValueTask DeleteSnapshotAsync(
+            string agentName,
+            string definitionVersion,
+            string sessionId,
+            string snapshotName,
+            CancellationToken cancellationToken) =>
+            ValueTask.CompletedTask;
     }
 
     private sealed class StaticOverrideStore(AgentOverrideState state) : IAgentOverrideStore

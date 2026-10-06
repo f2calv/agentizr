@@ -8,20 +8,21 @@ namespace Microsoft.Extensions.DependencyInjection;
 public static class AgentRuntimeClientServiceCollectionExtensions
 {
     /// <summary>Registers validated options and the typed HTTP client.</summary>
-    public static IServiceCollection AddAgentRuntimeClient(this IServiceCollection services)
+    /// <returns>The HTTP client builder for caller-owned authentication and resilience handlers.</returns>
+    public static IHttpClientBuilder AddAgentRuntimeClient(this IServiceCollection services)
     {
         services.AddOptions<AgentRuntimeClientOptions>()
             .BindConfiguration(AgentRuntimeClientOptions.ConfigurationSectionName)
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
-        services.AddHttpClient<IAgentRuntimeClient, CasCap.AgentRuntime.Client.AgentRuntimeClient>((serviceProvider, httpClient) =>
+        return services.AddHttpClient<IAgentRuntimeClient, CasCap.AgentRuntime.Client.AgentRuntimeClient>((serviceProvider, httpClient) =>
         {
-            httpClient.BaseAddress = serviceProvider
+            var options = serviceProvider
                 .GetRequiredService<IOptions<AgentRuntimeClientOptions>>()
-                .Value
-                .BaseAddress;
+                .Value;
+            httpClient.BaseAddress = options.BaseAddress;
+            httpClient.Timeout = TimeSpan.FromMinutes(options.TimeoutMinutes);
         });
-        return services;
     }
 }

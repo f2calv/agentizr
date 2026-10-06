@@ -28,7 +28,35 @@ public sealed class AgentizrWebApplicationFactory : WebApplicationFactory<Progra
         {
             services.RemoveAll<IAgentExecutor>();
             services.AddScoped<IAgentExecutor, StubAgentExecutor>();
+            services.RemoveAll<IAgentSessionCodec>();
+            services.AddScoped<IAgentSessionCodec, StubAgentSessionCodec>();
         });
+    }
+
+    private sealed class StubAgentSessionCodec : IAgentSessionCodec
+    {
+        public ValueTask<AgentSessionInspection> InspectAsync(
+            AgentDefinition definition,
+            string? providerApiKey,
+            string sessionStateJson,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(new AgentSessionInspection
+            {
+                SizeBytes = sessionStateJson.Length,
+            });
+
+        public ValueTask<AgentSessionCompactionResult> CompactAsync(
+            AgentDefinition definition,
+            string? providerApiKey,
+            string sessionStateJson,
+            int retainMessageCount,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(new AgentSessionCompactionResult
+            {
+                HistoryAvailable = true,
+                RemovedMessageCount = 3,
+                SessionStateJson = sessionStateJson,
+            });
     }
 
     private sealed class StubAgentExecutor : IAgentExecutor

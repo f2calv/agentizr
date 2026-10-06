@@ -11,19 +11,20 @@ The tests launch the real application through `WebApplicationFactory<Program>` a
 | Class | Method count | Test-case count | Description |
 | --- | ---: | ---: | --- |
 | `EndpointSmokeTests` | 1 | 2 | Verifies `/` and `/healthz` return HTTP 200 |
-| `AgentRuntimeProtocolTests` | 4 | 4 | Verifies typed-client binary/session input, enriched output, tenant-scoped absence, and validation |
+| `AgentRuntimeProtocolTests` | 5 | 5 | Verifies typed-client execution, validation, and complete session-control lifecycle |
 | `TenantSecurityStartupTests` | 3 | 3 | Verifies anonymous JWT rejection and Production requirements for authentication and Redis |
 | `AgentExecutionCoordinatorTests` | 3 | 3 | Verifies definition, credential, override, session, bypass, and executor orchestration |
 | `TenantStateIsolationTests` | 3 | 3 | Proves tenant isolation, collision-free keys, pod-replacement persistence, and definition-version invalidation |
 | `AuthenticatedTenantContextTests` | 3 | 3 | Verifies claim-derived identity, missing-claim rejection, and opaque Redis keys |
-| `PostgresAgentDefinitionStoreTests` | 2 | 2 | Verifies immutable publication, active-version changes, duplicate rejection, and audit history |
+| `PostgresAgentDefinitionStoreTests` | 3 | 3 | Verifies immutable publication, active-version changes, duplicate rejection, history, and tenant isolation |
+| `CachedAgentDefinitionStoreTests` | 1 | 1 | Verifies secret-free read-through caching and publication invalidation |
 
 ## Trait Categories
 
 | Category | Test-case count | Purpose |
 | --- | ---: | --- |
-| `Integration` | 9 | In-memory ASP.NET Core host, protocol, and startup security tests |
-| `Agent Runtime` | 5 | Runtime orchestration and definition persistence without external services |
+| `Integration` | 10 | In-memory ASP.NET Core host, protocol, and startup security tests |
+| `Agent Runtime` | 7 | Runtime orchestration, definition persistence, and caching without external services |
 | `Tenant Isolation` | 6 | Cross-tenant state and identity isolation |
 
 ## Skipped Tests
@@ -43,6 +44,7 @@ Tests/
 └── Unit/
     ├── AuthenticatedTenantContextTests.cs
     ├── AgentExecutionCoordinatorTests.cs
+    ├── CachedAgentDefinitionStoreTests.cs
     ├── InMemoryDistributedCache.cs
     ├── PostgresAgentDefinitionStoreTests.cs
     └── TenantStateIsolationTests.cs

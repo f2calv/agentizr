@@ -26,7 +26,12 @@ stores with stateless delegated sessions.
 | --- | --- |
 | `/` | Host identity |
 | `/healthz` | ASP.NET Core health status |
-| `POST /api/v1/agents/{agentName}/runs` | Version 1 agent execution; Development only until tenant authentication exists |
+| `POST /api/v1/agents/{agentName}/runs` | Executes one tenant-scoped agent turn |
+| `GET/DELETE /api/v1/agents/{agentName}/sessions/{sessionId}` | Inspects or resets active session state |
+| `POST /api/v1/agents/{agentName}/sessions/{sessionId}/compact` | Compacts active session history |
+| `PUT/DELETE /api/v1/agents/{agentName}/sessions/{sessionId}/snapshots/{snapshotName}` | Saves or deletes a named snapshot |
+| `POST /api/v1/agents/{agentName}/sessions/{sessionId}/snapshots/{snapshotName}/activate` | Loads a named snapshot |
+| `GET/PUT /api/v1/agents/{agentName}/sessions/{sessionId}/overrides` | Gets or replaces complete runtime overrides |
 
 Controllers are registered and mapped, but no controller exists in the initial scaffold.
 The execution surface uses minimal APIs and derives tenancy from `ITenantContext`, never from the
@@ -57,6 +62,10 @@ process-local stores.
 The definition version participates in every session and override key, so changing the active
 version invalidates state by namespace without scanning Redis. Previous snapshots and state remain
 available for rollback until normal retention expires.
+
+Named session snapshots use their own opaque state namespace. Session inspection and compaction are
+performed inside the runtime through Agent Framework serialization; raw session JSON never crosses
+the HTTP boundary.
 
 EF migrations are applied externally and create schema only. Definitions are published through
 `IAgentDefinitionStore`; the model deliberately contains no `HasData` payload.
