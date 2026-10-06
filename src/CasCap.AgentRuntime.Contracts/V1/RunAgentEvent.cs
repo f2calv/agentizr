@@ -37,4 +37,7 @@ public sealed record RunAgentEvent
 
     /// <summary>Gets the configured target message count.</summary>
     public int? TargetMessageCount { get; init; }
+
+    /// <summary>Gets delegated-agent diagnostics for completion events.</summary>
+    public RunAgentStepResult? Result { get; init; }
 }

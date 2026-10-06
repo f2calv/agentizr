@@ -9,6 +9,9 @@ public static class AgentRuntimeRoutes
     /// <summary>Gets the route for running an agent turn.</summary>
     public const string Runs = "/runs";
 
+    /// <summary>Gets the route for a streamed agent run.</summary>
+    public const string RunStream = "/runs/stream";
+
     /// <summary>Gets the route for active session inspection and reset.</summary>
     public const string Session = "/sessions/{sessionId}";
 

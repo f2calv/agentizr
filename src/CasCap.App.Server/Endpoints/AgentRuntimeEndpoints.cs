@@ -2,6 +2,10 @@ using CasCap.AgentRuntime.Contracts.V1;
 using CasCap.AgentRuntime.Contracts.V1.Constants;
 using CasCap.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.Extensions.AI;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
+using System.Threading.Channels;
 
 namespace Microsoft.AspNetCore.Builder;
 
@@ -21,6 +25,12 @@ public static class AgentRuntimeEndpoints
             .WithSummary("Runs one turn against a tenant-scoped agent session")
             .Produces<RunAgentResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound)
+            .ProducesValidationProblem();
+
+        group.MapPost(AgentRuntimeRoutes.RunStream, StreamAgentAsync)
+            .WithName("StreamAgentV1")
+            .WithSummary("Streams execution events followed by the final tenant-scoped agent response")
+            .Produces<IEnumerable<RunAgentStreamItem>>(StatusCodes.Status200OK)
             .ProducesValidationProblem();
 
         group.MapGet(AgentRuntimeRoutes.Session, GetSessionAsync)
@@ -205,59 +215,169 @@ public static class AgentRuntimeEndpoints
         AgentExecutionCoordinator coordinator,
         CancellationToken cancellationToken)
     {
-        var result = await coordinator.ExecuteAsync(new AgentExecutionRequest
-        {
-            AgentName = agentName,
-            SessionId = request.SessionId,
-            Input = request.Input,
-            BinaryContent = request.BinaryContent,
-            MimeType = request.MimeType,
-            BypassSession = request.BypassSession,
-        }, cancellationToken);
+        var result = await coordinator.ExecuteAsync(MapRequest(agentName, request), cancellationToken);
 
         return result is null
             ? TypedResults.NotFound()
-            : TypedResults.Ok(new RunAgentResponse
+            : TypedResults.Ok(MapResponse(request, result));
+    }
+
+    private static async IAsyncEnumerable<RunAgentStreamItem> StreamAgentAsync(
+        string agentName,
+        RunAgentRequest request,
+        AgentExecutionCoordinator coordinator,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var channel = Channel.CreateUnbounded<RunAgentStreamItem>(new UnboundedChannelOptions
+        {
+            SingleReader = true,
+            SingleWriter = true,
+        });
+        var execution = ExecuteStreamAsync(agentName, request, coordinator, channel.Writer, cancellationToken);
+        await foreach (var item in channel.Reader.ReadAllAsync(cancellationToken))
+            yield return item;
+        await execution;
+    }
+
+    private static async Task ExecuteStreamAsync(
+        string agentName,
+        RunAgentRequest request,
+        AgentExecutionCoordinator coordinator,
+        ChannelWriter<RunAgentStreamItem> writer,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var executionRequest = MapRequest(agentName, request) with
             {
-                SessionId = request.SessionId,
-                OutputText = result.OutputText,
-                DefinitionVersion = result.DefinitionVersion,
-                ModelName = result.ModelName,
-                FinishReason = result.Diagnostics?.FinishReason,
-                ElapsedMilliseconds = result.Diagnostics?.Elapsed.TotalMilliseconds ?? 0,
-                TimeToFirstTokenMilliseconds = result.Diagnostics?.TimeToFirstToken?.TotalMilliseconds,
-                Usage = result.Diagnostics?.Usage is { } usage
-                    ? new RunAgentUsage
-                    {
-                        InputTokenCount = usage.InputTokenCount,
-                        OutputTokenCount = usage.OutputTokenCount,
-                        TotalTokenCount = usage.TotalTokenCount,
-                    }
-                    : null,
-                ToolCalls = result.Diagnostics?.ToolCalls
-                    .Select(toolCall => new RunAgentToolCall { Name = toolCall.Name })
-                    .ToArray() ?? [],
-                Attachments = result.Diagnostics?.Attachments
-                    .Select(attachment => new RunAgentAttachment
-                    {
-                        MimeType = attachment.MimeType,
-                        FileName = attachment.FileName,
-                        Base64Content = attachment.Base64Content,
-                    })
-                    .ToArray() ?? [],
-                Events = result.Events.Select(executionEvent => new RunAgentEvent
+                EventSink = executionEvent => writer.TryWrite(new RunAgentStreamItem
                 {
-                    Type = executionEvent.Type,
-                    AgentName = executionEvent.AgentName,
-                    Depth = executionEvent.Depth,
-                    ModelName = executionEvent.ModelName,
-                    ElapsedMilliseconds = executionEvent.Elapsed?.TotalMilliseconds,
-                    InputMessageCount = executionEvent.InputMessageCount,
-                    OutputMessageCount = executionEvent.OutputMessageCount,
-                    ToolMessagesDropped = executionEvent.ToolMessagesDropped,
-                    WindowMessagesTrimmed = executionEvent.WindowMessagesTrimmed,
-                    TargetMessageCount = executionEvent.TargetMessageCount,
+                    Event = MapEvent(executionEvent, request.IncludeDiagnosticDetails),
+                }),
+            };
+            var result = await coordinator.ExecuteAsync(executionRequest, cancellationToken);
+            if (result is not null)
+                writer.TryWrite(new RunAgentStreamItem { Response = MapResponse(request, result) });
+            writer.TryComplete();
+        }
+        catch (Exception ex)
+        {
+            writer.TryComplete(ex);
+        }
+    }
+
+    private static AgentExecutionRequest MapRequest(string agentName, RunAgentRequest request) => new()
+    {
+        AgentName = agentName,
+        SessionId = request.SessionId,
+        Input = request.Input,
+        BinaryContent = request.BinaryContent,
+        MimeType = request.MimeType,
+        BypassSession = request.BypassSession,
+    };
+
+    private static RunAgentResponse MapResponse(RunAgentRequest request, AgentExecutionResult result) => new()
+    {
+        SessionId = request.SessionId,
+        OutputText = result.OutputText,
+        DefinitionVersion = result.DefinitionVersion,
+        ModelName = result.ModelName,
+        FinishReason = result.Diagnostics?.FinishReason,
+        ElapsedMilliseconds = result.Diagnostics?.Elapsed.TotalMilliseconds ?? 0,
+        TimeToFirstTokenMilliseconds = result.Diagnostics?.TimeToFirstToken?.TotalMilliseconds,
+        Usage = result.Diagnostics?.Usage is { } usage ? MapUsage(usage) : null,
+        ToolCalls = result.Diagnostics?.ToolCalls
+            .Select(toolCall => MapToolCall(toolCall, request.IncludeDiagnosticDetails))
+            .ToArray() ?? [],
+        Attachments = result.Diagnostics?.Attachments
+            .Select(attachment => new RunAgentAttachment
+            {
+                MimeType = attachment.MimeType,
+                FileName = attachment.FileName,
+                Base64Content = attachment.Base64Content,
+            })
+            .ToArray() ?? [],
+        Events = result.Events
+            .Select(executionEvent => MapEvent(executionEvent, request.IncludeDiagnosticDetails))
+            .ToArray(),
+        Session = result.SessionInspection is { } inspection
+            ? new AgentSessionInfoResponse
+            {
+                Exists = true,
+                SessionEnabled = true,
+                SizeBytes = inspection.SizeBytes,
+                Entries = inspection.Entries.Select(entry => new AgentSessionEntry
+                {
+                    Key = entry.Key,
+                    ByteSize = entry.ByteSize,
+                    MessageCount = entry.MessageCount,
+                    UserMessageCount = entry.UserMessageCount,
+                    AssistantMessageCount = entry.AssistantMessageCount,
                 }).ToArray(),
-            });
+            }
+            : null,
+        AdditionalProperties = request.IncludeDiagnosticDetails && result.Diagnostics is { } diagnostics
+            ? MapProperties(diagnostics.AdditionalProperties)
+            : new Dictionary<string, JsonElement>(),
+    };
+
+    private static RunAgentEvent MapEvent(AgentExecutionEvent executionEvent, bool includeDiagnosticDetails) => new()
+    {
+        Type = executionEvent.Type,
+        AgentName = executionEvent.AgentName,
+        Depth = executionEvent.Depth,
+        ModelName = executionEvent.ModelName,
+        ElapsedMilliseconds = executionEvent.Elapsed?.TotalMilliseconds,
+        InputMessageCount = executionEvent.InputMessageCount,
+        OutputMessageCount = executionEvent.OutputMessageCount,
+        ToolMessagesDropped = executionEvent.ToolMessagesDropped,
+        WindowMessagesTrimmed = executionEvent.WindowMessagesTrimmed,
+        TargetMessageCount = executionEvent.TargetMessageCount,
+        Result = executionEvent.Diagnostics is { } diagnostics
+            ? new RunAgentStepResult
+            {
+                ElapsedMilliseconds = diagnostics.Elapsed.TotalMilliseconds,
+                Usage = diagnostics.Usage is { } usage ? MapUsage(usage) : null,
+                ToolCalls = diagnostics.ToolCalls
+                    .Select(toolCall => MapToolCall(toolCall, includeDiagnosticDetails))
+                    .ToArray(),
+                AdditionalProperties = includeDiagnosticDetails
+                    ? MapProperties(diagnostics.AdditionalProperties)
+                    : new Dictionary<string, JsonElement>(),
+            }
+            : null,
+    };
+
+    private static RunAgentUsage MapUsage(UsageDetails usage) => new()
+    {
+        InputTokenCount = usage.InputTokenCount,
+        OutputTokenCount = usage.OutputTokenCount,
+        TotalTokenCount = usage.TotalTokenCount,
+        ReasoningTokenCount = usage.ReasoningTokenCount,
+    };
+
+    private static RunAgentToolCall MapToolCall(ToolCallInfo toolCall, bool includeArguments) => new()
+    {
+        Name = toolCall.Name,
+        Arguments = includeArguments && toolCall.Arguments is not null
+            ? MapProperties(toolCall.Arguments)
+            : new Dictionary<string, JsonElement>(),
+    };
+
+    private static Dictionary<string, JsonElement> MapProperties(IEnumerable<KeyValuePair<string, object?>> properties)
+    {
+        var mapped = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+        foreach (var (key, value) in properties)
+        {
+            try
+            {
+                mapped[key] = JsonSerializer.SerializeToElement(value, JsonSerializerOptions.Web);
+            }
+            catch (NotSupportedException)
+            {
+                mapped[key] = JsonSerializer.SerializeToElement(value?.ToString(), JsonSerializerOptions.Web);
+            }
+        }
+        return mapped;
     }
 }

@@ -32,4 +32,7 @@ public sealed record AgentExecutionEvent
 
     /// <summary>Gets the configured target message count.</summary>
     public int? TargetMessageCount { get; init; }
+
+    /// <summary>Gets delegated-agent diagnostics for completion events.</summary>
+    public AgentRunResult? Diagnostics { get; init; }
 }

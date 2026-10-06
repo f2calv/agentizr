@@ -25,6 +25,10 @@ public sealed record RunAgentRequest : IValidatableObject
     /// <summary>Gets whether this turn bypasses session loading and persistence.</summary>
     public bool BypassSession { get; init; }
 
+    /// <summary>Gets whether operator-only diagnostic details such as tool arguments and property bags are returned.</summary>
+    /// <remarks>Keep disabled unless the caller controls the diagnostic destination.</remarks>
+    public bool IncludeDiagnosticDetails { get; init; }
+
     /// <inheritdoc/>
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {

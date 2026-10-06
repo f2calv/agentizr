@@ -23,4 +23,7 @@ public sealed record AgentExecutionRequest
 
     /// <summary>Gets whether session state is bypassed for this turn.</summary>
     public bool BypassSession { get; init; }
+
+    /// <summary>Gets an optional synchronous sink for live execution events.</summary>
+    public Action<AgentExecutionEvent>? EventSink { get; init; }
 }

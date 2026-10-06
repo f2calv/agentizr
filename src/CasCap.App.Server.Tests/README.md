@@ -11,7 +11,7 @@ The tests launch the real application through `WebApplicationFactory<Program>` a
 | Class | Method count | Test-case count | Description |
 | --- | ---: | ---: | --- |
 | `EndpointSmokeTests` | 1 | 2 | Verifies `/` and `/healthz` return HTTP 200 |
-| `AgentRuntimeProtocolTests` | 5 | 5 | Verifies typed-client execution, validation, and complete session-control lifecycle |
+| `AgentRuntimeProtocolTests` | 6 | 6 | Verifies typed-client execution, live event streaming, validation, and complete session-control lifecycle |
 | `TenantSecurityStartupTests` | 3 | 3 | Verifies anonymous JWT rejection and Production requirements for authentication and Redis |
 | `AgentExecutionCoordinatorTests` | 3 | 3 | Verifies definition, credential, override, session, bypass, and executor orchestration |
 | `TenantStateIsolationTests` | 3 | 3 | Proves tenant isolation, collision-free keys, pod-replacement persistence, and definition-version invalidation |
@@ -23,7 +23,7 @@ The tests launch the real application through `WebApplicationFactory<Program>` a
 
 | Category | Test-case count | Purpose |
 | --- | ---: | --- |
-| `Integration` | 10 | In-memory ASP.NET Core host, protocol, and startup security tests |
+| `Integration` | 11 | In-memory ASP.NET Core host, protocol, and startup security tests |
 | `Agent Runtime` | 7 | Runtime orchestration, definition persistence, and caching without external services |
 | `Tenant Isolation` | 6 | Cross-tenant state and identity isolation |
 

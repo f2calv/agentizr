@@ -38,4 +38,11 @@ public sealed record RunAgentResponse
 
     /// <summary>Gets structured delegation and compaction events observed during the turn.</summary>
     public IReadOnlyList<RunAgentEvent> Events { get; init; } = [];
+
+    /// <summary>Gets resulting session status when persistence was enabled.</summary>
+    public AgentSessionInfoResponse? Session { get; init; }
+
+    /// <summary>Gets non-sensitive diagnostic properties reported by the provider or host.</summary>
+    public IReadOnlyDictionary<string, JsonElement> AdditionalProperties { get; init; } =
+        new Dictionary<string, JsonElement>();
 }

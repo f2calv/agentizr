@@ -12,9 +12,10 @@ current `ITenantContext`, then coordinates tenant-qualified session and override
 `IAgentExecutor`. Development may use process-local stores; non-Development hosts require Redis-backed
 state so sessions and overrides survive replica and pod replacement.
 
-The v1 execution response projects Common.AI diagnostics into a stable wire surface: provider model,
-finish reason, timing, token usage, tool-call names, tool-produced attachments, and structured
-delegation/compaction events. Tool arguments are not exposed.
+The v1 execution response projects Common.AI diagnostics into a stable wire surface: actual provider
+model, finish reason, timing, token usage, tool calls, session summary, tool-produced attachments,
+and structured delegation/compaction events. Tool arguments and property bags require explicit
+diagnostic disclosure on the authenticated request.
 
 Tool composition is tenant-scoped: service tools resolve from request DI, remote MCP connections are
 owned for one execution, and sub-agent tools recursively use the same definition and credential
@@ -27,6 +28,7 @@ stores with stateless delegated sessions.
 | `/` | Host identity |
 | `/healthz` | ASP.NET Core health status |
 | `POST /api/v1/agents/{agentName}/runs` | Executes one tenant-scoped agent turn |
+| `POST /api/v1/agents/{agentName}/runs/stream` | Streams live execution events followed by the final response |
 | `GET/DELETE /api/v1/agents/{agentName}/sessions/{sessionId}` | Inspects or resets active session state |
 | `POST /api/v1/agents/{agentName}/sessions/{sessionId}/compact` | Compacts active session history |
 | `PUT/DELETE /api/v1/agents/{agentName}/sessions/{sessionId}/snapshots/{snapshotName}` | Saves or deletes a named snapshot |

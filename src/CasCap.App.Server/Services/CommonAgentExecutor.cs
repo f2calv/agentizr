@@ -28,7 +28,7 @@ internal sealed class CommonAgentExecutor(
         var events = new ConcurrentQueue<AgentExecutionEvent>();
         var runScope = new AgentRunScope
         {
-            OnCompaction = stats => events.Enqueue(new AgentExecutionEvent
+            OnCompaction = stats => PublishEvent(context.Request, events, new AgentExecutionEvent
             {
                 Type = AgentExecutionEventNames.SessionCompacted,
                 Elapsed = executionStopwatch.Elapsed,
@@ -69,6 +69,7 @@ internal sealed class CommonAgentExecutor(
         var toolLeases = new List<IAsyncDisposable>();
         var tools = await BuildToolsAsync(
             definition,
+            request,
             runScope,
             events,
             executionStopwatch,
@@ -138,6 +139,7 @@ internal sealed class CommonAgentExecutor(
 
     private async ValueTask<List<AITool>> BuildToolsAsync(
         AgentDefinition definition,
+        AgentExecutionRequest request,
         AgentRunScope runScope,
         ConcurrentQueue<AgentExecutionEvent> events,
         Stopwatch executionStopwatch,
@@ -176,6 +178,7 @@ internal sealed class CommonAgentExecutor(
             if (source.Agent is not null)
                 tools.Add(await CreateSubAgentToolAsync(
                     source,
+                    request,
                     runScope,
                     events,
                     executionStopwatch,
@@ -187,6 +190,7 @@ internal sealed class CommonAgentExecutor(
 
     private async ValueTask<AITool> CreateSubAgentToolAsync(
         ToolSource source,
+        AgentExecutionRequest request,
         AgentRunScope parentScope,
         ConcurrentQueue<AgentExecutionEvent> events,
         Stopwatch executionStopwatch,
@@ -201,7 +205,7 @@ internal sealed class CommonAgentExecutor(
             CancellationToken invocationCancellationToken = default)
         {
             var childScope = parentScope.ForSubAgent();
-            events.Enqueue(new AgentExecutionEvent
+            PublishEvent(request, events, new AgentExecutionEvent
             {
                 Type = AgentExecutionEventNames.DelegationStarted,
                 AgentName = agentName,
@@ -228,13 +232,14 @@ internal sealed class CommonAgentExecutor(
                 executionStopwatch,
                 invocationCancellationToken);
 
-            events.Enqueue(new AgentExecutionEvent
+            PublishEvent(request, events, new AgentExecutionEvent
             {
                 Type = AgentExecutionEventNames.DelegationCompleted,
                 AgentName = agentName,
                 Depth = childScope.Depth,
                 ModelName = result.ModelName,
                 Elapsed = executionStopwatch.Elapsed,
+                Diagnostics = result.Diagnostics,
             });
             return result.OutputText;
         }
@@ -249,5 +254,14 @@ internal sealed class CommonAgentExecutor(
             source,
             hostEnvironment.IsDevelopment(),
             loggerFactory.CreateLogger<CommonAgentExecutor>()).Single();
+    }
+
+    private static void PublishEvent(
+        AgentExecutionRequest request,
+        ConcurrentQueue<AgentExecutionEvent> events,
+        AgentExecutionEvent executionEvent)
+    {
+        events.Enqueue(executionEvent);
+        request.EventSink?.Invoke(executionEvent);
     }
 }

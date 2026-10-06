@@ -82,6 +82,7 @@ public sealed class AgentExecutionCoordinatorTests
             new StaticCredentialStore(),
             sessionStore,
             new StaticOverrideStore(overrides),
+            new StaticSessionCodec(),
             executor);
 
     private sealed class StaticDefinitionStore : IAgentDefinitionStore
@@ -203,6 +204,24 @@ public sealed class AgentExecutionCoordinatorTests
             AgentOverrideState stateValue,
             CancellationToken cancellationToken) =>
             ValueTask.CompletedTask;
+    }
+
+    private sealed class StaticSessionCodec : IAgentSessionCodec
+    {
+        public ValueTask<AgentSessionInspection> InspectAsync(
+            AgentDefinition definition,
+            string? providerApiKey,
+            string sessionStateJson,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(new AgentSessionInspection { SizeBytes = sessionStateJson.Length });
+
+        public ValueTask<AgentSessionCompactionResult> CompactAsync(
+            AgentDefinition definition,
+            string? providerApiKey,
+            string sessionStateJson,
+            int retainMessageCount,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 
     private sealed class RecordingExecutor(AgentExecutionResult result) : IAgentExecutor

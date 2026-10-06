@@ -65,6 +65,13 @@ public sealed class AgentizrWebApplicationFactory : WebApplicationFactory<Progra
             AgentExecutionContext context,
             CancellationToken cancellationToken)
         {
+            var executionEvent = new AgentExecutionEvent
+            {
+                Type = "session.compacted",
+                InputMessageCount = 20,
+                OutputMessageCount = 10,
+            };
+            context.Request.EventSink?.Invoke(executionEvent);
             var diagnostics = new AgentRunResult(context.Definition.Agent.Name)
             {
                 Elapsed = TimeSpan.FromMilliseconds(250),
@@ -77,9 +84,14 @@ public sealed class AgentizrWebApplicationFactory : WebApplicationFactory<Progra
                     InputTokenCount = 12,
                     OutputTokenCount = 4,
                     TotalTokenCount = 16,
+                    ReasoningTokenCount = 2,
                 },
             };
-            diagnostics.ToolCalls.Add(new ToolCallInfo("get_status", null));
+            diagnostics.ToolCalls.Add(new ToolCallInfo("get_status", new Dictionary<string, object?>
+            {
+                ["room"] = "kitchen",
+            }));
+            diagnostics.AdditionalProperties["energyWh"] = 1.2;
             diagnostics.Attachments.Add(new AgentRunAttachment
             {
                 MimeType = "image/png",
@@ -94,12 +106,7 @@ public sealed class AgentizrWebApplicationFactory : WebApplicationFactory<Progra
                 Diagnostics = diagnostics,
                 Events =
                 [
-                    new AgentExecutionEvent
-                    {
-                        Type = "session.compacted",
-                        InputMessageCount = 20,
-                        OutputMessageCount = 10,
-                    },
+                    executionEvent,
                 ],
             });
         }

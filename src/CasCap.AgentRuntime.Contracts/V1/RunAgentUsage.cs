@@ -14,4 +14,8 @@ public sealed record RunAgentUsage
     /// <summary>Gets the total token count when reported by the provider.</summary>
     /// <example>320</example>
     public long? TotalTokenCount { get; init; }
+
+    /// <summary>Gets reasoning-token usage when reported by the provider.</summary>
+    /// <example>24</example>
+    public long? ReasoningTokenCount { get; init; }
 }

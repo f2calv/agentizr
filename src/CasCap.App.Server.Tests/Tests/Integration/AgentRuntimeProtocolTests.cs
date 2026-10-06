@@ -21,6 +21,7 @@ public sealed class AgentRuntimeProtocolTests(AgentizrWebApplicationFactory fact
                 BinaryContent = [1, 2, 3],
                 MimeType = "image/png",
                 BypassSession = true,
+                IncludeDiagnosticDetails = true,
             },
             CancellationToken.None);
 
@@ -33,9 +34,12 @@ public sealed class AgentRuntimeProtocolTests(AgentizrWebApplicationFactory fact
         Assert.Equal(250, response.ElapsedMilliseconds);
         Assert.Equal(50, response.TimeToFirstTokenMilliseconds);
         Assert.Equal(16, response.Usage?.TotalTokenCount);
+        Assert.Equal(2, response.Usage?.ReasoningTokenCount);
         Assert.Single(response.ToolCalls, toolCall => toolCall.Name == "get_status");
+        Assert.Equal("kitchen", response.ToolCalls[0].Arguments["room"].GetString());
         Assert.Single(response.Attachments, attachment => attachment.FileName == "status.png");
         Assert.Single(response.Events, executionEvent => executionEvent.Type == "session.compacted");
+        Assert.Equal(1.2, response.AdditionalProperties["energyWh"].GetDouble());
     }
 
     [Fact]
@@ -50,6 +54,33 @@ public sealed class AgentRuntimeProtocolTests(AgentizrWebApplicationFactory fact
             CancellationToken.None);
 
         Assert.Null(response);
+    }
+
+    [Fact]
+    public async Task StreamAgent_ReturnsLiveEventBeforeResponse()
+    {
+        using var httpClient = factory.CreateClient();
+        var client = new AgentRuntimeClient(httpClient);
+        var items = new List<RunAgentStreamItem>();
+
+        await foreach (var item in client.StreamAgentAsync(
+            "assistant",
+            new RunAgentRequest
+            {
+                SessionId = "conversation-stream",
+                Input = "hello",
+                BypassSession = true,
+            },
+            TestContext.Current.CancellationToken))
+        {
+            items.Add(item);
+        }
+
+        Assert.Equal(2, items.Count);
+        Assert.Equal("session.compacted", items[0].Event?.Type);
+        Assert.Null(items[0].Response);
+        Assert.Null(items[1].Event);
+        Assert.Equal("echo:hello:0", items[1].Response?.OutputText);
     }
 
     [Fact]

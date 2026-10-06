@@ -20,4 +20,7 @@ public sealed record AgentExecutionResult
 
     /// <summary>Gets delegation and compaction events observed during the turn.</summary>
     public IReadOnlyList<AgentExecutionEvent> Events { get; init; } = [];
+
+    /// <summary>Gets resulting session inspection when persistence was enabled.</summary>
+    public AgentSessionInspection? SessionInspection { get; init; }
 }

@@ -6,6 +6,7 @@ public sealed class AgentExecutionCoordinator(
     IProviderCredentialStore credentialStore,
     IAgentSessionStore sessionStore,
     IAgentOverrideStore overrideStore,
+    IAgentSessionCodec sessionCodec,
     IAgentExecutor executor)
 {
     /// <summary>Executes one agent turn and persists returned session state when enabled.</summary>
@@ -37,18 +38,27 @@ public sealed class AgentExecutionCoordinator(
             Overrides = overrides,
         }, cancellationToken);
 
+        AgentSessionInspection? sessionInspection = null;
         if (sessionEnabled && result.SessionStateJson is not null)
+        {
             await sessionStore.SetAsync(
                 request.AgentName,
                 definition.Version,
                 request.SessionId,
                 result.SessionStateJson,
                 cancellationToken);
+            sessionInspection = await sessionCodec.InspectAsync(
+                definition,
+                apiKey,
+                result.SessionStateJson,
+                cancellationToken);
+        }
 
         return result with
         {
             DefinitionVersion = definition.Version,
-            ModelName = definition.Provider.ModelName,
+            ModelName = overrides.ModelName ?? definition.Provider.ModelName,
+            SessionInspection = sessionInspection,
         };
     }
 }

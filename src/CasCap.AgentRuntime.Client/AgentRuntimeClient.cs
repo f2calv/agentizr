@@ -2,6 +2,8 @@ using CasCap.AgentRuntime.Client.Abstractions;
 using CasCap.AgentRuntime.Contracts.V1.Constants;
 using System.Net;
 using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
 
 namespace CasCap.AgentRuntime.Client;
 
@@ -27,6 +29,32 @@ public sealed class AgentRuntimeClient(HttpClient httpClient) : IAgentRuntimeCli
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<RunAgentResponse>(cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidDataException("Agent Runtime returned an empty success response.");
+    }
+
+    /// <inheritdoc/>
+    public async IAsyncEnumerable<RunAgentStreamItem> StreamAgentAsync(
+        string agentName,
+        RunAgentRequest request,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Post, BuildPath(agentName, AgentRuntimeRoutes.RunStream))
+        {
+            Content = JsonContent.Create(request),
+        };
+        using var response = await httpClient.SendAsync(
+            message,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        await foreach (var item in JsonSerializer.DeserializeAsyncEnumerable<RunAgentStreamItem>(
+            responseStream,
+            JsonSerializerOptions.Web,
+            cancellationToken).ConfigureAwait(false))
+        {
+            if (item is not null)
+                yield return item;
+        }
     }
 
     /// <inheritdoc/>

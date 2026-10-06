@@ -11,3 +11,7 @@ attached through that pipeline.
 throws for other non-success responses. Session methods inspect/reset/compact active state, manage
 named snapshots, and get or replace complete per-session runtime overrides without exposing raw
 session JSON.
+
+`StreamAgentAsync` incrementally yields live delegation/compaction events and then the final response
+using a streamed JSON response. Callers opt into tool arguments and property bags through
+`RunAgentRequest.IncludeDiagnosticDetails` only when their diagnostic destination is operator-controlled.

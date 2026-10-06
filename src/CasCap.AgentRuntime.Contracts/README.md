@@ -11,7 +11,11 @@ context.
 
 `RunAgentResponse` returns output, definition/model identity, timing, provider usage, tool-call
 names, tool-produced attachments, and structured delegation/compaction events. Tool arguments and
-tenant content are deliberately omitted from diagnostics.
+provider/host property bags are returned only when the authenticated caller explicitly enables
+diagnostic details. Session summaries expose sizes and message counts without raw state.
+
+`RunAgentStreamItem` carries delegation and compaction events as they occur, followed by the final
+`RunAgentResponse`, so callers can update progress indicators without owning runtime execution.
 
 Session-control contracts inspect and reset active state, compact history, manage named snapshots,
 and replace complete per-session model, instruction, and persistence overrides. They expose

@@ -9,6 +9,12 @@ public interface IAgentRuntimeClient
         RunAgentRequest request,
         CancellationToken cancellationToken);
 
+    /// <summary>Streams live execution events followed by the final response.</summary>
+    IAsyncEnumerable<RunAgentStreamItem> StreamAgentAsync(
+        string agentName,
+        RunAgentRequest request,
+        CancellationToken cancellationToken);
+
     /// <summary>Gets active session status, or <see langword="null" /> when the agent is unavailable.</summary>
     Task<AgentSessionInfoResponse?> GetSessionAsync(
         string agentName,

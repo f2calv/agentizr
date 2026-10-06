@@ -6,4 +6,8 @@ public sealed record RunAgentToolCall
     /// <summary>Gets the tool name.</summary>
     /// <example>get_system_status</example>
     public required string Name { get; init; }
+
+    /// <summary>Gets tool arguments when diagnostic disclosure was enabled for the run.</summary>
+    public IReadOnlyDictionary<string, JsonElement> Arguments { get; init; } =
+        new Dictionary<string, JsonElement>();
 }
