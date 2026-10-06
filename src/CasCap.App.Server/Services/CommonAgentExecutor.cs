@@ -1,5 +1,5 @@
 using CasCap.Common.Extensions;
-using CasCap.Constants;
+using CasCap.AgentRuntime.Contracts.V1.Constants;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Hosting;
@@ -30,7 +30,7 @@ internal sealed class CommonAgentExecutor(
         {
             OnCompaction = stats => PublishEvent(context.Request, events, new AgentExecutionEvent
             {
-                Type = AgentExecutionEventNames.SessionCompacted,
+                Type = RunAgentEventTypes.SessionCompacted,
                 Elapsed = executionStopwatch.Elapsed,
                 InputMessageCount = stats.InputCount,
                 OutputMessageCount = stats.OutputCount,
@@ -207,7 +207,7 @@ internal sealed class CommonAgentExecutor(
             var childScope = parentScope.ForSubAgent();
             PublishEvent(request, events, new AgentExecutionEvent
             {
-                Type = AgentExecutionEventNames.DelegationStarted,
+                Type = RunAgentEventTypes.DelegationStarted,
                 AgentName = agentName,
                 Depth = childScope.Depth,
                 ModelName = definition.Provider.ModelName,
@@ -234,7 +234,7 @@ internal sealed class CommonAgentExecutor(
 
             PublishEvent(request, events, new AgentExecutionEvent
             {
-                Type = AgentExecutionEventNames.DelegationCompleted,
+                Type = RunAgentEventTypes.DelegationCompleted,
                 AgentName = agentName,
                 Depth = childScope.Depth,
                 ModelName = result.ModelName,
