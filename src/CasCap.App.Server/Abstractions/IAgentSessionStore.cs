@@ -4,14 +4,14 @@ namespace CasCap.Abstractions;
 public interface IAgentSessionStore
 {
     /// <summary>Gets serialized session state, or <see langword="null" /> when no session exists.</summary>
-    ValueTask<string?> GetAsync(
+    public ValueTask<string?> GetAsync(
         string agentName,
         string definitionVersion,
         string sessionId,
         CancellationToken cancellationToken);
 
     /// <summary>Persists serialized session state.</summary>
-    ValueTask SetAsync(
+    public ValueTask SetAsync(
         string agentName,
         string definitionVersion,
         string sessionId,
@@ -19,14 +19,14 @@ public interface IAgentSessionStore
         CancellationToken cancellationToken);
 
     /// <summary>Deletes session state.</summary>
-    ValueTask DeleteAsync(
+    public ValueTask DeleteAsync(
         string agentName,
         string definitionVersion,
         string sessionId,
         CancellationToken cancellationToken);
 
     /// <summary>Gets a named snapshot of serialized session state.</summary>
-    ValueTask<string?> GetSnapshotAsync(
+    public ValueTask<string?> GetSnapshotAsync(
         string agentName,
         string definitionVersion,
         string sessionId,
@@ -34,7 +34,7 @@ public interface IAgentSessionStore
         CancellationToken cancellationToken);
 
     /// <summary>Persists a named snapshot of serialized session state.</summary>
-    ValueTask SetSnapshotAsync(
+    public ValueTask SetSnapshotAsync(
         string agentName,
         string definitionVersion,
         string sessionId,
@@ -43,7 +43,7 @@ public interface IAgentSessionStore
         CancellationToken cancellationToken);
 
     /// <summary>Deletes a named snapshot of serialized session state.</summary>
-    ValueTask DeleteSnapshotAsync(
+    public ValueTask DeleteSnapshotAsync(
         string agentName,
         string definitionVersion,
         string sessionId,

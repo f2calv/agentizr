@@ -100,7 +100,7 @@ internal sealed class CommonAgentSessionCodec(
         return true;
     }
 
-    private static IReadOnlyList<AgentSessionEntryInspection> GetStateBagEntries(AgentSession session)
+    private static List<AgentSessionEntryInspection> GetStateBagEntries(AgentSession session)
     {
         var entries = new List<AgentSessionEntryInspection>();
         try

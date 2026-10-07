@@ -320,7 +320,7 @@ public static class AgentRuntimeEndpoints
             : null,
         AdditionalProperties = request.IncludeDiagnosticDetails && result.Diagnostics is { } diagnostics
             ? MapProperties(diagnostics.AdditionalProperties)
-            : new Dictionary<string, JsonElement>(),
+            : [],
     };
 
     private static RunAgentEvent MapEvent(AgentExecutionEvent executionEvent, bool includeDiagnosticDetails) => new()
@@ -345,7 +345,7 @@ public static class AgentRuntimeEndpoints
                     .ToArray(),
                 AdditionalProperties = includeDiagnosticDetails
                     ? MapProperties(diagnostics.AdditionalProperties)
-                    : new Dictionary<string, JsonElement>(),
+                    : [],
             }
             : null,
     };
@@ -363,7 +363,7 @@ public static class AgentRuntimeEndpoints
         Name = toolCall.Name,
         Arguments = includeArguments && toolCall.Arguments is not null
             ? MapProperties(toolCall.Arguments)
-            : new Dictionary<string, JsonElement>(),
+            : [],
     };
 
     private static Dictionary<string, JsonElement> MapProperties(IEnumerable<KeyValuePair<string, object?>> properties)

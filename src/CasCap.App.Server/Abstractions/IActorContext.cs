@@ -4,5 +4,5 @@ namespace CasCap.Abstractions;
 public interface IActorContext
 {
     /// <summary>Gets the stable authenticated actor identifier.</summary>
-    string ActorId { get; }
+    public string ActorId { get; }
 }

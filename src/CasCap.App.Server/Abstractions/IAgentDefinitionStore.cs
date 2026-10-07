@@ -4,5 +4,5 @@ namespace CasCap.Abstractions;
 public interface IAgentDefinitionStore
 {
     /// <summary>Gets the named definition, or <see langword="null" /> when it is not available to the tenant.</summary>
-    ValueTask<AgentDefinition?> GetAsync(string agentName, CancellationToken cancellationToken);
+    public ValueTask<AgentDefinition?> GetAsync(string agentName, CancellationToken cancellationToken);
 }

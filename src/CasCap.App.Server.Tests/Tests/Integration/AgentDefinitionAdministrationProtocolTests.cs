@@ -44,9 +44,9 @@ public sealed class AgentDefinitionAdministrationProtocolTests(
         Assert.Single(historyBeforeActivation, item => item.IsActive && item.DefinitionVersion == "test-v1");
         Assert.True(activated);
         Assert.Equal("v2", active?.DefinitionVersion);
-        Assert.Single(activations);
-        Assert.Equal("development", activations[0].ActivatedBy);
-        Assert.Equal("promote v2", activations[0].ChangeReason);
+        var activation = Assert.Single(activations);
+        Assert.Equal("development", activation.ActivatedBy);
+        Assert.Equal("promote v2", activation.ChangeReason);
         Assert.True(rolledBack);
         Assert.Equal("test-v1", afterRollback?.DefinitionVersion);
     }

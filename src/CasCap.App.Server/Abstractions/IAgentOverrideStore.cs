@@ -4,14 +4,14 @@ namespace CasCap.Abstractions;
 public interface IAgentOverrideStore
 {
     /// <summary>Gets the current override state.</summary>
-    ValueTask<AgentOverrideState> GetAsync(
+    public ValueTask<AgentOverrideState> GetAsync(
         string agentName,
         string definitionVersion,
         string sessionId,
         CancellationToken cancellationToken);
 
     /// <summary>Persists the override state.</summary>
-    ValueTask SetAsync(
+    public ValueTask SetAsync(
         string agentName,
         string definitionVersion,
         string sessionId,

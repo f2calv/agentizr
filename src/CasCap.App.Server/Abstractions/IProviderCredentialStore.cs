@@ -4,5 +4,5 @@ namespace CasCap.Abstractions;
 public interface IProviderCredentialStore
 {
     /// <summary>Gets the provider API key, or <see langword="null" /> when the provider needs no key.</summary>
-    ValueTask<string?> GetApiKeyAsync(string providerName, CancellationToken cancellationToken);
+    public ValueTask<string?> GetApiKeyAsync(string providerName, CancellationToken cancellationToken);
 }

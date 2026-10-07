@@ -4,14 +4,14 @@ namespace CasCap.Abstractions;
 public interface IAgentSessionCodec
 {
     /// <summary>Inspects serialized session state without exposing its raw payload.</summary>
-    ValueTask<AgentSessionInspection> InspectAsync(
+    public ValueTask<AgentSessionInspection> InspectAsync(
         AgentDefinition definition,
         string? providerApiKey,
         string sessionStateJson,
         CancellationToken cancellationToken);
 
     /// <summary>Compacts serialized session state while preserving its framework-defined shape.</summary>
-    ValueTask<AgentSessionCompactionResult> CompactAsync(
+    public ValueTask<AgentSessionCompactionResult> CompactAsync(
         AgentDefinition definition,
         string? providerApiKey,
         string sessionStateJson,

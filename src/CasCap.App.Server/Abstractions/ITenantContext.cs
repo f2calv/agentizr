@@ -4,5 +4,5 @@ namespace CasCap.Abstractions;
 public interface ITenantContext
 {
     /// <summary>Gets the stable tenant identifier.</summary>
-    string TenantId { get; }
+    public string TenantId { get; }
 }
