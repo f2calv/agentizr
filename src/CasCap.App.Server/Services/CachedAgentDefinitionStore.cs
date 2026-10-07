@@ -6,13 +6,16 @@ internal sealed class CachedAgentDefinitionStore(
     IDistributedCache distributedCache,
     IOptions<AgentRuntimeConfig> runtimeConfig,
     ILogger<CachedAgentDefinitionStore> logger,
-    ITenantContext tenantContext) : IAgentDefinitionStore
+    ITenantContext tenantContext) : IAgentDefinitionStore, IAgentDefinitionAdministrationStore
 {
     /// <inheritdoc/>
     public async ValueTask<AgentDefinition?> GetAsync(string agentName, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var key = AgentDefinitionCacheKey.Create(tenantContext.TenantId, agentName);
+        var definitionVersion = await innerStore.GetActiveVersionAsync(agentName, cancellationToken);
+        if (definitionVersion is null)
+            return null;
+        var key = AgentDefinitionCacheKey.Create(tenantContext.TenantId, agentName, definitionVersion);
         try
         {
             var cached = await distributedCache.Get<AgentDefinition>(key);
@@ -24,7 +27,7 @@ internal sealed class CachedAgentDefinitionStore(
             logger.LogWarning(ex, "Unable to read cached agent definition");
         }
 
-        var definition = await innerStore.GetAsync(agentName, cancellationToken);
+        var definition = (await innerStore.GetVersionAsync(agentName, definitionVersion, cancellationToken))?.Definition;
         if (definition is not null)
         {
             try
@@ -56,16 +59,20 @@ internal sealed class CachedAgentDefinitionStore(
             publishedBy,
             changeReason,
             cancellationToken);
-        try
-        {
-            await distributedCache.Delete(
-                AgentDefinitionCacheKey.Create(tenantContext.TenantId, definition.Name));
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Unable to invalidate cached agent definition after publication");
-        }
     }
+
+    /// <inheritdoc/>
+    public ValueTask<AgentDefinitionSnapshotItem?> GetActiveAsync(
+        string agentName,
+        CancellationToken cancellationToken) =>
+        innerStore.GetActiveAsync(agentName, cancellationToken);
+
+    /// <inheritdoc/>
+    public ValueTask<AgentDefinitionSnapshotItem?> GetVersionAsync(
+        string agentName,
+        string definitionVersion,
+        CancellationToken cancellationToken) =>
+        innerStore.GetVersionAsync(agentName, definitionVersion, cancellationToken);
 
     /// <inheritdoc/>
     public ValueTask<IReadOnlyList<AgentDefinitionHistoryItem>> GetHistoryAsync(
@@ -73,4 +80,27 @@ internal sealed class CachedAgentDefinitionStore(
         int limit,
         CancellationToken cancellationToken) =>
         innerStore.GetHistoryAsync(agentName, limit, cancellationToken);
+
+    /// <inheritdoc/>
+    public async ValueTask<bool> ActivateAsync(
+        string agentName,
+        string definitionVersion,
+        string? activatedBy,
+        string? changeReason,
+        CancellationToken cancellationToken)
+    {
+        return await innerStore.ActivateAsync(
+            agentName,
+            definitionVersion,
+            activatedBy,
+            changeReason,
+            cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public ValueTask<IReadOnlyList<AgentDefinitionActivationItem>> GetActivationHistoryAsync(
+        string agentName,
+        int limit,
+        CancellationToken cancellationToken) =>
+        innerStore.GetActivationHistoryAsync(agentName, limit, cancellationToken);
 }

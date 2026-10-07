@@ -15,3 +15,8 @@ session JSON.
 `StreamAgentAsync` incrementally yields live delegation/compaction events and then the final response
 using a streamed JSON response. Callers opt into tool arguments and property bags through
 `RunAgentRequest.IncludeDiagnosticDetails` only when their diagnostic destination is operator-controlled.
+
+Register `IAgentDefinitionAdminClient` separately with `AddAgentDefinitionAdminClient()`. It publishes
+inactive immutable snapshots, reads active/version/history state, activates or rolls back versions,
+and reads activation audit history. Attach control-plane credentials carrying definition scopes to
+that client; execution workloads need not receive those permissions.

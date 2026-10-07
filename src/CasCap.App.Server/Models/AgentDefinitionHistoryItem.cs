@@ -17,4 +17,7 @@ public sealed record AgentDefinitionHistoryItem
 
     /// <summary>Gets the publication reason.</summary>
     public string? ChangeReason { get; init; }
+
+    /// <summary>Gets whether this snapshot is active.</summary>
+    public bool IsActive { get; init; }
 }

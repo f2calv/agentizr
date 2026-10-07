@@ -83,6 +83,8 @@ public static class AgentRuntimeEndpoints
             .Produces(StatusCodes.Status404NotFound)
             .ProducesValidationProblem();
 
+        group.MapAgentDefinitionAdministration(authorizationRequired);
+
         return app;
     }
 

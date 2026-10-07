@@ -26,4 +26,19 @@ public static class AgentRuntimeRoutes
 
     /// <summary>Gets the route for complete per-session runtime overrides.</summary>
     public const string SessionOverrides = "/sessions/{sessionId}/overrides";
+
+    /// <summary>Gets the route for publishing and listing immutable definitions.</summary>
+    public const string Definitions = "/definitions";
+
+    /// <summary>Gets the route for one immutable definition version.</summary>
+    public const string DefinitionVersion = "/definitions/{definitionVersion}";
+
+    /// <summary>Gets the route for the active definition.</summary>
+    public const string ActiveDefinition = "/definitions/active";
+
+    /// <summary>Gets the route for activating an immutable definition version.</summary>
+    public const string DefinitionActivation = "/definitions/{definitionVersion}/activate";
+
+    /// <summary>Gets the route for activation and rollback history.</summary>
+    public const string DefinitionActivations = "/definitions/activations";
 }

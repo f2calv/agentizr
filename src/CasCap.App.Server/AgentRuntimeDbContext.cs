@@ -15,6 +15,9 @@ public sealed class AgentRuntimeDbContext(
     /// <summary>Gets active definition pointers.</summary>
     public DbSet<ActiveAgentDefinitionEntity> ActiveAgentDefinitions => Set<ActiveAgentDefinitionEntity>();
 
+    /// <summary>Gets append-only definition activation history.</summary>
+    public DbSet<AgentDefinitionActivationEntity> AgentDefinitionActivations => Set<AgentDefinitionActivationEntity>();
+
     /// <inheritdoc/>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -60,6 +63,30 @@ public sealed class AgentRuntimeDbContext(
                 .HasConstraintName("fk_active_agent_definitions_snapshot");
             entity.HasIndex(active => new { active.TenantId, active.AgentName, active.SnapshotId })
                 .HasDatabaseName("ix_active_agent_definitions_tenant_agent_snapshot");
+        });
+
+        modelBuilder.Entity<AgentDefinitionActivationEntity>(entity =>
+        {
+            entity.ToTable("agent_definition_activations", schema);
+            entity.HasKey(activation => activation.Id).HasName("pk_agent_definition_activations");
+            entity.Property(activation => activation.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            entity.Property(activation => activation.TenantId).HasColumnName("tenant_id").HasMaxLength(200);
+            entity.Property(activation => activation.AgentName).HasColumnName("agent_name").HasMaxLength(200);
+            entity.Property(activation => activation.SnapshotId).HasColumnName("snapshot_id");
+            entity.Property(activation => activation.ActivatedAtUtc).HasColumnName("activated_at_utc").HasDefaultValueSql("NOW()");
+            entity.Property(activation => activation.ActivatedBy).HasColumnName("activated_by").HasMaxLength(200);
+            entity.Property(activation => activation.ChangeReason).HasColumnName("change_reason").HasMaxLength(2_000);
+            entity.HasOne(activation => activation.Snapshot)
+                .WithMany()
+                .HasForeignKey(activation => new { activation.TenantId, activation.AgentName, activation.SnapshotId })
+                .HasPrincipalKey(snapshot => new { snapshot.TenantId, snapshot.AgentName, snapshot.Id })
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_agent_definition_activations_snapshot");
+            entity.HasIndex(activation => new { activation.TenantId, activation.AgentName, activation.Id })
+                .IsDescending(false, false, true)
+                .HasDatabaseName("ix_agent_definition_activations_tenant_agent_id");
+            entity.HasIndex(activation => new { activation.TenantId, activation.AgentName, activation.SnapshotId })
+                .HasDatabaseName("ix_agent_definition_activations_tenant_agent_snapshot");
         });
     }
 }

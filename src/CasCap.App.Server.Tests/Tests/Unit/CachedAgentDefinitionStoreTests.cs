@@ -26,7 +26,7 @@ public sealed class CachedAgentDefinitionStoreTests : IAsyncLifetime
     public async ValueTask DisposeAsync() => await _connection.DisposeAsync();
 
     [Fact]
-    public async Task PublishAsync_InvalidatesCachedActiveDefinition()
+    public async Task ActivateAsync_SelectsVersionQualifiedCachedDefinition()
     {
         var tenantContext = new StaticTenantContext("tenant-a");
         var innerStore = new PostgresAgentDefinitionStore(_dbContextFactory, tenantContext, TimeProvider.System);
@@ -37,19 +37,24 @@ public sealed class CachedAgentDefinitionStoreTests : IAsyncLifetime
             NullLogger<CachedAgentDefinitionStore>.Instance,
             tenantContext);
         await innerStore.PublishAsync(CreateDefinition("v1"), 1, null, null, CancellationToken.None);
+        await innerStore.ActivateAsync("assistant", "v1", null, null, CancellationToken.None);
 
         var first = await store.GetAsync("assistant", CancellationToken.None);
-        var cacheKey = AgentDefinitionCacheKey.Create("tenant-a", "assistant");
-        var cached = await _cache.Get<AgentDefinition>(cacheKey);
+        var version1Key = AgentDefinitionCacheKey.Create("tenant-a", "assistant", "v1");
+        var cached = await _cache.Get<AgentDefinition>(version1Key);
         await store.PublishAsync(CreateDefinition("v2"), 1, null, null, CancellationToken.None);
-        var afterPublish = await _cache.Get<AgentDefinition>(cacheKey);
+        var afterPublish = await _cache.Get<AgentDefinition>(version1Key);
+        await store.ActivateAsync("assistant", "v2", null, null, CancellationToken.None);
         var second = await store.GetAsync("assistant", CancellationToken.None);
+        var version2Key = AgentDefinitionCacheKey.Create("tenant-a", "assistant", "v2");
+        var cachedVersion2 = await _cache.Get<AgentDefinition>(version2Key);
 
         Assert.Equal("v1", first?.Version);
         Assert.Equal("v1", cached?.Version);
         Assert.Null(cached?.Provider.ApiKey);
-        Assert.Null(afterPublish);
+        Assert.Equal("v1", afterPublish?.Version);
         Assert.Equal("v2", second?.Version);
+        Assert.Equal("v2", cachedVersion2?.Version);
     }
 
     private static AgentDefinition CreateDefinition(string version) => new()

@@ -33,6 +33,19 @@ public sealed class TenantSecurityStartupTests
     }
 
     [Fact]
+    public async Task DevelopmentWithTenantAuthentication_AnonymousDefinitionReadIsRejected()
+    {
+        using var factory = CreateAuthenticatedFactory("Development");
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync(
+            "/api/v1/agents/assistant/definitions",
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public void ProductionWithoutRedis_IsRejected()
     {
         using var factory = CreateAuthenticatedFactory("Production");

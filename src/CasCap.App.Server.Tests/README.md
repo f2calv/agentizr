@@ -12,18 +12,19 @@ The tests launch the real application through `WebApplicationFactory<Program>` a
 | --- | ---: | ---: | --- |
 | `EndpointSmokeTests` | 1 | 2 | Verifies `/` and `/healthz` return HTTP 200 |
 | `AgentRuntimeProtocolTests` | 6 | 6 | Verifies typed-client execution, live event streaming, validation, and complete session-control lifecycle |
-| `TenantSecurityStartupTests` | 3 | 3 | Verifies anonymous JWT rejection and Production requirements for authentication and Redis |
+| `AgentDefinitionAdministrationProtocolTests` | 9 | 17 | Verifies inactive publication, activation, rollback, audit attribution, strict policy/delegation rejection, conflicts, and bounded history |
+| `TenantSecurityStartupTests` | 4 | 4 | Verifies anonymous execution/control-plane rejection and Production requirements for authentication and Redis |
 | `AgentExecutionCoordinatorTests` | 3 | 3 | Verifies definition, credential, override, session, bypass, and executor orchestration |
 | `TenantStateIsolationTests` | 3 | 3 | Proves tenant isolation, collision-free keys, pod-replacement persistence, and definition-version invalidation |
 | `AuthenticatedTenantContextTests` | 3 | 3 | Verifies claim-derived identity, missing-claim rejection, and opaque Redis keys |
 | `PostgresAgentDefinitionStoreTests` | 3 | 3 | Verifies immutable publication, active-version changes, duplicate rejection, history, and tenant isolation |
-| `CachedAgentDefinitionStoreTests` | 1 | 1 | Verifies secret-free read-through caching and publication invalidation |
+| `CachedAgentDefinitionStoreTests` | 1 | 1 | Verifies secret-free read-through caching and activation invalidation |
 
 ## Trait Categories
 
 | Category | Test-case count | Purpose |
 | --- | ---: | --- |
-| `Integration` | 11 | In-memory ASP.NET Core host, protocol, and startup security tests |
+| `Integration` | 29 | In-memory ASP.NET Core host, execution/control protocols, and startup security tests |
 | `Agent Runtime` | 7 | Runtime orchestration, definition persistence, and caching without external services |
 | `Tenant Isolation` | 6 | Cross-tenant state and identity isolation |
 
@@ -37,6 +38,8 @@ There are no skipped tests.
 Tests/
 ├── Integration/
 │   ├── AgentizrWebApplicationFactory.cs
+│   ├── AgentDefinitionAdministrationProtocolTests.cs
+│   ├── AgentDefinitionAdministrationWebApplicationFactory.cs
 │   ├── AgentRuntimeProtocolTests.cs
 │   ├── EndpointSmokeTests.cs
 │   ├── HostIntegrationCollection.cs

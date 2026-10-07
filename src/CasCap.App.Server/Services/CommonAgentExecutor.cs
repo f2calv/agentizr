@@ -19,6 +19,8 @@ internal sealed class CommonAgentExecutor(
     IAgentDefinitionStore definitionStore,
     IProviderCredentialStore credentialStore) : IAgentExecutor
 {
+    private const int MaximumDelegationDepth = 5;
+
     /// <inheritdoc/>
     public async ValueTask<AgentExecutionResult> ExecuteAsync(
         AgentExecutionContext context,
@@ -204,6 +206,8 @@ internal sealed class CommonAgentExecutor(
             [Description("The task or question to pass to this specialist agent.")] string task,
             CancellationToken invocationCancellationToken = default)
         {
+            if (parentScope.Depth >= MaximumDelegationDepth)
+                throw new InvalidOperationException($"Agent delegation cannot exceed {MaximumDelegationDepth} levels.");
             var childScope = parentScope.ForSubAgent();
             PublishEvent(request, events, new AgentExecutionEvent
             {

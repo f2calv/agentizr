@@ -25,4 +25,24 @@ public static class AgentRuntimeClientServiceCollectionExtensions
             httpClient.Timeout = TimeSpan.FromMinutes(options.TimeoutMinutes);
         });
     }
+
+    /// <summary>Registers the typed definition administration HTTP client.</summary>
+    /// <returns>The HTTP client builder for control-plane authentication and resilience handlers.</returns>
+    public static IHttpClientBuilder AddAgentDefinitionAdminClient(this IServiceCollection services)
+    {
+        services.AddOptions<AgentRuntimeClientOptions>()
+            .BindConfiguration(AgentRuntimeClientOptions.ConfigurationSectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        return services.AddHttpClient<IAgentDefinitionAdminClient, CasCap.AgentRuntime.Client.AgentDefinitionAdminClient>(
+            (serviceProvider, httpClient) =>
+            {
+                var options = serviceProvider
+                    .GetRequiredService<IOptions<AgentRuntimeClientOptions>>()
+                    .Value;
+                httpClient.BaseAddress = options.BaseAddress;
+                httpClient.Timeout = TimeSpan.FromMinutes(options.TimeoutMinutes);
+            });
+    }
 }

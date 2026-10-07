@@ -25,7 +25,7 @@ public sealed class PostgresAgentDefinitionStoreTests : IAsyncLifetime
     public async ValueTask DisposeAsync() => await _connection.DisposeAsync();
 
     [Fact]
-    public async Task PublishAsync_ChangesActiveVersionAndRetainsHistory()
+    public async Task DefinitionLifecycle_PublishesActivatesAndRetainsHistory()
     {
         var store = new PostgresAgentDefinitionStore(
             _dbContextFactory,
@@ -33,11 +33,16 @@ public sealed class PostgresAgentDefinitionStoreTests : IAsyncLifetime
             _timeProvider);
 
         await store.PublishAsync(CreateDefinition("v1", "model-v1"), 1, "operator", "initial", CancellationToken.None);
+        Assert.Null(await store.GetAsync("assistant", CancellationToken.None));
+        Assert.True(await store.ActivateAsync("assistant", "v1", "operator", "initial activation", CancellationToken.None));
         _timeProvider.Advance(TimeSpan.FromMinutes(1));
         await store.PublishAsync(CreateDefinition("v2", "model-v2"), 1, "operator", "upgrade", CancellationToken.None);
+        Assert.Equal("v1", (await store.GetAsync("assistant", CancellationToken.None))?.Version);
+        Assert.True(await store.ActivateAsync("assistant", "v2", "operator", "upgrade activation", CancellationToken.None));
 
         var active = await store.GetAsync("assistant", CancellationToken.None);
         var history = await store.GetHistoryAsync("assistant", 10, CancellationToken.None);
+        var activations = await store.GetActivationHistoryAsync("assistant", 10, CancellationToken.None);
 
         Assert.NotNull(active);
         Assert.Equal("v2", active.Version);
@@ -46,6 +51,10 @@ public sealed class PostgresAgentDefinitionStoreTests : IAsyncLifetime
         Assert.Equal(["v2", "v1"], history.Select(item => item.DefinitionVersion));
         Assert.All(history, item => Assert.Equal(1, item.SchemaVersion));
         Assert.Equal(["upgrade", "initial"], history.Select(item => item.ChangeReason));
+        Assert.True(history[0].IsActive);
+        Assert.False(history[1].IsActive);
+        Assert.Equal(["v2", "v1"], activations.Select(item => item.DefinitionVersion));
+        Assert.Equal(["upgrade activation", "initial activation"], activations.Select(item => item.ChangeReason));
 
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(TestContext.Current.CancellationToken);
         var persistedJson = await dbContext.AgentDefinitionSnapshots
@@ -64,8 +73,9 @@ public sealed class PostgresAgentDefinitionStoreTests : IAsyncLifetime
             _timeProvider);
         var definition = CreateDefinition("v1", "model-v1");
         await store.PublishAsync(definition, 1, null, null, CancellationToken.None);
+        await store.ActivateAsync("assistant", "v1", null, null, CancellationToken.None);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<CasCap.Exceptions.AgentDefinitionVersionConflictException>(async () =>
             await store.PublishAsync(definition, 1, null, null, CancellationToken.None));
 
         var active = await store.GetAsync("assistant", CancellationToken.None);
@@ -87,9 +97,11 @@ public sealed class PostgresAgentDefinitionStoreTests : IAsyncLifetime
             _timeProvider);
 
         await tenantA.PublishAsync(CreateDefinition("v1", "model-a"), 1, null, null, CancellationToken.None);
+        await tenantA.ActivateAsync("assistant", "v1", null, null, CancellationToken.None);
 
         Assert.Null(await tenantB.GetAsync("assistant", CancellationToken.None));
         await tenantB.PublishAsync(CreateDefinition("v1", "model-b"), 1, null, null, CancellationToken.None);
+        await tenantB.ActivateAsync("assistant", "v1", null, null, CancellationToken.None);
         Assert.Equal("model-a", (await tenantA.GetAsync("assistant", CancellationToken.None))?.Provider.ModelName);
         Assert.Equal("model-b", (await tenantB.GetAsync("assistant", CancellationToken.None))?.Provider.ModelName);
     }

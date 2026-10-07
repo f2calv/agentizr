@@ -5,7 +5,7 @@ using Microsoft.Extensions.Configuration;
 namespace CasCap.IntegrationTests;
 
 /// <summary>Runs agentizr with a synthetic tenant definition and deterministic executor.</summary>
-public sealed class AgentizrWebApplicationFactory : WebApplicationFactory<Program>
+public class AgentizrWebApplicationFactory : WebApplicationFactory<Program>
 {
     /// <inheritdoc/>
     protected override void ConfigureWebHost(IWebHostBuilder builder)

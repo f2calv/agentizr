@@ -21,6 +21,10 @@ Everything below is specific to this repository.
   DTOs.
 - Keep PostgreSQL as the definition authority. Store immutable schema-versioned JSONB snapshots and
   select the active version through a separate tenant-and-agent-qualified pointer.
+- Keep publication and activation separate: publication appends an inactive immutable snapshot;
+  activation alone advances the pointer and appends actor/reason audit history.
+- Protect definition reads, publication and activation with separate scopes. Derive tenant,
+  publisher and activation actor identity from validated claims, never request DTOs.
 - Use Redis only for secret-free definition caching and version-qualified runtime state. Provider
   credentials remain behind `IProviderCredentialStore` and must not enter PostgreSQL or Redis.
 - Apply EF migrations externally. Never use `HasData` for runtime definitions or other mutable,

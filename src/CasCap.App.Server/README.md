@@ -1,7 +1,7 @@
 # CasCap.App.Server
 
-The .NET 10 ASP.NET Core host for agentizr. It owns the initial multi-tenant runtime contracts and
-configuration adapters and exposes the v1 execution contract in Development.
+The .NET 10 ASP.NET Core host for agentizr. It owns the multi-tenant execution and definition
+control-plane APIs plus Development configuration adapters.
 
 ## Purpose
 
@@ -34,6 +34,11 @@ stores with stateless delegated sessions.
 | `PUT/DELETE /api/v1/agents/{agentName}/sessions/{sessionId}/snapshots/{snapshotName}` | Saves or deletes a named snapshot |
 | `POST /api/v1/agents/{agentName}/sessions/{sessionId}/snapshots/{snapshotName}/activate` | Loads a named snapshot |
 | `GET/PUT /api/v1/agents/{agentName}/sessions/{sessionId}/overrides` | Gets or replaces complete runtime overrides |
+| `POST/GET /api/v1/agents/{agentName}/definitions` | Publishes an inactive immutable snapshot or lists history |
+| `GET /api/v1/agents/{agentName}/definitions/{definitionVersion}` | Gets one immutable snapshot |
+| `GET /api/v1/agents/{agentName}/definitions/active` | Gets the active snapshot |
+| `PUT /api/v1/agents/{agentName}/definitions/{definitionVersion}/activate` | Activates or rolls back to a version |
+| `GET /api/v1/agents/{agentName}/definitions/activations` | Gets activation and rollback audit history |
 
 Controllers are registered and mapped, but no controller exists in the initial scaffold.
 The execution surface uses minimal APIs and derives tenancy from `ITenantContext`, never from the
@@ -50,11 +55,25 @@ Development adapter.
 
 Outside Development, `AgentRuntimeDatabaseConfig` supplies PostgreSQL. Immutable definition
 snapshots store schema-versioned JSONB plus publisher/reason metadata, while a separate active
-pointer selects one version per tenant agent. Redis is a read-through cache, not the authority.
+pointer selects one version per tenant agent. Publication never changes live traffic; activation
+atomically advances the pointer and appends actor/reason audit history. Redis is a read-through
+cache, not the authority.
 
 `TenantAuthenticationConfig` binds from `CasCap:TenantAuthenticationConfig`. When enabled, JWT
 validation derives `ITenantContext.TenantId` from the configured claim. Authentication and Redis
 state are mandatory outside Development; startup fails closed when either is missing.
+
+Definition administration uses separate `agent.definition.read`, `agent.definition.publish` and
+`agent.definition.activate` scopes. Publisher and activation actor identifiers come from validated
+principal claims, never request bodies. Provider credentials remain behind
+`IProviderCredentialStore` and definition publication rejects embedded API keys.
+
+`AgentDefinitionPolicyConfig` limits publication to supported schema versions and explicit provider,
+remote MCP and in-process service-tool allowlists. Version 1 requires inline instructions, rejects
+arbitrary settings and prompt sources, uses strict JSON member handling, and rejects URI credentials,
+queries and fragments. Activation verifies delegated agents exist, rejects cycles and caps delegation
+depth; execution enforces the same cap. Tracked defaults permit only local Ollama and no MCP/service
+tools.
 
 Sessions and overrides use `CasCap.Common.Caching` Redis storage with opaque SHA-256 keys and
 `AgentRuntimeConfig.StateSlidingExpirationHours`. Redis stores serialized runtime state and
@@ -65,12 +84,15 @@ The definition version participates in every session and override key, so changi
 version invalidates state by namespace without scanning Redis. Previous snapshots and state remain
 available for rollback until normal retention expires.
 
+Execution reads the active version pointer from PostgreSQL and caches immutable definitions under
+version-qualified keys, so activation cannot race with stale active-definition cache writes.
+
 Named session snapshots use their own opaque state namespace. Session inspection and compaction are
 performed inside the runtime through Agent Framework serialization; raw session JSON never crosses
 the HTTP boundary.
 
-EF migrations are applied externally and create schema only. Definitions are published through
-`IAgentDefinitionStore`; the model deliberately contains no `HasData` payload.
+EF migrations are applied externally and create schema only. The model deliberately contains no
+`HasData` payload.
 
 ## Dependencies
 

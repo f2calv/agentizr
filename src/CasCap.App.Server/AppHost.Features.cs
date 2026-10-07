@@ -16,6 +16,9 @@ public static partial class AppHost
         builder.Services.AddOptionsWithValidateOnStart<AgentRuntimeConfig>()
             .BindConfiguration(AgentRuntimeConfig.ConfigurationSectionName)
             .ValidateDataAnnotations();
+        builder.Services.AddOptionsWithValidateOnStart<AgentDefinitionPolicyConfig>()
+            .BindConfiguration(AgentDefinitionPolicyConfig.ConfigurationSectionName)
+            .ValidateDataAnnotations();
 
         var cachingConfig = builder.Configuration
             .GetSection(CachingConfig.ConfigurationSectionName)
@@ -40,9 +43,15 @@ public static partial class AppHost
             throw new InvalidOperationException("PostgreSQL Agent Runtime definitions are required outside Development.");
 
         if (tenantAuthenticationEnabled)
+        {
             builder.Services.AddScoped<ITenantContext, AuthenticatedTenantContext>();
+            builder.Services.AddScoped<IActorContext, AuthenticatedActorContext>();
+        }
         else
+        {
             builder.Services.AddScoped<ITenantContext, ConfiguredTenantContext>();
+            builder.Services.AddScoped<IActorContext, ConfiguredActorContext>();
+        }
 
         if (postgresEnabled)
         {
@@ -50,13 +59,29 @@ public static partial class AppHost
                 options.UseNpgsql(databaseConfig.ConnectionString));
             builder.Services.AddScoped<PostgresAgentDefinitionStore>();
             if (redisEnabled)
-                builder.Services.AddScoped<IAgentDefinitionStore, CachedAgentDefinitionStore>();
+            {
+                builder.Services.AddScoped<CachedAgentDefinitionStore>();
+                builder.Services.AddScoped<IAgentDefinitionStore>(services =>
+                    services.GetRequiredService<CachedAgentDefinitionStore>());
+                builder.Services.AddScoped<IAgentDefinitionAdministrationStore>(services =>
+                    services.GetRequiredService<CachedAgentDefinitionStore>());
+            }
             else
+            {
                 builder.Services.AddScoped<IAgentDefinitionStore>(services =>
                     services.GetRequiredService<PostgresAgentDefinitionStore>());
+                builder.Services.AddScoped<IAgentDefinitionAdministrationStore>(services =>
+                    services.GetRequiredService<PostgresAgentDefinitionStore>());
+            }
         }
         else
-            builder.Services.AddScoped<IAgentDefinitionStore, ConfigurationAgentDefinitionStore>();
+        {
+            builder.Services.AddScoped<ConfigurationAgentDefinitionStore>();
+            builder.Services.AddScoped<IAgentDefinitionStore>(services =>
+                services.GetRequiredService<ConfigurationAgentDefinitionStore>());
+            builder.Services.AddScoped<IAgentDefinitionAdministrationStore>(services =>
+                services.GetRequiredService<ConfigurationAgentDefinitionStore>());
+        }
         builder.Services.AddScoped<IProviderCredentialStore, ConfigurationProviderCredentialStore>();
         if (redisEnabled)
         {
@@ -74,5 +99,6 @@ public static partial class AppHost
         builder.Services.AddScoped<IAgentExecutor, CommonAgentExecutor>();
         builder.Services.AddScoped<AgentExecutionCoordinator>();
         builder.Services.AddScoped<AgentSessionControlService>();
+        builder.Services.AddScoped<AgentDefinitionAdministrationService>();
     }
 }
