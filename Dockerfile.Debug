@@ -38,7 +38,7 @@ EOF
 # ------------------------------------------------------------------------------
 # Stage 2 of 2: final
 # ------------------------------------------------------------------------------
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 
 COPY --link --from=build /app/publish .
