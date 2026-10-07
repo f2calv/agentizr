@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 
 namespace CasCap.IntegrationTests;
 
@@ -9,6 +10,11 @@ public sealed class AgentDefinitionAdministrationWebApplicationFactory : Agentiz
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         base.ConfigureWebHost(builder);
+        builder.ConfigureAppConfiguration((_, configuration) =>
+            configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["CasCap:AgentDefinitionPolicyConfig:AllowedMcpAuthorities:0"] = "https://mcp.example.com",
+            }));
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IAgentDefinitionStore>();

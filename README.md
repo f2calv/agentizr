@@ -13,16 +13,19 @@ dotnet build agentizr.Debug.slnx --configuration Debug
 dotnet run --project src/CasCap.App.Server/CasCap.App.Server.csproj
 ```
 
-The running host exposes:
+The running host exposes versioned execution, session-control and definition-management APIs,
+including:
 
 | Endpoint | Purpose |
 | --- | --- |
 | `/` | Identifies the host |
 | `/healthz` | Reports host health |
-| `POST /api/v1/agents/{agentName}/runs` | Runs one tenant-scoped agent turn in Development |
+| `POST /api/v1/agents/{agentName}/runs` | Runs one tenant-scoped agent turn |
+| `POST /api/v1/agents/{agentName}/definitions` | Publishes an inactive immutable definition |
+| `PUT /api/v1/agents/{agentName}/definitions/{version}/activate` | Activates or rolls back a definition version |
 
-The execution route is deliberately mapped only in Development until authentication derives a
-trusted tenant identity. `RunAgentRequest` therefore contains no caller-supplied tenant identifier.
+Outside Development, JWT authentication derives trusted tenant and control-plane actor identity.
+Request DTOs contain neither tenant nor actor identifiers.
 
 ## NuGet Packages
 
@@ -43,16 +46,20 @@ and must arrive through a private configuration provider.
 Outside Development, `TenantAuthenticationConfig` must enable JWT validation with a trusted
 authority, audience, and tenant claim (default `tenant_id`). Redis must also be configured through
 `CasCap:CachingConfig:RemoteCacheConnectionString`. Sessions and overrides use opaque
-tenant/agent/session key digests and a configurable sliding expiry; definitions remain versioned
-configuration and provider credentials remain in the final private configuration provider.
+tenant/agent/session key digests and a configurable sliding expiry. Provider and logical MCP
+credentials remain in the final private configuration provider.
 
 Development bootstrap definitions and credentials use immutable startup options. Every state key
 includes the definition version, so publishing a new PostgreSQL version selects a fresh namespace
 immediately while the previous version remains available for rollback until its TTL expires.
 
-Definition publication appends a new immutable snapshot and atomically advances the active pointer.
-The snapshot rows are the audit/change history; this is intentionally not replay-based event
+Definition publication appends an inactive immutable snapshot. Activation alone advances the active
+pointer and appends actor/reason audit history; this is intentionally not replay-based event
 sourcing. No definitions are seeded through EF `HasData`.
+
+Remote MCP tool definitions carry only a logical credential name. The runtime resolves its
+tenant-scoped Authorization header from private configuration and creates/disposes the authenticated
+MCP client per run.
 
 Development may omit JWT and Redis. It then uses the configured default tenant and process-local
 state so the host and tests remain credential-free. Production startup fails when either control is
@@ -62,13 +69,12 @@ Set `AppConfig__OtlpExporterEndpoint` to an OTLP gRPC endpoint to enable OpenTel
 
 ## Current Boundaries
 
-The host now owns runtime contracts for definition and credential lookup, tenant-qualified session
-and override state, and execution coordination around an `IAgentExecutor`. The following work remains:
+The host owns runtime contracts for definitions, credentials, tenant-qualified state and execution.
+The following deployment work remains private-environment-specific:
 
-- Host-specific execution enrichers after their measurements have a tenant-safe contract
-- MCP or another agent transport
+- Homelab Argo CD Application values, database/Redis Secrets and initial definitions
+- Workload identity/JWT acquisition for non-Development callers
 - Frontend assets
-- Container, Helm, and deployment configuration
 
 Version 1 execution accepts optional binary content and session bypass, and returns model identity,
 finish reason, timing, token usage, tool-call names, attachments, and structured delegation and
@@ -98,6 +104,22 @@ Run the credential-free smoke tests:
 ```powershell
 dotnet test --project src/CasCap.App.Server.Tests/CasCap.App.Server.Tests.csproj
 ```
+
+Build the Debug image with adjacent project references:
+
+```powershell
+./build.ps1
+```
+
+Copy `deploy.local.psd1.example` to the gitignored `deploy.local.psd1`, set the private GitOps
+repository and Application path, then publish the Debug image and chart and patch that Application:
+
+```powershell
+./deploy.ps1 -Chart
+```
+
+The chart's `migrate` alias runs `agentizr --migrate` as an external PreSync Job. The runtime never
+applies migrations during normal startup.
 
 ## License
 

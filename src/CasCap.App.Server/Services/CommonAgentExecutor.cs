@@ -3,6 +3,7 @@ using CasCap.Common.Extensions;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Net.Http.Headers;
 using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -17,7 +18,8 @@ internal sealed class CommonAgentExecutor(
     IServiceProvider serviceProvider,
     IHostEnvironment hostEnvironment,
     IAgentDefinitionStore definitionStore,
-    IProviderCredentialStore credentialStore) : IAgentExecutor
+    IProviderCredentialStore credentialStore,
+    IMcpCredentialStore mcpCredentialStore) : IAgentExecutor
 {
     private const int MaximumDelegationDepth = 5;
 
@@ -167,7 +169,20 @@ internal sealed class CommonAgentExecutor(
 
             if (source.Endpoint is not null)
             {
-                var (client, remoteTools) = await AgentExtensions.GetHttpTools(source.Endpoint, logger);
+                IReadOnlyDictionary<string, string>? headers = null;
+                if (source.Credential is { Length: > 0 } credentialName)
+                {
+                    var authorization = await mcpCredentialStore.GetAuthorizationHeaderAsync(
+                        credentialName,
+                        cancellationToken)
+                        ?? throw new InvalidOperationException(
+                            $"Remote MCP credential '{credentialName}' is not available to the current tenant.");
+                    headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        [HeaderNames.Authorization] = authorization,
+                    };
+                }
+                var (client, remoteTools) = await AgentExtensions.GetHttpTools(source.Endpoint, headers, logger);
                 toolLeases.Add(client);
                 tools.AddRange(AgentExtensions.FilterTools(
                     remoteTools,

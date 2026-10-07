@@ -193,6 +193,42 @@ public sealed class AgentDefinitionAdministrationProtocolTests(
         Assert.Equal(HttpStatusCode.BadRequest, activateResponse.StatusCode);
     }
 
+    [Fact]
+    public async Task ActivateDefinition_MissingMcpCredentialReturnsBadRequest()
+    {
+        using var httpClient = factory.CreateClient();
+        var request = CreatePublishRequest("missing-mcp-credential", "model") with
+        {
+            Definition = JsonSerializer.SerializeToElement(new
+            {
+                agent = CreateAgentConfig() with
+                {
+                    Tools =
+                    [
+                        new ToolSource
+                        {
+                            Endpoint = "https://mcp.example.com/mcp",
+                            Credential = "missing-credential",
+                        },
+                    ],
+                },
+                provider = CreateProviderConfig("model"),
+            }, JsonSerializerOptions.Web),
+        };
+        using var publishResponse = await httpClient.PostAsJsonAsync(
+            "/api/v1/agents/mcp-agent/definitions",
+            request,
+            TestContext.Current.CancellationToken);
+
+        using var activateResponse = await httpClient.PutAsJsonAsync(
+            "/api/v1/agents/mcp-agent/definitions/missing-mcp-credential/activate",
+            new ActivateAgentDefinitionRequest(),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Created, publishResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, activateResponse.StatusCode);
+    }
+
     private static PublishAgentDefinitionRequest CreatePublishRequest(string version, string modelName) => new()
     {
         DefinitionVersion = version,

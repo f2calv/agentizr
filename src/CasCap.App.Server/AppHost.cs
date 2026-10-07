@@ -11,6 +11,7 @@ public static partial class AppHost
     /// <param name="args">Command-line arguments forwarded from the entry point.</param>
     public static async Task RunAsync(string[] args)
     {
+        var migrateOnly = args.Contains("--migrate", StringComparer.Ordinal);
         // TODO: Add shared bootstrap logging before CreateBuilder so pre-host failures are captured.
         var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +34,15 @@ public static partial class AppHost
         AddFeatures(builder, gitMetadata, tenantAuthenticationEnabled);
 
         var app = builder.Build();
+
+        if (migrateOnly)
+        {
+            await using var scope = app.Services.CreateAsyncScope();
+            await scope.ServiceProvider
+                .GetRequiredService<AgentRuntimeDatabaseMigrator>()
+                .MigrateAsync(CancellationToken.None);
+            return;
+        }
 
         MapEndpoints(app, tenantAuthenticationEnabled);
 

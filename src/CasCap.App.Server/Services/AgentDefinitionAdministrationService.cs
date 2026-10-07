@@ -9,6 +9,7 @@ namespace CasCap.Services;
 public sealed class AgentDefinitionAdministrationService(
     IOptions<AgentDefinitionPolicyConfig> policyConfig,
     IActorContext actorContext,
+    IMcpCredentialStore mcpCredentialStore,
     IAgentDefinitionAdministrationStore administrationStore)
 {
     private const int MaximumDelegationDepth = 5;
@@ -177,6 +178,12 @@ public sealed class AgentDefinitionAdministrationService(
                 cancellationToken);
             if (validationError is not null)
                 return validationError;
+        }
+        foreach (var remoteTool in definition.Agent.Tools.Where(tool => tool.Endpoint is not null))
+        {
+            if (remoteTool.Credential is { Length: > 0 } credentialName
+                && await mcpCredentialStore.GetAuthorizationHeaderAsync(credentialName, cancellationToken) is null)
+                return $"Remote MCP credential '{credentialName}' is not available to the current tenant.";
         }
         path.Remove(definition.Name);
         return null;

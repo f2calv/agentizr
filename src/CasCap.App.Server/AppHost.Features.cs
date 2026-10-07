@@ -57,6 +57,7 @@ public static partial class AppHost
         {
             builder.Services.AddDbContextFactory<AgentRuntimeDbContext>(options =>
                 options.UseNpgsql(databaseConfig.ConnectionString));
+            builder.Services.AddScoped<AgentRuntimeDatabaseMigrator>();
             builder.Services.AddScoped<PostgresAgentDefinitionStore>();
             if (redisEnabled)
             {
@@ -83,6 +84,7 @@ public static partial class AppHost
                 services.GetRequiredService<ConfigurationAgentDefinitionStore>());
         }
         builder.Services.AddScoped<IProviderCredentialStore, ConfigurationProviderCredentialStore>();
+        builder.Services.AddScoped<IMcpCredentialStore, ConfigurationMcpCredentialStore>();
         if (redisEnabled)
         {
             builder.Services.AddScoped<IAgentSessionStore, RedisAgentSessionStore>();

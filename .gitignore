@@ -434,6 +434,7 @@ FodyWeavers.xsd
 # Custom local files
 *.tgz
 *.lock
+!charts/agentizr/Chart.lock
 manifest*
 appsettings.Local.json
 appsettings.Local.*.json
@@ -441,6 +442,7 @@ appsettings.*.Local.json
 
 # Local sibling repositories used by Debug builds in isolated environments
 deps/
+deploy.local.psd1
 
 # PII scan reports may contain extracted private values
 pii-report*.csv

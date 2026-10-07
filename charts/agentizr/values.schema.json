@@ -1,0 +1,31 @@
+{
+    "$schema": "https://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+        "_shared": {
+            "description": "Optional deployment-owned values merged into both workload aliases.",
+            "type": "object"
+        },
+        "runtime": {
+            "description": "Agent Runtime HTTP service; validated by the workload dependency.",
+            "type": "object",
+            "properties": {
+                "replicaCount": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
+        "migrate": {
+            "description": "One-shot external EF Core migration job; validated by the workload dependency.",
+            "type": "object",
+            "properties": {
+                "replicaCount": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        }
+    }
+}

@@ -75,6 +75,11 @@ queries and fragments. Activation verifies delegated agents exist, rejects cycle
 depth; execution enforces the same cap. Tracked defaults permit only local Ollama and no MCP/service
 tools.
 
+Remote MCP definitions store only `ToolSource.Credential`, a logical tenant-local name. The runtime
+resolves its `Scheme` and secret `Parameter` from `AgentRuntimeConfig:Tenants:{tenant}:McpCredentials`
+through the final private configuration provider, validates availability before activation, and
+passes the resulting Authorization header only to the per-run MCP transport.
+
 Sessions and overrides use `CasCap.Common.Caching` Redis storage with opaque SHA-256 keys and
 `AgentRuntimeConfig.StateSlidingExpirationHours`. Redis stores serialized runtime state and
 secret-free active-definition cache entries, never provider credentials. Development falls back to

@@ -35,4 +35,19 @@ public sealed record TenantAgentConfig
 
     /// <summary>Gets agents keyed by stable agent name.</summary>
     public Dictionary<string, AgentConfig> Agents { get; init; } = [];
+
+    /// <summary>Gets remote MCP credentials keyed by logical definition reference.</summary>
+    public Dictionary<string, McpCredentialConfig> McpCredentials { get; init; } = [];
+}
+
+/// <summary>Secret-backed Authorization header components for one remote MCP endpoint.</summary>
+public sealed record McpCredentialConfig
+{
+    /// <summary>Gets the Authorization scheme, such as Bearer or Basic.</summary>
+    [Required, MinLength(1), MaxLength(50)]
+    public required string Scheme { get; init; }
+
+    /// <summary>Gets the secret Authorization parameter from the private configuration chain.</summary>
+    [Required, MinLength(1)]
+    public required string Parameter { get; init; }
 }

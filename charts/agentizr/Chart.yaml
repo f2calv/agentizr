@@ -1,0 +1,18 @@
+apiVersion: v2
+name: agentizr
+description: Umbrella chart for the CasCap multi-tenant Agent Runtime and its external migration job.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+sources:
+  - https://github.com/f2calv/agentizr
+
+dependencies:
+  - name: workload
+    version: 1.1.0
+    repository: oci://ghcr.io/f2calv/charts
+    alias: runtime
+  - name: workload
+    version: 1.1.0
+    repository: oci://ghcr.io/f2calv/charts
+    alias: migrate

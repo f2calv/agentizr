@@ -1,0 +1,7 @@
+@{
+    ManifestRepo      = 'C:\path\to\gitops-repository'
+    ManifestPath      = 'path/to/application.yaml'
+    PodAnnotationName = 'agent-runtime.example.com/deployed-version'
+    ChartPath         = 'charts/agentizr'
+    ChartRepository   = 'f2calv/charts/agentizr'
+}

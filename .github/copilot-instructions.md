@@ -26,7 +26,8 @@ Everything below is specific to this repository.
 - Protect definition reads, publication and activation with separate scopes. Derive tenant,
   publisher and activation actor identity from validated claims, never request DTOs.
 - Use Redis only for secret-free definition caching and version-qualified runtime state. Provider
-  credentials remain behind `IProviderCredentialStore` and must not enter PostgreSQL or Redis.
+  and MCP credentials remain behind `IProviderCredentialStore` / `IMcpCredentialStore` and must not
+  enter PostgreSQL or Redis.
 - Apply EF migrations externally. Never use `HasData` for runtime definitions or other mutable,
   tenant-owned data.
 

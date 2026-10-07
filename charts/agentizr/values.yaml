@@ -1,0 +1,65 @@
+# Public-safe defaults keep both workloads dormant. A deployment supplies PostgreSQL, Redis,
+# tenancy, credentials and publication allowlists through environment variables and Secrets.
+
+runtime:
+  replicaCount: 0
+  fullnameOverride: agentizr
+  image:
+    repository: ghcr.io/f2calv/agentizr
+    pullPolicy: IfNotPresent
+    tag: ""
+  service:
+    enabled: true
+    name: http
+    type: ClusterIP
+    port: 80
+    containerPort: 8080
+    protocol: TCP
+  startupProbe:
+    httpGet:
+      path: /healthz
+      port: 8080
+    periodSeconds: 10
+    failureThreshold: 12
+  readinessProbe:
+    httpGet:
+      path: /healthz
+      port: 8080
+    periodSeconds: 10
+    failureThreshold: 3
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 8080
+    periodSeconds: 20
+    failureThreshold: 3
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+migrate:
+  replicaCount: 0
+  kind: Job
+  fullnameOverride: agentizr-migrate
+  image:
+    repository: ghcr.io/f2calv/agentizr
+    pullPolicy: IfNotPresent
+    tag: ""
+  service:
+    enabled: false
+  args:
+    - --migrate
+  startupProbe: false
+  readinessProbe: false
+  livenessProbe: false
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi

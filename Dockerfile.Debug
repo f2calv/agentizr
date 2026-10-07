@@ -1,0 +1,66 @@
+# syntax=docker/dockerfile:1
+# Debug image built from agentizr and its adjacent CasCap.Common checkout.
+# Profile: debug
+
+# ------------------------------------------------------------------------------
+# Stage 1 of 2: build
+# ------------------------------------------------------------------------------
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /repo
+COPY ["Directory.Build.props", "Directory.Packages.props", "global.json", "./"]
+
+ARG WORKLOAD=CasCap.App.Server
+ARG CONFIGURATION=Debug
+
+# -- Dependency layer ----------------------------------------------------------
+COPY --parents deps/./**/*.csproj deps/./**/*.props /
+COPY --parents src/**/*.csproj ./
+RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked \
+    dotnet restore "src/$WORKLOAD/$WORKLOAD.csproj"
+
+# -- Compile layer -------------------------------------------------------------
+COPY deps/CasCap.Common /CasCap.Common
+COPY . .
+
+ARG TARGETARCH
+ARG TARGETVARIANT
+RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked <<EOF
+set -eux
+case "${TARGETARCH}${TARGETVARIANT}" in
+    amd64) RID=linux-x64   ;;
+    arm64) RID=linux-arm64 ;;
+    armv7) RID=linux-arm   ;;
+    *) echo "unsupported platform: linux/${TARGETARCH}/${TARGETVARIANT}" >&2; exit 1 ;;
+esac
+dotnet publish "src/$WORKLOAD/$WORKLOAD.csproj" -c "$CONFIGURATION" -o /app/publish -r "$RID" --self-contained false
+EOF
+
+# ------------------------------------------------------------------------------
+# Stage 2 of 2: final
+# ------------------------------------------------------------------------------
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled AS final
+WORKDIR /app
+
+COPY --link --from=build /app/publish .
+
+# -- Provenance ----------------------------------------------------------------
+ARG GIT_REPOSITORY=n/a
+ENV GIT_REPOSITORY=$GIT_REPOSITORY
+ARG GIT_BRANCH=n/a
+ENV GIT_BRANCH=$GIT_BRANCH
+ARG GIT_COMMIT=n/a
+ENV GIT_COMMIT=$GIT_COMMIT
+ARG GIT_TAG=n/a
+ENV GIT_TAG=$GIT_TAG
+ARG GITHUB_WORKFLOW=n/a
+ENV GITHUB_WORKFLOW=$GITHUB_WORKFLOW
+ARG GITHUB_RUN_ID=0
+ENV GITHUB_RUN_ID=$GITHUB_RUN_ID
+ARG GITHUB_RUN_NUMBER=0
+ENV GITHUB_RUN_NUMBER=$GITHUB_RUN_NUMBER
+
+EXPOSE 8080
+
+USER $APP_UID
+
+ENTRYPOINT ["dotnet", "agentizr.dll"]
