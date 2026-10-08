@@ -1,3 +1,6 @@
+using CasCap.Constants;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Hosting;
 
 namespace CasCap.IntegrationTests;
@@ -43,6 +46,29 @@ public sealed class TenantSecurityStartupTests
             TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public void DevelopmentWithTenantAuthentication_DefinitionPublishDoesNotRequireExecutePermission()
+    {
+        using var factory = CreateAuthenticatedFactory("Development");
+        using var scope = factory.Services.CreateScope();
+        var endpoint = scope.ServiceProvider
+            .GetRequiredService<IEnumerable<EndpointDataSource>>()
+            .SelectMany(source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Single(candidate => candidate.RoutePattern.RawText
+                == "/api/v1/agents/{agentName}/definitions"
+                && candidate.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods.Contains("POST") is true);
+
+        var policies = endpoint.Metadata
+            .GetOrderedMetadata<IAuthorizeData>()
+            .Select(metadata => metadata.Policy)
+            .OfType<string>()
+            .ToArray();
+
+        Assert.Contains(AgentRuntimePolicies.DefinitionPublish, policies);
+        Assert.DoesNotContain(AgentRuntimePolicies.Execute, policies);
     }
 
     [Fact]

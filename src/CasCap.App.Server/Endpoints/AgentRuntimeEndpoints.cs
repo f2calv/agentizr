@@ -16,75 +16,77 @@ public static class AgentRuntimeEndpoints
     /// <summary>Maps the version 1 agent execution surface.</summary>
     public static WebApplication MapAgentRuntime(this WebApplication app, bool authorizationRequired)
     {
-        var group = app.MapGroup(AgentRuntimeRoutes.AgentGroup)
+        var executionGroup = app.MapGroup(AgentRuntimeRoutes.AgentGroup)
             .WithTags("Agent Runtime");
         if (authorizationRequired)
-            group.RequireAuthorization(AgentRuntimePolicies.Execute);
+            executionGroup.RequireAuthorization(AgentRuntimePolicies.Execute);
 
-        group.MapPost(AgentRuntimeRoutes.Runs, RunAgentAsync)
+        executionGroup.MapPost(AgentRuntimeRoutes.Runs, RunAgentAsync)
             .WithName("RunAgentV1")
             .WithSummary("Runs one turn against a tenant-scoped agent session")
             .Produces<RunAgentResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound)
             .ProducesValidationProblem();
 
-        group.MapPost(AgentRuntimeRoutes.RunStream, StreamAgentAsync)
+        executionGroup.MapPost(AgentRuntimeRoutes.RunStream, StreamAgentAsync)
             .WithName("StreamAgentV1")
             .WithSummary("Streams execution events followed by the final tenant-scoped agent response")
             .Produces<IEnumerable<RunAgentStreamItem>>(StatusCodes.Status200OK)
             .ProducesValidationProblem();
 
-        group.MapGet(AgentRuntimeRoutes.Session, GetSessionAsync)
+        executionGroup.MapGet(AgentRuntimeRoutes.Session, GetSessionAsync)
             .WithName("GetAgentSessionV1")
             .WithSummary("Gets tenant-scoped agent session status")
             .Produces<AgentSessionInfoResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapDelete(AgentRuntimeRoutes.Session, ResetSessionAsync)
+        executionGroup.MapDelete(AgentRuntimeRoutes.Session, ResetSessionAsync)
             .WithName("ResetAgentSessionV1")
             .WithSummary("Resets tenant-scoped active agent session state")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapPost(AgentRuntimeRoutes.SessionCompaction, CompactSessionAsync)
+        executionGroup.MapPost(AgentRuntimeRoutes.SessionCompaction, CompactSessionAsync)
             .WithName("CompactAgentSessionV1")
             .WithSummary("Compacts tenant-scoped active agent session history")
             .Produces<CompactAgentSessionResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound)
             .ProducesValidationProblem();
 
-        group.MapPut(AgentRuntimeRoutes.SessionSnapshot, SaveSessionSnapshotAsync)
+        executionGroup.MapPut(AgentRuntimeRoutes.SessionSnapshot, SaveSessionSnapshotAsync)
             .WithName("SaveAgentSessionSnapshotV1")
             .WithSummary("Saves active agent session state as a named snapshot")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapPost(AgentRuntimeRoutes.SessionSnapshotActivation, LoadSessionSnapshotAsync)
+        executionGroup.MapPost(AgentRuntimeRoutes.SessionSnapshotActivation, LoadSessionSnapshotAsync)
             .WithName("LoadAgentSessionSnapshotV1")
             .WithSummary("Loads a named snapshot into the active agent session")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapDelete(AgentRuntimeRoutes.SessionSnapshot, DeleteSessionSnapshotAsync)
+        executionGroup.MapDelete(AgentRuntimeRoutes.SessionSnapshot, DeleteSessionSnapshotAsync)
             .WithName("DeleteAgentSessionSnapshotV1")
             .WithSummary("Deletes a named agent session snapshot")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapGet(AgentRuntimeRoutes.SessionOverrides, GetOverridesAsync)
+        executionGroup.MapGet(AgentRuntimeRoutes.SessionOverrides, GetOverridesAsync)
             .WithName("GetAgentOverridesV1")
             .WithSummary("Gets complete per-session agent runtime overrides")
             .Produces<AgentOverridesResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapPut(AgentRuntimeRoutes.SessionOverrides, SetOverridesAsync)
+        executionGroup.MapPut(AgentRuntimeRoutes.SessionOverrides, SetOverridesAsync)
             .WithName("SetAgentOverridesV1")
             .WithSummary("Replaces complete per-session agent runtime overrides")
             .Produces<AgentOverridesResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound)
             .ProducesValidationProblem();
 
-        group.MapAgentDefinitionAdministration(authorizationRequired);
+        app.MapGroup(AgentRuntimeRoutes.AgentGroup)
+            .WithTags("Agent Definitions")
+            .MapAgentDefinitionAdministration(authorizationRequired);
 
         return app;
     }
