@@ -15,6 +15,20 @@ public static partial class AppHost
         // TODO: Add shared bootstrap logging before CreateBuilder so pre-host failures are captured.
         var builder = WebApplication.CreateBuilder(args);
 
+        var azureAuthConfig = builder.Configuration
+            .GetSection(AzureAuthConfig.ConfigurationSectionName)
+            .Get<AzureAuthConfig>();
+        if (azureAuthConfig?.IsKeyVaultEnabled is true)
+        {
+            builder.Configuration.AddKeyVaultConfiguration(
+                azureAuthConfig.KeyVaultUri,
+                azureAuthConfig.TokenCredential,
+                new PrefixKeyVaultSecretManager(
+                    "AgentRuntime--Agentizr",
+                    nameof(CasCap),
+                    "AgentRuntime"));
+        }
+
         builder.InitializeSerilog(nameof(Program));
 
         var appConfig = builder.Configuration

@@ -60,12 +60,15 @@ atomically advances the pointer and appends actor/reason audit history. Redis is
 cache, not the authority.
 
 `TenantAuthenticationConfig` binds from `CasCap:TenantAuthenticationConfig`. When enabled, JWT
-validation derives `ITenantContext.TenantId` from the configured claim. Authentication and Redis
-state are mandatory outside Development; startup fails closed when either is missing.
+validation maps the configured caller claim (`azp` by default) through an explicit tenant/caller
+allowlist to derive `ITenantContext.TenantId`. A caller identifier can belong to exactly one tenant.
+Authentication and Redis state are mandatory outside Development; startup fails closed when either
+is missing.
 
-Definition administration uses separate `agent.definition.read`, `agent.definition.publish` and
-`agent.definition.activate` scopes. Publisher and activation actor identifiers come from validated
-principal claims, never request bodies. Provider credentials remain behind
+Execution and session operations require `agent.execute`. Definition administration uses separate
+`agent.definition.read`, `agent.definition.publish` and `agent.definition.activate` permissions.
+Permissions are accepted from delegated `scope`/`scp` claims or application `roles`. Publisher and
+activation actor identifiers come from validated principal claims, never request bodies. Provider credentials remain behind
 `IProviderCredentialStore` and definition publication rejects embedded API keys.
 
 `AgentDefinitionPolicyConfig` limits publication to supported schema versions and explicit provider,

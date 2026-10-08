@@ -1,8 +1,11 @@
 namespace CasCap.Constants;
 
-/// <summary>Authorization policy names for the Agent Runtime control plane.</summary>
+/// <summary>Authorization policy names for Agent Runtime execution and control-plane operations.</summary>
 public static class AgentRuntimePolicies
 {
+    /// <summary>Allows executing agents and managing their tenant-scoped sessions and overrides.</summary>
+    public const string Execute = nameof(Execute);
+
     /// <summary>Allows reading definition documents and history.</summary>
     public const string DefinitionRead = nameof(DefinitionRead);
 

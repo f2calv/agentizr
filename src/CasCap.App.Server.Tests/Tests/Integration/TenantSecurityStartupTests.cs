@@ -46,6 +46,16 @@ public sealed class TenantSecurityStartupTests
     }
 
     [Fact]
+    public void DevelopmentWithoutTenantCallerMappings_IsRejected()
+    {
+        using var factory = new TenantSecurityWebApplicationFactory("Development", includeTenantMappings: false);
+
+        var exception = Assert.ThrowsAny<Exception>(factory.CreateClient);
+
+        Assert.Contains("Tenant caller mappings", exception.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ProductionWithoutRedis_IsRejected()
     {
         using var factory = CreateAuthenticatedFactory("Production");
@@ -56,16 +66,21 @@ public sealed class TenantSecurityStartupTests
     }
 
     private static WebApplicationFactory<Program> CreateAuthenticatedFactory(string environment) =>
-        new TenantSecurityWebApplicationFactory(environment);
+        new TenantSecurityWebApplicationFactory(environment, includeTenantMappings: true);
 
-    private sealed class TenantSecurityWebApplicationFactory(string environment) : WebApplicationFactory<Program>
+    private sealed class TenantSecurityWebApplicationFactory(
+        string environment,
+        bool includeTenantMappings) : WebApplicationFactory<Program>
     {
-        private static readonly IReadOnlyDictionary<string, string?> _startupEnvironment =
+        private readonly IReadOnlyDictionary<string, string?> _startupEnvironment =
             new Dictionary<string, string?>
             {
                 ["CasCap__TenantAuthenticationConfig__Enabled"] = bool.TrueString,
                 ["CasCap__TenantAuthenticationConfig__Authority"] = "https://identity.example.com",
                 ["CasCap__TenantAuthenticationConfig__Audience"] = "agentizr",
+                ["CasCap__TenantAuthenticationConfig__TenantCallers__test__0"] = includeTenantMappings
+                    ? "test-caller"
+                    : null,
             };
 
         protected override IHost CreateHost(IHostBuilder builder)

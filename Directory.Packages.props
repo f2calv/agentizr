@@ -3,8 +3,10 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
+    <PackageVersion Include="CasCap.Api.Azure.Auth" Version="1.6.4" />
     <PackageVersion Include="CasCap.Common.AI" Version="4.15.0" />
     <PackageVersion Include="CasCap.Common.Caching" Version="4.15.0" />
+    <PackageVersion Include="CasCap.Common.Configuration" Version="4.15.0" />
     <PackageVersion Include="CasCap.Common.Hosting.AspNetCore" Version="4.15.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />

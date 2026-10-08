@@ -1,5 +1,6 @@
 using CasCap.AgentRuntime.Contracts.V1;
 using CasCap.AgentRuntime.Contracts.V1.Constants;
+using CasCap.Constants;
 using CasCap.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.AI;
@@ -18,7 +19,7 @@ public static class AgentRuntimeEndpoints
         var group = app.MapGroup(AgentRuntimeRoutes.AgentGroup)
             .WithTags("Agent Runtime");
         if (authorizationRequired)
-            group.RequireAuthorization();
+            group.RequireAuthorization(AgentRuntimePolicies.Execute);
 
         group.MapPost(AgentRuntimeRoutes.Runs, RunAgentAsync)
             .WithName("RunAgentV1")

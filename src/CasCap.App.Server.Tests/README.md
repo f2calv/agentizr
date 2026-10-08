@@ -13,10 +13,11 @@ The tests launch the real application through `WebApplicationFactory<Program>` a
 | `EndpointSmokeTests` | 1 | 2 | Verifies `/` and `/healthz` return HTTP 200 |
 | `AgentRuntimeProtocolTests` | 6 | 6 | Verifies typed-client execution, live event streaming, validation, and complete session-control lifecycle |
 | `AgentDefinitionAdministrationProtocolTests` | 10 | 18 | Verifies inactive publication, activation, rollback, audit attribution, strict policy/delegation/credential rejection, conflicts, and bounded history |
-| `TenantSecurityStartupTests` | 4 | 4 | Verifies anonymous execution/control-plane rejection and Production requirements for authentication and Redis |
+| `TenantSecurityStartupTests` | 5 | 5 | Verifies anonymous execution/control-plane rejection and Production requirements for authentication, tenant mappings, and Redis |
 | `AgentExecutionCoordinatorTests` | 3 | 3 | Verifies definition, credential, override, session, bypass, and executor orchestration |
 | `TenantStateIsolationTests` | 3 | 3 | Proves tenant isolation, collision-free keys, pod-replacement persistence, and definition-version invalidation |
-| `AuthenticatedTenantContextTests` | 3 | 3 | Verifies claim-derived identity, missing-claim rejection, and opaque Redis keys |
+| `AuthenticatedTenantContextTests` | 4 | 4 | Verifies caller-derived tenant identity, missing/unmapped caller rejection, and opaque Redis keys |
+| `AgentRuntimeAuthorizationTests` | 4 | 6 | Verifies delegated scopes, application roles, and caller-to-tenant mapping validation |
 | `PostgresAgentDefinitionStoreTests` | 3 | 3 | Verifies immutable publication, active-version changes, duplicate rejection, history, and tenant isolation |
 | `CachedAgentDefinitionStoreTests` | 1 | 1 | Verifies secret-free read-through caching and activation invalidation |
 | `ConfigurationMcpCredentialStoreTests` | 1 | 1 | Verifies tenant-scoped Authorization header resolution without definition secrets |
@@ -25,9 +26,9 @@ The tests launch the real application through `WebApplicationFactory<Program>` a
 
 | Category | Test-case count | Purpose |
 | --- | ---: | --- |
-| `Integration` | 30 | In-memory ASP.NET Core host, execution/control protocols, and startup security tests |
+| `Integration` | 31 | In-memory ASP.NET Core host, execution/control protocols, and startup security tests |
 | `Agent Runtime` | 7 | Runtime orchestration, definition persistence, and caching without external services |
-| `Tenant Isolation` | 7 | Cross-tenant state, MCP credentials and identity isolation |
+| `Tenant Isolation` | 14 | Cross-tenant state, JWT permissions, caller mappings, MCP credentials and identity isolation |
 
 ## Skipped Tests
 
@@ -46,6 +47,7 @@ Tests/
 │   ├── HostIntegrationCollection.cs
 │   └── TenantSecurityStartupTests.cs
 └── Unit/
+    ├── AgentRuntimeAuthorizationTests.cs
     ├── AuthenticatedTenantContextTests.cs
     ├── AgentExecutionCoordinatorTests.cs
     ├── CachedAgentDefinitionStoreTests.cs

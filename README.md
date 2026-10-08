@@ -44,8 +44,11 @@ Redis caches active lookups. Provider API keys remain separate from stored `Agen
 and must arrive through a private configuration provider.
 
 Outside Development, `TenantAuthenticationConfig` must enable JWT validation with a trusted
-authority, audience, and tenant claim (default `tenant_id`). Redis must also be configured through
-`CasCap:CachingConfig:RemoteCacheConnectionString`. Sessions and overrides use opaque
+authority and audience. Validated caller application identifiers (the `azp` claim by default) map
+to logical tenants through an explicit allowlist. Execution requires the `agent.execute` permission;
+definition administration uses separate read, publish and activate permissions. Permissions may
+arrive through delegated `scope`/`scp` claims or application `roles`. Redis must also be configured
+through `CasCap:CachingConfig:RemoteCacheConnectionString`. Sessions and overrides use opaque
 tenant/agent/session key digests and a configurable sliding expiry. Provider and logical MCP
 credentials remain in the final private configuration provider.
 

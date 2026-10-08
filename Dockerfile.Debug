@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Debug image built from agentizr and its adjacent CasCap.Common checkout.
+# Debug image built from agentizr and its adjacent shared-library checkouts.
 # Profile: debug
 
 # ------------------------------------------------------------------------------
@@ -20,6 +20,7 @@ RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked \
 
 # -- Compile layer -------------------------------------------------------------
 COPY deps/CasCap.Common /CasCap.Common
+COPY deps/CasCap.Api.Azure /CasCap.Api.Azure
 COPY . .
 
 ARG TARGETARCH

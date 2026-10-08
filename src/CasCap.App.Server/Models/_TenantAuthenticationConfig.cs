@@ -16,9 +16,12 @@ public sealed record TenantAuthenticationConfig : IAppConfig
     /// <summary>Gets the required Agent Runtime audience.</summary>
     public string? Audience { get; init; }
 
-    /// <summary>Gets the validated claim containing the stable tenant identifier.</summary>
+    /// <summary>Gets the validated claim containing the stable caller application identifier.</summary>
     [Required, MinLength(1)]
-    public string TenantClaimType { get; init; } = "tenant_id";
+    public string CallerClaimType { get; init; } = "azp";
+
+    /// <summary>Gets allowed caller application identifiers keyed by logical tenant identifier.</summary>
+    public Dictionary<string, string[]> TenantCallers { get; init; } = [];
 
     /// <summary>Gets whether metadata retrieval requires HTTPS.</summary>
     public bool HttpsMetadataRequired { get; init; } = true;

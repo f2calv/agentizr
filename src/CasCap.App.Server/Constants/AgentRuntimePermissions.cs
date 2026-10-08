@@ -1,8 +1,11 @@
 namespace CasCap.Constants;
 
-/// <summary>OAuth scope values accepted by Agent Runtime control-plane policies.</summary>
-public static class AgentRuntimeScopes
+/// <summary>OAuth permission values accepted from delegated scopes or application roles.</summary>
+public static class AgentRuntimePermissions
 {
+    /// <summary>Allows executing agents and managing their tenant-scoped sessions and overrides.</summary>
+    public const string Execute = "agent.execute";
+
     /// <summary>Allows reading definition documents and history.</summary>
     public const string DefinitionRead = "agent.definition.read";
 

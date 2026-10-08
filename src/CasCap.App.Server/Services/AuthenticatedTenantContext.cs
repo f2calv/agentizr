@@ -16,11 +16,17 @@ internal sealed class AuthenticatedTenantContext(
             if (principal?.Identity?.IsAuthenticated is not true)
                 throw new UnauthorizedAccessException("An authenticated tenant identity is required.");
 
-            var tenantId = principal.FindFirstValue(authenticationConfig.Value.TenantClaimType);
-            if (string.IsNullOrWhiteSpace(tenantId))
-                throw new UnauthorizedAccessException("The authenticated identity has no tenant claim.");
+            var callerId = principal.FindFirstValue(authenticationConfig.Value.CallerClaimType);
+            if (string.IsNullOrWhiteSpace(callerId))
+                throw new UnauthorizedAccessException("The authenticated identity has no caller claim.");
 
-            return tenantId;
+            foreach (var (tenantId, callerIds) in authenticationConfig.Value.TenantCallers)
+            {
+                if (callerIds.Contains(callerId, StringComparer.OrdinalIgnoreCase))
+                    return tenantId;
+            }
+
+            throw new UnauthorizedAccessException("The authenticated caller is not assigned to a tenant.");
         }
     }
 }
