@@ -19,7 +19,9 @@ diagnostic disclosure on the authenticated request.
 
 Tool composition is tenant-scoped: service tools resolve from request DI, remote MCP connections are
 owned for one execution, and sub-agent tools recursively use the same definition and credential
-stores with stateless delegated sessions.
+stores with stateless delegated sessions. Every depth-zero run also receives runtime-owned
+`get_current_datetime_state`, `get_agents`, and `get_providers` tools. Metadata covers only the root
+agent's reachable active delegation graph; delegated agents do not receive another copy.
 
 ## Public Surface
 
@@ -51,7 +53,8 @@ request body.
 `AgentRuntimeConfig` binds from `CasCap:AgentRuntimeConfig`. Definitions are grouped under `Tenants`,
 each with an explicit `DefinitionVersion`, provider dictionary, and agent dictionary. The tracked
 configuration contains no tenant identifiers or credentials and is used only by the read-only
-Development adapter.
+Development adapter. `TenantAgentConfig.TimeZoneId` configures the built-in tenant-local date/time
+tool and defaults to UTC.
 
 Outside Development, `AgentRuntimeDatabaseConfig` supplies PostgreSQL. Immutable definition
 snapshots store schema-versioned JSONB plus publisher/reason metadata, while a separate active

@@ -18,6 +18,7 @@ internal sealed class CommonAgentExecutor(
     IServiceProvider serviceProvider,
     IHostEnvironment hostEnvironment,
     IAgentDefinitionStore definitionStore,
+    AgentRuntimeBuiltInTools builtInTools,
     IProviderCredentialStore credentialStore,
     IMcpCredentialStore mcpCredentialStore) : IAgentExecutor
 {
@@ -152,6 +153,9 @@ internal sealed class CommonAgentExecutor(
     {
         var tools = new List<AITool>();
         var logger = loggerFactory.CreateLogger<CommonAgentExecutor>();
+
+        if (runScope.Depth == 0)
+            tools.AddRange(await builtInTools.CreateAsync(definition, cancellationToken));
 
         foreach (var source in definition.Agent.Tools)
         {

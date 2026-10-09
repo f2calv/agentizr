@@ -98,6 +98,7 @@ public static partial class AppHost
         }
         builder.Services.AddHttpClient(nameof(CommonAgentExecutor));
         builder.Services.AddScoped<IAgentSessionCodec, CommonAgentSessionCodec>();
+        builder.Services.AddScoped<AgentRuntimeBuiltInTools>();
         builder.Services.AddScoped<IAgentExecutor, CommonAgentExecutor>();
         builder.Services.AddScoped<AgentExecutionCoordinator>();
         builder.Services.AddScoped<AgentSessionControlService>();

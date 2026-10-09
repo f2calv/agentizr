@@ -26,6 +26,10 @@ public sealed record AgentRuntimeConfig : IAppConfig
 /// <summary>Versioned provider and agent definitions for one tenant.</summary>
 public sealed record TenantAgentConfig
 {
+    /// <summary>Gets the tenant time-zone identifier used by built-in date/time tools.</summary>
+    [Required, MinLength(1)]
+    public string TimeZoneId { get; init; } = "UTC";
+
     /// <summary>Gets the definition version used to invalidate built-agent caches.</summary>
     [Required, MinLength(1)]
     public string DefinitionVersion { get; init; } = "1";
