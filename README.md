@@ -29,8 +29,8 @@ Request DTOs contain neither tenant nor actor identifiers.
 
 ### Local AI Provider Profiles
 
-Docker Compose offers mutually exclusive local provider stacks. Each starts agentizr with a
-configuration-backed `assistant` definition and one GPU provider:
+Docker Compose runs one Agent Runtime with multiple configuration-backed providers and
+provider-specific agent definitions. Profiles choose which local provider containers start:
 
 ```powershell
 # llama.cpp model router: Qwen3.5 4B Q5 text plus 0.8B vision on demand
@@ -38,13 +38,22 @@ docker compose --profile llama-cpp up
 
 # Ollama: Qwen3.5 4B
 docker compose --profile ollama up
+
+# Both providers (requires enough GPU capacity for both servers)
+docker compose --profile all up
 ```
 
-Both expose the Agent Runtime at <http://localhost:5090>. llama.cpp is exposed at
-<http://localhost:11434>; Ollama uses <http://localhost:11435>. The profiles use the same GPU and
-runtime port, so run only one at a time. Debug project references require adjacent `CasCap.Common`
-and `CasCap.Api.Azure` checkouts; Compose mounts them read-only and builds in its container-local
-workspace. Model and NuGet caches use named volumes.
+The single Agent Runtime is exposed at <http://localhost:5090>. Run
+`llamacpp` or `ollama` to select a provider through the existing agent route.
+llama.cpp is exposed at <http://localhost:11434>; Ollama uses <http://localhost:11435>. On small
+GPUs, run only one provider profile at a time. Debug project references require adjacent
+`CasCap.Common` and `CasCap.Api.Azure` checkouts; Compose mounts them read-only and builds in its
+container-local workspace. Model and NuGet caches use named volumes.
+
+Agent definitions currently select one provider. Runtime overrides may change model and instructions,
+but the run API does not accept an arbitrary provider selector. Switching providers for one logical
+agent therefore means invoking a provider-specific agent name or publishing and activating a new
+definition version. Azure OpenAI is supported by the runtime; Azure AI Foundry remains unsupported.
 
 ## NuGet Packages
 

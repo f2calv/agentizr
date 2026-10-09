@@ -2,13 +2,14 @@
 # agentizr local AI providers
 # =============================================================================
 #
-# Profiles are mutually exclusive because each publishes agentizr on port 5090
-# and reserves the local GPU:
+# One Agent Runtime exposes provider-specific agent definitions. Profiles choose
+# which local provider containers start:
 #
 #   docker compose --profile llama-cpp up
 #   docker compose --profile ollama up
+#   docker compose --profile all up
 #
-# Both profiles run agentizr from the Debug project graph with adjacent
+# Every profile runs one agentizr instance from the Debug project graph with adjacent
 # CasCap.Common and CasCap.Api.Azure checkouts mounted read-only. NuGet packages
 # and model downloads persist in named volumes.
 #
@@ -25,11 +26,25 @@ x-agentizr-environment: &agentizr-environment
   CasCap__AgentRuntimeConfig__DefaultTenantId: default
   CasCap__AgentRuntimeConfig__Tenants__default__DefinitionVersion: local-compose-v1
   CasCap__AgentRuntimeConfig__Tenants__default__TimeZoneId: UTC
-  CasCap__AgentRuntimeConfig__Tenants__default__Agents__assistant__Provider: Local
-  CasCap__AgentRuntimeConfig__Tenants__default__Agents__assistant__Name: assistant
-  CasCap__AgentRuntimeConfig__Tenants__default__Agents__assistant__Description: Local Compose assistant
-  CasCap__AgentRuntimeConfig__Tenants__default__Agents__assistant__Prompt: Respond to the user's request.
-  CasCap__AgentRuntimeConfig__Tenants__default__Agents__assistant__Instructions: You are a concise local development assistant.
+  CasCap__AgentDefinitionPolicyConfig__AllowedProviderAuthorities__0: http://llama-cpp:8080
+  CasCap__AgentDefinitionPolicyConfig__AllowedProviderAuthorities__1: http://ollama:11434
+  CasCap__AgentRuntimeConfig__Tenants__default__Providers__LlamaCpp__Type: OpenAI
+  CasCap__AgentRuntimeConfig__Tenants__default__Providers__LlamaCpp__Endpoint: http://llama-cpp:8080
+  CasCap__AgentRuntimeConfig__Tenants__default__Providers__LlamaCpp__ApiKey: sk-no-key-required
+  CasCap__AgentRuntimeConfig__Tenants__default__Providers__LlamaCpp__ModelName: unsloth/Qwen3.5-4B-GGUF:Q5_K_M
+  CasCap__AgentRuntimeConfig__Tenants__default__Providers__Ollama__Type: Ollama
+  CasCap__AgentRuntimeConfig__Tenants__default__Providers__Ollama__Endpoint: http://ollama:11434
+  CasCap__AgentRuntimeConfig__Tenants__default__Providers__Ollama__ModelName: qwen3.5:4b
+  CasCap__AgentRuntimeConfig__Tenants__default__Agents__llamacpp__Provider: LlamaCpp
+  CasCap__AgentRuntimeConfig__Tenants__default__Agents__llamacpp__Name: llamacpp
+  CasCap__AgentRuntimeConfig__Tenants__default__Agents__llamacpp__Description: Local llama.cpp assistant
+  CasCap__AgentRuntimeConfig__Tenants__default__Agents__llamacpp__Prompt: Respond to the user's request.
+  CasCap__AgentRuntimeConfig__Tenants__default__Agents__llamacpp__Instructions: You are a concise local development assistant.
+  CasCap__AgentRuntimeConfig__Tenants__default__Agents__ollama__Provider: Ollama
+  CasCap__AgentRuntimeConfig__Tenants__default__Agents__ollama__Name: ollama
+  CasCap__AgentRuntimeConfig__Tenants__default__Agents__ollama__Description: Local Ollama assistant
+  CasCap__AgentRuntimeConfig__Tenants__default__Agents__ollama__Prompt: Respond to the user's request.
+  CasCap__AgentRuntimeConfig__Tenants__default__Agents__ollama__Instructions: You are a concise local development assistant.
 
 x-agentizr: &agentizr
   image: mcr.microsoft.com/dotnet/sdk:10.0@sha256:e70cdb7f80b0348f5cb85f19a8f670fca061f033d57eed12fa003d58b0e06317
@@ -52,24 +67,16 @@ x-agentizr: &agentizr
   restart: unless-stopped
 
 services:
-  agentizr-llama-cpp:
+  agentizr:
     <<: *agentizr
-    profiles: [ llama-cpp ]
+    profiles: [ llama-cpp, ollama, all ]
     ports:
       - 5090:8080
     environment:
       <<: *agentizr-environment
-      CasCap__AgentDefinitionPolicyConfig__AllowedProviderAuthorities__0: http://llama-cpp:8080
-      CasCap__AgentRuntimeConfig__Tenants__default__Providers__Local__Type: OpenAI
-      CasCap__AgentRuntimeConfig__Tenants__default__Providers__Local__Endpoint: http://llama-cpp:8080
-      CasCap__AgentRuntimeConfig__Tenants__default__Providers__Local__ApiKey: sk-no-key-required
-      CasCap__AgentRuntimeConfig__Tenants__default__Providers__Local__ModelName: unsloth/Qwen3.5-4B-GGUF:Q5_K_M
-    depends_on:
-      llama-cpp:
-        condition: service_started
 
   llama-cpp:
-    profiles: [ llama-cpp ]
+    profiles: [ llama-cpp, all ]
     # Upstream's server-cuda tag is moving; pin its multi-architecture digest for reproducibility.
     image: ghcr.io/ggml-org/llama.cpp:server-cuda@sha256:fff6185edd2fbc4093aa5970bf6db53ed11c283e3a1c52a3e244cf27047264f4
     ports:
@@ -99,23 +106,8 @@ services:
               capabilities: [ gpu ]
     restart: unless-stopped
 
-  agentizr-ollama:
-    <<: *agentizr
-    profiles: [ ollama ]
-    ports:
-      - 5090:8080
-    environment:
-      <<: *agentizr-environment
-      CasCap__AgentDefinitionPolicyConfig__AllowedProviderAuthorities__0: http://ollama:11434
-      CasCap__AgentRuntimeConfig__Tenants__default__Providers__Local__Type: Ollama
-      CasCap__AgentRuntimeConfig__Tenants__default__Providers__Local__Endpoint: http://ollama:11434
-      CasCap__AgentRuntimeConfig__Tenants__default__Providers__Local__ModelName: qwen3.5:4b
-    depends_on:
-      ollama-init:
-        condition: service_completed_successfully
-
   ollama:
-    profiles: [ ollama ]
+    profiles: [ ollama, all ]
     image: ollama/ollama:0.34.4@sha256:8262851b2846b87c649eddf3e76beb270c52f4d1bc94559f47efde16b0841551
     ports:
       - 11435:11434
@@ -140,7 +132,7 @@ services:
     restart: unless-stopped
 
   ollama-init:
-    profiles: [ ollama ]
+    profiles: [ ollama, all ]
     image: ollama/ollama:0.34.4@sha256:8262851b2846b87c649eddf3e76beb270c52f4d1bc94559f47efde16b0841551
     depends_on:
       ollama:
