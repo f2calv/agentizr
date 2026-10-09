@@ -1,0 +1,24 @@
+{{- /*
+  Emit one sidecar-discoverable ConfigMap per dashboard JSON. Datasource UIDs are
+  injected by exact replacement; never run Grafana JSON through tpl because
+  legend tokens use the same double-brace syntax.
+*/ -}}
+{{- if .Values.enabled }}
+{{- range $path, $_ := .Files.Glob "dashboards/*.json" }}
+{{- $basename := trimSuffix ".json" (base $path) }}
+{{- $json := $.Files.Get $path }}
+{{- $json = $json | replace "{{ .Values.datasources.prometheus }}" $.Values.datasources.prometheus }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "grafana-dashboard-%s" $basename }}
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    grafana_folder: {{ $.Values.dashboardFolder }}
+data:
+  {{ printf "%s.json" $basename }}: |-
+{{ $json | indent 4 }}
+{{- end }}
+{{- end }}

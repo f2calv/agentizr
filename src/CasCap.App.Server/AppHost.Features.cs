@@ -97,6 +97,7 @@ public static partial class AppHost
             builder.Services.AddScoped<IAgentOverrideStore, InMemoryAgentOverrideStore>();
         }
         builder.Services.AddHttpClient(nameof(CommonAgentExecutor));
+        builder.Services.AddSingleton<AgentRuntimeMetrics>();
         builder.Services.AddScoped<IAgentSessionCodec, CommonAgentSessionCodec>();
         builder.Services.AddScoped<AgentRuntimeBuiltInTools>();
         builder.Services.AddScoped<IAgentExecutor, CommonAgentExecutor>();

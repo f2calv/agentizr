@@ -1,3 +1,5 @@
+using System.Diagnostics.Metrics;
+
 namespace CasCap.Tests.Unit;
 
 /// <summary>Tests tenant-owned execution orchestration around a low-level executor.</summary>
@@ -78,12 +80,28 @@ public sealed class AgentExecutionCoordinatorTests
         AgentOverrideState overrides,
         RecordingExecutor executor) =>
         new(
+            new AgentRuntimeMetrics(Options.Create(new AppConfig()), new TestMeterFactory()),
+            new StaticTenantContext(),
             new StaticDefinitionStore(),
             new StaticCredentialStore(),
             sessionStore,
             new StaticOverrideStore(overrides),
             new StaticSessionCodec(),
             executor);
+
+    private sealed class StaticTenantContext : ITenantContext
+    {
+        public string TenantId => "tenant";
+    }
+
+    private sealed class TestMeterFactory : IMeterFactory
+    {
+        public Meter Create(MeterOptions options) => new(options);
+
+        public void Dispose()
+        {
+        }
+    }
 
     private sealed class StaticDefinitionStore : IAgentDefinitionStore
     {

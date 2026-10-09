@@ -1,0 +1,9 @@
+# Enable standalone dashboard rendering.
+enabled: true
+
+# Grafana folder selected by the sidecar's grafana_folder annotation.
+dashboardFolder: Agent Runtime
+
+# Datasource UIDs injected through exact string replacement.
+datasources:
+  prometheus: prometheus

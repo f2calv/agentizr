@@ -152,6 +152,19 @@ repository and Application path, then publish the Debug image and chart and patc
 The chart's `migrate` alias runs `agentizr --migrate` as an external PreSync Job. The runtime never
 applies migrations during normal startup.
 
+## Observability
+
+Agent execution metrics use the `agentizr` meter by default and export through the configured OTLP
+endpoint. They cover run outcomes and latency, time to first token, provider-reported tokens, and
+tool calls. Every series is partitionable by tenant and active definition; bounded provider and
+model names are included when a definition resolves. Prompt text, output text, session identifiers,
+tool arguments, caller identifiers, and credentials are never metric labels.
+
+The independent [`agentizr-dashboards`](charts/agentizr-dashboards/README.md) chart publishes the
+`Agent Runtime` Grafana dashboard with tenant, agent, provider, and model selectors. A normal
+`deploy.ps1` run discovers and deploys both application and dashboard charts; use `-OnlyCharts` to
+iterate on the dashboard without rolling the runtime.
+
 ## License
 
 This project is released into the public domain under the [Unlicense](LICENSE).
