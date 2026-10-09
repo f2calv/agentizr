@@ -27,6 +27,25 @@ including:
 Outside Development, JWT authentication derives trusted tenant and control-plane actor identity.
 Request DTOs contain neither tenant nor actor identifiers.
 
+### Local AI Provider Profiles
+
+Docker Compose offers mutually exclusive local provider stacks. Each starts agentizr with a
+configuration-backed `assistant` definition and one GPU provider:
+
+```powershell
+# llama.cpp model router: Qwen3.5 4B Q5 text plus 0.8B vision on demand
+docker compose --profile llama-cpp up
+
+# Ollama: Qwen3.5 4B
+docker compose --profile ollama up
+```
+
+Both expose the Agent Runtime at <http://localhost:5090>. llama.cpp is exposed at
+<http://localhost:11434>; Ollama uses <http://localhost:11435>. The profiles use the same GPU and
+runtime port, so run only one at a time. Debug project references require adjacent `CasCap.Common`
+and `CasCap.Api.Azure` checkouts; Compose mounts them read-only and builds in its container-local
+workspace. Model and NuGet caches use named volumes.
+
 ## NuGet Packages
 
 | Package | Purpose |
