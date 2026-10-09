@@ -17,7 +17,7 @@ public sealed class AgentDefinitionAdministrationProtocolTests(
         var cancellationToken = TestContext.Current.CancellationToken;
         var published = await client.PublishAsync(
             "assistant",
-            CreatePublishRequest("v2", "model-v2"),
+            AgentDefinitionTestData.CreatePublishRequest("v2", "model-v2"),
             cancellationToken);
         var beforeActivation = await client.GetActiveAsync("assistant", cancellationToken);
         var historyBeforeActivation = await client.GetHistoryAsync("assistant", 10, cancellationToken);
@@ -55,12 +55,12 @@ public sealed class AgentDefinitionAdministrationProtocolTests(
     public async Task PublishDefinition_RejectsProviderCredentials()
     {
         using var httpClient = factory.CreateClient();
-        var request = CreatePublishRequest("credential-attempt", "model") with
+        var request = AgentDefinitionTestData.CreatePublishRequest("credential-attempt", "model") with
         {
             Definition = JsonSerializer.SerializeToElement(new
             {
-                agent = CreateAgentConfig(),
-                provider = CreateProviderConfig("model") with { ApiKey = "must-not-cross-boundary" },
+                agent = AgentDefinitionTestData.CreateAgent(),
+                provider = AgentDefinitionTestData.CreateProvider("model") with { ApiKey = "must-not-cross-boundary" },
             }, JsonSerializerOptions.Web),
         };
 
@@ -114,7 +114,7 @@ public sealed class AgentDefinitionAdministrationProtocolTests(
     public async Task PublishDefinition_DuplicateVersionReturnsConflict()
     {
         using var httpClient = factory.CreateClient();
-        var request = CreatePublishRequest("duplicate", "model");
+        var request = AgentDefinitionTestData.CreatePublishRequest("duplicate", "model");
         using var first = await httpClient.PostAsJsonAsync(
             "/api/v1/agents/duplicate-agent/definitions",
             request,
@@ -135,7 +135,7 @@ public sealed class AgentDefinitionAdministrationProtocolTests(
 
         using var response = await httpClient.PostAsJsonAsync(
             "/api/v1/agents/assistant/definitions",
-            CreatePublishRequest("active", "model"),
+            AgentDefinitionTestData.CreatePublishRequest("active", "model"),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -157,7 +157,7 @@ public sealed class AgentDefinitionAdministrationProtocolTests(
     public async Task PublishDefinition_UnsupportedSchemaReturnsBadRequest()
     {
         using var httpClient = factory.CreateClient();
-        var request = CreatePublishRequest("unsupported-schema", "model") with { SchemaVersion = 2 };
+        var request = AgentDefinitionTestData.CreatePublishRequest("unsupported-schema", "model") with { SchemaVersion = 2 };
 
         using var response = await httpClient.PostAsJsonAsync(
             "/api/v1/agents/assistant/definitions",
@@ -171,12 +171,12 @@ public sealed class AgentDefinitionAdministrationProtocolTests(
     public async Task ActivateDefinition_MissingDelegatedAgentReturnsBadRequest()
     {
         using var httpClient = factory.CreateClient();
-        var request = CreatePublishRequest("missing-delegation", "model") with
+        var request = AgentDefinitionTestData.CreatePublishRequest("missing-delegation", "model") with
         {
             Definition = JsonSerializer.SerializeToElement(new
             {
-                agent = CreateAgentConfig() with { Tools = [new ToolSource { Agent = "missing-agent" }] },
-                provider = CreateProviderConfig("model"),
+                agent = AgentDefinitionTestData.CreateAgent() with { Tools = [new ToolSource { Agent = "missing-agent" }] },
+                provider = AgentDefinitionTestData.CreateProvider("model"),
             }, JsonSerializerOptions.Web),
         };
         using var publishResponse = await httpClient.PostAsJsonAsync(
@@ -197,11 +197,11 @@ public sealed class AgentDefinitionAdministrationProtocolTests(
     public async Task ActivateDefinition_MissingMcpCredentialReturnsBadRequest()
     {
         using var httpClient = factory.CreateClient();
-        var request = CreatePublishRequest("missing-mcp-credential", "model") with
+        var request = AgentDefinitionTestData.CreatePublishRequest("missing-mcp-credential", "model") with
         {
             Definition = JsonSerializer.SerializeToElement(new
             {
-                agent = CreateAgentConfig() with
+                agent = AgentDefinitionTestData.CreateAgent() with
                 {
                     Tools =
                     [
@@ -212,7 +212,7 @@ public sealed class AgentDefinitionAdministrationProtocolTests(
                         },
                     ],
                 },
-                provider = CreateProviderConfig("model"),
+                provider = AgentDefinitionTestData.CreateProvider("model"),
             }, JsonSerializerOptions.Web),
         };
         using var publishResponse = await httpClient.PostAsJsonAsync(
@@ -229,22 +229,10 @@ public sealed class AgentDefinitionAdministrationProtocolTests(
         Assert.Equal(HttpStatusCode.BadRequest, activateResponse.StatusCode);
     }
 
-    private static PublishAgentDefinitionRequest CreatePublishRequest(string version, string modelName) => new()
-    {
-        DefinitionVersion = version,
-        SchemaVersion = 1,
-        ChangeReason = "test publication",
-        Definition = JsonSerializer.SerializeToElement(new
-        {
-            agent = CreateAgentConfig(),
-            provider = CreateProviderConfig(modelName),
-        }, JsonSerializerOptions.Web),
-    };
-
     private static PublishAgentDefinitionRequest CreateUnsafePublishRequest(string scenario)
     {
-        var agent = CreateAgentConfig();
-        var provider = CreateProviderConfig("model");
+        var agent = AgentDefinitionTestData.CreateAgent();
+        var provider = AgentDefinitionTestData.CreateProvider("model");
         object document = scenario switch
         {
             "null-provider" => new { agent, provider = (ProviderConfig?)null },
@@ -305,19 +293,4 @@ public sealed class AgentDefinitionAdministrationProtocolTests(
         };
     }
 
-    private static AgentConfig CreateAgentConfig() => new()
-    {
-        Provider = "test",
-        Name = "assistant",
-        Description = "Test assistant",
-        Prompt = "Test prompt",
-        Instructions = "Answer test requests.",
-    };
-
-    private static ProviderConfig CreateProviderConfig(string modelName) => new()
-    {
-        Type = AgentType.Ollama,
-        ModelName = modelName,
-        Endpoint = new Uri("http://localhost:11434"),
-    };
 }

@@ -22,6 +22,11 @@ The tests launch the real application through `WebApplicationFactory<Program>` a
 | `PostgresAgentDefinitionStoreTests` | 3 | 3 | Verifies immutable publication, active-version changes, duplicate rejection, history, and tenant isolation |
 | `CachedAgentDefinitionStoreTests` | 1 | 1 | Verifies secret-free read-through caching and activation invalidation |
 | `ConfigurationMcpCredentialStoreTests` | 1 | 1 | Verifies tenant-scoped Authorization header resolution without definition secrets |
+| `LiveAgentRuntimeSmokeTests` | 1 | 1 | Opt-in authenticated run, streaming, session inspection and cleanup against a complete live runtime |
+
+Reusable secret-free agent, provider, runtime-definition, and publication builders live in
+`AgentDefinitionTestData`. Protocol and built-in tests consume these definition-contract fixtures so
+test definitions do not drift into application-specific `AIConfig` setup.
 
 ## Trait Categories
 
@@ -30,15 +35,35 @@ The tests launch the real application through `WebApplicationFactory<Program>` a
 | `Integration` | 32 | In-memory ASP.NET Core host, execution/control protocols, and startup security tests |
 | `Agent Runtime` | 8 | Runtime orchestration, built-in tools, definition persistence, and caching without external services |
 | `Tenant Isolation` | 14 | Cross-tenant state, JWT permissions, caller mappings, MCP credentials and identity isolation |
+| `Local Agent Runtime` | 1 | Explicitly enabled smoke test against a complete running runtime |
 
 ## Skipped Tests
 
-There are no skipped tests.
+`LiveAgentRuntimeSmokeTests` is skipped unless explicitly enabled on a non-CI workstation.
+
+## Live Agent Runtime Smoke Test
+
+The smoke test reaches a complete running runtime through `CasCap.AgentRuntime.Client`. It never runs
+in CI and requires explicit local opt-in:
+
+```powershell
+$env:CASCAP_RUN_LOCAL_AGENTRUNTIME_TESTS = 'true'
+$env:CASCAP_AGENTRUNTIME_LIVE_BASE_ADDRESS = 'https://runtime.example.com/'
+$env:CASCAP_AGENTRUNTIME_LIVE_AGENT_NAME = '<tenant-agent-name>'
+dotnet test --project src/CasCap.App.Server.Tests/CasCap.App.Server.Tests.csproj --filter-trait 'Category=Local Agent Runtime'
+```
+
+For certificate authentication, also set `CASCAP_AGENTRUNTIME_LIVE_SCOPE`,
+`CASCAP_AGENTRUNTIME_LIVE_TENANT_ID`, `CASCAP_AGENTRUNTIME_LIVE_CLIENT_ID`, and
+`CASCAP_AGENTRUNTIME_LIVE_CERTIFICATE_PATH`. The certificate path points to a local combined PEM file;
+its content is read only at runtime and is never logged or persisted. Omit the authentication variables
+only when testing a local runtime with authentication disabled.
 
 ## Layout
 
 ```text
 Tests/
+├── AgentDefinitionTestData.cs
 ├── Integration/
 │   ├── AgentizrWebApplicationFactory.cs
 │   ├── AgentDefinitionAdministrationProtocolTests.cs
@@ -47,6 +72,11 @@ Tests/
 │   ├── EndpointSmokeTests.cs
 │   ├── HostIntegrationCollection.cs
 │   └── TenantSecurityStartupTests.cs
+├── Local/
+│   ├── LiveAgentRuntimeSmokeTests.cs
+│   ├── LiveAgentRuntimeTestSettings.cs
+│   ├── LocalAgentRuntimeFactAttribute.cs
+│   └── LocalAgentRuntimeTestEnvironment.cs
 └── Unit/
     ├── AgentRuntimeAuthorizationTests.cs
     ├── AgentRuntimeBuiltInToolsTests.cs

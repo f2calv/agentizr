@@ -4,6 +4,7 @@ global using CasCap.AgentRuntime.Contracts.V1;
 global using CasCap.Common.Models;
 global using CasCap.Models;
 global using CasCap.Services;
+global using CasCap.TestData;
 global using Microsoft.AspNetCore.Hosting;
 global using Microsoft.AspNetCore.Mvc.Testing;
 global using Microsoft.Extensions.DependencyInjection;
