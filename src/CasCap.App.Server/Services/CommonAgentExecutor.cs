@@ -196,11 +196,12 @@ internal sealed class CommonAgentExecutor(
                 }
                 var (client, remoteTools) = await AgentExtensions.GetHttpTools(source.Endpoint, headers, logger);
                 toolLeases.Add(client);
+                var remoteSource = RemoveComposedIncludes(source, tools);
                 AddUniqueTools(
                     tools,
                     AgentExtensions.FilterTools(
                         remoteTools,
-                        source,
+                        remoteSource,
                         hostEnvironment.IsDevelopment(),
                         logger),
                     "remote MCP tools",
@@ -219,6 +220,20 @@ internal sealed class CommonAgentExecutor(
         }
 
         return tools;
+    }
+
+    internal static ToolSource RemoveComposedIncludes(ToolSource source, IReadOnlyCollection<AITool> tools)
+    {
+        if (source.IncludeTools.Length == 0 || tools.Count == 0)
+            return source;
+
+        var names = tools.Select(tool => tool.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return source with
+        {
+            IncludeTools = source.IncludeTools
+                .Where(toolName => !names.Contains(toolName))
+                .ToArray(),
+        };
     }
 
     internal static void AddUniqueTools(
