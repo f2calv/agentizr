@@ -155,19 +155,27 @@ internal sealed class CommonAgentExecutor(
         var logger = loggerFactory.CreateLogger<CommonAgentExecutor>();
 
         if (runScope.Depth == 0)
-            tools.AddRange(await builtInTools.CreateAsync(definition, cancellationToken));
+            AddUniqueTools(
+                tools,
+                await builtInTools.CreateAsync(definition, cancellationToken),
+                "runtime built-ins",
+                logger);
 
         foreach (var source in definition.Agent.Tools)
         {
             if (source.Service is not null)
             {
                 var serviceAgent = definition.Agent with { Tools = [source] };
-                tools.AddRange(AgentExtensions.CreateToolsForAgent(
-                    serviceProvider,
-                    serviceAgent,
-                    deferResolution: true,
-                    isDevelopment: hostEnvironment.IsDevelopment(),
-                    logger: logger));
+                AddUniqueTools(
+                    tools,
+                    AgentExtensions.CreateToolsForAgent(
+                        serviceProvider,
+                        serviceAgent,
+                        deferResolution: true,
+                        isDevelopment: hostEnvironment.IsDevelopment(),
+                        logger: logger),
+                    "service tools",
+                    logger);
                 continue;
             }
 
@@ -188,11 +196,15 @@ internal sealed class CommonAgentExecutor(
                 }
                 var (client, remoteTools) = await AgentExtensions.GetHttpTools(source.Endpoint, headers, logger);
                 toolLeases.Add(client);
-                tools.AddRange(AgentExtensions.FilterTools(
-                    remoteTools,
-                    source,
-                    hostEnvironment.IsDevelopment(),
-                    logger));
+                AddUniqueTools(
+                    tools,
+                    AgentExtensions.FilterTools(
+                        remoteTools,
+                        source,
+                        hostEnvironment.IsDevelopment(),
+                        logger),
+                    "remote MCP tools",
+                    logger);
                 continue;
             }
 
@@ -207,6 +219,29 @@ internal sealed class CommonAgentExecutor(
         }
 
         return tools;
+    }
+
+    internal static void AddUniqueTools(
+        List<AITool> destination,
+        IEnumerable<AITool> candidates,
+        string source,
+        ILogger logger)
+    {
+        var names = destination.Select(tool => tool.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var tool in candidates)
+        {
+            if (names.Add(tool.Name))
+            {
+                destination.Add(tool);
+                continue;
+            }
+
+            logger.LogWarning(
+                "{ClassName} skipped duplicate tool {ToolName} from {ToolSource}",
+                nameof(CommonAgentExecutor),
+                tool.Name,
+                source);
+        }
     }
 
     private async ValueTask<AITool> CreateSubAgentToolAsync(
