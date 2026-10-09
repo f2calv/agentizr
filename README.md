@@ -160,10 +160,9 @@ tool calls. Every series is partitionable by tenant and active definition; bound
 model names are included when a definition resolves. Prompt text, output text, session identifiers,
 tool arguments, caller identifiers, and credentials are never metric labels.
 
-The independent [`agentizr-dashboards`](charts/agentizr-dashboards/README.md) chart publishes the
-`Agent Runtime` Grafana dashboard with tenant, agent, provider, and model selectors. A normal
-`deploy.ps1` run discovers and deploys both application and dashboard charts; use `-OnlyCharts` to
-iterate on the dashboard without rolling the runtime.
+The [`agentizr-dashboards`](charts/agentizr-dashboards/README.md) subchart ships the
+`Agent Runtime` Grafana dashboard with tenant, agent, provider, and model selectors inside the
+application chart, so every chart deployment rolls it out with the runtime.
 
 ## License
 

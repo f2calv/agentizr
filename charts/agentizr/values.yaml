@@ -1,6 +1,12 @@
 # Public-safe defaults keep both workloads dormant. A deployment supplies PostgreSQL, Redis,
 # tenancy, credentials and publication allowlists through environment variables and Secrets.
 
+dashboards:
+  enabled: true
+  dashboardFolder: Agent Runtime
+  datasources:
+    prometheus: prometheus
+
 runtime:
   replicaCount: 0
   fullnameOverride: agentizr

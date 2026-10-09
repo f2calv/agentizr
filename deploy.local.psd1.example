@@ -4,7 +4,4 @@
     PodAnnotationName = 'agent-runtime.example.com/deployed-version'
     ChartPath         = 'charts/agentizr'
     ChartRepository   = 'f2calv/charts/agentizr'
-    DashboardChartPath       = 'charts/agentizr-dashboards'
-    DashboardChartRepository = 'f2calv/charts/agentizr-dashboards'
-    DashboardManifestPath    = 'path/to/agentizr-dashboards.yaml'
 }

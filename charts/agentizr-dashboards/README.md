@@ -1,16 +1,9 @@
 # Agent Runtime Grafana dashboards
 
 Publishes the tenant-scoped Agent Runtime execution dashboard as a sidecar-discoverable ConfigMap.
-The chart is independent of the [`agentizr`](../agentizr/README.md) application chart and owns its
-own version.
-
-## Install
-
-```bash
-helm upgrade --install agentizr-dashboards oci://ghcr.io/f2calv/charts/agentizr-dashboards \
-  --namespace monitoring --create-namespace \
-  --set-string datasources.prometheus=prometheus
-```
+The [`agentizr`](../agentizr/README.md) application chart bundles it as a `file://` subchart enabled by
+`dashboards.enabled`; its version stays fixed at `0.1.0`. Set the values below under the application
+chart's `dashboards` key.
 
 ## Configuration
 

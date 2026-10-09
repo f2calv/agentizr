@@ -1,9 +1,12 @@
 dependencies:
+- name: agentizr-dashboards
+  repository: file://../agentizr-dashboards
+  version: 0.1.0
 - name: workload
   repository: oci://ghcr.io/f2calv/charts
   version: 1.1.0
 - name: workload
   repository: oci://ghcr.io/f2calv/charts
   version: 1.1.0
-digest: sha256:2f23534aaa14a9fea6e0baec4894d1657f9bc43c38fe71c049c1a2d5d97906b4
-generated: "2026-10-07T13:48:56.3249254+02:00"
+digest: sha256:2734c24d9a089920fe7126a47d605237bfc03af636e23bcb099a2a61f39afd20
+generated: "2026-10-09T19:36:06.2225589+02:00"

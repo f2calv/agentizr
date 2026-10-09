@@ -8,6 +8,12 @@ sources:
   - https://github.com/f2calv/agentizr
 
 dependencies:
+  - name: agentizr-dashboards
+    version: 0.1.0
+    repository: file://../agentizr-dashboards
+    alias: dashboards
+    condition: dashboards.enabled
+
   - name: workload
     version: 1.1.0
     repository: oci://ghcr.io/f2calv/charts
