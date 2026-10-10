@@ -24,7 +24,7 @@ public static partial class AppHost
             var builder = WebApplication.CreateBuilder(args);
 
             // Configuration
-            var (appConfig, gitMetadata) = builder.InitializeConfiguration(entryAssembly);
+            var (appConfig, applicationMetadata) = builder.InitializeConfiguration(entryAssembly);
 
             // Logging
             var logger = SerilogWebApplicationBuilderExtensions.InitializeSerilog(builder);
@@ -33,7 +33,7 @@ public static partial class AppHost
             builder.Services.AddSingleton(TimeProvider.System);
 
             // Observability
-            builder.InitializeOpenTelemetry(appConfig, gitMetadata);
+            builder.InitializeOpenTelemetry(appConfig, applicationMetadata);
 
             // Web API registration
             var tenantAuthenticationEnabled = AddWebApi(builder);

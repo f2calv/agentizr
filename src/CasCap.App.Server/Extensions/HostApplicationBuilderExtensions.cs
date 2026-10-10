@@ -12,7 +12,7 @@ public static class HostApplicationBuilderExtensions
     /// <param name="builder">The host application builder.</param>
     /// <param name="assembly">Assembly used for user-secrets loading.</param>
     /// <returns>The application configuration and deployment metadata.</returns>
-    public static (AppConfig appConfig, GitMetadata gitMetadata) InitializeConfiguration(
+    public static (AppConfig appConfig, ApplicationMetadata applicationMetadata) InitializeConfiguration(
         this IHostApplicationBuilder builder,
         Assembly assembly)
     {
@@ -39,9 +39,9 @@ public static class HostApplicationBuilderExtensions
             .BindConfiguration(AppConfig.ConfigurationSectionName)
             .ValidateDataAnnotations();
 
-        var gitMetadata = new GitMetadata();
-        builder.Services.AddSingleton(gitMetadata);
+        var applicationMetadata = new ApplicationMetadata(assembly);
+        builder.Services.AddSingleton(applicationMetadata);
 
-        return (appConfig, gitMetadata);
+        return (appConfig, applicationMetadata);
     }
 }

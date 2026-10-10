@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <UserSecretsId>53ecfa72-79da-483f-a419-a0c48d479f53</UserSecretsId>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -32,6 +33,15 @@
   <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true' OR '$(TF_BUILD)' == 'true'">
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="GitRepository" Value="$(GitRepository)" Condition="'$(GitRepository)' != ''"/>
+    <AssemblyMetadata Include="GitBranch" Value="$(GitBranch)" Condition="'$(GitBranch)' != ''"/>
+    <AssemblyMetadata Include="GitCommit" Value="$(SourceRevisionId)" Condition="'$(SourceRevisionId)' != ''"/>
+    <AssemblyMetadata Include="BuildWorkflow" Value="$(BuildWorkflow)" Condition="'$(BuildWorkflow)' != ''"/>
+    <AssemblyMetadata Include="BuildRunId" Value="$(BuildRunId)" Condition="'$(BuildRunId)' != ''"/>
+    <AssemblyMetadata Include="BuildRunNumber" Value="$(BuildRunNumber)" Condition="'$(BuildRunNumber)' != ''"/>
+  </ItemGroup>
 
   <PropertyGroup>
     <!-- NETSDK1233 - Targeting .NET 10.0 or higher in Visual Studio 2022 XX.XX is not supported. -->
