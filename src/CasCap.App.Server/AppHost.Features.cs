@@ -9,10 +9,8 @@ public static partial class AppHost
 {
     private static void AddFeatures(
         WebApplicationBuilder builder,
-        GitMetadata gitMetadata,
         bool tenantAuthenticationEnabled)
     {
-        builder.Services.AddSingleton(gitMetadata);
         builder.Services.AddOptionsWithValidateOnStart<AgentRuntimeConfig>()
             .BindConfiguration(AgentRuntimeConfig.ConfigurationSectionName)
             .ValidateDataAnnotations();

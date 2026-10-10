@@ -1,6 +1,7 @@
 using CasCap.Common.Extensions;
-using CasCap.Common.Models;
+using CasCap.Extensions;
 using Serilog;
+using System.Reflection;
 
 namespace CasCap;
 
@@ -9,57 +10,70 @@ public static partial class AppHost
 {
     /// <summary>Bootstraps and runs the application.</summary>
     /// <param name="args">Command-line arguments forwarded from the entry point.</param>
-    public static async Task RunAsync(string[] args)
+    /// <param name="entryAssembly">Entry assembly used for configuration and user-secrets resolution.</param>
+    /// <returns>The process exit code.</returns>
+    public static async Task<int> RunAsync(string[] args, Assembly entryAssembly)
     {
-        var migrateOnly = args.Contains("--migrate", StringComparer.Ordinal);
-        // TODO: Add shared bootstrap logging before CreateBuilder so pre-host failures are captured.
-        var builder = WebApplication.CreateBuilder(args);
+        SerilogExtensions.GetBootstrapLogger();
 
-        var azureAuthConfig = builder.Configuration
-            .GetSection(AzureAuthConfig.ConfigurationSectionName)
-            .Get<AzureAuthConfig>();
-        if (azureAuthConfig?.IsKeyVaultEnabled is true)
+        try
         {
-            builder.Configuration.AddKeyVaultConfiguration(
-                azureAuthConfig.KeyVaultUri,
-                azureAuthConfig.TokenCredential,
-                new PrefixKeyVaultSecretManager(
-                    "AgentRuntime--Agentizr",
-                    nameof(CasCap),
-                    "AgentRuntime"));
+            var migrateOnly = args.Contains("--migrate", StringComparer.Ordinal);
+
+            // Host builder
+            var builder = WebApplication.CreateBuilder(args);
+
+            // Configuration
+            var (appConfig, gitMetadata) = builder.InitializeConfiguration(entryAssembly);
+
+            // Logging
+            var logger = SerilogWebApplicationBuilderExtensions.InitializeSerilog(builder);
+
+            // Infrastructure
+            builder.Services.AddSingleton(TimeProvider.System);
+
+            // Observability
+            builder.InitializeOpenTelemetry(appConfig, gitMetadata);
+
+            // Web API registration
+            var tenantAuthenticationEnabled = AddWebApi(builder);
+
+            // Feature registration
+            AddFeatures(builder, tenantAuthenticationEnabled);
+
+            // Build
+            var app = builder.Build();
+
+            if (logger.IsEnabled(LogLevel.Information))
+                logger.LogInformation("{ClassName} starting", nameof(AppHost));
+
+            if (migrateOnly)
+            {
+                await using var scope = app.Services.CreateAsyncScope();
+                await scope.ServiceProvider
+                    .GetRequiredService<AgentRuntimeDatabaseMigrator>()
+                    .MigrateAsync(CancellationToken.None);
+            }
+            else
+            {
+                // Endpoint mapping
+                MapEndpoints(app, tenantAuthenticationEnabled);
+
+                // Run
+                await app.RunAsync();
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException and not TaskCanceledException)
+        {
+            Log.Fatal(exception, "{AppName} terminated unexpectedly", AppDomain.CurrentDomain.FriendlyName);
+            throw new InvalidOperationException("Application host terminated unexpectedly.", exception);
+        }
+        finally
+        {
+            Log.Information("Stopped {AppName}", AppDomain.CurrentDomain.FriendlyName);
+            await Log.CloseAndFlushAsync();
         }
 
-        builder.InitializeSerilog(nameof(Program));
-
-        var appConfig = builder.Configuration
-            .GetSection(AppConfig.ConfigurationSectionName)
-            .Get<AppConfig>() ?? new AppConfig();
-        builder.Services.AddOptionsWithValidateOnStart<AppConfig>()
-            .BindConfiguration(AppConfig.ConfigurationSectionName)
-            .ValidateDataAnnotations();
-
-        builder.Services.AddSingleton(TimeProvider.System);
-
-        // TODO: Replace default GitMetadata with deployment-derived values when shared bootstrap supports it.
-        var gitMetadata = new GitMetadata();
-        builder.InitializeOpenTelemetry(appConfig, gitMetadata);
-
-        var tenantAuthenticationEnabled = AddWebApi(builder);
-        AddFeatures(builder, gitMetadata, tenantAuthenticationEnabled);
-
-        var app = builder.Build();
-
-        if (migrateOnly)
-        {
-            await using var scope = app.Services.CreateAsyncScope();
-            await scope.ServiceProvider
-                .GetRequiredService<AgentRuntimeDatabaseMigrator>()
-                .MigrateAsync(CancellationToken.None);
-            return;
-        }
-
-        MapEndpoints(app, tenantAuthenticationEnabled);
-
-        await app.RunAsync();
+        return 0;
     }
 }
