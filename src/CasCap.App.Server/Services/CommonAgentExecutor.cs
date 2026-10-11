@@ -2,7 +2,6 @@ using CasCap.AgentRuntime.Contracts.V1.Constants;
 using CasCap.Common.Extensions;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Net.Http.Headers;
 using System.Collections.Concurrent;
 using System.ComponentModel;
@@ -16,7 +15,6 @@ internal sealed class CommonAgentExecutor(
     IHttpClientFactory httpClientFactory,
     ILoggerFactory loggerFactory,
     IServiceProvider serviceProvider,
-    IHostEnvironment hostEnvironment,
     IAgentDefinitionStore definitionStore,
     AgentRuntimeBuiltInTools builtInTools,
     IProviderCredentialStore credentialStore,
@@ -172,7 +170,6 @@ internal sealed class CommonAgentExecutor(
                         serviceProvider,
                         serviceAgent,
                         deferResolution: true,
-                        isDevelopment: hostEnvironment.IsDevelopment(),
                         logger: logger),
                     "service tools",
                     logger);
@@ -202,7 +199,6 @@ internal sealed class CommonAgentExecutor(
                     AgentExtensions.FilterTools(
                         remoteTools,
                         remoteSource,
-                        hostEnvironment.IsDevelopment(),
                         logger),
                     "remote MCP tools",
                     logger);
@@ -325,7 +321,6 @@ internal sealed class CommonAgentExecutor(
         return AgentExtensions.FilterTools(
             [tool],
             source,
-            hostEnvironment.IsDevelopment(),
             loggerFactory.CreateLogger<CommonAgentExecutor>()).Single();
     }
 
