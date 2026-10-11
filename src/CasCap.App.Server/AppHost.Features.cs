@@ -9,7 +9,8 @@ public static partial class AppHost
 {
     private static void AddFeatures(
         WebApplicationBuilder builder,
-        bool tenantAuthenticationEnabled)
+        bool tenantAuthenticationEnabled,
+        bool migrateOnly)
     {
         builder.Services.AddOptionsWithValidateOnStart<AgentRuntimeConfig>()
             .BindConfiguration(AgentRuntimeConfig.ConfigurationSectionName)
@@ -27,7 +28,8 @@ public static partial class AppHost
             throw new InvalidOperationException("Agent Runtime Redis records require JSON serialization.");
         if (redisEnabled)
             builder.Services.AddCasCapCaching(builder.Configuration);
-        if (!redisEnabled && !builder.Environment.IsDevelopment())
+        // Schema migration touches only PostgreSQL, so the migration job needs no runtime state store.
+        if (!redisEnabled && !migrateOnly && !builder.Environment.IsDevelopment())
             throw new InvalidOperationException("Redis-backed Agent Runtime state is required outside Development.");
 
         var databaseConfig = builder.Configuration
