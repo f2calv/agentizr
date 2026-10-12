@@ -12,7 +12,7 @@ public sealed class AgentRuntimeMetricsTests
     {
         using var services = new ServiceCollection().AddMetrics().BuildServiceProvider();
         var measurements = new List<(string Instrument, long Value, Dictionary<string, object?> Tags)>();
-        using var listener = CreateListener(measurements);
+        using var listener = CreateListener(measurements, services.GetRequiredService<IMeterFactory>());
         var metrics = new AgentRuntimeMetrics(
             Options.Create(new AppConfig()),
             services.GetRequiredService<IMeterFactory>());
@@ -62,7 +62,7 @@ public sealed class AgentRuntimeMetricsTests
     {
         using var services = new ServiceCollection().AddMetrics().BuildServiceProvider();
         var measurements = new List<(string Instrument, long Value, Dictionary<string, object?> Tags)>();
-        using var listener = CreateListener(measurements);
+        using var listener = CreateListener(measurements, services.GetRequiredService<IMeterFactory>());
         var metrics = new AgentRuntimeMetrics(
             Options.Create(new AppConfig()),
             services.GetRequiredService<IMeterFactory>());
@@ -78,13 +78,15 @@ public sealed class AgentRuntimeMetricsTests
     }
 
     private static MeterListener CreateListener(
-        List<(string Instrument, long Value, Dictionary<string, object?> Tags)> measurements)
+        List<(string Instrument, long Value, Dictionary<string, object?> Tags)> measurements,
+        IMeterFactory meterFactory)
     {
+        // Parallel host tests publish the same meter name, so listen only to this test's factory.
         var listener = new MeterListener
         {
             InstrumentPublished = (instrument, meterListener) =>
             {
-                if (instrument.Meter.Name == "agentizr")
+                if (instrument.Meter.Name == "agentizr" && ReferenceEquals(instrument.Meter.Scope, meterFactory))
                     meterListener.EnableMeasurementEvents(instrument);
             },
         };
