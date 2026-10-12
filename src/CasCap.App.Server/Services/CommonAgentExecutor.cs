@@ -3,6 +3,7 @@ using CasCap.Common.Extensions;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Net.Http.Headers;
+using ModelContextProtocol.Client;
 using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -192,13 +193,9 @@ internal sealed class CommonAgentExecutor(
                 }
                 var (client, remoteTools) = await AgentExtensions.GetHttpTools(source.Endpoint, headers, logger);
                 toolLeases.Add(client);
-                var remoteSource = RemoveComposedIncludes(source, tools);
                 AddUniqueTools(
                     tools,
-                    AgentExtensions.FilterTools(
-                        remoteTools,
-                        remoteSource,
-                        logger),
+                    SelectRemoteTools(remoteTools, source, tools, IsReadOnlyRemoteTool, logger),
                     "remote MCP tools",
                     logger);
                 continue;
@@ -216,6 +213,47 @@ internal sealed class CommonAgentExecutor(
 
         return tools;
     }
+
+    /// <summary>
+    /// Selects the remote tools a definition may use. Includes already satisfied by composed tools are
+    /// dropped; without an explicit include list, only tools the server declares read-only are exposed,
+    /// so an actuating tool never reaches a model unless a definition names it.
+    /// </summary>
+    internal static IEnumerable<AITool> SelectRemoteTools(
+        IEnumerable<AITool> remoteTools,
+        ToolSource source,
+        IReadOnlyCollection<AITool> composedTools,
+        Func<AITool, bool> isReadOnly,
+        ILogger logger)
+    {
+        var remoteSource = RemoveComposedIncludes(source, composedTools);
+        if (source.IncludeTools.Length > 0 && remoteSource.IncludeTools.Length == 0)
+            return [];
+
+        var filtered = AgentExtensions.FilterTools(remoteTools, remoteSource, logger);
+        if (remoteSource.IncludeTools.Length > 0)
+            return filtered;
+
+        var allowed = new List<AITool>();
+        foreach (var tool in filtered)
+        {
+            if (isReadOnly(tool))
+            {
+                allowed.Add(tool);
+                continue;
+            }
+
+            if (logger.IsEnabled(LogLevel.Information))
+                logger.LogInformation(
+                    "{ClassName} withheld non-read-only tool {ToolName}; name it in the definition's include list to expose it",
+                    nameof(CommonAgentExecutor),
+                    tool.Name);
+        }
+        return allowed;
+    }
+
+    private static bool IsReadOnlyRemoteTool(AITool tool) =>
+        tool is McpClientTool { ProtocolTool.Annotations.ReadOnlyHint: true };
 
     internal static ToolSource RemoveComposedIncludes(ToolSource source, IReadOnlyCollection<AITool> tools)
     {

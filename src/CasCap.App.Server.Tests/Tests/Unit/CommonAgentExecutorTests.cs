@@ -27,6 +27,42 @@ public sealed class CommonAgentExecutorTests
     }
 
     [Fact]
+    public void SelectRemoteTools_WildcardSourceKeepsOnlyReadOnlyTools()
+    {
+        var source = new ToolSource { Endpoint = "https://example.com/mcp" };
+        AITool[] remote = [CreateTool("get_house_rooms"), CreateTool("unlock_house_door")];
+
+        var result = CommonAgentExecutor.SelectRemoteTools(remote, source, [], IsReadOnly, NullLogger.Instance);
+
+        Assert.Equal(["get_house_rooms"], result.Select(tool => tool.Name));
+    }
+
+    [Fact]
+    public void SelectRemoteTools_ExplicitIncludesExposeNamedMutatingTools()
+    {
+        var source = new ToolSource { Endpoint = "https://example.com/mcp", IncludeTools = ["unlock_house_door"] };
+        AITool[] remote = [CreateTool("get_house_rooms"), CreateTool("unlock_house_door")];
+
+        var result = CommonAgentExecutor.SelectRemoteTools(remote, source, [], IsReadOnly, NullLogger.Instance);
+
+        Assert.Equal(["unlock_house_door"], result.Select(tool => tool.Name));
+    }
+
+    [Fact]
+    public void SelectRemoteTools_IncludesSatisfiedByBuiltInsDoNotWidenToWildcard()
+    {
+        var source = new ToolSource { Endpoint = "https://example.com/mcp", IncludeTools = ["get_agents"] };
+        AITool[] remote = [CreateTool("get_house_rooms"), CreateTool("unlock_house_door")];
+
+        var result = CommonAgentExecutor.SelectRemoteTools(
+            remote, source, [CreateTool("get_agents")], IsReadOnly, NullLogger.Instance);
+
+        Assert.Empty(result);
+    }
+
+    private static bool IsReadOnly(AITool tool) => tool.Name.StartsWith("get_", StringComparison.Ordinal);
+
+    [Fact]
     public void RemoveComposedIncludes_RuntimeBuiltInsSatisfyRemoteIncludes()
     {
         var source = new ToolSource
