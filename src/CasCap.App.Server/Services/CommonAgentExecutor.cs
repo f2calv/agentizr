@@ -152,12 +152,11 @@ internal sealed class CommonAgentExecutor(
         var tools = new List<AITool>();
         var logger = loggerFactory.CreateLogger<CommonAgentExecutor>();
 
-        if (runScope.Depth == 0)
-            AddUniqueTools(
-                tools,
-                await builtInTools.CreateAsync(definition, cancellationToken),
-                "runtime built-ins",
-                logger);
+        AddUniqueTools(
+            tools,
+            await builtInTools.CreateAsync(definition, cancellationToken),
+            "runtime built-ins",
+            logger);
 
         foreach (var source in definition.Agent.Tools)
         {
@@ -284,22 +283,34 @@ internal sealed class CommonAgentExecutor(
             });
 
             var apiKey = await credentialStore.GetApiKeyAsync(definition.Agent.Provider, invocationCancellationToken);
-            var result = await ExecuteDefinitionAsync(
-                definition,
-                apiKey,
-                new AgentExecutionRequest
-                {
-                    AgentName = agentName,
-                    SessionId = $"delegation-{Guid.NewGuid():N}",
-                    Input = task,
-                    BypassSession = true,
-                },
-                new AgentOverrideState { SessionEnabled = false },
-                null,
-                childScope,
-                events,
-                executionStopwatch,
-                invocationCancellationToken);
+            AgentExecutionResult result;
+            try
+            {
+                result = await ExecuteDefinitionAsync(
+                    definition,
+                    apiKey,
+                    new AgentExecutionRequest
+                    {
+                        AgentName = agentName,
+                        SessionId = $"delegation-{Guid.NewGuid():N}",
+                        Input = task,
+                        BypassSession = true,
+                    },
+                    new AgentOverrideState { SessionEnabled = false },
+                    null,
+                    childScope,
+                    events,
+                    executionStopwatch,
+                    invocationCancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // The tool-invocation layer hands this exception to the parent model only, so record it here.
+                loggerFactory.CreateLogger<CommonAgentExecutor>().LogError(ex,
+                    "{ClassName} delegation to {AgentName} failed at depth {Depth}",
+                    nameof(CommonAgentExecutor), agentName, childScope.Depth);
+                throw;
+            }
 
             PublishEvent(request, events, new AgentExecutionEvent
             {

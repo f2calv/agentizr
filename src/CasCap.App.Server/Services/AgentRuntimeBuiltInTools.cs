@@ -2,7 +2,7 @@ using Microsoft.Extensions.AI;
 
 namespace CasCap.Services;
 
-/// <summary>Creates tenant-scoped tools supplied by the runtime to every top-level agent run.</summary>
+/// <summary>Creates tenant-scoped tools supplied by the runtime to every agent run, including delegated sub-agents.</summary>
 internal sealed class AgentRuntimeBuiltInTools(
     ILogger<AgentRuntimeBuiltInTools> logger,
     IOptions<AgentRuntimeConfig> runtimeConfig,
@@ -10,7 +10,7 @@ internal sealed class AgentRuntimeBuiltInTools(
     ITenantContext tenantContext,
     IAgentDefinitionStore definitionStore)
 {
-    /// <summary>Creates built-in tools over the root agent's reachable active definition graph.</summary>
+    /// <summary>Creates built-in tools over the agent's reachable active definition graph.</summary>
     public async ValueTask<IReadOnlyList<AITool>> CreateAsync(
         AgentDefinition rootDefinition,
         CancellationToken cancellationToken)
