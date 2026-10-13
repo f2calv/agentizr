@@ -36,7 +36,7 @@ public sealed class AgentRuntimeMetrics
         _toolCalls = meter.CreateCounter<long>(
             $"{prefix}.tool.calls",
             unit: "{call}",
-            description: "Tool calls completed during Agent Runtime executions.");
+            description: "Tool calls completed during Agent Runtime executions, including delegated agents, by tool outcome.");
     }
 
     /// <summary>Records a run whose requested definition was unavailable.</summary>
@@ -48,20 +48,32 @@ public sealed class AgentRuntimeMetrics
     }
 
     /// <summary>Records a completed run and its provider diagnostics.</summary>
+    /// <param name="tenant">The tenant that ran the agent.</param>
+    /// <param name="definition">The executed definition.</param>
+    /// <param name="model">The effective model.</param>
+    /// <param name="duration">The end-to-end duration.</param>
+    /// <param name="diagnostics">The top-level run diagnostics.</param>
+    /// <param name="delegatedRuns">Diagnostics of sub-agent runs, whose tool calls are counted too.</param>
+    /// <remarks>A run whose tools failed is recorded as <c>completed_with_tool_errors</c> rather than <c>succeeded</c>.</remarks>
     public void RecordCompleted(
         string tenant,
         AgentDefinition definition,
         string model,
         TimeSpan duration,
-        AgentRunResult? diagnostics)
+        AgentRunResult? diagnostics,
+        IEnumerable<AgentRunResult> delegatedRuns)
     {
-        var tags = Tags(tenant, definition.Name, "succeeded", definition.Agent.Provider, model);
+        AgentRunResult[] runs = diagnostics is null ? [.. delegatedRuns] : [diagnostics, .. delegatedRuns];
+        var toolCalls = runs.Sum(run => run.ToolCallCount);
+        var toolErrors = runs.Sum(run => run.ToolErrorCount);
+        var tags = Tags(tenant, definition.Name, toolErrors > 0 ? "completed_with_tool_errors" : "succeeded",
+            definition.Agent.Provider, model);
         _runs.Add(1, tags);
         _runDuration.Record(duration.TotalMilliseconds, tags);
         if (diagnostics?.TimeToFirstToken is { } firstToken)
             _timeToFirstToken.Record(firstToken.TotalMilliseconds, tags);
-        if (diagnostics?.ToolCallCount > 0)
-            _toolCalls.Add(diagnostics.ToolCallCount, tags);
+        RecordToolCalls(toolCalls - toolErrors, "succeeded", tags);
+        RecordToolCalls(toolErrors, "error", tags);
         if (diagnostics?.Usage is { } usage)
         {
             RecordTokens(usage.InputTokenCount, "input", tags);
@@ -86,6 +98,14 @@ public sealed class AgentRuntimeMetrics
             definition?.Provider.ModelName);
         _runs.Add(1, tags);
         _runDuration.Record(duration.TotalMilliseconds, tags);
+    }
+
+    private void RecordToolCalls(int count, string toolOutcome, TagList tags)
+    {
+        if (count <= 0)
+            return;
+        tags.Add("tool_outcome", toolOutcome);
+        _toolCalls.Add(count, tags);
     }
 
     private void RecordTokens(long? count, string kind, TagList tags)

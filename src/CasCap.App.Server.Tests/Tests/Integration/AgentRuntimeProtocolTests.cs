@@ -35,8 +35,9 @@ public sealed class AgentRuntimeProtocolTests(AgentizrWebApplicationFactory fact
         Assert.Equal(50, response.TimeToFirstTokenMilliseconds);
         Assert.Equal(16, response.Usage?.TotalTokenCount);
         Assert.Equal(2, response.Usage?.ReasoningTokenCount);
-        Assert.Single(response.ToolCalls, toolCall => toolCall.Name == "get_status");
+        Assert.Single(response.ToolCalls, toolCall => toolCall.Name == "get_status" && !toolCall.Failed);
         Assert.Equal("kitchen", response.ToolCalls[0].Arguments["room"].GetString());
+        Assert.Single(response.ToolCalls, toolCall => toolCall.Name == "create_poll" && toolCall.Failed);
         Assert.Single(response.Attachments, attachment => attachment.FileName == "status.png");
         Assert.Single(response.Events, executionEvent => executionEvent.Type == "session.compacted");
         Assert.Equal(1.2, response.AdditionalProperties["energyWh"].GetDouble());

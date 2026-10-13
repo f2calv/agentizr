@@ -527,8 +527,8 @@
             "targets": [
                 {
                     "editorMode": "code",
-                    "expr": "sum by (tenant, agent) (rate(agentizr_tool_calls_total{tenant=~\"${tenant:regex}\",agent=~\"${agent:regex}\",provider=~\"${provider:regex}\",model=~\"${model:regex}\"}[$__rate_interval]))",
-                    "legendFormat": "{{tenant}} / {{agent}}",
+                    "expr": "sum by (tenant, agent, tool_outcome) (rate(agentizr_tool_calls_total{tenant=~\"${tenant:regex}\",agent=~\"${agent:regex}\",provider=~\"${provider:regex}\",model=~\"${model:regex}\"}[$__rate_interval]))",
+                    "legendFormat": "{{tenant}} / {{agent}} / {{tool_outcome}}",
                     "range": true,
                     "refId": "A"
                 }

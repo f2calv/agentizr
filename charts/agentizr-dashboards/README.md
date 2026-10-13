@@ -29,11 +29,11 @@ The dashboard consumes these OpenTelemetry instruments after Prometheus translat
 
 | Prometheus metric | Dimensions |
 | --- | --- |
-| `agentizr_run_total` | `tenant`, `agent`, `provider`, `model`, `outcome` |
+| `agentizr_run_total` | `tenant`, `agent`, `provider`, `model`, `outcome` (`succeeded`, `completed_with_tool_errors`, `failed`, `cancelled`, `unavailable`) |
 | `agentizr_run_duration_milliseconds_bucket` | Run dimensions plus `le` |
 | `agentizr_run_time_to_first_token_milliseconds_bucket` | Run dimensions plus `le` |
 | `agentizr_tokens_total` | Run dimensions plus `token_kind` |
-| `agentizr_tool_calls_total` | Run dimensions |
+| `agentizr_tool_calls_total` | Run dimensions plus `tool_outcome` (`succeeded`, `error`); includes delegated agents' calls |
 
 Provider and model labels are absent when a requested definition is unavailable. Labels contain
 configuration names only; session identifiers, prompts, outputs, tool arguments, and caller IDs are

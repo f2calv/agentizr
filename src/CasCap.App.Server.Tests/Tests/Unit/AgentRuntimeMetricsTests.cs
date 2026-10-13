@@ -44,7 +44,7 @@ public sealed class AgentRuntimeMetricsTests
             },
         };
 
-        metrics.RecordCompleted("tenant-a", definition, "override-model", TimeSpan.FromSeconds(1), diagnostics);
+        metrics.RecordCompleted("tenant-a", definition, "override-model", TimeSpan.FromSeconds(1), diagnostics, []);
 
         var run = Assert.Single(measurements, measurement => measurement.Instrument == "agentizr.run");
         Assert.Equal(1, run.Value);
@@ -53,9 +53,54 @@ public sealed class AgentRuntimeMetricsTests
         Assert.Equal("edge", run.Tags["provider"]);
         Assert.Equal("override-model", run.Tags["model"]);
         Assert.Equal("succeeded", run.Tags["outcome"]);
-        Assert.Equal(2, Assert.Single(measurements, measurement => measurement.Instrument == "agentizr.tool.calls").Value);
+        var toolCalls = Assert.Single(measurements, measurement => measurement.Instrument == "agentizr.tool.calls");
+        Assert.Equal(2, toolCalls.Value);
+        Assert.Equal("succeeded", toolCalls.Tags["tool_outcome"]);
         Assert.Equal(3, measurements.Count(measurement => measurement.Instrument == "agentizr.tokens"));
     }
+
+    [Fact]
+    public void RecordCompleted_ToolErrorsInDelegatedRuns_MarkTheRunAndCountByToolOutcome()
+    {
+        using var services = new ServiceCollection().AddMetrics().BuildServiceProvider();
+        var measurements = new List<(string Instrument, long Value, Dictionary<string, object?> Tags)>();
+        using var listener = CreateListener(measurements, services.GetRequiredService<IMeterFactory>());
+        var metrics = new AgentRuntimeMetrics(
+            Options.Create(new AppConfig()),
+            services.GetRequiredService<IMeterFactory>());
+        var parent = new AgentRunResult("assistant") { ToolCallCount = 1 };
+        parent.ToolCalls.Add(new ToolCallInfo("invoke_specialist", null));
+        var delegated = new AgentRunResult("specialist") { ToolCallCount = 2 };
+        delegated.ToolCalls.Add(new ToolCallInfo("create_poll", null, Failed: true));
+        delegated.ToolCalls.Add(new ToolCallInfo("get_status", null));
+
+        metrics.RecordCompleted("tenant-a", CreateDefinition(), "model", TimeSpan.FromSeconds(1), parent, [delegated]);
+
+        Assert.Equal("completed_with_tool_errors",
+            Assert.Single(measurements, measurement => measurement.Instrument == "agentizr.run").Tags["outcome"]);
+        var toolCalls = measurements.Where(measurement => measurement.Instrument == "agentizr.tool.calls")
+            .ToDictionary(measurement => (string)measurement.Tags["tool_outcome"]!, measurement => measurement.Value);
+        Assert.Equal(2, toolCalls["succeeded"]);
+        Assert.Equal(1, toolCalls["error"]);
+    }
+
+    private static AgentDefinition CreateDefinition() => new()
+    {
+        Name = "assistant",
+        Version = "v1",
+        Agent = new AgentConfig
+        {
+            Provider = "edge",
+            Name = "Assistant",
+            Description = "Test assistant",
+            Prompt = "Respond.",
+        },
+        Provider = new ProviderConfig
+        {
+            Type = AgentType.OpenAI,
+            ModelName = "test-model",
+        },
+    };
 
     [Fact]
     public void RecordUnavailable_EmitsTenantAndAgentWithoutProviderLabels()

@@ -10,4 +10,8 @@ public sealed record RunAgentToolCall
     /// <summary>Gets tool arguments when diagnostic disclosure was enabled for the run.</summary>
     public IReadOnlyDictionary<string, JsonElement> Arguments { get; init; } =
         new Dictionary<string, JsonElement>();
+
+    /// <summary>Gets whether the tool threw or returned an error result.</summary>
+    /// <remarks>Reported regardless of diagnostic disclosure, so callers can surface failures the model may not mention.</remarks>
+    public bool Failed { get; init; }
 }

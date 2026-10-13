@@ -76,7 +76,8 @@ public sealed class AgentExecutionCoordinator(
                 definition,
                 completed.ModelName,
                 stopwatch.Elapsed,
-                completed.Diagnostics);
+                completed.Diagnostics,
+                completed.Events.Select(executionEvent => executionEvent.Diagnostics).OfType<AgentRunResult>());
             return completed;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

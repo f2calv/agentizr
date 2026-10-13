@@ -367,6 +367,7 @@ public static class AgentRuntimeEndpoints
         Arguments = includeArguments && toolCall.Arguments is not null
             ? MapProperties(toolCall.Arguments)
             : [],
+        Failed = toolCall.Failed,
     };
 
     private static Dictionary<string, JsonElement> MapProperties(IEnumerable<KeyValuePair<string, object?>> properties)

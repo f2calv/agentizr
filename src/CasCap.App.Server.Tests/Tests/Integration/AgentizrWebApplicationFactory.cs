@@ -91,6 +91,7 @@ public class AgentizrWebApplicationFactory : WebApplicationFactory<Program>
             {
                 ["room"] = "kitchen",
             }));
+            diagnostics.ToolCalls.Add(new ToolCallInfo("create_poll", null, Failed: true));
             diagnostics.AdditionalProperties["energyWh"] = 1.2;
             diagnostics.Attachments.Add(new AgentRunAttachment
             {
