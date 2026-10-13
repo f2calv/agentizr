@@ -166,6 +166,37 @@ internal sealed class PostgresAgentDefinitionStore(
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// Holds a session-level PostgreSQL advisory lock on a dedicated connection. Other providers, used
+    /// only by tests, receive a no-op handle.
+    /// </remarks>
+    public async ValueTask<IAsyncDisposable> AcquireTenantActivationLockAsync(CancellationToken cancellationToken)
+    {
+        ValidateKey(tenantContext.TenantId, nameof(tenantContext.TenantId), 200);
+        var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (dbContext.Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+        {
+            await dbContext.DisposeAsync();
+            return NoOpAsyncDisposable.Instance;
+        }
+
+        var lockKey = $"activation:{tenantContext.TenantId.Length}:{tenantContext.TenantId}";
+        try
+        {
+            await dbContext.Database.OpenConnectionAsync(cancellationToken);
+            await dbContext.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT pg_advisory_lock(hashtextextended({lockKey}, 0))",
+                cancellationToken);
+        }
+        catch
+        {
+            await dbContext.DisposeAsync();
+            throw;
+        }
+        return new TenantActivationLock(dbContext, lockKey);
+    }
+
+    /// <inheritdoc/>
     public async ValueTask<bool> ActivateAsync(
         string agentName,
         string definitionVersion,
@@ -283,5 +314,29 @@ internal sealed class PostgresAgentDefinitionStore(
     {
         if (value?.Length > maxLength)
             throw new ArgumentException($"The value cannot exceed {maxLength} characters.", paramName);
+    }
+
+    private sealed class TenantActivationLock(AgentRuntimeDbContext dbContext, string lockKey) : IAsyncDisposable
+    {
+        public async ValueTask DisposeAsync()
+        {
+            try
+            {
+                await dbContext.Database.ExecuteSqlInterpolatedAsync(
+                    $"SELECT pg_advisory_unlock(hashtextextended({lockKey}, 0))");
+            }
+            finally
+            {
+                // Closing the session also releases the lock if the unlock statement failed.
+                await dbContext.DisposeAsync();
+            }
+        }
+    }
+
+    private sealed class NoOpAsyncDisposable : IAsyncDisposable
+    {
+        public static readonly NoOpAsyncDisposable Instance = new();
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

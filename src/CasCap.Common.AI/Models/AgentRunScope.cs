@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace CasCap.Common.Models;
 
@@ -26,6 +27,8 @@ public sealed class AgentRunScope
 {
     private readonly List<AgentRunAttachment> _attachments;
     private readonly Lock _attachmentsLock;
+    // Shared with sub-agents so the budget covers the whole delegation tree.
+    private readonly StrongBox<int> _toolInvocations;
     // Per scope, not shared with sub-agents: call IDs are only unique within one model conversation.
     private readonly ConcurrentDictionary<string, bool> _failedToolCalls = new(StringComparer.Ordinal);
 
@@ -34,17 +37,33 @@ public sealed class AgentRunScope
     {
         _attachments = [];
         _attachmentsLock = new Lock();
+        _toolInvocations = new StrongBox<int>();
     }
 
     private AgentRunScope(AgentRunScope parent, int depth)
     {
         _attachments = parent._attachments;
         _attachmentsLock = parent._attachmentsLock;
+        _toolInvocations = parent._toolInvocations;
         OnDelegation = parent.OnDelegation;
         OnCompletion = parent.OnCompletion;
         OnCompaction = parent.OnCompaction;
+        MaximumToolInvocations = parent.MaximumToolInvocations;
         Depth = depth;
     }
+
+    /// <summary>
+    /// Maximum tool invocations, including delegations, across this run and every sub-agent beneath it,
+    /// or <see langword="null"/> for no limit.
+    /// </summary>
+    public int? MaximumToolInvocations { get; init; }
+
+    /// <summary>Gets how many tool invocations the run and its sub-agents have attempted.</summary>
+    public int ToolInvocationCount => Volatile.Read(ref _toolInvocations.Value);
+
+    /// <summary>Counts one tool invocation and returns whether it is within <see cref="MaximumToolInvocations"/>.</summary>
+    public bool TryConsumeToolInvocation() =>
+        Interlocked.Increment(ref _toolInvocations.Value) <= (MaximumToolInvocations ?? int.MaxValue);
 
     /// <summary>
     /// Nesting depth of the current run: <c>0</c> for the top-level agent, <c>1</c> for a

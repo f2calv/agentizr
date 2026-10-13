@@ -19,7 +19,8 @@ internal sealed class CommonAgentExecutor(
     IAgentDefinitionStore definitionStore,
     AgentRuntimeBuiltInTools builtInTools,
     IProviderCredentialStore credentialStore,
-    IMcpCredentialStore mcpCredentialStore) : IAgentExecutor
+    IMcpCredentialStore mcpCredentialStore,
+    IOptions<AgentRuntimeConfig> runtimeConfig) : IAgentExecutor
 {
     private const int MaximumDelegationDepth = 5;
 
@@ -32,6 +33,7 @@ internal sealed class CommonAgentExecutor(
         var events = new ConcurrentQueue<AgentExecutionEvent>();
         var runScope = new AgentRunScope
         {
+            MaximumToolInvocations = runtimeConfig.Value.MaximumToolInvocationsPerRun,
             OnCompaction = stats => PublishEvent(context.Request, events, new AgentExecutionEvent
             {
                 Type = RunAgentEventTypes.SessionCompacted,

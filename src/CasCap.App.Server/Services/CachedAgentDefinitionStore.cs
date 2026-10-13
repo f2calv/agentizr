@@ -118,6 +118,10 @@ internal sealed class CachedAgentDefinitionStore(
         innerStore.GetHistoryAsync(agentName, limit, cancellationToken);
 
     /// <inheritdoc/>
+    public ValueTask<IAsyncDisposable> AcquireTenantActivationLockAsync(CancellationToken cancellationToken) =>
+        innerStore.AcquireTenantActivationLockAsync(cancellationToken);
+
+    /// <inheritdoc/>
     public async ValueTask<bool> ActivateAsync(
         string agentName,
         string definitionVersion,

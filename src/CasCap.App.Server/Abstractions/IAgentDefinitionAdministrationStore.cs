@@ -36,6 +36,12 @@ public interface IAgentDefinitionAdministrationStore
         string? changeReason,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Serializes activations across every agent of the current tenant until the returned handle is
+    /// disposed, so a delegation graph validated under the lock cannot be invalidated concurrently.
+    /// </summary>
+    public ValueTask<IAsyncDisposable> AcquireTenantActivationLockAsync(CancellationToken cancellationToken);
+
     /// <summary>Gets newest-first activation and rollback history.</summary>
     public ValueTask<IReadOnlyList<AgentDefinitionActivationItem>> GetActivationHistoryAsync(
         string agentName,

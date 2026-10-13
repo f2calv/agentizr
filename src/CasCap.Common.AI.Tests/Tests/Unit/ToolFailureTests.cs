@@ -40,6 +40,46 @@ public sealed class ToolFailureTests
         Assert.Equal(2, result.ToolErrorCount);
     }
 
+    [Fact]
+    public async Task RunAnalysisAsync_RefusesToolCallsBeyondTheRunBudget()
+    {
+        var invocations = 0;
+        var agent = BuildAgent(
+            [AIFunctionFactory.Create(() => ++invocations, "counted_tool")],
+            new ChatResponse(new ChatMessage(ChatRole.Assistant,
+            [
+                new FunctionCallContent("call-1", "counted_tool", new Dictionary<string, object?>()),
+                new FunctionCallContent("call-2", "counted_tool", new Dictionary<string, object?>()),
+            ])),
+            new ChatResponse(new ChatMessage(ChatRole.Assistant, "done")));
+        var scope = new AgentRunScope { MaximumToolInvocations = 1 };
+
+        var result = await agent.RunAnalysisAsync(
+            new ProviderConfig { Type = AgentType.Ollama, ModelName = "test-model", Endpoint = new Uri("http://ollama.local:11434") },
+            new AgentConfig { Provider = "test-provider", Name = "budget-probe", Description = "d", Prompt = "p", Instructions = "i" },
+            AgentExtensions.BuildChatMessage("hi"),
+            new ChatOptions(),
+            cancellationToken: TestContext.Current.CancellationToken,
+            scope: scope);
+
+        Assert.Equal(1, invocations);
+        Assert.Equal(2, scope.ToolInvocationCount);
+        Assert.Equal([false, true], result.ToolCalls.Select(toolCall => toolCall.Failed));
+        Assert.Equal("done", result.OutputText);
+    }
+
+    [Fact]
+    public void ForSubAgent_SharesTheToolBudget()
+    {
+        var parent = new AgentRunScope { MaximumToolInvocations = 2 };
+        var child = parent.ForSubAgent();
+
+        Assert.True(parent.TryConsumeToolInvocation());
+        Assert.True(child.TryConsumeToolInvocation());
+        Assert.False(parent.TryConsumeToolInvocation());
+        Assert.Equal(3, child.ToolInvocationCount);
+    }
+
     [Theory]
     [InlineData("{\"isError\":true,\"content\":[]}", true)]
     [InlineData("{\"isError\":false,\"content\":[]}", false)]

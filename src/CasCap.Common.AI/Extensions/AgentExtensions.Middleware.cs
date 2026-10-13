@@ -105,6 +105,15 @@ public static partial class AgentExtensions
                 logger.LogTrace("{FunctionCallDetails}", sb);
             }
 
+            if (GetCurrentScope() is { } budgetScope && !budgetScope.TryConsumeToolInvocation())
+            {
+                budgetScope.MarkToolCallFailed(context.CallContent.CallId);
+                if (logger.IsEnabled(LogLevel.Warning))
+                    logger.LogWarning("Tool {FunctionName} refused: the run exceeded {MaximumToolInvocations} tool invocations",
+                        context.Function.Name, budgetScope.MaximumToolInvocations);
+                return $"Error: the tool budget of {budgetScope.MaximumToolInvocations} calls for this request is exhausted. Answer with the information already gathered.";
+            }
+
             object? result;
             try
             {

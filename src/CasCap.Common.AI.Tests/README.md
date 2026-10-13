@@ -18,7 +18,7 @@ dotnet test --project src/CasCap.Common.AI.Tests/CasCap.Common.AI.Tests.csproj
 | `AgentExtensionsCreateAgentTests` | 10 | 13 | Provider validation for Ollama / Azure OpenAI / OpenAI endpoints and credentials, caller-supplied transport, unsupported provider types |
 | `ToolSourceValidationTests` | 2 | 2 | Remote MCP logical credential references are valid only with endpoint sources |
 | `ToolFilterTests` | 3 | 4 | Include-list filtering always rejects unresolved tool names, regardless of hosting environment |
-| `ToolFailureTests` | 3 | 6 | Throwing tools and MCP `isError` results are flagged on `ToolCalls` and counted in `ToolErrorCount` |
+| `ToolFailureTests` | 5 | 8 | Throwing tools and MCP `isError` results are flagged on `ToolCalls` and counted in `ToolErrorCount`; calls beyond the per-run tool budget are refused and the budget is shared with sub-agents |
 | `AgentResponseUsageTests` | 5 | 5 | Framework usage aggregation across tool-call round-trips, `RunAnalysisAsync` usage/tool-call reporting |
 | `AgentTelemetryTests` | 3 | 3 | Agent-level OpenTelemetry spans, sub-agent span nesting, sensitive-data opt-in |
 | `AgentRunScopeTests` | 9 | 11 | Depth nesting, callback inheritance, shared/thread-safe attachment collection, drain semantics, per-scope tool failures |
@@ -27,7 +27,7 @@ dotnet test --project src/CasCap.Common.AI.Tests/CasCap.Common.AI.Tests.csproj
 | `AgentEvaluationToolTests` | 10 | 16 | Tool classification and filtering, fixture and sandbox responses, variant descriptions and schemas, harness tool assembly and provider availability |
 | `AgentEvaluationReportTests` | 5 | 7 | Per-cell and cross-model summaries, speed ratios, session files, visible-thinking detection |
 | `LlamaCppIntegrationTests` | 4 | 4 | Opt-in real text, streaming, multimodal, and framework-session inference against local llama.cpp |
-| **Total** | **83** | **117** | |
+| **Total** | **85** | **119** | |
 
 ## Trait Categories
 

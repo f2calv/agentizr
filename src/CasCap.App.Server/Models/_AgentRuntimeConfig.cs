@@ -29,6 +29,13 @@ public sealed record AgentRuntimeConfig : IAppConfig
     /// </remarks>
     [Range(1, 24 * 60)]
     public int ActiveVersionCacheExpirationMinutes { get; init; } = 10;
+
+    /// <summary>
+    /// Gets the maximum tool invocations, including delegations, across one run and all of its sub-agents.
+    /// Further calls are refused with an error result so the model answers with what it has.
+    /// </summary>
+    [Range(1, 1_000)]
+    public int MaximumToolInvocationsPerRun { get; init; } = 50;
 }
 
 /// <summary>Versioned provider and agent definitions for one tenant.</summary>

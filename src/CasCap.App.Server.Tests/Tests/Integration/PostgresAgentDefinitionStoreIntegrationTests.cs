@@ -110,6 +110,27 @@ public sealed class PostgresAgentDefinitionStoreIntegrationTests(PostgreSqlFixtu
         Assert.False(activatedInB);
     }
 
+    [Fact]
+    public async Task AcquireTenantActivationLockAsync_SerializesOneTenantButNotOthers()
+    {
+        var tenantId = $"tenant-{Guid.NewGuid():N}";
+        var first = new PostgresAgentDefinitionStore(fixture.DbContextFactory, new StaticTenantContext(tenantId), TimeProvider.System);
+        var sameTenant = new PostgresAgentDefinitionStore(fixture.DbContextFactory, new StaticTenantContext(tenantId), TimeProvider.System);
+        var otherTenant = CreateStore();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        var held = await first.AcquireTenantActivationLockAsync(cancellationToken);
+        var waiting = sameTenant.AcquireTenantActivationLockAsync(cancellationToken).AsTask();
+        await using (await otherTenant.AcquireTenantActivationLockAsync(cancellationToken))
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
+            Assert.False(waiting.IsCompleted);
+        }
+
+        await held.DisposeAsync();
+        await using var acquired = await waiting.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
+    }
+
     private PostgresAgentDefinitionStore CreateStore() =>
         new(fixture.DbContextFactory, new StaticTenantContext($"tenant-{Guid.NewGuid():N}"), TimeProvider.System);
 

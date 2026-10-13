@@ -32,6 +32,11 @@ public sealed class AgentDefinitionAdministrationWebApplicationFactory : Agentiz
 
     private sealed class TestDefinitionStore : IAgentDefinitionStore, IAgentDefinitionAdministrationStore
     {
+        private sealed class NoOpLock : IAsyncDisposable
+        {
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        }
+
         private readonly Lock _lock = new();
         private readonly Dictionary<(string AgentName, string Version), AgentDefinitionSnapshotItem> _snapshots = [];
         private readonly Dictionary<string, string> _activeVersions = new(StringComparer.Ordinal);
@@ -135,6 +140,9 @@ public sealed class AgentDefinitionAdministrationWebApplicationFactory : Agentiz
                         .ToArray());
             }
         }
+
+        public ValueTask<IAsyncDisposable> AcquireTenantActivationLockAsync(CancellationToken cancellationToken) =>
+            ValueTask.FromResult<IAsyncDisposable>(new NoOpLock());
 
         public ValueTask<bool> ActivateAsync(
             string agentName,

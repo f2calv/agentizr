@@ -79,7 +79,11 @@ activation actor identifiers come from validated principal claims, never request
 remote MCP and in-process service-tool allowlists. Version 1 requires inline instructions, rejects
 arbitrary settings and prompt sources, uses strict JSON member handling, and rejects URI credentials,
 queries and fragments. Activation verifies delegated agents exist, rejects cycles and caps delegation
-depth; execution enforces the same cap. Tracked defaults permit only local Ollama and no MCP/service
+depth; execution enforces the same cap. The delegation graph is revalidated under a tenant-scoped
+PostgreSQL advisory lock, so concurrent activations of different agents cannot form a cycle.
+`AgentRuntimeConfig.MaximumToolInvocationsPerRun` (default 50) bounds tool calls, including
+delegations, across a run and all of its sub-agents; further calls return an error result so the
+model answers with what it has. Tracked defaults permit only local Ollama and no MCP/service
 tools.
 
 Remote MCP definitions store only `ToolSource.Credential`, a logical tenant-local name. The runtime
