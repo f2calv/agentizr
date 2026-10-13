@@ -77,7 +77,7 @@ public sealed class LiveAgentRuntimeSmokeTests
         HttpMessageHandler handler = new HttpClientHandler();
         if (settings.Authentication is { } authentication)
         {
-            handler = new TokenCredentialBearerHandler(authentication.TokenCredential, authentication.Scope!)
+            handler = new TokenCredentialBearerHandler(authentication.GetTokenCredential(), authentication.Scope!)
             {
                 InnerHandler = handler,
             };
