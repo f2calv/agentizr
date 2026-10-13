@@ -22,7 +22,8 @@ including:
 | `/healthz` | Reports host health |
 | `POST /api/v1/agents/{agentName}/runs` | Runs one tenant-scoped agent turn |
 | `POST /api/v1/agents/{agentName}/definitions` | Publishes an inactive immutable definition |
-| `PUT /api/v1/agents/{agentName}/definitions/{version}/activate` | Activates or rolls back a definition version |
+| `POST /api/v1/agents/{agentName}/definitions/{version}/evaluate` | Grades a definition version against fixture scenarios |
+| `PUT /api/v1/agents/{agentName}/definitions/{version}/activate` | Activates or rolls back a definition version, optionally gated by an evaluation |
 
 Outside Development, JWT authentication derives trusted tenant and control-plane actor identity.
 Request DTOs contain neither tenant nor actor identifiers.

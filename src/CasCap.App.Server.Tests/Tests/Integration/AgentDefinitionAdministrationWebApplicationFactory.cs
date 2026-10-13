@@ -19,6 +19,9 @@ public sealed class AgentDefinitionAdministrationWebApplicationFactory : Agentiz
         {
             services.RemoveAll<IAgentDefinitionStore>();
             services.RemoveAll<IAgentDefinitionAdministrationStore>();
+            services.RemoveAll<IEvaluationAgentFactory>();
+            services.AddSingleton<IEvaluationAgentFactory>(
+                new ScriptedEvaluationAgentFactory(ScriptedEvaluationAgentFactory.Answer("The answer is 42.")));
             services.AddSingleton<TestDefinitionStore>();
             services.AddSingleton<IAgentDefinitionStore>(serviceProvider =>
                 serviceProvider.GetRequiredService<TestDefinitionStore>());

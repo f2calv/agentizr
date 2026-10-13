@@ -39,7 +39,8 @@ agent's reachable active delegation graph; delegated agents do not receive anoth
 | `POST/GET /api/v1/agents/{agentName}/definitions` | Publishes an inactive immutable snapshot or lists history |
 | `GET /api/v1/agents/{agentName}/definitions/{definitionVersion}` | Gets one immutable snapshot |
 | `GET /api/v1/agents/{agentName}/definitions/active` | Gets the active snapshot |
-| `PUT /api/v1/agents/{agentName}/definitions/{definitionVersion}/activate` | Activates or rolls back to a version |
+| `POST /api/v1/agents/{agentName}/definitions/{definitionVersion}/evaluate` | Grades a version against fixture scenarios without activating it |
+| `PUT /api/v1/agents/{agentName}/definitions/{definitionVersion}/activate` | Activates or rolls back to a version, optionally gated by an evaluation |
 | `GET /api/v1/agents/{agentName}/definitions/activations` | Gets activation and rollback audit history |
 
 Controllers are registered and mapped, but no controller exists in the initial scaffold.
@@ -85,6 +86,22 @@ Remote MCP definitions store only `ToolSource.Credential`, a logical tenant-loca
 resolves its `Scheme` and secret `Parameter` from `AgentRuntimeConfig:Tenants:{tenant}:McpCredentials`
 through the final private configuration provider, validates availability before activation, and
 passes the resulting Authorization header only to the per-run MCP transport.
+
+### Definition Evaluation
+
+An evaluation puts fixture-backed scenarios to one immutable version, inactive or not, through its
+real provider and model-facing tool surface, then grades each run's answer and tool selection with
+the `CasCap.Common.AI.Evaluation` grader. No external tool executes: read-only remote MCP, service
+and delegation tools return the scenario's `ToolResponses` fixture (or a no-data response), and
+actuating remote tools are recorded and sandboxed. Only the runtime's read-only built-ins run for
+real. Delegation tools keep their production name and description but are never invoked, so each
+definition is evaluated in isolation.
+
+The evaluate endpoint requires `agent.definition.activate`. Activation accepts an optional
+`Evaluation` and refuses the version, with a summary of the failed runs, when the pass rate falls
+below `MinimumPassRate`. Set `AgentDefinitionPolicyConfig.RequireEvaluationBeforeActivation` to
+refuse every activation, including rollback, that carries no evaluation.
+`EvaluationRunTimeoutSeconds` bounds each run. Results are returned to the caller and not persisted.
 
 Sessions and overrides use `CasCap.Common.Caching` Redis storage with opaque SHA-256 keys and
 `AgentRuntimeConfig.StateSlidingExpirationHours`. Redis stores serialized runtime state and

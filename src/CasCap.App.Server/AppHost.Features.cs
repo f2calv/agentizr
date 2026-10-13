@@ -103,6 +103,8 @@ public static partial class AppHost
         builder.Services.AddScoped<IAgentExecutor, CommonAgentExecutor>();
         builder.Services.AddScoped<AgentExecutionCoordinator>();
         builder.Services.AddScoped<AgentSessionControlService>();
+        builder.Services.AddScoped<IEvaluationAgentFactory, EvaluationAgentFactory>();
+        builder.Services.AddScoped<AgentDefinitionEvaluator>();
         builder.Services.AddScoped<AgentDefinitionAdministrationService>();
     }
 }

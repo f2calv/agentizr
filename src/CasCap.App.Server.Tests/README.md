@@ -12,10 +12,11 @@ The tests launch the real application through `WebApplicationFactory<Program>` a
 | --- | ---: | ---: | --- |
 | `EndpointSmokeTests` | 1 | 2 | Verifies `/` and `/healthz` return HTTP 200 |
 | `AgentRuntimeProtocolTests` | 6 | 6 | Verifies typed-client execution, live event streaming, validation, and complete session-control lifecycle |
-| `AgentDefinitionAdministrationProtocolTests` | 10 | 18 | Verifies inactive publication, activation, rollback, audit attribution, strict policy/delegation/credential rejection, conflicts, and bounded history |
+| `AgentDefinitionAdministrationProtocolTests` | 12 | 20 | Verifies inactive publication, evaluation, evaluation-gated activation, rollback, audit attribution, strict policy/delegation/credential rejection, conflicts, and bounded history |
 | `TenantSecurityStartupTests` | 6 | 6 | Verifies anonymous execution/control-plane rejection, separate execution/admin policies, and Production requirements for authentication, tenant mappings, and Redis |
 | `AgentExecutionCoordinatorTests` | 3 | 3 | Verifies definition, credential, override, session, bypass, and executor orchestration |
 | `AgentRuntimeBuiltInToolsTests` | 1 | 1 | Verifies root runs receive runtime-owned time and metadata tools over the reachable delegation graph |
+| `AgentDefinitionEvaluatorTests` | 4 | 6 | Verifies fixture-backed delegation grading, failed tool selection and answers, pass-rate thresholds, and request validation |
 | `TenantStateIsolationTests` | 3 | 3 | Proves tenant isolation, collision-free keys, pod-replacement persistence, and definition-version invalidation |
 | `AuthenticatedTenantContextTests` | 4 | 4 | Verifies caller-derived tenant identity, missing/unmapped caller rejection, and opaque Redis keys |
 | `AgentRuntimeAuthorizationTests` | 4 | 6 | Verifies delegated scopes, application roles, and caller-to-tenant mapping validation |
@@ -28,13 +29,15 @@ The tests launch the real application through `WebApplicationFactory<Program>` a
 Reusable secret-free agent, provider, runtime-definition, and publication builders live in
 `AgentDefinitionTestData`. Protocol and built-in tests consume these definition-contract fixtures so
 test definitions do not drift into application-specific `AIConfig` setup.
+`ScriptedEvaluationAgentFactory` replaces the model provider with a scripted chat client for
+evaluation tests.
 
 ## Trait Categories
 
 | Category | Test-case count | Purpose |
 | --- | ---: | --- |
-| `Integration` | 32 | In-memory ASP.NET Core host, execution/control protocols, and startup security tests |
-| `Agent Runtime` | 10 | Runtime orchestration, built-in tools, definition persistence, and caching without external services |
+| `Integration` | 34 | In-memory ASP.NET Core host, execution/control protocols, and startup security tests |
+| `Agent Runtime` | 16 | Runtime orchestration, built-in tools, evaluation, definition persistence, and caching without external services |
 | `Tenant Isolation` | 14 | Cross-tenant state, JWT permissions, caller mappings, MCP credentials and identity isolation |
 | `PostgreSQL` | 6 | Definition store against a disposable `postgres:18-alpine` container; requires Docker |
 | `Local Agent Runtime` | 1 | Explicitly enabled smoke test against a complete running runtime |
@@ -68,6 +71,7 @@ only when testing a local runtime with authentication disabled.
 ```text
 Tests/
 ├── AgentDefinitionTestData.cs
+├── ScriptedEvaluationAgentFactory.cs
 ├── Integration/
 │   ├── AgentizrWebApplicationFactory.cs
 │   ├── AgentDefinitionAdministrationProtocolTests.cs
@@ -84,6 +88,7 @@ Tests/
 │   ├── LocalAgentRuntimeFactAttribute.cs
 │   └── LocalAgentRuntimeTestEnvironment.cs
 └── Unit/
+    ├── AgentDefinitionEvaluatorTests.cs
     ├── AgentRuntimeAuthorizationTests.cs
     ├── AgentRuntimeBuiltInToolsTests.cs
     ├── AuthenticatedTenantContextTests.cs

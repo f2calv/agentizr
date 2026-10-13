@@ -5,12 +5,13 @@ using System.Text.Json.Serialization;
 
 namespace CasCap.Services;
 
-/// <summary>Owns validation, attribution, publication and activation of tenant definitions.</summary>
-public sealed class AgentDefinitionAdministrationService(
+/// <summary>Owns validation, attribution, evaluation, publication and activation of tenant definitions.</summary>
+internal sealed class AgentDefinitionAdministrationService(
     IOptions<AgentDefinitionPolicyConfig> policyConfig,
     IActorContext actorContext,
     IMcpCredentialStore mcpCredentialStore,
-    IAgentDefinitionAdministrationStore administrationStore)
+    IAgentDefinitionAdministrationStore administrationStore,
+    AgentDefinitionEvaluator evaluator)
 {
     private const int MaximumDelegationDepth = 5;
 
@@ -113,16 +114,49 @@ public sealed class AgentDefinitionAdministrationService(
         };
     }
 
-    /// <summary>Activates an existing version and records the authenticated actor.</summary>
+    /// <summary>Evaluates an existing version against fixture scenarios without activating it.</summary>
+    public async ValueTask<AgentDefinitionEvaluationOutcome> EvaluateAsync(
+        string agentName,
+        string definitionVersion,
+        EvaluateAgentDefinitionRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(agentName) || agentName.Length > 200
+            || string.IsNullOrWhiteSpace(definitionVersion) || definitionVersion.Length > 100)
+            return new AgentDefinitionEvaluationOutcome { ValidationError = "Agent name or definition version is invalid." };
+        if (AgentDefinitionEvaluator.Validate(request) is { } requestError)
+            return new AgentDefinitionEvaluationOutcome { ValidationError = requestError };
+
+        var snapshot = await administrationStore.GetVersionAsync(agentName, definitionVersion, cancellationToken);
+        if (snapshot is null)
+            return new AgentDefinitionEvaluationOutcome();
+        if (await ValidateDelegationGraphAsync(snapshot.Definition, [], depth: 0, cancellationToken) is { } delegationError)
+            return new AgentDefinitionEvaluationOutcome { ValidationError = delegationError };
+
+        return new AgentDefinitionEvaluationOutcome
+        {
+            Evaluation = await evaluator.EvaluateAsync(snapshot.Definition, request, cancellationToken),
+        };
+    }
+
+    /// <summary>
+    /// Activates an existing version and records the authenticated actor. A supplied evaluation must pass
+    /// first, and the policy can require one.
+    /// </summary>
     public async ValueTask<AgentDefinitionActivationOutcome> ActivateAsync(
         string agentName,
         string definitionVersion,
         string? changeReason,
+        EvaluateAgentDefinitionRequest? evaluation,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(agentName) || agentName.Length > 200
             || string.IsNullOrWhiteSpace(definitionVersion) || definitionVersion.Length > 100)
             return new AgentDefinitionActivationOutcome { ValidationError = "Agent name or definition version is invalid." };
+        if (evaluation is null && policyConfig.Value.RequireEvaluationBeforeActivation)
+            return new AgentDefinitionActivationOutcome { ValidationError = "Activation requires a passing evaluation." };
+        if (evaluation is not null && AgentDefinitionEvaluator.Validate(evaluation) is { } evaluationError)
+            return new AgentDefinitionActivationOutcome { ValidationError = evaluationError };
 
         try
         {
@@ -136,6 +170,13 @@ public sealed class AgentDefinitionAdministrationService(
                 cancellationToken);
             if (delegationError is not null)
                 return new AgentDefinitionActivationOutcome { ValidationError = delegationError };
+
+            if (evaluation is not null)
+            {
+                var result = await evaluator.EvaluateAsync(snapshot.Definition, evaluation, cancellationToken);
+                if (!result.Passed)
+                    return new AgentDefinitionActivationOutcome { ValidationError = DescribeFailedEvaluation(result) };
+            }
 
             return new AgentDefinitionActivationOutcome
             {
@@ -151,6 +192,16 @@ public sealed class AgentDefinitionAdministrationService(
         {
             return new AgentDefinitionActivationOutcome { IsSupported = false };
         }
+    }
+
+    private static string DescribeFailedEvaluation(AgentEvaluationResponse result)
+    {
+        var failures = result.Runs
+            .Where(run => !run.Passed)
+            .Take(3)
+            .Select(run => $"{run.ScenarioId}#{run.Repetition}: {string.Join("; ", run.FailureReasons)}");
+        return $"Evaluation passed {result.Runs.Count(run => run.Passed)} of {result.Runs.Count} runs, "
+            + $"below the required rate of {result.MinimumPassRate:P0}. {string.Join(" | ", failures)}";
     }
 
     private async ValueTask<string?> ValidateDelegationGraphAsync(

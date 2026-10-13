@@ -178,24 +178,9 @@ internal sealed class CommonAgentExecutor(
 
             if (source.Endpoint is not null)
             {
-                IReadOnlyDictionary<string, string>? headers = null;
-                if (source.Credential is { Length: > 0 } credentialName)
-                {
-                    var authorization = await mcpCredentialStore.GetAuthorizationHeaderAsync(
-                        credentialName,
-                        cancellationToken)
-                        ?? throw new InvalidOperationException(
-                            $"Remote MCP credential '{credentialName}' is not available to the current tenant.");
-                    headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                    {
-                        [HeaderNames.Authorization] = authorization,
-                    };
-                }
-                var (client, remoteTools) = await AgentExtensions.GetHttpTools(source.Endpoint, headers, logger);
-                toolLeases.Add(client);
                 AddUniqueTools(
                     tools,
-                    SelectRemoteTools(remoteTools, source, tools, IsReadOnlyRemoteTool, logger),
+                    await CreateRemoteToolsAsync(source, tools, mcpCredentialStore, toolLeases, logger, cancellationToken),
                     "remote MCP tools",
                     logger);
                 continue;
@@ -212,6 +197,36 @@ internal sealed class CommonAgentExecutor(
         }
 
         return tools;
+    }
+
+    /// <summary>
+    /// Connects to a remote MCP source with its tenant credential and returns the tools the definition may use.
+    /// The client is added to <paramref name="toolLeases" /> for disposal after the run.
+    /// </summary>
+    internal static async ValueTask<IEnumerable<AITool>> CreateRemoteToolsAsync(
+        ToolSource source,
+        IReadOnlyCollection<AITool> composedTools,
+        IMcpCredentialStore mcpCredentialStore,
+        List<IAsyncDisposable> toolLeases,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyDictionary<string, string>? headers = null;
+        if (source.Credential is { Length: > 0 } credentialName)
+        {
+            var authorization = await mcpCredentialStore.GetAuthorizationHeaderAsync(
+                credentialName,
+                cancellationToken)
+                ?? throw new InvalidOperationException(
+                    $"Remote MCP credential '{credentialName}' is not available to the current tenant.");
+            headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [HeaderNames.Authorization] = authorization,
+            };
+        }
+        var (client, remoteTools) = await AgentExtensions.GetHttpTools(source.Endpoint!, headers, logger);
+        toolLeases.Add(client);
+        return SelectRemoteTools(remoteTools, source, composedTools, IsReadOnlyRemoteTool, logger);
     }
 
     /// <summary>
@@ -252,7 +267,7 @@ internal sealed class CommonAgentExecutor(
         return allowed;
     }
 
-    private static bool IsReadOnlyRemoteTool(AITool tool) =>
+    internal static bool IsReadOnlyRemoteTool(AITool tool) =>
         tool is McpClientTool { ProtocolTool.Annotations.ReadOnlyHint: true };
 
     internal static ToolSource RemoveComposedIncludes(ToolSource source, IReadOnlyCollection<AITool> tools)

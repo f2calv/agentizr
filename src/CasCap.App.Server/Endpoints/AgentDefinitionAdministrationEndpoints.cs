@@ -35,9 +35,15 @@ public static class AgentDefinitionAdministrationEndpoints
             .WithSummary("Gets one immutable definition version")
             .Produces<AgentDefinitionSnapshotResponse>()
             .Produces(StatusCodes.Status404NotFound);
+        var evaluate = group.MapPost(AgentRuntimeRoutes.DefinitionEvaluation, EvaluateAsync)
+            .WithName("EvaluateAgentDefinitionV1")
+            .WithSummary("Evaluates an immutable definition version against fixture scenarios without activating it")
+            .Produces<AgentEvaluationResponse>()
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesValidationProblem();
         var activate = group.MapPut(AgentRuntimeRoutes.DefinitionActivation, ActivateAsync)
             .WithName("ActivateAgentDefinitionV1")
-            .WithSummary("Activates or rolls back to an immutable definition version")
+            .WithSummary("Activates or rolls back to an immutable definition version, optionally gated by an evaluation")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound)
             .ProducesValidationProblem();
@@ -52,6 +58,7 @@ public static class AgentDefinitionAdministrationEndpoints
             history.RequireAuthorization(AgentRuntimePolicies.DefinitionRead);
             active.RequireAuthorization(AgentRuntimePolicies.DefinitionRead);
             version.RequireAuthorization(AgentRuntimePolicies.DefinitionRead);
+            evaluate.RequireAuthorization(AgentRuntimePolicies.DefinitionActivate);
             activate.RequireAuthorization(AgentRuntimePolicies.DefinitionActivate);
             activations.RequireAuthorization(AgentRuntimePolicies.DefinitionRead);
         }
@@ -117,6 +124,20 @@ public static class AgentDefinitionAdministrationEndpoints
             ? TypedResults.Ok(MapSnapshot(snapshot))
             : TypedResults.NotFound();
 
+    private static async Task<Results<Ok<AgentEvaluationResponse>, NotFound, ValidationProblem>> EvaluateAsync(
+        [StringLength(200, MinimumLength = 1)] string agentName,
+        [StringLength(100, MinimumLength = 1)] string definitionVersion,
+        EvaluateAgentDefinitionRequest request,
+        AgentDefinitionAdministrationService administrationSvc,
+        CancellationToken cancellationToken) =>
+        (await administrationSvc.EvaluateAsync(agentName, definitionVersion, request, cancellationToken)) switch
+        {
+            { ValidationError: { } validationError } => TypedResults.ValidationProblem(
+                new Dictionary<string, string[]> { [nameof(request)] = [validationError] }),
+            { Evaluation: { } evaluation } => TypedResults.Ok(evaluation),
+            _ => TypedResults.NotFound(),
+        };
+
     private static async Task<Results<NoContent, NotFound, ValidationProblem, StatusCodeHttpResult>> ActivateAsync(
         [StringLength(200, MinimumLength = 1)] string agentName,
         [StringLength(100, MinimumLength = 1)] string definitionVersion,
@@ -127,6 +148,7 @@ public static class AgentDefinitionAdministrationEndpoints
             agentName,
             definitionVersion,
             request.ChangeReason,
+            request.Evaluation,
             cancellationToken)) switch
         {
             { IsSupported: false } => TypedResults.StatusCode(StatusCodes.Status501NotImplemented),

@@ -39,6 +39,9 @@ public static class AgentRuntimeRoutes
     /// <summary>Gets the route for activating an immutable definition version.</summary>
     public const string DefinitionActivation = "/definitions/{definitionVersion}/activate";
 
+    /// <summary>Gets the route for evaluating an immutable definition version against fixture scenarios.</summary>
+    public const string DefinitionEvaluation = "/definitions/{definitionVersion}/evaluate";
+
     /// <summary>Gets the route for activation and rollback history.</summary>
     public const string DefinitionActivations = "/definitions/activations";
 }

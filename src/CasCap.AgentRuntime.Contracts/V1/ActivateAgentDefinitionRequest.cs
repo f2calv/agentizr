@@ -7,4 +7,9 @@ public sealed record ActivateAgentDefinitionRequest
     /// <example>Rollback after provider regression.</example>
     [MaxLength(2_000)]
     public string? ChangeReason { get; init; }
+
+    /// <summary>
+    /// Gets an optional evaluation that must pass before the version is activated. The server may require one.
+    /// </summary>
+    public EvaluateAgentDefinitionRequest? Evaluation { get; init; }
 }

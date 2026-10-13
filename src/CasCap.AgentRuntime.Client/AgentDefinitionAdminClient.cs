@@ -54,6 +54,23 @@ public sealed class AgentDefinitionAdminClient(HttpClient httpClient) : IAgentDe
     }
 
     /// <inheritdoc/>
+    public async Task<AgentEvaluationResponse?> EvaluateAsync(
+        string agentName,
+        string definitionVersion,
+        EvaluateAgentDefinitionRequest request,
+        CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.PostAsJsonAsync(
+            BuildPath(agentName, AgentRuntimeRoutes.DefinitionEvaluation, definitionVersion),
+            request,
+            cancellationToken).ConfigureAwait(false);
+        if (response.StatusCode is HttpStatusCode.NotFound)
+            return null;
+        response.EnsureSuccessStatusCode();
+        return await ReadRequiredAsync<AgentEvaluationResponse>(response, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
     public async Task<bool> ActivateAsync(
         string agentName,
         string definitionVersion,

@@ -26,6 +26,16 @@ public interface IAgentDefinitionAdminClient
         int limit,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Evaluates an existing version against fixture scenarios without activating it, or returns
+    /// <see langword="null" /> when the version does not exist.
+    /// </summary>
+    public Task<AgentEvaluationResponse?> EvaluateAsync(
+        string agentName,
+        string definitionVersion,
+        EvaluateAgentDefinitionRequest request,
+        CancellationToken cancellationToken);
+
     /// <summary>Activates an existing version.</summary>
     public Task<bool> ActivateAsync(
         string agentName,

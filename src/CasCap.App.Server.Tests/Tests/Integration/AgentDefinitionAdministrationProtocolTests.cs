@@ -73,6 +73,70 @@ public sealed class AgentDefinitionAdministrationProtocolTests(
     }
 
     [Fact]
+    public async Task EvaluateDefinition_GradesAnInactiveVersionWithoutActivatingIt()
+    {
+        using var httpClient = factory.CreateClient();
+        var client = new AgentDefinitionAdminClient(httpClient);
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await client.PublishAsync(
+            "evaluated",
+            AgentDefinitionTestData.CreatePublishRequest("candidate", "model"),
+            cancellationToken);
+
+        var passing = await client.EvaluateAsync("evaluated", "candidate", CreateEvaluation(42), cancellationToken);
+        var failing = await client.EvaluateAsync("evaluated", "candidate", CreateEvaluation(7), cancellationToken);
+        var missing = await client.EvaluateAsync("evaluated", "missing", CreateEvaluation(42), cancellationToken);
+
+        Assert.True(passing?.Passed);
+        Assert.Equal("The answer is 42.", Assert.Single(passing!.Runs).Answer);
+        Assert.False(failing?.Passed);
+        Assert.Null(missing);
+        Assert.Null(await client.GetActiveAsync("evaluated", cancellationToken));
+    }
+
+    [Fact]
+    public async Task ActivateDefinition_RefusesAFailingEvaluationAndAcceptsAPassingOne()
+    {
+        using var httpClient = factory.CreateClient();
+        var client = new AgentDefinitionAdminClient(httpClient);
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await client.PublishAsync(
+            "gated",
+            AgentDefinitionTestData.CreatePublishRequest("candidate", "model"),
+            cancellationToken);
+
+        using var refused = await httpClient.PutAsJsonAsync(
+            "/api/v1/agents/gated/definitions/candidate/activate",
+            new ActivateAgentDefinitionRequest { ChangeReason = "gate", Evaluation = CreateEvaluation(7) },
+            cancellationToken);
+        var activeAfterRefusal = await client.GetActiveAsync("gated", cancellationToken);
+        var activated = await client.ActivateAsync(
+            "gated",
+            "candidate",
+            new ActivateAgentDefinitionRequest { ChangeReason = "gate", Evaluation = CreateEvaluation(42) },
+            cancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Contains("Evaluation passed 0 of 1 runs", await refused.Content.ReadAsStringAsync(cancellationToken), StringComparison.Ordinal);
+        Assert.Null(activeAfterRefusal);
+        Assert.True(activated);
+        Assert.Equal("candidate", (await client.GetActiveAsync("gated", cancellationToken))?.DefinitionVersion);
+    }
+
+    private static EvaluateAgentDefinitionRequest CreateEvaluation(double expected) => new()
+    {
+        Scenarios =
+        [
+            new AgentEvaluationScenarioRequest
+            {
+                Id = "answer",
+                Question = "What is the answer?",
+                Answer = new AgentEvaluationAnswerRequest { Number = expected },
+            },
+        ],
+    };
+
+    [Fact]
     public async Task ActivateDefinition_UnknownVersionReturnsFalse()
     {
         using var httpClient = factory.CreateClient();
