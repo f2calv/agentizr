@@ -63,8 +63,11 @@ EOF
 
 # ------------------------------------------------------------------------------
 # Stage 2 of 3: runtime
+#
+# Chiseled "extra" adds the ICU and tzdata that tenant time zones need; it has no shell or
+# package manager. Npgsql GSS probing is disabled in code, so no Kerberos library is required.
 # ------------------------------------------------------------------------------
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled-extra AS runtime
 WORKDIR /app
 
 COPY --link --from=build /app/publish .

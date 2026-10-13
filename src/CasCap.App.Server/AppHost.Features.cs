@@ -55,8 +55,13 @@ public static partial class AppHost
 
         if (postgresEnabled)
         {
+            // No Kerberos in this deployment; GSS probing loads libgssapi, which chiseled images lack.
+            var connectionString = new Npgsql.NpgsqlConnectionStringBuilder(databaseConfig.ConnectionString)
+            {
+                GssEncryptionMode = Npgsql.GssEncryptionMode.Disable,
+            }.ConnectionString;
             builder.Services.AddDbContextFactory<AgentRuntimeDbContext>(options =>
-                options.UseNpgsql(databaseConfig.ConnectionString));
+                options.UseNpgsql(connectionString));
             builder.Services.AddScoped<AgentRuntimeDatabaseMigrator>();
             builder.Services.AddScoped<PostgresAgentDefinitionStore>();
             if (redisEnabled)
