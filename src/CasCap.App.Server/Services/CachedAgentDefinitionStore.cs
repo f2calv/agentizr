@@ -1,18 +1,23 @@
 namespace CasCap.Services;
 
 /// <summary>Redis read-through cache over the PostgreSQL definition authority.</summary>
+/// <remarks>
+/// Both the active-version pointer and the immutable version snapshots are cached, so a run needs no
+/// database query while they are warm. Activation removes the pointer from every pod's cache.
+/// </remarks>
 internal sealed class CachedAgentDefinitionStore(
     PostgresAgentDefinitionStore innerStore,
     IDistributedCache distributedCache,
     IOptions<AgentRuntimeConfig> runtimeConfig,
     ILogger<CachedAgentDefinitionStore> logger,
-    ITenantContext tenantContext) : IAgentDefinitionStore, IAgentDefinitionAdministrationStore
+    ITenantContext tenantContext,
+    TimeProvider timeProvider) : IAgentDefinitionStore, IAgentDefinitionAdministrationStore
 {
     /// <inheritdoc/>
     public async ValueTask<AgentDefinition?> GetAsync(string agentName, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var definitionVersion = await innerStore.GetActiveVersionAsync(agentName, cancellationToken);
+        var definitionVersion = await GetActiveVersionAsync(agentName, cancellationToken);
         if (definitionVersion is null)
             return null;
         var key = AgentDefinitionCacheKey.Create(tenantContext.TenantId, agentName, definitionVersion);
@@ -43,6 +48,37 @@ internal sealed class CachedAgentDefinitionStore(
             }
         }
         return definition;
+    }
+
+    private async ValueTask<string?> GetActiveVersionAsync(string agentName, CancellationToken cancellationToken)
+    {
+        var key = AgentDefinitionCacheKey.CreateActiveVersion(tenantContext.TenantId, agentName);
+        try
+        {
+            if (await distributedCache.Get<string>(key) is { } cachedVersion)
+                return cachedVersion;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Unable to read cached active definition version");
+        }
+
+        var definitionVersion = await innerStore.GetActiveVersionAsync(agentName, cancellationToken);
+        if (definitionVersion is not null)
+        {
+            try
+            {
+                await distributedCache.Set(
+                    key,
+                    definitionVersion,
+                    absoluteExpiration: timeProvider.GetUtcNow().AddMinutes(runtimeConfig.Value.ActiveVersionCacheExpirationMinutes));
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Unable to cache active definition version");
+            }
+        }
+        return definitionVersion;
     }
 
     /// <inheritdoc/>
@@ -89,12 +125,25 @@ internal sealed class CachedAgentDefinitionStore(
         string? changeReason,
         CancellationToken cancellationToken)
     {
-        return await innerStore.ActivateAsync(
+        var activated = await innerStore.ActivateAsync(
             agentName,
             definitionVersion,
             activatedBy,
             changeReason,
             cancellationToken);
+        if (activated)
+        {
+            try
+            {
+                await distributedCache.Delete(AgentDefinitionCacheKey.CreateActiveVersion(tenantContext.TenantId, agentName));
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Unable to invalidate the cached active definition version; it expires within {Minutes} minutes",
+                    runtimeConfig.Value.ActiveVersionCacheExpirationMinutes);
+            }
+        }
+        return activated;
     }
 
     /// <inheritdoc/>

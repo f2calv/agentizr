@@ -20,7 +20,7 @@ The tests launch the real application through `WebApplicationFactory<Program>` a
 | `AuthenticatedTenantContextTests` | 4 | 4 | Verifies caller-derived tenant identity, missing/unmapped caller rejection, and opaque Redis keys |
 | `AgentRuntimeAuthorizationTests` | 4 | 6 | Verifies delegated scopes, application roles, and caller-to-tenant mapping validation |
 | `PostgresAgentDefinitionStoreTests` | 3 | 3 | Verifies immutable publication, active-version changes, duplicate rejection, history, and tenant isolation |
-| `CachedAgentDefinitionStoreTests` | 1 | 1 | Verifies secret-free read-through caching and activation invalidation |
+| `CachedAgentDefinitionStoreTests` | 3 | 3 | Verifies secret-free read-through caching, the cached active-version pointer surviving a database outage, and its invalidation on activation |
 | `ConfigurationMcpCredentialStoreTests` | 1 | 1 | Verifies tenant-scoped Authorization header resolution without definition secrets |
 | `LiveAgentRuntimeSmokeTests` | 1 | 1 | Opt-in authenticated run, streaming, session inspection and cleanup against a complete live runtime |
 

@@ -30,12 +30,7 @@ public sealed class CachedAgentDefinitionStoreTests : IAsyncLifetime
     {
         var tenantContext = new StaticTenantContext("tenant-a");
         var innerStore = new PostgresAgentDefinitionStore(_dbContextFactory, tenantContext, TimeProvider.System);
-        var store = new CachedAgentDefinitionStore(
-            innerStore,
-            _cache,
-            Options.Create(new AgentRuntimeConfig()),
-            NullLogger<CachedAgentDefinitionStore>.Instance,
-            tenantContext);
+        var store = CreateStore(innerStore, tenantContext);
         await innerStore.PublishAsync(CreateDefinition("v1"), 1, null, null, CancellationToken.None);
         await innerStore.ActivateAsync("assistant", "v1", null, null, CancellationToken.None);
 
@@ -56,6 +51,50 @@ public sealed class CachedAgentDefinitionStoreTests : IAsyncLifetime
         Assert.Equal("v2", second?.Version);
         Assert.Equal("v2", cachedVersion2?.Version);
     }
+
+    [Fact]
+    public async Task GetAsync_WarmCacheServesRunsWhileTheDatabaseIsUnavailable()
+    {
+        var tenantContext = new StaticTenantContext("tenant-a");
+        var innerStore = new PostgresAgentDefinitionStore(_dbContextFactory, tenantContext, TimeProvider.System);
+        var store = CreateStore(innerStore, tenantContext);
+        await innerStore.PublishAsync(CreateDefinition("v1"), 1, null, null, CancellationToken.None);
+        await innerStore.ActivateAsync("assistant", "v1", null, null, CancellationToken.None);
+        await store.GetAsync("assistant", CancellationToken.None);
+
+        await _connection.CloseAsync();
+        var definition = await store.GetAsync("assistant", CancellationToken.None);
+
+        Assert.Equal("v1", definition?.Version);
+        Assert.Equal("v1", await _cache.Get<string>(AgentDefinitionCacheKey.CreateActiveVersion("tenant-a", "assistant")));
+    }
+
+    [Fact]
+    public async Task ActivateAsync_RemovesTheCachedActiveVersion()
+    {
+        var tenantContext = new StaticTenantContext("tenant-a");
+        var innerStore = new PostgresAgentDefinitionStore(_dbContextFactory, tenantContext, TimeProvider.System);
+        var store = CreateStore(innerStore, tenantContext);
+        await store.PublishAsync(CreateDefinition("v1"), 1, null, null, CancellationToken.None);
+        await store.PublishAsync(CreateDefinition("v2"), 1, null, null, CancellationToken.None);
+        await store.ActivateAsync("assistant", "v1", null, null, CancellationToken.None);
+        await store.GetAsync("assistant", CancellationToken.None);
+        var pointerKey = AgentDefinitionCacheKey.CreateActiveVersion("tenant-a", "assistant");
+        var warmed = await _cache.Get<string>(pointerKey);
+
+        await store.ActivateAsync("assistant", "v2", null, null, CancellationToken.None);
+
+        Assert.Equal("v1", warmed);
+        Assert.Null(await _cache.Get<string>(pointerKey));
+    }
+
+    private CachedAgentDefinitionStore CreateStore(PostgresAgentDefinitionStore innerStore, ITenantContext tenantContext) => new(
+        innerStore,
+        _cache,
+        Options.Create(new AgentRuntimeConfig()),
+        NullLogger<CachedAgentDefinitionStore>.Instance,
+        tenantContext,
+        TimeProvider.System);
 
     private static AgentDefinition CreateDefinition(string version) => new()
     {

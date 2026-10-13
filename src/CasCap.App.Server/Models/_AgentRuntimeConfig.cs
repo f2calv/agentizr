@@ -21,6 +21,14 @@ public sealed record AgentRuntimeConfig : IAppConfig
     /// <summary>Gets the Redis active-definition cache duration in minutes.</summary>
     [Range(1, 24 * 60)]
     public int DefinitionCacheExpirationMinutes { get; init; } = 60;
+
+    /// <summary>Gets the absolute lifetime in minutes of a cached active-version pointer.</summary>
+    /// <remarks>
+    /// Activation removes the pointer immediately; this bounds staleness only if that removal is lost,
+    /// and is how long runs survive a PostgreSQL outage.
+    /// </remarks>
+    [Range(1, 24 * 60)]
+    public int ActiveVersionCacheExpirationMinutes { get; init; } = 10;
 }
 
 /// <summary>Versioned provider and agent definitions for one tenant.</summary>
