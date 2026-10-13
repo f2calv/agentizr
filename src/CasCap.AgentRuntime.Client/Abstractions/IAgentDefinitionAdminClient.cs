@@ -43,6 +43,14 @@ public interface IAgentDefinitionAdminClient
         ActivateAgentDefinitionRequest request,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Deactivates the active definition, or returns <see langword="false" /> when no version is active.
+    /// </summary>
+    public Task<bool> DeactivateAsync(
+        string agentName,
+        DeactivateAgentDefinitionRequest request,
+        CancellationToken cancellationToken);
+
     /// <summary>Gets newest-first activation and rollback history.</summary>
     public Task<IReadOnlyList<AgentDefinitionActivationResponse>> GetActivationHistoryAsync(
         string agentName,

@@ -168,6 +168,37 @@ public sealed class AgentDefinitionAdministrationWebApplicationFactory : Agentiz
             }
         }
 
+        public ValueTask<bool> DeactivateAsync(
+            string agentName,
+            string? deactivatedBy,
+            string changeReason,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_lock)
+            {
+                if (!_activeVersions.Remove(agentName, out var version))
+                    return ValueTask.FromResult(false);
+                _activations.Add((agentName, new AgentDefinitionActivationItem
+                {
+                    DefinitionVersion = version,
+                    ActivatedAtUtc = new DateTimeOffset(2026, 10, 7, 1, _activations.Count, 0, TimeSpan.Zero),
+                    ActivatedBy = deactivatedBy,
+                    ChangeReason = changeReason,
+                    IsDeactivation = true,
+                }));
+                return ValueTask.FromResult(true);
+            }
+        }
+
+        public ValueTask<IReadOnlyList<AgentDefinition>> GetActiveDefinitionsAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_lock)
+                return ValueTask.FromResult<IReadOnlyList<AgentDefinition>>(
+                    _activeVersions.Select(pair => _snapshots[(pair.Key, pair.Value)].Definition).ToArray());
+        }
+
         public ValueTask<IReadOnlyList<AgentDefinitionActivationItem>> GetActivationHistoryAsync(
             string agentName,
             int limit,

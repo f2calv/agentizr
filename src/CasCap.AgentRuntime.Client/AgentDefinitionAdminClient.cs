@@ -91,6 +91,22 @@ public sealed class AgentDefinitionAdminClient(HttpClient httpClient) : IAgentDe
     }
 
     /// <inheritdoc/>
+    public async Task<bool> DeactivateAsync(
+        string agentName,
+        DeactivateAgentDefinitionRequest request,
+        CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.PostAsJsonAsync(
+            BuildPath(agentName, AgentRuntimeRoutes.DefinitionDeactivation),
+            request,
+            cancellationToken).ConfigureAwait(false);
+        if (response.StatusCode is HttpStatusCode.NotFound)
+            return false;
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<AgentDefinitionActivationResponse>> GetActivationHistoryAsync(
         string agentName,
         int limit,

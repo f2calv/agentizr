@@ -137,6 +137,42 @@ public sealed class AgentDefinitionAdministrationProtocolTests(
     };
 
     [Fact]
+    public async Task DeactivateDefinition_RefusesWhileDelegatedToThenRecordsTheDeactivation()
+    {
+        using var httpClient = factory.CreateClient();
+        var client = new AgentDefinitionAdminClient(httpClient);
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await client.PublishAsync("worker", AgentDefinitionTestData.CreatePublishRequest("v1", "model"), cancellationToken);
+        await client.ActivateAsync("worker", "v1", new ActivateAgentDefinitionRequest(), cancellationToken);
+        await client.PublishAsync("lead", AgentDefinitionTestData.CreatePublishRequest("v1", "model") with
+        {
+            Definition = JsonSerializer.SerializeToElement(new
+            {
+                agent = AgentDefinitionTestData.CreateAgent("lead", tools: [new ToolSource { Agent = "worker" }]),
+                provider = AgentDefinitionTestData.CreateProvider("model"),
+            }, JsonSerializerOptions.Web),
+        }, cancellationToken);
+        await client.ActivateAsync("lead", "v1", new ActivateAgentDefinitionRequest(), cancellationToken);
+        var retire = new DeactivateAgentDefinitionRequest { ChangeReason = "retire" };
+
+        using var refused = await httpClient.PostAsJsonAsync("/api/v1/agents/worker/definitions/active/deactivate", retire, cancellationToken);
+        var leadDeactivated = await client.DeactivateAsync("lead", retire, cancellationToken);
+        var workerDeactivated = await client.DeactivateAsync("worker", retire, cancellationToken);
+        var repeated = await client.DeactivateAsync("worker", retire, cancellationToken);
+        var history = await client.GetActivationHistoryAsync("worker", 10, cancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Contains("lead", await refused.Content.ReadAsStringAsync(cancellationToken), StringComparison.Ordinal);
+        Assert.True(leadDeactivated);
+        Assert.True(workerDeactivated);
+        Assert.False(repeated);
+        Assert.Null(await client.GetActiveAsync("worker", cancellationToken));
+        Assert.True(history[0].IsDeactivation);
+        Assert.Equal("retire", history[0].ChangeReason);
+        Assert.False(history[1].IsDeactivation);
+    }
+
+    [Fact]
     public async Task ActivateDefinition_UnknownVersionReturnsFalse()
     {
         using var httpClient = factory.CreateClient();

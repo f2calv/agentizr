@@ -41,6 +41,7 @@ agent's reachable active delegation graph; delegated agents do not receive anoth
 | `GET /api/v1/agents/{agentName}/definitions/active` | Gets the active snapshot |
 | `POST /api/v1/agents/{agentName}/definitions/{definitionVersion}/evaluate` | Grades a version against fixture scenarios without activating it |
 | `PUT /api/v1/agents/{agentName}/definitions/{definitionVersion}/activate` | Activates or rolls back to a version, optionally gated by an evaluation |
+| `POST /api/v1/agents/{agentName}/definitions/active/deactivate` | Deactivates the active version with an audited reason; refused while another active agent delegates to it |
 | `GET /api/v1/agents/{agentName}/definitions/activations` | Gets activation and rollback audit history |
 
 Controllers are registered and mapped, but no controller exists in the initial scaffold.

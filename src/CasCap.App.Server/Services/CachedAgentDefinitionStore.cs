@@ -136,18 +136,38 @@ internal sealed class CachedAgentDefinitionStore(
             changeReason,
             cancellationToken);
         if (activated)
-        {
-            try
-            {
-                await distributedCache.Delete(AgentDefinitionCacheKey.CreateActiveVersion(tenantContext.TenantId, agentName));
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Unable to invalidate the cached active definition version; it expires within {Minutes} minutes",
-                    runtimeConfig.Value.ActiveVersionCacheExpirationMinutes);
-            }
-        }
+            await InvalidateActiveVersionAsync(agentName);
         return activated;
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask<bool> DeactivateAsync(
+        string agentName,
+        string? deactivatedBy,
+        string changeReason,
+        CancellationToken cancellationToken)
+    {
+        var deactivated = await innerStore.DeactivateAsync(agentName, deactivatedBy, changeReason, cancellationToken);
+        if (deactivated)
+            await InvalidateActiveVersionAsync(agentName);
+        return deactivated;
+    }
+
+    /// <inheritdoc/>
+    public ValueTask<IReadOnlyList<AgentDefinition>> GetActiveDefinitionsAsync(CancellationToken cancellationToken) =>
+        innerStore.GetActiveDefinitionsAsync(cancellationToken);
+
+    private async Task InvalidateActiveVersionAsync(string agentName)
+    {
+        try
+        {
+            await distributedCache.Delete(AgentDefinitionCacheKey.CreateActiveVersion(tenantContext.TenantId, agentName));
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Unable to invalidate the cached active definition version; it expires within {Minutes} minutes",
+                runtimeConfig.Value.ActiveVersionCacheExpirationMinutes);
+        }
     }
 
     /// <inheritdoc/>

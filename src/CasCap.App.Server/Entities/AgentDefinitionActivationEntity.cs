@@ -24,6 +24,9 @@ public sealed class AgentDefinitionActivationEntity
     /// <summary>Gets or sets the activation or rollback reason.</summary>
     public string? ChangeReason { get; set; }
 
+    /// <summary>Gets or sets whether this event deactivated <see cref="SnapshotId"/> rather than activating it.</summary>
+    public bool IsDeactivation { get; set; }
+
     /// <summary>Gets or sets the activated snapshot navigation.</summary>
     public AgentDefinitionSnapshotEntity? Snapshot { get; set; }
 }

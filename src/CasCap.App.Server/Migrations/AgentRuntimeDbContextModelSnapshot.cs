@@ -84,6 +84,12 @@ namespace CasCap.Migrations
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("change_reason");
 
+                    b.Property<bool>("IsDeactivation")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_deactivation");
+
                     b.Property<long>("SnapshotId")
                         .HasColumnType("bigint")
                         .HasColumnName("snapshot_id");

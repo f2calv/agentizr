@@ -42,6 +42,19 @@ public interface IAgentDefinitionAdministrationStore
     /// </summary>
     public ValueTask<IAsyncDisposable> AcquireTenantActivationLockAsync(CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Removes the agent's active pointer and appends a deactivation audit event, or returns
+    /// <see langword="false" /> when no version is active.
+    /// </summary>
+    public ValueTask<bool> DeactivateAsync(
+        string agentName,
+        string? deactivatedBy,
+        string changeReason,
+        CancellationToken cancellationToken);
+
+    /// <summary>Gets every active definition of the current tenant.</summary>
+    public ValueTask<IReadOnlyList<AgentDefinition>> GetActiveDefinitionsAsync(CancellationToken cancellationToken);
+
     /// <summary>Gets newest-first activation and rollback history.</summary>
     public ValueTask<IReadOnlyList<AgentDefinitionActivationItem>> GetActivationHistoryAsync(
         string agentName,

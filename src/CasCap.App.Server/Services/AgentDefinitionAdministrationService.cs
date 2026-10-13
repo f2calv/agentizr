@@ -200,6 +200,52 @@ internal sealed class AgentDefinitionAdministrationService(
         }
     }
 
+    /// <summary>
+    /// Deactivates the agent's active definition and records the authenticated actor. Refused while another
+    /// active agent of the tenant still delegates to it.
+    /// </summary>
+    public async ValueTask<AgentDefinitionDeactivationOutcome> DeactivateAsync(
+        string agentName,
+        string changeReason,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(agentName) || agentName.Length > 200)
+            return new AgentDefinitionDeactivationOutcome { ValidationError = "Agent name must contain 1 to 200 characters." };
+        if (string.IsNullOrWhiteSpace(changeReason) || changeReason.Length > 2_000)
+            return new AgentDefinitionDeactivationOutcome { ValidationError = "A change reason of 1 to 2000 characters is required." };
+
+        try
+        {
+            await using var activationLock = await administrationStore.AcquireTenantActivationLockAsync(cancellationToken);
+            var delegators = (await administrationStore.GetActiveDefinitionsAsync(cancellationToken))
+                .Where(definition => !definition.Name.Equals(agentName, StringComparison.Ordinal)
+                    && definition.Agent.Tools.Any(tool => string.Equals(tool.Agent, agentName, StringComparison.OrdinalIgnoreCase)))
+                .Select(definition => definition.Name)
+                .Order(StringComparer.Ordinal)
+                .ToArray();
+            if (delegators.Length > 0)
+            {
+                return new AgentDefinitionDeactivationOutcome
+                {
+                    ValidationError = $"Active agents delegate to '{agentName}': {string.Join(", ", delegators)}. Deactivate them first.",
+                };
+            }
+
+            return new AgentDefinitionDeactivationOutcome
+            {
+                Deactivated = await administrationStore.DeactivateAsync(
+                    agentName,
+                    actorContext.ActorId,
+                    changeReason,
+                    cancellationToken),
+            };
+        }
+        catch (NotSupportedException)
+        {
+            return new AgentDefinitionDeactivationOutcome { IsSupported = false };
+        }
+    }
+
     private static string DescribeFailedEvaluation(AgentEvaluationResponse result)
     {
         var failures = result.Runs

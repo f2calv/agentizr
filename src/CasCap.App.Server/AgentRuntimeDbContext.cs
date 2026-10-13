@@ -76,6 +76,7 @@ public sealed class AgentRuntimeDbContext(
             entity.Property(activation => activation.ActivatedAtUtc).HasColumnName("activated_at_utc").HasDefaultValueSql("NOW()");
             entity.Property(activation => activation.ActivatedBy).HasColumnName("activated_by").HasMaxLength(200);
             entity.Property(activation => activation.ChangeReason).HasColumnName("change_reason").HasMaxLength(2_000);
+            entity.Property(activation => activation.IsDeactivation).HasColumnName("is_deactivation").HasDefaultValue(false);
             entity.HasOne(activation => activation.Snapshot)
                 .WithMany()
                 .HasForeignKey(activation => new { activation.TenantId, activation.AgentName, activation.SnapshotId })

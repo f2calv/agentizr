@@ -212,14 +212,7 @@ internal sealed class PostgresAgentDefinitionStore(
 
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
-        if (dbContext.Database.ProviderName == "Npgsql.EntityFrameworkCore.PostgreSQL")
-        {
-            var lockKey = $"{tenantContext.TenantId.Length}:{tenantContext.TenantId}"
-                + $"{agentName.Length}:{agentName}";
-            await dbContext.Database.ExecuteSqlInterpolatedAsync(
-                $"SELECT pg_advisory_xact_lock(hashtextextended({lockKey}, 0))",
-                cancellationToken);
-        }
+        await AcquireAgentLockAsync(dbContext, agentName, cancellationToken);
         var snapshot = await dbContext.AgentDefinitionSnapshots.SingleOrDefaultAsync(
             item => item.TenantId == tenantContext.TenantId
                 && item.AgentName == agentName
@@ -282,8 +275,70 @@ internal sealed class PostgresAgentDefinitionStore(
                 ActivatedAtUtc = activation.ActivatedAtUtc,
                 ActivatedBy = activation.ActivatedBy,
                 ChangeReason = activation.ChangeReason,
+                IsDeactivation = activation.IsDeactivation,
             })
             .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask<bool> DeactivateAsync(
+        string agentName,
+        string? deactivatedBy,
+        string changeReason,
+        CancellationToken cancellationToken)
+    {
+        ValidateKey(agentName, nameof(agentName), 200);
+        ValidateKey(tenantContext.TenantId, nameof(tenantContext.TenantId), 200);
+        ValidateKey(changeReason, nameof(changeReason), 2_000);
+        ValidateOptional(deactivatedBy, nameof(deactivatedBy), 200);
+
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        await AcquireAgentLockAsync(dbContext, agentName, cancellationToken);
+        var active = await dbContext.ActiveAgentDefinitions.SingleOrDefaultAsync(
+            pointer => pointer.TenantId == tenantContext.TenantId && pointer.AgentName == agentName,
+            cancellationToken);
+        if (active is null)
+            return false;
+
+        dbContext.ActiveAgentDefinitions.Remove(active);
+        dbContext.AgentDefinitionActivations.Add(new AgentDefinitionActivationEntity
+        {
+            TenantId = tenantContext.TenantId,
+            AgentName = agentName,
+            SnapshotId = active.SnapshotId,
+            ActivatedAtUtc = timeProvider.GetUtcNow(),
+            ActivatedBy = deactivatedBy,
+            ChangeReason = changeReason,
+            IsDeactivation = true,
+        });
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return true;
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask<IReadOnlyList<AgentDefinition>> GetActiveDefinitionsAsync(CancellationToken cancellationToken)
+    {
+        ValidateKey(tenantContext.TenantId, nameof(tenantContext.TenantId), 200);
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var json = await dbContext.ActiveAgentDefinitions
+            .AsNoTracking()
+            .Where(pointer => pointer.TenantId == tenantContext.TenantId)
+            .Select(pointer => pointer.Snapshot!.DefinitionJson)
+            .ToListAsync(cancellationToken);
+        return [.. json.Select(Deserialize)];
+    }
+
+    private async Task AcquireAgentLockAsync(AgentRuntimeDbContext dbContext, string agentName, CancellationToken cancellationToken)
+    {
+        if (dbContext.Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            return;
+        var lockKey = $"{tenantContext.TenantId.Length}:{tenantContext.TenantId}"
+            + $"{agentName.Length}:{agentName}";
+        await dbContext.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_xact_lock(hashtextextended({lockKey}, 0))",
+            cancellationToken);
     }
 
     private static AgentDefinition Deserialize(string definitionJson) =>

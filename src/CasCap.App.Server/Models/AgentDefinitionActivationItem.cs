@@ -14,4 +14,7 @@ public sealed record AgentDefinitionActivationItem
 
     /// <summary>Gets the activation or rollback reason.</summary>
     public string? ChangeReason { get; init; }
+
+    /// <summary>Gets whether the event deactivated the version rather than activating it.</summary>
+    public bool IsDeactivation { get; init; }
 }

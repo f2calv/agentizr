@@ -51,6 +51,12 @@ public static class AgentDefinitionAdministrationEndpoints
             .WithName("GetAgentDefinitionActivationHistoryV1")
             .WithSummary("Gets newest-first activation and rollback history")
             .Produces<IReadOnlyList<AgentDefinitionActivationResponse>>();
+        var deactivate = group.MapPost(AgentRuntimeRoutes.DefinitionDeactivation, DeactivateAsync)
+            .WithName("DeactivateAgentDefinitionV1")
+            .WithSummary("Deactivates the active definition, leaving the agent with no active version")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesValidationProblem();
 
         if (authorizationRequired)
         {
@@ -61,6 +67,7 @@ public static class AgentDefinitionAdministrationEndpoints
             evaluate.RequireAuthorization(AgentRuntimePolicies.DefinitionActivate);
             activate.RequireAuthorization(AgentRuntimePolicies.DefinitionActivate);
             activations.RequireAuthorization(AgentRuntimePolicies.DefinitionRead);
+            deactivate.RequireAuthorization(AgentRuntimePolicies.DefinitionActivate);
         }
         return group;
     }
@@ -158,6 +165,20 @@ public static class AgentDefinitionAdministrationEndpoints
             _ => TypedResults.NotFound(),
         };
 
+    private static async Task<Results<NoContent, NotFound, ValidationProblem, StatusCodeHttpResult>> DeactivateAsync(
+        [StringLength(200, MinimumLength = 1)] string agentName,
+        DeactivateAgentDefinitionRequest request,
+        AgentDefinitionAdministrationService administrationSvc,
+        CancellationToken cancellationToken) =>
+        (await administrationSvc.DeactivateAsync(agentName, request.ChangeReason, cancellationToken)) switch
+        {
+            { IsSupported: false } => TypedResults.StatusCode(StatusCodes.Status501NotImplemented),
+            { ValidationError: { } validationError } => TypedResults.ValidationProblem(
+                new Dictionary<string, string[]> { [nameof(agentName)] = [validationError] }),
+            { Deactivated: true } => TypedResults.NoContent(),
+            _ => TypedResults.NotFound(),
+        };
+
     private static async Task<IReadOnlyList<AgentDefinitionActivationResponse>> GetActivationHistoryAsync(
         [StringLength(200, MinimumLength = 1)] string agentName,
         AgentDefinitionAdministrationService administrationSvc,
@@ -170,6 +191,7 @@ public static class AgentDefinitionAdministrationEndpoints
                 ActivatedAtUtc = item.ActivatedAtUtc,
                 ActivatedBy = item.ActivatedBy,
                 ChangeReason = item.ChangeReason,
+                IsDeactivation = item.IsDeactivation,
             })
             .ToArray();
 

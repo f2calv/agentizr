@@ -111,6 +111,26 @@ public sealed class PostgresAgentDefinitionStoreIntegrationTests(PostgreSqlFixtu
     }
 
     [Fact]
+    public async Task DeactivateAsync_RemovesThePointerAndAuditsTheDeactivation()
+    {
+        var store = CreateStore();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await store.PublishAsync(CreateDefinition("v1"), 1, null, null, cancellationToken);
+        await store.ActivateAsync("assistant", "v1", "activator", null, cancellationToken);
+
+        var deactivated = await store.DeactivateAsync("assistant", "retirer", "retire", cancellationToken);
+        var repeated = await store.DeactivateAsync("assistant", "retirer", "retire", cancellationToken);
+        var history = await store.GetActivationHistoryAsync("assistant", 10, cancellationToken);
+
+        Assert.True(deactivated);
+        Assert.False(repeated);
+        Assert.Null(await store.GetAsync("assistant", cancellationToken));
+        Assert.Empty(await store.GetActiveDefinitionsAsync(cancellationToken));
+        Assert.Equal([true, false], history.Select(item => item.IsDeactivation));
+        Assert.Equal(("v1", "retirer"), (history[0].DefinitionVersion, history[0].ActivatedBy));
+    }
+
+    [Fact]
     public async Task AcquireTenantActivationLockAsync_SerializesOneTenantButNotOthers()
     {
         var tenantId = $"tenant-{Guid.NewGuid():N}";

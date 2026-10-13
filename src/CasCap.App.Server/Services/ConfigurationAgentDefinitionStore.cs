@@ -90,6 +90,20 @@ internal sealed class ConfigurationAgentDefinitionStore(
             "Configuration-backed definitions are read-only. Configure PostgreSQL to activate definitions."));
 
     /// <inheritdoc/>
+    public ValueTask<bool> DeactivateAsync(
+        string agentName,
+        string? deactivatedBy,
+        string changeReason,
+        CancellationToken cancellationToken) =>
+        ValueTask.FromException<bool>(new NotSupportedException(
+            "Configuration-backed definitions are read-only. Configure PostgreSQL to deactivate definitions."));
+
+    /// <inheritdoc/>
+    public ValueTask<IReadOnlyList<AgentDefinition>> GetActiveDefinitionsAsync(CancellationToken cancellationToken) =>
+        ValueTask.FromException<IReadOnlyList<AgentDefinition>>(new NotSupportedException(
+            "Configuration-backed definitions are read-only. Configure PostgreSQL to deactivate definitions."));
+
+    /// <inheritdoc/>
     public ValueTask<IReadOnlyList<AgentDefinitionActivationItem>> GetActivationHistoryAsync(
         string agentName,
         int limit,
