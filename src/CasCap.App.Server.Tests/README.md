@@ -36,7 +36,7 @@ evaluation tests.
 
 | Category | Test-case count | Purpose |
 | --- | ---: | --- |
-| `Integration` | 34 | In-memory ASP.NET Core host, execution/control protocols, and startup security tests |
+| `Integration` | 35 | In-memory ASP.NET Core host, execution/control protocols, and startup security tests |
 | `Agent Runtime` | 16 | Runtime orchestration, built-in tools, evaluation, definition persistence, and caching without external services |
 | `Tenant Isolation` | 14 | Cross-tenant state, JWT permissions, caller mappings, MCP credentials and identity isolation |
 | `PostgreSQL` | 8 | Definition store against a disposable `postgres:18-alpine` container; requires Docker |
