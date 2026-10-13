@@ -110,9 +110,9 @@ EF migrations are applied externally and create schema only. The model deliberat
 | Dependency | Purpose |
 | --- | --- |
 | `CasCap.Common.Hosting.AspNetCore` | Shared Serilog, OpenTelemetry, configuration abstractions, and build metadata |
-| `CasCap.Common.AI` | Agent and provider definition types used by the initial configuration adapter |
+| `CasCap.Common.AI` | Internal project: agent construction, providers, MCP tools, delegation and compaction |
 | `CasCap.Common.Caching` | Redis-backed tenant session and override state |
 | `CasCap.AgentRuntime.Contracts` | Version 1 request and response DTOs |
 | `Microsoft.AspNetCore.Authentication.JwtBearer` | Trusted token validation and tenant-claim identity |
 
-Debug builds resolve the dependency from the adjacent `CasCap.Common` checkout. Release builds use the centrally versioned NuGet package.
+Debug builds resolve the CasCap.Common and CasCap.Api.Azure dependencies from adjacent checkouts. Release builds use the centrally versioned NuGet packages.
