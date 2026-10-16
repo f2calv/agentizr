@@ -10,7 +10,8 @@ The tests launch the real application through `WebApplicationFactory<Program>` a
 
 | Class | Method count | Test-case count | Description |
 | --- | ---: | ---: | --- |
-| `EndpointSmokeTests` | 1 | 2 | Verifies `/` and `/healthz` return HTTP 200 |
+| `EndpointSmokeTests` | 2 | 3 | Verifies `/` and `/healthz` return HTTP 200 and `/mcp` is absent by default |
+| `AgentizrMcpEndpointTests` | 3 | 3 | Verifies MCP discovery of only the read-only status tool, its structured result, and `Origin` rejection |
 | `AgentRuntimeProtocolTests` | 6 | 6 | Verifies typed-client execution, live event streaming, validation, and complete session-control lifecycle |
 | `AgentDefinitionAdministrationProtocolTests` | 13 | 21 | Verifies inactive publication, evaluation, evaluation-gated activation, rollback, delegation-aware deactivation, audit attribution, strict policy/delegation/credential rejection, conflicts, and bounded history |
 | `TenantSecurityStartupTests` | 6 | 6 | Verifies anonymous execution/control-plane rejection, separate execution/admin policies, and Production requirements for authentication, tenant mappings, and Redis |
@@ -37,7 +38,7 @@ evaluation tests.
 
 | Category | Test-case count | Purpose |
 | --- | ---: | --- |
-| `Integration` | 35 | In-memory ASP.NET Core host, execution/control protocols, and startup security tests |
+| `Integration` | 39 | In-memory ASP.NET Core host, execution/control protocols, MCP endpoint and startup security tests |
 | `Agent Runtime` | 16 | Runtime orchestration, built-in tools, evaluation, definition persistence, and caching without external services |
 | `Tenant Isolation` | 19 | Cross-tenant state, JWT permissions, caller mappings, MCP and provider credentials and identity isolation |
 | `PostgreSQL` | 8 | Definition store against a disposable `postgres:18-alpine` container; requires Docker |
@@ -74,12 +75,14 @@ Tests/
 ├── AgentDefinitionTestData.cs
 ├── ScriptedEvaluationAgentFactory.cs
 ├── Integration/
+│   ├── AgentizrMcpEndpointTests.cs
 │   ├── AgentizrWebApplicationFactory.cs
 │   ├── AgentDefinitionAdministrationProtocolTests.cs
 │   ├── AgentDefinitionAdministrationWebApplicationFactory.cs
 │   ├── AgentRuntimeProtocolTests.cs
 │   ├── EndpointSmokeTests.cs
 │   ├── HostIntegrationCollection.cs
+│   ├── McpAgentizrWebApplicationFactory.cs
 │   ├── PostgreSqlFixture.cs
 │   ├── PostgresAgentDefinitionStoreIntegrationTests.cs
 │   └── TenantSecurityStartupTests.cs
