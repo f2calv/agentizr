@@ -45,14 +45,19 @@ Work through the steps in order. Stop for explicit user approval before step 2.
 
 ### 2. Identities (requires approval)
 
-- [ ] Create an execution application for the host. Grant only the `agent.execute` app role on
+Run [New-AgentRuntimeIdentities.ps1](scripts/New-AgentRuntimeIdentities.ps1) for the tenant. It is
+safe to re-run and performs every item below except the record keeping.
+
+- [ ] Create `agentizr-<tenant>-exec` for the host. Grant only the `agent.execute` app role on
       the runtime API application. Authenticate with a certificate; store the combined PEM in Key
-      Vault.
+      Vault with the host's `TenantId`, `ClientId`, `Scope` and `Enabled` settings under the prefix
+      the host maps onto `AgentRuntimeAzureAuthConfig`.
 - [ ] Create `agentizr-<tenant>-admin` with the `agent.definition.read`, `agent.definition.publish`
       and `agent.definition.activate` app roles and no standing credential. Each publication run
       installs a short-lived in-memory certificate and removes it in a `finally` block.
 - [ ] Map both client IDs to the tenant in Key Vault as
-      `AgentRuntime--Agentizr--TenantAuthenticationConfig--TenantCallers--<tenant>--<n>`.
+      `AgentRuntime--Agentizr--TenantAuthenticationConfig--TenantCallers--<tenant>--<n>`, with the
+      execution client at `0` and the administration client at `1`.
 - [ ] Record owner, expiry, rotation procedure and consumers for both applications.
 
 ### 3. Runtime configuration
@@ -122,4 +127,5 @@ For a responder alias, add a dormant workload alias to the Signalizr chart inste
 
 | Script | Purpose |
 | --- | --- |
+| [New-AgentRuntimeIdentities.ps1](scripts/New-AgentRuntimeIdentities.ps1) | Creates the tenant's execution and administration applications, the execution certificate and the Key Vault settings and caller mappings |
 | [Publish-AgentDefinition.ps1](scripts/Publish-AgentDefinition.ps1) | Publishes definition JSON files for one tenant with an ephemeral admin certificate, then activates them |
