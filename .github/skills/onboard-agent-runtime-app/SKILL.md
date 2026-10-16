@@ -100,8 +100,9 @@ For a responder alias, add a dormant workload alias to the Signalizr chart inste
 
 ### 6. GitOps
 
-- [ ] Add an Application in its own namespace, an ExternalSecret for the execution certificate and
-      any MCP credential, and the configuration values.
+- [ ] Add an Application in its own namespace and the configuration values. Hosts that load Key
+      Vault through the shared edge identity read their execution identity from the step 2
+      secrets; add an ExternalSecret only for values the host cannot read from Key Vault.
 - [ ] Deploy through the repository's `deploy.ps1`; confirm Argo CD reports Synced and Healthy and
       the logs contain no errors.
 
