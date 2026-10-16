@@ -40,6 +40,7 @@ public static partial class AppHost
 
             // Feature registration
             AddFeatures(builder, tenantAuthenticationEnabled, migrateOnly);
+            var mcpEnabled = AddMcp(builder, migrateOnly);
 
             // Build
             var app = builder.Build();
@@ -58,6 +59,7 @@ public static partial class AppHost
             {
                 // Endpoint mapping
                 MapEndpoints(app, tenantAuthenticationEnabled);
+                MapMcp(app, mcpEnabled);
 
                 // Run
                 await app.RunAsync();

@@ -29,6 +29,7 @@ agent's reachable active delegation graph; delegated agents do not receive anoth
 | --- | --- |
 | `/` | Host identity |
 | `/healthz` | ASP.NET Core health status |
+| `/mcp` | Opt-in Streamable HTTP MCP endpoint (`CasCap:McpConfig:Enabled`, default off) serving the read-only `get_agentizr_status` tool: service name, version, commit and UTC time only. Requests carrying an `Origin` header are rejected with 403; when disabled the route does not exist |
 | `POST /api/v1/agents/{agentName}/runs` | Executes one tenant-scoped agent turn |
 | `POST /api/v1/agents/{agentName}/runs/stream` | Streams live execution events followed by the final response |
 | `GET/DELETE /api/v1/agents/{agentName}/sessions/{sessionId}` | Inspects or resets active session state |

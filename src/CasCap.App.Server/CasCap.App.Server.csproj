@@ -12,6 +12,7 @@
     <ProjectReference Include="..\CasCap.Common.AI\CasCap.Common.AI.csproj" />
     <ProjectReference Include="..\CasCap.Common.AI.Evaluation\CasCap.Common.AI.Evaluation.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <PrivateAssets>all</PrivateAssets>

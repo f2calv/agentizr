@@ -17,4 +17,15 @@ public sealed class EndpointSmokeTests(AgentizrWebApplicationFactory factory)
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    [Fact]
+    public async Task McpEndpoint_IsAbsentByDefault()
+    {
+        using var client = factory.CreateClient();
+        using var request = AgentizrMcpEndpointTests.CreateInitializeRequest();
+
+        using var response = await client.SendAsync(request, CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }
