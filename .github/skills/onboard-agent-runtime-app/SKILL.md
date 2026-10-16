@@ -65,6 +65,10 @@ safe to re-run and performs every item below except the record keeping.
 - [ ] Add the tenant's providers under `CasCap:AgentRuntimeConfig:Tenants:<tenant>:Providers`.
       Non-secret settings belong in the GitOps values; API keys come from an ExternalSecret.
       There is no cross-tenant provider fallback.
+- [ ] For an Azure OpenAI resource with key authentication disabled, list the provider name in
+      `CasCap:AgentRuntimeConfig:Tenants:<tenant>:EntraIdProviders` instead of supplying a key, and
+      confirm the runtime's identity holds an OpenAI user role on the resource. Add the resource
+      origin to `CasCap:AgentDefinitionPolicyConfig:AllowedProviderAuthorities`.
 - [ ] Set `CasCap:AgentRuntimeConfig:Tenants:<tenant>:TimeZoneId`.
 - [ ] When the host's `/mcp` endpoint requires Basic authentication, add
       `CasCap:AgentRuntimeConfig:Tenants:<tenant>:McpCredentials:<name>` (scheme in values,
