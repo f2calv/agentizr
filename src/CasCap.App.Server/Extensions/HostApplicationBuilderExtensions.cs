@@ -41,6 +41,7 @@ public static class HostApplicationBuilderExtensions
 
         var applicationMetadata = new ApplicationMetadata(assembly);
         builder.Services.AddSingleton(applicationMetadata);
+        builder.Services.AddSingleton(new RuntimeEntraCredential(() => azureAuthConfig?.TokenCredential));
 
         return (appConfig, applicationMetadata);
     }

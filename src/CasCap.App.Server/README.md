@@ -92,6 +92,12 @@ resolves its `Scheme` and secret `Parameter` from `AgentRuntimeConfig:Tenants:{t
 through the final private configuration provider, validates availability before activation, and
 passes the resulting Authorization header only to the per-run MCP transport.
 
+Provider API keys resolve the same way from `AgentRuntimeConfig:Tenants:{tenant}:Providers:{name}:ApiKey`.
+A tenant can instead list a provider name in `AgentRuntimeConfig:Tenants:{tenant}:EntraIdProviders`,
+which authenticates that Azure OpenAI provider with the runtime's own Microsoft Entra identity (the
+`AppConfig` certificate identity used for Key Vault). Use it for resources with key authentication
+disabled, and grant the identity an OpenAI user role on the resource. No tenant inherits it implicitly.
+
 ### Definition Evaluation
 
 An evaluation puts fixture-backed scenarios to one immutable version, inactive or not, through its

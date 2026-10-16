@@ -24,6 +24,7 @@ The tests launch the real application through `WebApplicationFactory<Program>` a
 | `PostgresAgentDefinitionStoreIntegrationTests` | 8 | 8 | Against real PostgreSQL: migrations, `jsonb` storage and round trip, sequential and concurrent duplicate-version conflicts, advisory-lock-serialised concurrent activation, the tenant-scoped activation lock, audited deactivation, and tenant isolation |
 | `CachedAgentDefinitionStoreTests` | 3 | 3 | Verifies secret-free read-through caching, the cached active-version pointer surviving a database outage, and its invalidation on activation |
 | `ConfigurationMcpCredentialStoreTests` | 1 | 1 | Verifies tenant-scoped Authorization header resolution without definition secrets |
+| `ConfigurationProviderCredentialStoreTests` | 2 | 5 | Verifies the runtime's Entra credential is offered only to a tenant's opted-in providers |
 | `LiveAgentRuntimeSmokeTests` | 1 | 1 | Opt-in authenticated run, streaming, session inspection and cleanup against a complete live runtime |
 
 Reusable secret-free agent, provider, runtime-definition, and publication builders live in
@@ -38,7 +39,7 @@ evaluation tests.
 | --- | ---: | --- |
 | `Integration` | 35 | In-memory ASP.NET Core host, execution/control protocols, and startup security tests |
 | `Agent Runtime` | 16 | Runtime orchestration, built-in tools, evaluation, definition persistence, and caching without external services |
-| `Tenant Isolation` | 14 | Cross-tenant state, JWT permissions, caller mappings, MCP credentials and identity isolation |
+| `Tenant Isolation` | 19 | Cross-tenant state, JWT permissions, caller mappings, MCP and provider credentials and identity isolation |
 | `PostgreSQL` | 8 | Definition store against a disposable `postgres:18-alpine` container; requires Docker |
 | `Local Agent Runtime` | 1 | Explicitly enabled smoke test against a complete running runtime |
 
@@ -95,6 +96,7 @@ Tests/
     ├── AgentExecutionCoordinatorTests.cs
     ├── CachedAgentDefinitionStoreTests.cs
     ├── ConfigurationMcpCredentialStoreTests.cs
+    ├── ConfigurationProviderCredentialStoreTests.cs
     ├── InMemoryDistributedCache.cs
     ├── PostgresAgentDefinitionStoreTests.cs
     └── TenantStateIsolationTests.cs

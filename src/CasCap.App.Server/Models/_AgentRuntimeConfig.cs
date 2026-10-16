@@ -52,6 +52,13 @@ public sealed record TenantAgentConfig
     /// <summary>Gets providers keyed by stable provider name.</summary>
     public Dictionary<string, ProviderConfig> Providers { get; init; } = [];
 
+    /// <summary>
+    /// Gets provider names that authenticate with the runtime's own Microsoft Entra identity instead of
+    /// an API key, for Azure OpenAI resources with key authentication disabled.
+    /// </summary>
+    /// <remarks>Defaults to none; each tenant opts in explicitly so no tenant borrows the identity by accident.</remarks>
+    public HashSet<string> EntraIdProviders { get; init; } = new(StringComparer.Ordinal);
+
     /// <summary>Gets agents keyed by stable agent name.</summary>
     public Dictionary<string, AgentConfig> Agents { get; init; } = [];
 

@@ -8,7 +8,8 @@ namespace CasCap.Services;
 /// <summary>Inspects and compacts Agent Framework session payloads using their owning agent definition.</summary>
 internal sealed class CommonAgentSessionCodec(
     IHttpClientFactory httpClientFactory,
-    ILoggerFactory loggerFactory) : IAgentSessionCodec
+    ILoggerFactory loggerFactory,
+    IProviderCredentialStore credentialStore) : IAgentSessionCodec
 {
     /// <inheritdoc/>
     public async ValueTask<AgentSessionInspection> InspectAsync(
@@ -68,6 +69,7 @@ internal sealed class CommonAgentSessionCodec(
             definition.Agent,
             httpClient,
             tools: [],
+            tokenCredential: credentialStore.GetTokenCredential(definition.Agent.Provider),
             loggerFactory: loggerFactory);
         return agent;
     }

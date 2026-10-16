@@ -7,7 +7,8 @@ namespace CasCap.Services;
 /// <summary>Creates evaluation agents through the same provider construction as runtime execution.</summary>
 internal sealed class EvaluationAgentFactory(
     IHttpClientFactory httpClientFactory,
-    ILoggerFactory loggerFactory) : IEvaluationAgentFactory
+    ILoggerFactory loggerFactory,
+    IProviderCredentialStore credentialStore) : IEvaluationAgentFactory
 {
     /// <inheritdoc/>
     public (AIAgent Agent, string Instructions) Create(ProviderConfig provider, AgentConfig agent, List<AITool> tools)
@@ -20,6 +21,7 @@ internal sealed class EvaluationAgentFactory(
             agent,
             httpClient,
             tools,
+            tokenCredential: credentialStore.GetTokenCredential(agent.Provider),
             loggerFactory: loggerFactory);
         return (aiAgent, instructions);
     }

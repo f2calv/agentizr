@@ -144,6 +144,8 @@ public sealed class AgentExecutionCoordinatorTests
     {
         public ValueTask<string?> GetApiKeyAsync(string providerName, CancellationToken cancellationToken) =>
             ValueTask.FromResult<string?>("secret");
+
+        public Azure.Core.TokenCredential? GetTokenCredential(string providerName) => null;
     }
 
     private sealed class RecordingSessionStore(string? initialState) : IAgentSessionStore

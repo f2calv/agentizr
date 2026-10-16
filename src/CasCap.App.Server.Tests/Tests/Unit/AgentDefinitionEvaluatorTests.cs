@@ -138,6 +138,8 @@ public sealed class AgentDefinitionEvaluatorTests
         public ValueTask<string?> GetApiKeyAsync(string providerName, CancellationToken cancellationToken) =>
             ValueTask.FromResult<string?>(null);
 
+        public Azure.Core.TokenCredential? GetTokenCredential(string providerName) => null;
+
         public ValueTask<string?> GetAuthorizationHeaderAsync(string credentialName, CancellationToken cancellationToken) =>
             ValueTask.FromResult<string?>(null);
     }

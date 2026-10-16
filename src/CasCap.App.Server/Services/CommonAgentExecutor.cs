@@ -92,6 +92,7 @@ internal sealed class CommonAgentExecutor(
             definition.Agent,
             httpClient,
             tools,
+            tokenCredential: credentialStore.GetTokenCredential(definition.Agent.Provider),
             loggerFactory: loggerFactory);
         var chatOptions = AgentExtensions.BuildChatOptions(definition.Agent, instructions);
         if (!string.IsNullOrWhiteSpace(overrides.ModelName))
