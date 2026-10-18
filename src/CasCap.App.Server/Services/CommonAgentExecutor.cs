@@ -227,10 +227,38 @@ internal sealed class CommonAgentExecutor(
                 [HeaderNames.Authorization] = authorization,
             };
         }
-        var (client, remoteTools) = await AgentExtensions.GetHttpTools(source.Endpoint!, headers, logger);
+        McpClient client;
+        List<McpClientTool> remoteTools;
+        try
+        {
+            (client, remoteTools) = await AgentExtensions.GetHttpTools(source.Endpoint!, headers, logger);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex,
+                "{ClassName} could not reach remote MCP source {McpAuthority}; its included tools fail when called",
+                nameof(CommonAgentExecutor),
+                new Uri(source.Endpoint!).GetLeftPart(UriPartial.Authority));
+            return CreateUnavailableTools(source, composedTools);
+        }
         toolLeases.Add(client);
         return SelectRemoteTools(remoteTools, source, composedTools, IsReadOnlyRemoteTool, logger);
     }
+
+    /// <summary>
+    /// Stands in for the named tools of an unreachable remote source. Each throws when called, so the run
+    /// reports a tool failure instead of failing outright; a source without an include list contributes nothing.
+    /// </summary>
+    internal static IEnumerable<AITool> CreateUnavailableTools(
+        ToolSource source,
+        IReadOnlyCollection<AITool> composedTools) =>
+        RemoveComposedIncludes(source, composedTools).IncludeTools
+            .Except(source.ExcludeTools, StringComparer.OrdinalIgnoreCase)
+            .Select(toolName => AIFunctionFactory.Create(
+                new Func<string>(() => throw new InvalidOperationException(
+                    $"Tool '{toolName}' is unavailable because its MCP server could not be reached.")),
+                toolName,
+                "Currently unavailable because its MCP server could not be reached."));
 
     /// <summary>
     /// Selects the remote tools a definition may use. Includes already satisfied by composed tools are

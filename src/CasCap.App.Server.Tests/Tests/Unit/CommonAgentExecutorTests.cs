@@ -63,6 +63,32 @@ public sealed class CommonAgentExecutorTests
     private static bool IsReadOnly(AITool tool) => tool.Name.StartsWith("get_", StringComparison.Ordinal);
 
     [Fact]
+    public async Task CreateRemoteToolsAsync_UnreachableSourceYieldsFailingNamedTools()
+    {
+        var source = new ToolSource
+        {
+            Endpoint = "http://127.0.0.1:9/mcp",
+            IncludeTools = ["get_agents", "get_status", "set_mode"],
+            ExcludeTools = ["set_mode"],
+        };
+        var leases = new List<IAsyncDisposable>();
+
+        var tools = (await CommonAgentExecutor.CreateRemoteToolsAsync(
+            source,
+            [CreateTool("get_agents")],
+            null!,
+            leases,
+            NullLogger.Instance,
+            TestContext.Current.CancellationToken)).ToList();
+
+        var tool = Assert.IsAssignableFrom<AIFunction>(Assert.Single(tools));
+        Assert.Equal("get_status", tool.Name);
+        Assert.Empty(leases);
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await tool.InvokeAsync(cancellationToken: TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public void RemoveComposedIncludes_RuntimeBuiltInsSatisfyRemoteIncludes()
     {
         var source = new ToolSource
