@@ -84,6 +84,12 @@ public static class AgentRuntimeEndpoints
             .Produces(StatusCodes.Status404NotFound)
             .ProducesValidationProblem();
 
+        executionGroup.MapGet(AgentRuntimeRoutes.SessionInstructions, GetInstructionsAsync)
+            .WithName("GetAgentInstructionsV1")
+            .WithSummary("Gets the effective instructions when the tenant enables disclosure")
+            .Produces<AgentInstructionsResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound);
+
         app.MapGroup(AgentRuntimeRoutes.AgentGroup)
             .WithTags("Agent Definitions")
             .MapAgentDefinitionAdministration(authorizationRequired);
@@ -213,6 +219,23 @@ public static class AgentRuntimeEndpoints
         ModelName = overrides.ModelName,
         Instructions = overrides.Instructions,
     };
+
+    private static async Task<Results<Ok<AgentInstructionsResponse>, NotFound>> GetInstructionsAsync(
+        string agentName,
+        string sessionId,
+        AgentSessionControlService controlSvc,
+        CancellationToken cancellationToken)
+    {
+        var view = await controlSvc.GetInstructionsAsync(agentName, sessionId, cancellationToken);
+        return view is null
+            ? TypedResults.NotFound()
+            : TypedResults.Ok(new AgentInstructionsResponse
+            {
+                DefinitionVersion = view.DefinitionVersion,
+                Overridden = view.Overridden,
+                Instructions = view.Instructions,
+            });
+    }
 
     private static async Task<Results<Ok<RunAgentResponse>, NotFound>> RunAgentAsync(
         string agentName,

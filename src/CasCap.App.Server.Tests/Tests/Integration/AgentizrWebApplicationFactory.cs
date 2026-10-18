@@ -22,6 +22,8 @@ public class AgentizrWebApplicationFactory : WebApplicationFactory<Program>
                 ["CasCap:AgentRuntimeConfig:Tenants:default:Agents:assistant:Name"] = "assistant",
                 ["CasCap:AgentRuntimeConfig:Tenants:default:Agents:assistant:Description"] = "Test assistant",
                 ["CasCap:AgentRuntimeConfig:Tenants:default:Agents:assistant:Prompt"] = "Test prompt",
+                ["CasCap:AgentRuntimeConfig:Tenants:default:Agents:assistant:Instructions"] = "Test instructions",
+                ["CasCap:AgentRuntimeConfig:Tenants:default:InstructionsDisclosureEnabled"] = "true",
             }));
 
         builder.ConfigureTestServices(services =>

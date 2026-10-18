@@ -59,6 +59,12 @@ public sealed record TenantAgentConfig
     /// <remarks>Defaults to none; each tenant opts in explicitly so no tenant borrows the identity by accident.</remarks>
     public HashSet<string> EntraIdProviders { get; init; } = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Gets whether execution callers may read the effective instructions of this tenant's agents.
+    /// </summary>
+    /// <remarks>Off by default; definition reads otherwise require the separate definition-read scope.</remarks>
+    public bool InstructionsDisclosureEnabled { get; init; }
+
     /// <summary>Gets agents keyed by stable agent name.</summary>
     public Dictionary<string, AgentConfig> Agents { get; init; } = [];
 

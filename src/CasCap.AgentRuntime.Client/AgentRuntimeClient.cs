@@ -142,6 +142,15 @@ public sealed class AgentRuntimeClient(HttpClient httpClient) : IAgentRuntimeCli
             request,
             cancellationToken);
 
+    /// <inheritdoc/>
+    public Task<AgentInstructionsResponse?> GetInstructionsAsync(
+        string agentName,
+        string sessionId,
+        CancellationToken cancellationToken) =>
+        GetAsync<AgentInstructionsResponse>(
+            BuildPath(agentName, AgentRuntimeRoutes.SessionInstructions, sessionId),
+            cancellationToken);
+
     private async Task<TResponse?> GetAsync<TResponse>(string path, CancellationToken cancellationToken)
     {
         using var response = await httpClient.GetAsync(path, cancellationToken).ConfigureAwait(false);

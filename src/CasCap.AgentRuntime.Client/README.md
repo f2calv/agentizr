@@ -10,7 +10,8 @@ attached through that pipeline.
 `RunAgentAsync` returns `null` when the named agent is unavailable to the authenticated tenant and
 throws for other non-success responses. Session methods inspect/reset/compact active state, manage
 named snapshots, and get or replace complete per-session runtime overrides without exposing raw
-session JSON.
+session JSON. `GetInstructionsAsync` returns the effective instructions, or `null` when the agent is
+unavailable or its tenant has not enabled instructions disclosure.
 
 `StreamAgentAsync` incrementally yields live delegation/compaction events and then the final response
 using a streamed JSON response. Callers opt into tool arguments and property bags through

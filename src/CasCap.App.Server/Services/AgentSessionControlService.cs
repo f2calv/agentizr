@@ -1,3 +1,5 @@
+using CasCap.Common.Extensions;
+
 namespace CasCap.Services;
 
 /// <summary>Owns tenant-scoped session, snapshot, and runtime-override control operations.</summary>
@@ -6,7 +8,9 @@ public sealed class AgentSessionControlService(
     IProviderCredentialStore credentialStore,
     IAgentSessionStore sessionStore,
     IAgentOverrideStore overrideStore,
-    IAgentSessionCodec sessionCodec)
+    IAgentSessionCodec sessionCodec,
+    IOptions<AgentRuntimeConfig> runtimeConfig,
+    ITenantContext tenantContext)
 {
     /// <summary>Gets active session status without exposing serialized framework state.</summary>
     public async ValueTask<AgentSessionStatus> GetStatusAsync(
@@ -194,6 +198,34 @@ public sealed class AgentSessionControlService(
             return false;
         await overrideStore.SetAsync(agentName, definition.Version, sessionId, overrides, cancellationToken);
         return true;
+    }
+
+    /// <summary>
+    /// Gets the instructions the next run will use, or <see langword="null" /> when the agent is missing,
+    /// has no instructions, or the tenant has not enabled disclosure.
+    /// </summary>
+    public async ValueTask<AgentInstructionsView?> GetInstructionsAsync(
+        string agentName,
+        string sessionId,
+        CancellationToken cancellationToken)
+    {
+        ValidateIdentifiers(agentName, sessionId);
+        if (!runtimeConfig.Value.Tenants.TryGetValue(tenantContext.TenantId, out var tenant)
+            || !tenant.InstructionsDisclosureEnabled)
+            return null;
+
+        var definition = await definitionStore.GetAsync(agentName, cancellationToken);
+        if (definition is null)
+            return null;
+
+        var overrides = await overrideStore.GetAsync(agentName, definition.Version, sessionId, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(overrides.Instructions))
+            return new AgentInstructionsView(definition.Version, true, overrides.Instructions);
+
+        return string.IsNullOrWhiteSpace(definition.Agent.Instructions)
+            && string.IsNullOrWhiteSpace(definition.Agent.InstructionsSource)
+                ? null
+                : new AgentInstructionsView(definition.Version, false, AgentExtensions.ResolveInstructions(definition.Agent));
     }
 
     private async ValueTask<AgentDefinition?> ResolveDefinitionAsync(

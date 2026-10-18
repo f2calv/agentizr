@@ -19,7 +19,8 @@ diagnostic details. Session summaries expose sizes and message counts without ra
 
 Session-control contracts inspect and reset active state, compact history, manage named snapshots,
 and replace complete per-session model, instruction, and persistence overrides. They expose
-structured summaries rather than raw Agent Framework session JSON.
+structured summaries rather than raw Agent Framework session JSON. `AgentInstructionsResponse`
+reports the effective instructions and whether an override supplies them.
 
 Definition-management contracts publish immutable schema-versioned JSON documents, inspect snapshot
 and activation history, and activate or roll back versions separately. Tenant and actor identity

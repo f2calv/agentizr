@@ -64,4 +64,13 @@ public interface IAgentRuntimeClient
         string sessionId,
         UpdateAgentOverridesRequest request,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the effective instructions, or <see langword="null" /> when the agent is unavailable or the
+    /// tenant does not disclose instructions to execution callers.
+    /// </summary>
+    public Task<AgentInstructionsResponse?> GetInstructionsAsync(
+        string agentName,
+        string sessionId,
+        CancellationToken cancellationToken);
 }

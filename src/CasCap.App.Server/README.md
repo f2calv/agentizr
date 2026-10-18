@@ -37,6 +37,7 @@ agent's reachable active delegation graph; delegated agents do not receive anoth
 | `PUT/DELETE /api/v1/agents/{agentName}/sessions/{sessionId}/snapshots/{snapshotName}` | Saves or deletes a named snapshot |
 | `POST /api/v1/agents/{agentName}/sessions/{sessionId}/snapshots/{snapshotName}/activate` | Loads a named snapshot |
 | `GET/PUT /api/v1/agents/{agentName}/sessions/{sessionId}/overrides` | Gets or replaces complete runtime overrides |
+| `GET /api/v1/agents/{agentName}/sessions/{sessionId}/instructions` | Gets the effective instructions (override, else active definition) when the tenant enables disclosure; otherwise 404 |
 | `POST/GET /api/v1/agents/{agentName}/definitions` | Publishes an inactive immutable snapshot or lists history |
 | `GET /api/v1/agents/{agentName}/definitions/{definitionVersion}` | Gets one immutable snapshot |
 | `GET /api/v1/agents/{agentName}/definitions/active` | Gets the active snapshot |
@@ -57,7 +58,9 @@ request body.
 each with an explicit `DefinitionVersion`, provider dictionary, and agent dictionary. The tracked
 configuration contains no tenant identifiers or credentials and is used only by the read-only
 Development adapter. `TenantAgentConfig.TimeZoneId` configures the built-in tenant-local date/time
-tool and defaults to UTC.
+tool and defaults to UTC. `TenantAgentConfig.InstructionsDisclosureEnabled` (default `false`) lets
+`agent.execute` callers read their own agents' effective instructions through the session
+`instructions` route, so a chat host can show them without holding `agent.definition.read`.
 
 Outside Development, `AgentRuntimeDatabaseConfig` supplies PostgreSQL. Immutable definition
 snapshots store schema-versioned JSONB plus publisher/reason metadata, while a separate active

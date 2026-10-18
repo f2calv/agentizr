@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Configuration;
+
 namespace CasCap.IntegrationTests;
 
 /// <summary>Exercises the v1 HTTP contract through the published typed client.</summary>
@@ -166,5 +168,50 @@ public sealed class AgentRuntimeProtocolTests(AgentizrWebApplicationFactory fact
         Assert.True(afterLoad?.Exists);
         Assert.True(deleted);
         Assert.Equal("Override instructions", currentOverrides?.Instructions);
+    }
+
+    [Fact]
+    public async Task GetInstructions_ReturnsDefinitionThenOverride()
+    {
+        using var httpClient = factory.CreateClient();
+        var client = new AgentRuntimeClient(httpClient);
+        var cancellationToken = TestContext.Current.CancellationToken;
+        const string sessionId = "conversation-instructions";
+
+        var fromDefinition = await client.GetInstructionsAsync("assistant", sessionId, cancellationToken);
+        await client.SetOverridesAsync(
+            "assistant",
+            sessionId,
+            new UpdateAgentOverridesRequest { Instructions = "Override instructions" },
+            cancellationToken);
+        var fromOverride = await client.GetInstructionsAsync("assistant", sessionId, cancellationToken);
+        var missingAgent = await client.GetInstructionsAsync("missing", sessionId, cancellationToken);
+
+        Assert.Equal("Test instructions", fromDefinition?.Instructions);
+        Assert.False(fromDefinition?.Overridden);
+        Assert.Equal("test-v1", fromDefinition?.DefinitionVersion);
+        Assert.Equal("Override instructions", fromOverride?.Instructions);
+        Assert.True(fromOverride?.Overridden);
+        Assert.Null(missingAgent);
+    }
+
+    [Fact]
+    public async Task GetInstructions_DisclosureDisabledReturnsNull()
+    {
+        using var disabledFactory = factory.WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, configuration) =>
+                configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["CasCap:AgentRuntimeConfig:Tenants:default:InstructionsDisclosureEnabled"] = "false",
+                })));
+        using var httpClient = disabledFactory.CreateClient();
+        var client = new AgentRuntimeClient(httpClient);
+
+        var instructions = await client.GetInstructionsAsync(
+            "assistant",
+            "conversation-instructions",
+            TestContext.Current.CancellationToken);
+
+        Assert.Null(instructions);
     }
 }

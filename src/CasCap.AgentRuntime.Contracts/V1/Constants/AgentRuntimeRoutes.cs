@@ -27,6 +27,9 @@ public static class AgentRuntimeRoutes
     /// <summary>Gets the route for complete per-session runtime overrides.</summary>
     public const string SessionOverrides = "/sessions/{sessionId}/overrides";
 
+    /// <summary>Gets the route for the effective instructions of one agent session.</summary>
+    public const string SessionInstructions = "/sessions/{sessionId}/instructions";
+
     /// <summary>Gets the route for publishing and listing immutable definitions.</summary>
     public const string Definitions = "/definitions";
 
