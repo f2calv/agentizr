@@ -73,13 +73,28 @@ public sealed record TenantAgentConfig
 }
 
 /// <summary>Secret-backed Authorization header components for one remote MCP endpoint.</summary>
-public sealed record McpCredentialConfig
+public sealed record McpCredentialConfig : IValidatableObject
 {
     /// <summary>Gets the Authorization scheme, such as Bearer or Basic.</summary>
     [Required, MinLength(1), MaxLength(50)]
     public required string Scheme { get; init; }
 
     /// <summary>Gets the secret Authorization parameter from the private configuration chain.</summary>
-    [Required, MinLength(1)]
-    public required string Parameter { get; init; }
+    /// <remarks>
+    /// Optional for <c>Basic</c>: when omitted, the parameter is built from the runtime's shared
+    /// <c>CasCap:ApiAuthConfig</c> username and password.
+    /// </remarks>
+    public string? Parameter { get; init; }
+
+    /// <summary>Gets whether this credential uses the Basic scheme.</summary>
+    public bool IsBasic => string.Equals(Scheme, "Basic", StringComparison.OrdinalIgnoreCase);
+
+    /// <inheritdoc/>
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (!IsBasic && string.IsNullOrWhiteSpace(Parameter))
+            yield return new ValidationResult(
+                $"{nameof(Parameter)} is required unless {nameof(Scheme)} is Basic.",
+                [nameof(Parameter)]);
+    }
 }

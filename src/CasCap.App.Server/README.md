@@ -62,7 +62,9 @@ tool and defaults to UTC. `TenantAgentConfig.InstructionsDisclosureEnabled` (def
 `agent.execute` callers read their own agents' effective instructions through the session
 `instructions` route, so a chat host can show them without holding `agent.definition.read`.
 
-Outside Development, `AgentRuntimeDatabaseConfig` supplies PostgreSQL. Immutable definition
+Outside Development, `DatabaseConfig` (`CasCap:DatabaseConfig`) supplies PostgreSQL. `DatabaseName`
+optionally replaces the database in `ConnectionString`, so applications sharing one server
+connection string each use their own database. Immutable definition
 snapshots store schema-versioned JSONB plus publisher/reason metadata, while a separate active
 pointer selects one version per tenant agent. Publication never changes live traffic; activation
 atomically advances the pointer and appends actor/reason audit history. Redis is a read-through
@@ -94,7 +96,9 @@ tools.
 Remote MCP definitions store only `ToolSource.Credential`, a logical tenant-local name. The runtime
 resolves its `Scheme` and secret `Parameter` from `AgentRuntimeConfig:Tenants:{tenant}:McpCredentials`
 through the final private configuration provider, validates availability before activation, and
-passes the resulting Authorization header only to the per-run MCP transport.
+passes the resulting Authorization header only to the per-run MCP transport. A `Basic` credential
+without a `Parameter` is built from the runtime's shared `CasCap:ApiAuthConfig` username and
+password.
 
 Provider API keys resolve the same way from `AgentRuntimeConfig:Tenants:{tenant}:Providers:{name}:ApiKey`.
 A tenant can instead list a provider name in `AgentRuntimeConfig:Tenants:{tenant}:EntraIdProviders`,

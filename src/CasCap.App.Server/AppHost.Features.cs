@@ -33,10 +33,10 @@ public static partial class AppHost
             throw new InvalidOperationException("Redis-backed Agent Runtime state is required outside Development.");
 
         var databaseConfig = builder.Configuration
-            .GetSection(AgentRuntimeDatabaseConfig.ConfigurationSectionName)
-            .Get<AgentRuntimeDatabaseConfig>() ?? new AgentRuntimeDatabaseConfig();
-        builder.Services.AddOptionsWithValidateOnStart<AgentRuntimeDatabaseConfig>()
-            .BindConfiguration(AgentRuntimeDatabaseConfig.ConfigurationSectionName)
+            .GetSection(DatabaseConfig.ConfigurationSectionName)
+            .Get<DatabaseConfig>() ?? new DatabaseConfig();
+        builder.Services.AddOptionsWithValidateOnStart<DatabaseConfig>()
+            .BindConfiguration(DatabaseConfig.ConfigurationSectionName)
             .ValidateDataAnnotations();
         var postgresEnabled = !string.IsNullOrWhiteSpace(databaseConfig.ConnectionString);
         if (!postgresEnabled && !builder.Environment.IsDevelopment())
@@ -56,10 +56,13 @@ public static partial class AppHost
         if (postgresEnabled)
         {
             // No Kerberos in this deployment; GSS probing loads libgssapi, which chiseled images lack.
-            var connectionString = new Npgsql.NpgsqlConnectionStringBuilder(databaseConfig.ConnectionString)
+            var connectionStringBuilder = new Npgsql.NpgsqlConnectionStringBuilder(databaseConfig.ConnectionString)
             {
                 GssEncryptionMode = Npgsql.GssEncryptionMode.Disable,
-            }.ConnectionString;
+            };
+            if (!string.IsNullOrWhiteSpace(databaseConfig.DatabaseName))
+                connectionStringBuilder.Database = databaseConfig.DatabaseName;
+            var connectionString = connectionStringBuilder.ConnectionString;
             builder.Services.AddDbContextFactory<AgentRuntimeDbContext>(options =>
                 options.UseNpgsql(connectionString));
             builder.Services.AddScoped<AgentRuntimeDatabaseMigrator>();
@@ -90,6 +93,8 @@ public static partial class AppHost
         }
         builder.Services.AddScoped<IProviderCredentialStore, ConfigurationProviderCredentialStore>();
         builder.Services.AddScoped<IMcpCredentialStore, ConfigurationMcpCredentialStore>();
+        // Unvalidated: only Basic MCP credentials without their own parameter read it.
+        builder.Services.AddOptions<ApiAuthConfig>().BindConfiguration(ApiAuthConfig.ConfigurationSectionName);
         if (redisEnabled)
         {
             builder.Services.AddScoped<IAgentSessionStore, RedisAgentSessionStore>();

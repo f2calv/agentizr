@@ -9,7 +9,7 @@ public sealed class AgentRuntimeDbContextDesignTimeFactory : IDesignTimeDbContex
     /// <inheritdoc/>
     public AgentRuntimeDbContext CreateDbContext(string[] args)
     {
-        var connectionString = Environment.GetEnvironmentVariable("CasCap__AgentRuntimeDatabaseConfig__ConnectionString")
+        var connectionString = Environment.GetEnvironmentVariable("CasCap__DatabaseConfig__ConnectionString")
             ?? "Host=localhost;Database=agentizr_design;Username=postgres;Password=not-used";
         var options = new DbContextOptionsBuilder<AgentRuntimeDbContext>()
             .UseNpgsql(connectionString)

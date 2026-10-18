@@ -1,3 +1,5 @@
+using CasCap.Common.Abstractions;
+
 namespace CasCap.Tests.Unit;
 
 /// <summary>Tests tenant-scoped remote MCP credential resolution.</summary>
@@ -27,7 +29,10 @@ public sealed class ConfigurationMcpCredentialStoreTests
                 },
             },
         });
-        var store = new ConfigurationMcpCredentialStore(config, new StaticTenantContext("tenant-a"));
+        var store = new ConfigurationMcpCredentialStore(
+            config,
+            Options.Create(new ApiAuthConfig { Username = "unused", Password = "unused" }),
+            new StaticTenantContext("tenant-a"));
 
         var authorization = await store.GetAuthorizationHeaderAsync(
             "tools",
@@ -38,6 +43,39 @@ public sealed class ConfigurationMcpCredentialStoreTests
 
         Assert.Equal("Bearer tenant-a-token", authorization);
         Assert.Null(missing);
+    }
+
+    [Fact]
+    public async Task GetAuthorizationHeaderAsync_BasicWithoutParameterUsesSharedApiCredentials()
+    {
+        var config = Options.Create(new AgentRuntimeConfig
+        {
+            Tenants = new Dictionary<string, TenantAgentConfig>
+            {
+                ["tenant-a"] = new()
+                {
+                    McpCredentials = new Dictionary<string, McpCredentialConfig>
+                    {
+                        ["application-api"] = new() { Scheme = "Basic" },
+                        ["bearer-without-parameter"] = new() { Scheme = "Bearer" },
+                    },
+                },
+            },
+        });
+        var store = new ConfigurationMcpCredentialStore(
+            config,
+            Options.Create(new ApiAuthConfig { Username = "user", Password = "pass" }),
+            new StaticTenantContext("tenant-a"));
+
+        var basic = await store.GetAuthorizationHeaderAsync(
+            "application-api",
+            TestContext.Current.CancellationToken);
+        var bearer = await store.GetAuthorizationHeaderAsync(
+            "bearer-without-parameter",
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal("Basic dXNlcjpwYXNz", basic);
+        Assert.Null(bearer);
     }
 
     private sealed class StaticTenantContext(string tenantId) : ITenantContext
