@@ -58,7 +58,12 @@ request body.
 each with an explicit `DefinitionVersion`, provider dictionary, and agent dictionary. The tracked
 configuration contains no tenant identifiers or credentials and is used only by the read-only
 Development adapter. `TenantAgentConfig.TimeZoneId` configures the built-in tenant-local date/time
-tool and defaults to UTC. `TenantAgentConfig.InstructionsDisclosureEnabled` (default `false`) lets
+tool and defaults to UTC. `TenantAgentConfig.CurrentTimeContextEnabled` (default `true`) adds a
+line such as `[Current local time: Monday 2026-10-19 08:15 (Europe/Berlin, UTC+02:00)]` to the user
+message of every run, including delegated runs, so agents know the date without a tool call. It
+travels with the message rather than the instructions, which keeps instructions identical between
+runs for provider prompt caching and dates each stored turn.
+`TenantAgentConfig.InstructionsDisclosureEnabled` (default `false`) lets
 `agent.execute` callers read their own agents' effective instructions through the session
 `instructions` route, so a chat host can show them without holding `agent.definition.read`.
 

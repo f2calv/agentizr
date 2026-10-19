@@ -111,10 +111,14 @@ internal sealed class CommonAgentExecutor(
 
         try
         {
+            var message = AgentExtensions.BuildChatMessage(request.Input, request.BinaryContent, request.MimeType);
+            if (builtInTools.CreateCurrentTimeContext() is { } currentTime)
+                message.Contents.Add(new TextContent(currentTime));
+
             var result = await agent.RunAnalysisAsync(
                 provider,
                 definition.Agent,
-                AgentExtensions.BuildChatMessage(request.Input, request.BinaryContent, request.MimeType),
+                message,
                 chatOptions,
                 session,
                 cancellationToken: cancellationToken,

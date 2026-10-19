@@ -1,4 +1,5 @@
 using Microsoft.Extensions.AI;
+using System.Globalization;
 
 namespace CasCap.Services;
 
@@ -42,7 +43,36 @@ internal sealed class AgentRuntimeBuiltInTools(
         ];
     }
 
+    /// <summary>
+    /// Creates the tenant-local time line attached to a run's user message, or <see langword="null"/>
+    /// when the tenant has disabled it.
+    /// </summary>
+    public string? CreateCurrentTimeContext()
+    {
+        if (runtimeConfig.Value.Tenants.TryGetValue(tenantContext.TenantId, out var tenant)
+            && !tenant.CurrentTimeContextEnabled)
+            return null;
+
+        var (localTime, timeZone) = GetTenantLocalTime();
+        var offset = timeZone.GetUtcOffset(localTime);
+        var sign = offset < TimeSpan.Zero ? '-' : '+';
+        return string.Create(CultureInfo.InvariantCulture,
+            $"[Current local time: {localTime:dddd yyyy-MM-dd HH:mm} ({timeZone.Id}, UTC{sign}{offset:hh\\:mm})]");
+    }
+
     private AgentRuntimeDateTimeState GetCurrentDatetimeState()
+    {
+        var (localTime, timeZone) = GetTenantLocalTime();
+        return new AgentRuntimeDateTimeState
+        {
+            LocalTime = localTime,
+            DayOfWeek = localTime.DayOfWeek.ToString(),
+            UtcOffset = timeZone.GetUtcOffset(localTime).ToString(),
+            TimeZone = timeZone.Id,
+        };
+    }
+
+    private (DateTime LocalTime, TimeZoneInfo TimeZone) GetTenantLocalTime()
     {
         var timeZoneId = runtimeConfig.Value.Tenants.TryGetValue(tenantContext.TenantId, out var tenant)
             ? tenant.TimeZoneId
@@ -61,14 +91,7 @@ internal sealed class AgentRuntimeBuiltInTools(
             timeZone = TimeZoneInfo.Utc;
         }
 
-        var localTime = TimeZoneInfo.ConvertTimeFromUtc(timeProvider.GetUtcNow().UtcDateTime, timeZone);
-        return new AgentRuntimeDateTimeState
-        {
-            LocalTime = localTime,
-            DayOfWeek = localTime.DayOfWeek.ToString(),
-            UtcOffset = timeZone.GetUtcOffset(localTime).ToString(),
-            TimeZone = timeZone.Id,
-        };
+        return (TimeZoneInfo.ConvertTimeFromUtc(timeProvider.GetUtcNow().UtcDateTime, timeZone), timeZone);
     }
 
     private async ValueTask<IReadOnlyDictionary<string, AgentDefinition>> GetReachableDefinitionsAsync(

@@ -45,6 +45,16 @@ public sealed record TenantAgentConfig
     [Required, MinLength(1)]
     public string TimeZoneId { get; init; } = "UTC";
 
+    /// <summary>
+    /// Gets whether every run's user message carries the tenant-local date and time, so agents do not
+    /// have to call <c>get_current_datetime_state</c> to know what day it is.
+    /// </summary>
+    /// <remarks>
+    /// On by default. The time travels with the message rather than the instructions, which keeps the
+    /// instructions identical between runs for provider prompt caching and dates each stored turn.
+    /// </remarks>
+    public bool CurrentTimeContextEnabled { get; init; } = true;
+
     /// <summary>Gets the definition version used to invalidate built-agent caches.</summary>
     [Required, MinLength(1)]
     public string DefinitionVersion { get; init; } = "1";

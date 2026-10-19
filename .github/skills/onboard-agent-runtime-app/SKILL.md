@@ -114,8 +114,9 @@ For a responder alias, add a dormant workload alias to the Signalizr chart inste
 
 - [ ] Author schema-version-1 definitions without secrets. Reference providers by name and MCP
       credentials by logical name.
-- [ ] Include rules that current readings always come from a tool call, never from earlier turns,
-      and that the agent calls `get_current_datetime_state` whenever the date matters.
+- [ ] Include rules that current readings always come from a tool call, never from earlier turns.
+      The runtime adds the tenant-local date and time to every message, so definitions need no
+      date rule unless they disable `CurrentTimeContextEnabled`.
 - [ ] Publish with [Publish-AgentDefinition.ps1](scripts/Publish-AgentDefinition.ps1), run
       `-WhatIf` first, then activate. Optionally evaluate before activation.
 - [ ] Read back the active versions.
