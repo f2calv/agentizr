@@ -3,6 +3,18 @@ namespace CasCap.Common.AI.Tests.Integration;
 /// <summary>Environment-provided settings for local llama.cpp integration tests.</summary>
 public sealed record LocalLlamaCppTestSettings
 {
+    private sealed class BasicAuthenticationHandler(string parameter) : DelegatingHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            request.Headers.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", parameter);
+            return base.SendAsync(request, cancellationToken);
+        }
+    }
+
     /// <summary>Gets the OpenAI-compatible llama.cpp endpoint.</summary>
     public required Uri Endpoint { get; init; }
 
@@ -20,6 +32,27 @@ public sealed record LocalLlamaCppTestSettings
 
     /// <summary>Gets the request timeout.</summary>
     public TimeSpan Timeout { get; init; } = TimeSpan.FromMinutes(2);
+
+    /// <summary>
+    /// Creates the endpoint transport. Ingress Basic auth is applied per request because the
+    /// OpenAI client overwrites the <c>Authorization</c> header with its bearer API key.
+    /// </summary>
+    public HttpClient CreateHttpClient()
+    {
+        HttpMessageHandler handler = new HttpClientHandler();
+        if (!string.IsNullOrWhiteSpace(BasicAuthUsername))
+        {
+            var parameter = Convert.ToBase64String(Encoding.UTF8.GetBytes(
+                $"{BasicAuthUsername}:{BasicAuthPassword}"));
+            handler = new BasicAuthenticationHandler(parameter) { InnerHandler = handler };
+        }
+
+        return new HttpClient(handler)
+        {
+            BaseAddress = Endpoint,
+            Timeout = System.Threading.Timeout.InfiniteTimeSpan,
+        };
+    }
 
     /// <summary>Loads settings without persisting or exposing local endpoint details.</summary>
     public static bool TryLoad(out LocalLlamaCppTestSettings? settings)

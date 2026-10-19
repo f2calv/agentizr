@@ -27,7 +27,8 @@ dotnet test --project src/CasCap.Common.AI.Tests/CasCap.Common.AI.Tests.csproj
 | `AgentEvaluationToolTests` | 10 | 16 | Tool classification and filtering, fixture and sandbox responses, variant descriptions and schemas, harness tool assembly and provider availability |
 | `AgentEvaluationReportTests` | 5 | 7 | Per-cell and cross-model summaries, speed ratios, session files, visible-thinking detection |
 | `LlamaCppIntegrationTests` | 4 | 4 | Opt-in real text, streaming, multimodal, and framework-session inference against local llama.cpp |
-| **Total** | **85** | **119** | |
+| `SessionLatencyBenchmarkTests` | 2 | 2 | Opt-in time-to-first-token, total latency and input tokens by session size for llama.cpp and Azure OpenAI, uncompacted versus reduced history |
+| **Total** | **87** | **121** | |
 
 ## Trait Categories
 
@@ -42,10 +43,12 @@ dotnet test --project src/CasCap.Common.AI.Tests/CasCap.Common.AI.Tests.csproj
 | `Type Resolution` | `AgentTypeRegistryTests` |
 | `Agent Evaluation` | `AgentEvaluationGradingTests`, `AgentEvaluationToolTests`, `AgentEvaluationReportTests` |
 | `Integration`, `Local llama.cpp` | `LlamaCppIntegrationTests` |
+| `Integration`, `Session Latency` | `SessionLatencyBenchmarkTests` |
 
 ## Skipped Tests
 
-The four `LlamaCppIntegrationTests` are skipped unless explicitly enabled on a non-CI workstation.
+The four `LlamaCppIntegrationTests` and the two `SessionLatencyBenchmarkTests` are skipped unless
+explicitly enabled on a non-CI workstation.
 
 ## Local llama.cpp Tests
 
@@ -65,6 +68,51 @@ dotnet test --project src/CasCap.Common.AI.Tests/CasCap.Common.AI.Tests.csproj -
 credentials remain environment-only. When the endpoint is behind Basic auth, set both
 `CASCAP_LOCAL_LLAMA_CPP_BASIC_AUTH_USERNAME` and `CASCAP_LOCAL_LLAMA_CPP_BASIC_AUTH_PASSWORD`.
 
+## Session Latency Benchmarks
+
+`SessionLatencyBenchmarkTests` measure how session size affects provider latency. Each turn of the
+synthetic history holds a user question, a status tool call, a JSON tool result of about 1 KB and an
+assistant answer. Every turn count is measured twice:
+
+- **Uncompacted**: the full history, including tool calls and results.
+- **Reduced**: the history after `ToolOutputStrippingChatReducer`, which the runtime applies with
+  the definition's `maxMessages` as its target.
+
+Each sample starts with a unique system-message nonce, so the figures are uncached prefill costs for
+both llama.cpp and Azure OpenAI. llama.cpp output is capped at 64 tokens so prompt processing
+dominates. Azure OpenAI uses low reasoning effort and a 1,024-token cap, because hidden reasoning
+counts against the output budget. First-token time includes streamed reasoning where the provider
+exposes it. The only assertion beyond streamed content is that reduced history uses fewer input
+tokens than uncompacted history when the provider reports usage.
+
+The results table, with median and range per cell, is written to the test output. Capture it with
+an xUnit TRX report:
+
+```powershell
+$env:CASCAP_RUN_SESSION_LATENCY_BENCHMARKS = 'true'
+# llama.cpp uses the CASCAP_LOCAL_LLAMA_CPP_* variables above.
+$env:CASCAP_LOCAL_AZURE_OPENAI_ENDPOINT = 'https://<resource>.openai.azure.com'
+$env:CASCAP_LOCAL_AZURE_OPENAI_DEPLOYMENT = '<deployment-name>'
+dotnet test --project src/CasCap.Common.AI.Tests/CasCap.Common.AI.Tests.csproj --filter-trait 'Category=Session Latency' --report-xunit-trx --results-directory ./TestResults
+```
+
+Each provider test is skipped when its endpoint settings are absent. Optional settings:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CASCAP_SESSION_LATENCY_TURNS` | `0,5,10,20` | Comma-separated turn counts |
+| `CASCAP_SESSION_LATENCY_SAMPLES` | `3` | Samples per turn count and history shape |
+| `CASCAP_SESSION_LATENCY_REDUCER_TARGET` | `20` | Reducer target message count |
+| `CASCAP_LOCAL_AZURE_OPENAI_TIMEOUT_SECONDS` | `120` | Azure OpenAI request timeout |
+| `CASCAP_LOCAL_AZURE_TENANT_ID` | Unset | Service principal tenant |
+| `CASCAP_LOCAL_AZURE_CLIENT_ID` | Unset | Service principal application |
+| `CASCAP_LOCAL_AZURE_CERT_THUMBPRINT` | Unset | Service principal certificate in the current user store |
+
+Azure OpenAI authenticates with the certificate service principal when all three service principal
+settings are set, and otherwise with the signed-in Azure CLI account. The identity needs a
+data-plane role, such as Cognitive Services OpenAI User, on the resource. Large uncompacted turn
+counts can exceed a local model's context window.
+
 ## File Structure
 
 ```text
@@ -72,9 +120,13 @@ Tests/
 ├── AgentEvaluationTestData.cs
 ├── Integration/
 │   ├── LlamaCppIntegrationTests.cs
+│   ├── LocalAzureOpenAiTestSettings.cs
 │   ├── LocalLlamaCppFactAttribute.cs
 │   ├── LocalLlamaCppTestEnvironment.cs
-│   └── LocalLlamaCppTestSettings.cs
+│   ├── LocalLlamaCppTestSettings.cs
+│   ├── SessionLatencyBenchmarkEnvironment.cs
+│   ├── SessionLatencyBenchmarkFactAttribute.cs
+│   └── SessionLatencyBenchmarkTests.cs
 └── Unit/
     ├── AgentEvaluationGradingTests.cs
     ├── AgentEvaluationReportTests.cs

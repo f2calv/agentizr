@@ -5,18 +5,6 @@ namespace CasCap.Common.AI.Tests.Integration;
 [Trait("Category", "Local llama.cpp")]
 public sealed class LlamaCppIntegrationTests
 {
-    private sealed class BasicAuthenticationHandler(string parameter) : DelegatingHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken cancellationToken)
-        {
-            request.Headers.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", parameter);
-            return base.SendAsync(request, cancellationToken);
-        }
-    }
-
     private const string SyntheticPngBase64 =
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z4QAAAABJRU5ErkJggg==";
 
@@ -121,26 +109,10 @@ public sealed class LlamaCppIntegrationTests
     private static (IChatClient ChatClient, AIAgent Agent, string Instructions) CreateAgent(
         LocalLlamaCppTestSettings settings,
         string modelName)
-    {
-        HttpMessageHandler handler = new HttpClientHandler();
-        if (!string.IsNullOrWhiteSpace(settings.BasicAuthUsername))
-        {
-            var parameter = Convert.ToBase64String(Encoding.UTF8.GetBytes(
-                $"{settings.BasicAuthUsername}:{settings.BasicAuthPassword}"));
-            handler = new BasicAuthenticationHandler(parameter) { InnerHandler = handler };
-        }
-
-        var httpClient = new HttpClient(handler)
-        {
-            BaseAddress = settings.Endpoint,
-            Timeout = Timeout.InfiniteTimeSpan,
-        };
-
-        return AgentExtensions.CreateAgent(
+        => AgentExtensions.CreateAgent(
             CreateProvider(settings, modelName),
             CreateAgentConfig(),
-            httpClient);
-    }
+            settings.CreateHttpClient());
 
     private static ProviderConfig CreateProvider(LocalLlamaCppTestSettings settings, string modelName) => new()
     {
