@@ -24,6 +24,8 @@
   <ItemGroup>
     <Content Include="..\..\appsettings.json" Link="appsettings.json" CopyToOutputDirectory="Always" />
     <Content Include="..\..\appsettings.Development.json" Link="appsettings.Development.json" CopyToOutputDirectory="Always" />
+    <Content Include="..\..\appsettings.Local.json" Link="appsettings.Local.json" CopyToOutputDirectory="Always" Condition="Exists('..\..\appsettings.Local.json')" />
+    <Content Include="..\..\appsettings.Local.Development.json" Link="appsettings.Local.Development.json" CopyToOutputDirectory="Always" Condition="Exists('..\..\appsettings.Local.Development.json')" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)'=='Release'">
