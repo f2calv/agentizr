@@ -23,10 +23,6 @@ public record AgentInfo
     [Description("Provider key referencing AIConfig.Providers.")]
     public required string Provider { get; init; }
 
-    /// <summary>Maximum chat history depth before automatic compaction.</summary>
-    [Description("Max non-system messages retained before auto-compaction. Null or 0 = no limit.")]
-    public int? MaxMessages { get; init; }
-
     /// <summary>Number of tool sources configured for this agent.</summary>
     [Description("Count of tool sources (MCP services, remote endpoints, or sub-agent delegations).")]
     public required int ToolSourceCount { get; init; }

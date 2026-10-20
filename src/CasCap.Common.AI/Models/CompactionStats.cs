@@ -5,7 +5,7 @@ namespace CasCap.Common.Models;
 /// <param name="OutputCount">Total messages after compaction.</param>
 /// <param name="ToolDropped">Messages dropped because they consisted solely of tool content.</param>
 /// <param name="WindowTrimmed">Messages dropped by the sliding window to meet <paramref name="Target"/>.</param>
-/// <param name="Target">The configured maximum non-system message count.</param>
+/// <param name="Target">The non-system message count the sliding window trims back to.</param>
 public readonly record struct CompactionStats(
     int InputCount,
     int OutputCount,

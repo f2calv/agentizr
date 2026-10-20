@@ -9,7 +9,9 @@ namespace CasCap.Services;
 internal sealed class CommonAgentSessionCodec(
     IHttpClientFactory httpClientFactory,
     ILoggerFactory loggerFactory,
-    IProviderCredentialStore credentialStore) : IAgentSessionCodec
+    IProviderCredentialStore credentialStore,
+    ITenantContext tenantContext,
+    IOptions<AgentRuntimeConfig> runtimeConfig) : IAgentSessionCodec
 {
     /// <inheritdoc/>
     public async ValueTask<AgentSessionInspection> InspectAsync(
@@ -70,7 +72,8 @@ internal sealed class CommonAgentSessionCodec(
             httpClient,
             tools: [],
             tokenCredential: credentialStore.GetTokenCredential(definition.Agent.Provider),
-            loggerFactory: loggerFactory);
+            loggerFactory: loggerFactory,
+            sessionCompaction: runtimeConfig.Value.GetSessionCompaction(tenantContext.TenantId, definition.Agent.Provider));
         return agent;
     }
 

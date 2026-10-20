@@ -1,7 +1,7 @@
 namespace CasCap.Models;
 
 /// <summary>Configuration-backed bootstrap definitions for the multi-tenant agent runtime.</summary>
-public sealed record AgentRuntimeConfig : IAppConfig
+public sealed record AgentRuntimeConfig : IAppConfig, IValidatableObject
 {
     /// <inheritdoc/>
     public static string ConfigurationSectionName => $"{nameof(CasCap)}:{nameof(AgentRuntimeConfig)}";
@@ -36,6 +36,36 @@ public sealed record AgentRuntimeConfig : IAppConfig
     /// </summary>
     [Range(1, 1_000)]
     public int MaximumToolInvocationsPerRun { get; init; } = 50;
+
+    /// <summary>Gets session compaction policies keyed by provider name, shared by every tenant.</summary>
+    /// <remarks>
+    /// A tenant entry in <see cref="TenantAgentConfig.SessionCompaction"/> replaces the entry here; a
+    /// provider with neither uses the <see cref="SessionCompactionConfig"/> defaults.
+    /// </remarks>
+    public Dictionary<string, SessionCompactionConfig> SessionCompaction { get; init; } = [];
+
+    /// <summary>Resolves the session compaction policy for one tenant's provider.</summary>
+    public SessionCompactionConfig GetSessionCompaction(string tenantId, string providerName) =>
+        Tenants.TryGetValue(tenantId, out var tenant)
+            && tenant.SessionCompaction.TryGetValue(providerName, out var tenantPolicy)
+                ? tenantPolicy
+                : SessionCompaction.GetValueOrDefault(providerName) ?? new SessionCompactionConfig();
+
+    /// <inheritdoc/>
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        var policies = SessionCompaction.Select(entry => ($"{nameof(SessionCompaction)}:{entry.Key}", entry.Value))
+            .Concat(Tenants.SelectMany(tenant => tenant.Value.SessionCompaction.Select(entry =>
+                ($"{nameof(Tenants)}:{tenant.Key}:{nameof(TenantAgentConfig.SessionCompaction)}:{entry.Key}", entry.Value))));
+        foreach (var (path, policy) in policies)
+        {
+            var results = new List<ValidationResult>();
+            if (Validator.TryValidateObject(policy, new ValidationContext(policy), results, validateAllProperties: true))
+                continue;
+            foreach (var result in results)
+                yield return new ValidationResult($"{path}: {result.ErrorMessage}", [path]);
+        }
+    }
 }
 
 /// <summary>Versioned provider and agent definitions for one tenant.</summary>
@@ -61,6 +91,9 @@ public sealed record TenantAgentConfig
 
     /// <summary>Gets providers keyed by stable provider name.</summary>
     public Dictionary<string, ProviderConfig> Providers { get; init; } = [];
+
+    /// <summary>Gets session compaction policies keyed by provider name, replacing the runtime-wide entry.</summary>
+    public Dictionary<string, SessionCompactionConfig> SessionCompaction { get; init; } = [];
 
     /// <summary>
     /// Gets provider names that authenticate with the runtime's own Microsoft Entra identity instead of

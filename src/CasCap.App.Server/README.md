@@ -98,6 +98,14 @@ delegations, across a run and all of its sub-agents; further calls return an err
 model answers with what it has. Tracked defaults permit only local Ollama and no MCP/service
 tools.
 
+`AgentRuntimeConfig.SessionCompaction` sets the session compaction policy per provider name for
+every tenant, and `TenantAgentConfig.SessionCompaction` replaces an entry for one tenant. Each
+`SessionCompactionConfig` strips tool calls and results on every run, trims the history to
+`TargetMessageCount` non-system messages once it exceeds `TriggerMessageCount` (both default 20),
+and reports `session.compacted` events according to `Notification`: `Off`, `WindowTrimmed`
+(default) or `Always`. Startup fails when a trigger is below its target. See
+[Session Compaction](../../docs/session-compaction.md) for the measurements behind the settings.
+
 Remote MCP definitions store only `ToolSource.Credential`, a logical tenant-local name. The runtime
 resolves its `Scheme` and secret `Parameter` from `AgentRuntimeConfig:Tenants:{tenant}:McpCredentials`
 through the final private configuration provider, validates availability before activation, and

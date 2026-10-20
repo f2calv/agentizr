@@ -116,6 +116,10 @@ public static partial class AgentExtensions
     /// middleware to both the chat-client and agent pipelines. When <see langword="null"/> no
     /// logging middleware is added.
     /// </param>
+    /// <param name="sessionCompaction">
+    /// Optional provider compaction policy. When set, the agent's chat history uses a
+    /// <see cref="ToolOutputStrippingChatReducer"/>; when <see langword="null"/> history is not compacted.
+    /// </param>
     /// <returns>A tuple of the built <see cref="IChatClient"/>, <see cref="AIAgent"/>, and the resolved system instructions.</returns>
     public static (IChatClient chatClient, AIAgent agent, string instructions) CreateAgent(
         ProviderConfig provider,
@@ -129,7 +133,8 @@ public static partial class AgentExtensions
         string? otelSourceName = null,
         TokenCredential? tokenCredential = null,
         bool enableSensitiveTelemetryData = false,
-        ILoggerFactory? loggerFactory = null)
+        ILoggerFactory? loggerFactory = null,
+        SessionCompactionConfig? sessionCompaction = null)
     {
         var agentLogger = loggerFactory?.CreateLogger(nameof(AgentExtensions)) ?? NullLogger.Instance;
         var suppliedHttpClient = httpClient;
@@ -219,20 +224,19 @@ public static partial class AgentExtensions
             },
         };
 
-        // Configure automatic chat history compaction when MaxMessages is set.
-        // Uses ToolOutputStrippingChatReducer which drops FunctionCallContent/FunctionResultContent
-        // messages and keeps a sliding window of the most recent exchanges — critical for reducing
-        // context size on edge GPU devices.
-        if (agentConfig.MaxMessages is > 0)
+        if (sessionCompaction is not null)
         {
             agentOptions.ChatHistoryProvider = new InMemoryChatHistoryProvider(
                 new InMemoryChatHistoryProviderOptions
                 {
-                    ChatReducer = new ToolOutputStrippingChatReducer(agentConfig.MaxMessages.Value, loggerFactory),
+                    ChatReducer = new ToolOutputStrippingChatReducer(
+                        sessionCompaction.TargetMessageCount,
+                        sessionCompaction.TriggerMessageCount,
+                        loggerFactory),
                 });
             if (agentLogger.IsEnabled(LogLevel.Debug))
-                agentLogger.LogDebug("Agent {AgentName} configured with automatic compaction (MaxMessages={MaxMessages})",
-                    agentConfig.Name, agentConfig.MaxMessages.Value);
+                agentLogger.LogDebug("Agent {AgentName} configured with automatic compaction (target={TargetMessageCount}, trigger={TriggerMessageCount})",
+                    agentConfig.Name, sessionCompaction.TargetMessageCount, sessionCompaction.TriggerMessageCount);
         }
 
         var agentBuilder = new ChatClientAgent(chatClient, agentOptions)

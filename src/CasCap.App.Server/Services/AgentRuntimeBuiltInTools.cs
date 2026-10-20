@@ -134,7 +134,6 @@ internal sealed class AgentRuntimeBuiltInTools(
                 Description = definition.Agent.Description,
                 Enabled = definition.Agent.Enabled,
                 Provider = definition.Agent.Provider,
-                MaxMessages = definition.Agent.MaxMessages,
                 ToolSourceCount = definition.Agent.Tools.Length,
                 DelegatedAgents = definition.Agent.Tools
                     .Select(tool => tool.Agent)

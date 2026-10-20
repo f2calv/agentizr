@@ -39,7 +39,7 @@ public static class SessionLatencyBenchmarkEnvironment
     }
 
     /// <summary>Gets the reducer target applied to the compacted history; defaults to 20.</summary>
-    /// <remarks>Matches the <c>maxMessages</c> of the published group-chat agent definitions.</remarks>
+    /// <remarks>Matches the <see cref="SessionCompactionConfig"/> default target.</remarks>
     public static int ReducerTarget =>
         int.TryParse(Environment.GetEnvironmentVariable("CASCAP_SESSION_LATENCY_REDUCER_TARGET"), out var target) && target > 0
             ? target

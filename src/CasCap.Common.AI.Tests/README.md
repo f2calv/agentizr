@@ -14,7 +14,8 @@ dotnet test --project src/CasCap.Common.AI.Tests/CasCap.Common.AI.Tests.csproj
 
 | Class | Methods | Cases | Covers |
 | --- | --- | --- | --- |
-| `ToolOutputStrippingChatReducerTests` | 11 | 17 | Tool-content stripping, orphaned tool-call prevention, sliding window, system-message retention, metadata preservation, input immutability, argument validation |
+| `ToolOutputStrippingChatReducerTests` | 14 | 20 | Tool-content stripping, orphaned tool-call prevention, sliding window, trigger threshold, system-message retention, metadata preservation, input immutability, argument validation |
+| `SessionCompactionConfigTests` | 1 | 6 | Compaction notification modes |
 | `AgentExtensionsCreateAgentTests` | 10 | 13 | Provider validation for Ollama / Azure OpenAI / OpenAI endpoints and credentials, caller-supplied transport, unsupported provider types |
 | `ToolSourceValidationTests` | 2 | 2 | Remote MCP logical credential references are valid only with endpoint sources |
 | `ToolFilterTests` | 3 | 4 | Include-list filtering always rejects unresolved tool names, regardless of hosting environment |
@@ -28,13 +29,13 @@ dotnet test --project src/CasCap.Common.AI.Tests/CasCap.Common.AI.Tests.csproj
 | `AgentEvaluationReportTests` | 5 | 7 | Per-cell and cross-model summaries, speed ratios, session files, visible-thinking detection |
 | `LlamaCppIntegrationTests` | 4 | 4 | Opt-in real text, streaming, multimodal, and framework-session inference against local llama.cpp |
 | `SessionLatencyBenchmarkTests` | 2 | 2 | Opt-in time-to-first-token, total latency and input tokens by session size for llama.cpp and Azure OpenAI, uncompacted versus reduced history |
-| **Total** | **87** | **121** | |
+| **Total** | **91** | **130** | |
 
 ## Trait Categories
 
 | Category | Applied to |
 | --- | --- |
-| `Chat Reduction` | `ToolOutputStrippingChatReducerTests` |
+| `Chat Reduction` | `ToolOutputStrippingChatReducerTests`, `SessionCompactionConfigTests` |
 | `Agent Creation` | `AgentExtensionsCreateAgentTests`, `ToolSourceValidationTests`, `ToolFilterTests` |
 | `Tool Failures` | `ToolFailureTests` |
 | `Usage Reporting` | `AgentResponseUsageTests` |
@@ -75,8 +76,10 @@ synthetic history holds a user question, a status tool call, a JSON tool result 
 assistant answer. Every turn count is measured twice:
 
 - **Uncompacted**: the full history, including tool calls and results.
-- **Reduced**: the history after `ToolOutputStrippingChatReducer`, which the runtime applies with
-  the definition's `maxMessages` as its target.
+- **Reduced**: the history after `ToolOutputStrippingChatReducer`, with the target and trigger both
+  set to `CASCAP_SESSION_LATENCY_REDUCER_TARGET`.
+
+The [session compaction guide](../../docs/session-compaction.md) records the results.
 
 Each sample starts with a unique system-message nonce, so the figures are uncached prefill costs for
 both llama.cpp and Azure OpenAI. llama.cpp output is capped at 64 tokens so prompt processing
@@ -136,6 +139,7 @@ Tests/
     ├── AgentResponseUsageTests.cs
     ├── AgentTelemetryTests.cs
     ├── AgentTypeRegistryTests.cs
+    ├── SessionCompactionConfigTests.cs
     ├── ToolFailureTests.cs
     ├── ToolFilterTests.cs
     ├── ToolOutputStrippingChatReducerTests.cs

@@ -26,6 +26,7 @@ The tests launch the real application through `WebApplicationFactory<Program>` a
 | `CachedAgentDefinitionStoreTests` | 3 | 3 | Verifies secret-free read-through caching, the cached active-version pointer surviving a database outage, and its invalidation on activation |
 | `ConfigurationMcpCredentialStoreTests` | 1 | 1 | Verifies tenant-scoped Authorization header resolution without definition secrets |
 | `ConfigurationProviderCredentialStoreTests` | 2 | 5 | Verifies the runtime's Entra credential is offered only to a tenant's opted-in providers |
+| `SessionCompactionConfigTests` | 3 | 6 | Verifies per-provider compaction resolution (tenant override, runtime entry, defaults) and startup validation |
 | `LiveAgentRuntimeSmokeTests` | 1 | 1 | Opt-in authenticated run, streaming, session inspection and cleanup against a complete live runtime |
 
 Reusable secret-free agent, provider, runtime-definition, and publication builders live in
@@ -39,7 +40,7 @@ evaluation tests.
 | Category | Test-case count | Purpose |
 | --- | ---: | --- |
 | `Integration` | 39 | In-memory ASP.NET Core host, execution/control protocols, MCP endpoint and startup security tests |
-| `Agent Runtime` | 16 | Runtime orchestration, built-in tools, evaluation, definition persistence, and caching without external services |
+| `Agent Runtime` | 22 | Runtime orchestration, built-in tools, evaluation, definition persistence, caching and session compaction policies without external services |
 | `Tenant Isolation` | 19 | Cross-tenant state, JWT permissions, caller mappings, MCP and provider credentials and identity isolation |
 | `PostgreSQL` | 8 | Definition store against a disposable `postgres:18-alpine` container; requires Docker |
 | `Local Agent Runtime` | 1 | Explicitly enabled smoke test against a complete running runtime |
@@ -102,6 +103,7 @@ Tests/
     ├── ConfigurationProviderCredentialStoreTests.cs
     ├── InMemoryDistributedCache.cs
     ├── PostgresAgentDefinitionStoreTests.cs
+    ├── SessionCompactionConfigTests.cs
     └── TenantStateIsolationTests.cs
 ```
 

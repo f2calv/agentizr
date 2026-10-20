@@ -20,6 +20,7 @@ internal sealed class CommonAgentExecutor(
     AgentRuntimeBuiltInTools builtInTools,
     IProviderCredentialStore credentialStore,
     IMcpCredentialStore mcpCredentialStore,
+    ITenantContext tenantContext,
     IOptions<AgentRuntimeConfig> runtimeConfig) : IAgentExecutor
 {
     private const int MaximumDelegationDepth = 5;
@@ -31,19 +32,25 @@ internal sealed class CommonAgentExecutor(
     {
         var executionStopwatch = Stopwatch.StartNew();
         var events = new ConcurrentQueue<AgentExecutionEvent>();
+        var compaction = GetSessionCompaction(context.Definition);
         var runScope = new AgentRunScope
         {
             MaximumToolInvocations = runtimeConfig.Value.MaximumToolInvocationsPerRun,
-            OnCompaction = stats => PublishEvent(context.Request, events, new AgentExecutionEvent
+            OnCompaction = stats =>
             {
-                Type = RunAgentEventTypes.SessionCompacted,
-                Elapsed = executionStopwatch.Elapsed,
-                InputMessageCount = stats.InputCount,
-                OutputMessageCount = stats.OutputCount,
-                ToolMessagesDropped = stats.ToolDropped,
-                WindowMessagesTrimmed = stats.WindowTrimmed,
-                TargetMessageCount = stats.Target,
-            }),
+                if (!compaction.ShouldNotify(stats))
+                    return;
+                PublishEvent(context.Request, events, new AgentExecutionEvent
+                {
+                    Type = RunAgentEventTypes.SessionCompacted,
+                    Elapsed = executionStopwatch.Elapsed,
+                    InputMessageCount = stats.InputCount,
+                    OutputMessageCount = stats.OutputCount,
+                    ToolMessagesDropped = stats.ToolDropped,
+                    WindowMessagesTrimmed = stats.WindowTrimmed,
+                    TargetMessageCount = stats.Target,
+                });
+            },
         };
 
         var result = await ExecuteDefinitionAsync(
@@ -59,6 +66,9 @@ internal sealed class CommonAgentExecutor(
 
         return result with { Events = [.. events] };
     }
+
+    private SessionCompactionConfig GetSessionCompaction(AgentDefinition definition) =>
+        runtimeConfig.Value.GetSessionCompaction(tenantContext.TenantId, definition.Agent.Provider);
 
     private async ValueTask<AgentExecutionResult> ExecuteDefinitionAsync(
         AgentDefinition definition,
@@ -93,7 +103,8 @@ internal sealed class CommonAgentExecutor(
             httpClient,
             tools,
             tokenCredential: credentialStore.GetTokenCredential(definition.Agent.Provider),
-            loggerFactory: loggerFactory);
+            loggerFactory: loggerFactory,
+            sessionCompaction: GetSessionCompaction(definition));
         var chatOptions = AgentExtensions.BuildChatOptions(definition.Agent, instructions);
         if (!string.IsNullOrWhiteSpace(overrides.ModelName))
             chatOptions.ModelId = overrides.ModelName;

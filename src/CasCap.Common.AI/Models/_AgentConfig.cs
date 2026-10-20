@@ -53,22 +53,6 @@ public record AgentConfig
     public required string Prompt { get; init; }
 
     /// <summary>
-    /// Maximum number of non-system messages to retain in the chat history before
-    /// automatic compaction strips older messages and tool output.
-    /// </summary>
-    /// <remarks>
-    /// When set to a positive value, the agent's <see cref="Microsoft.Agents.AI.InMemoryChatHistoryProvider"/>
-    /// is configured with a <see cref="CasCap.Common.Services.ToolOutputStrippingChatReducer"/> that drops
-    /// <see cref="Microsoft.Extensions.AI.FunctionCallContent"/> /
-    /// <see cref="Microsoft.Extensions.AI.FunctionResultContent"/> messages and keeps only the newest
-    /// <see cref="MaxMessages"/> exchanges. When <see langword="null"/> or zero, no automatic
-    /// compaction is applied.
-    /// Defaults to <c>20</c>.
-    /// </remarks>
-    [Range(0, int.MaxValue)]
-    public int? MaxMessages { get; init; } = 20;
-
-    /// <summary>
     /// Tool sources for this agent. Each <see cref="ToolSource"/> identifies either an
     /// in-process service class or a remote MCP endpoint, with optional include/exclude
     /// filters for cherry-picking individual tools across multiple sources.

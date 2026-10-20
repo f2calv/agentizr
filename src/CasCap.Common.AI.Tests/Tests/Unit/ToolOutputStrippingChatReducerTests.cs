@@ -48,6 +48,44 @@ public class ToolOutputStrippingChatReducerTests
         await Assert.ThrowsAsync<ArgumentNullException>(async () =>
             await new ToolOutputStrippingChatReducer(10).ReduceAsync(null!, TestContext.Current.CancellationToken));
 
+    [Fact]
+    public void Constructor_TriggerBelowTarget()
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new ToolOutputStrippingChatReducer(4, 3));
+        Assert.Equal("triggerCount", ex.ParamName);
+    }
+
+    /// <summary>At or below the trigger the window leaves the history alone, but tool content is still stripped.</summary>
+    [Fact]
+    public async Task ReduceAsync_AtTrigger_StripsToolsWithoutTrimming()
+    {
+        var reducer = new ToolOutputStrippingChatReducer(2, 4);
+        List<ChatMessage> result = [.. await reducer.ReduceAsync(
+        [
+            User("one"), Assistant("one"),
+            ToolCall("call-1", "get_state"), ToolResult("call-1", "get_state", "ok"),
+            User("two"), Assistant("two"),
+        ], TestContext.Current.CancellationToken)];
+
+        Assert.Equal(["one", "one", "two", "two"], result.Select(m => m.Text));
+    }
+
+    /// <summary>Above the trigger the window trims back to the target, not to the trigger.</summary>
+    [Fact]
+    public async Task ReduceAsync_AboveTrigger_TrimsToTarget()
+    {
+        var reducer = new ToolOutputStrippingChatReducer(2, 4);
+        List<ChatMessage> result = [.. await reducer.ReduceAsync(
+        [
+            System("instructions"),
+            User("one"), Assistant("one"),
+            User("two"), Assistant("two"),
+            User("three"),
+        ], TestContext.Current.CancellationToken)];
+
+        Assert.Equal(["instructions", "two", "three"], result.Select(m => m.Text));
+    }
+
     /// <summary>
     /// Regression test: an assistant message mixing text with a <see cref="FunctionCallContent"/>
     /// was previously retained (because not <i>all</i> of its content was tool content) while the

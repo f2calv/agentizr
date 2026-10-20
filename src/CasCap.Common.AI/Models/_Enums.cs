@@ -18,3 +18,14 @@ public enum AgentType
     /// </summary>
     OpenAI = 4,
 }
+
+/// <summary>Which session compactions are reported as run events.</summary>
+public enum CompactionNotificationMode
+{
+    /// <summary>Never report compaction.</summary>
+    Off,
+    /// <summary>Report only compactions where the sliding window trimmed messages.</summary>
+    WindowTrimmed,
+    /// <summary>Report every compaction, including routine tool-output stripping.</summary>
+    Always,
+}

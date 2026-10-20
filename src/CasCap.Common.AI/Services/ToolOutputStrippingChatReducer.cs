@@ -8,12 +8,19 @@ namespace CasCap.Common.Services;
 
 /// <summary>
 /// An <see cref="IChatReducer"/> that strips <see cref="FunctionCallContent"/> and
-/// <see cref="FunctionResultContent"/> from the chat history while retaining the most
-/// recent <c>targetCount</c> non-system exchanges.
+/// <see cref="FunctionResultContent"/> from the chat history on every pass, and trims the history
+/// to the most recent <c>targetCount</c> non-system messages once it exceeds <c>triggerCount</c>.
 /// </summary>
-/// <param name="targetCount">The maximum number of non-system messages to retain.</param>
+/// <param name="targetCount">The number of non-system messages kept when the window trims.</param>
+/// <param name="triggerCount">
+/// The non-system message count that must be exceeded before the window trims; defaults to
+/// <paramref name="targetCount"/>. A higher value keeps the history prefix stable between trims,
+/// which preserves provider prompt caching.
+/// </param>
 /// <param name="loggerFactory">Optional logger factory; when omitted the reducer logs nothing.</param>
-/// <exception cref="ArgumentOutOfRangeException"><paramref name="targetCount"/> is zero or negative.</exception>
+/// <exception cref="ArgumentOutOfRangeException">
+/// <paramref name="targetCount"/> is zero or negative, or <paramref name="triggerCount"/> is below it.
+/// </exception>
 /// <remarks>
 /// <para>
 /// Tool-call and tool-result messages are the primary source of context bloat on
@@ -26,8 +33,8 @@ namespace CasCap.Common.Services;
 /// left with no remaining content.</description></item>
 /// <item><description>Preserving the first system message so the agent's instructions
 /// are never lost.</description></item>
-/// <item><description>Keeping at most <c>targetCount</c> of the most recent non-system
-/// messages as a sliding window.</description></item>
+/// <item><description>Once more than <c>triggerCount</c> non-system messages remain, keeping only
+/// the most recent <c>targetCount</c> of them as a sliding window.</description></item>
 /// </list>
 /// <para>
 /// Tool content is stripped from <b>every</b> message rather than only from messages that
@@ -46,7 +53,8 @@ namespace CasCap.Common.Services;
 /// TODO: replace the hand-rolled sliding window below with the first-party
 /// <c>Microsoft.Extensions.AI.MessageCountingChatReducer</c>, whose documented behaviour
 /// ("limits non-system messages to a maximum count, preserving the most recent messages
-/// and the first system message") matches this type exactly. Blocked on that type leaving
+/// and the first system message") matches this type's window when the trigger equals the
+/// target; the trigger gap would need wrapping. Blocked on that type leaving
 /// experimental status — it is marked <c>[Experimental("MEAI001")]</c> as of
 /// Microsoft.Extensions.AI 10.10.0, and this is a packable library so the suppression would
 /// surface as churn risk for downstream consumers.
@@ -64,9 +72,11 @@ namespace CasCap.Common.Services;
 /// </remarks>
 public sealed class ToolOutputStrippingChatReducer(
     int targetCount,
+    int? triggerCount = null,
     ILoggerFactory? loggerFactory = null) : IChatReducer
 {
     private readonly int _targetCount = ValidateTargetCount(targetCount);
+    private readonly int _triggerCount = ValidateTriggerCount(triggerCount ?? targetCount, targetCount);
     private readonly ILogger _logger = loggerFactory?.CreateLogger<ToolOutputStrippingChatReducer>()
         ?? (ILogger)NullLogger<ToolOutputStrippingChatReducer>.Instance;
 
@@ -137,10 +147,14 @@ public sealed class ToolOutputStrippingChatReducer(
 
     /// <summary>
     /// Retains the first system message plus the most recent <see cref="_targetCount"/>
-    /// non-system messages, preserving the original ordering.
+    /// non-system messages, preserving the original ordering, once more than
+    /// <see cref="_triggerCount"/> non-system messages are present.
     /// </summary>
     private List<ChatMessage> ApplySlidingWindow(List<ChatMessage> messages)
     {
+        if (messages.Count(m => m.Role != ChatRole.System) <= _triggerCount)
+            return messages;
+
         ChatMessage? systemMessage = null;
         var retained = new Queue<ChatMessage>(capacity: _targetCount);
 
@@ -170,5 +184,11 @@ public sealed class ToolOutputStrippingChatReducer(
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(targetCount);
         return targetCount;
+    }
+
+    private static int ValidateTriggerCount(int triggerCount, int targetCount)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(triggerCount, targetCount, nameof(triggerCount));
+        return triggerCount;
     }
 }

@@ -34,8 +34,9 @@ This library contains **no domain-specific MCP query services** — those live i
 | Type | Description |
 | --- | --- |
 | `AIConfig` | Root configuration record (`IAppConfig`) — `Providers`, `Agents`, `McpUrl`, `InstructionsPrefix`/`Suffix`, `TimeZoneId` |
-| `AgentConfig` | Per-agent behavioural config — `Provider`, `Instructions`/`InstructionsSource`, `MaxMessages` (compaction depth), `Tools` (tool sources), `Prompts` (prompt sources), `Enabled` |
+| `AgentConfig` | Per-agent behavioural config — `Provider`, `Instructions`/`InstructionsSource`, `Tools` (tool sources), `Prompts` (prompt sources), `Enabled` |
 | `ProviderConfig` | AI provider infrastructure config — `Type` (`AgentType`), `Endpoint`, `ModelName`, `ReasoningEffort`, `ApiKey` |
+| `SessionCompactionConfig` | Provider compaction policy — `TargetMessageCount`, `TriggerMessageCount`, `Notification` (`CompactionNotificationMode`) |
 
 ### Models
 
@@ -111,17 +112,17 @@ If neither source is found an exception is thrown. The fallback `Instructions` s
 
 ## Chat History Compaction
 
-Long conversations accumulate large context windows — especially from verbose tool call/result JSON payloads. Automatic compaction is configured per-agent via `AgentConfig.MaxMessages`.
+Long conversations accumulate large context windows — especially from verbose tool call/result JSON payloads. The host passes a `SessionCompactionConfig` to `AgentExtensions.CreateAgent`, normally chosen per provider; without one, history is not compacted.
 
-When `MaxMessages` is set to a positive value, `AgentExtensions.CreateAgent` configures the agent's `InMemoryChatHistoryProvider` with a `ToolOutputStrippingChatReducer` that:
+With a policy, `CreateAgent` configures the agent's `InMemoryChatHistoryProvider` with a `ToolOutputStrippingChatReducer` that:
 
 1. **Preserves** the first system message (agent instructions are never lost).
-2. **Strips** all `FunctionCallContent` and `FunctionResultContent` from non-system messages (the primary source of context bloat), dropping any message left with no remaining content.
-3. **Keeps** a sliding window of the most recent `MaxMessages` non-system exchanges.
+2. **Strips** all `FunctionCallContent` and `FunctionResultContent` from non-system messages on every run (the primary source of context bloat), dropping any message left with no remaining content.
+3. **Trims** the history to the most recent `TargetMessageCount` non-system messages once it exceeds `TriggerMessageCount`.
 
 Tool content is removed from *every* message rather than only from messages consisting *solely* of tool content. An assistant message mixing narration text with a `FunctionCallContent` would otherwise be retained while its matching `FunctionResultContent` was dropped, leaving an orphaned tool call — OpenAI and Azure OpenAI reject such a request with HTTP 400.
 
-The reducer runs automatically before each agent invocation. Set `MaxMessages` to `0` or `null` to disable automatic compaction.
+The reducer runs automatically before each agent invocation. A trigger above the target lets the history grow between trims, so its prefix stays stable and provider prompt caches stay warm. `SessionCompactionConfig.ShouldNotify` applies the `Notification` mode: `Off`, `WindowTrimmed` (default) or `Always`.
 
 ### Run Scope
 
