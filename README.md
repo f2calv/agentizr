@@ -165,6 +165,11 @@ The [`agentizr-dashboards`](charts/agentizr-dashboards/README.md) subchart ships
 `Agent Runtime` Grafana dashboard with tenant, agent, provider, and model selectors inside the
 application chart, so every chart deployment rolls it out with the runtime.
 
+## Appendix
+
+- [Session Compaction](docs/session-compaction.md): per-provider compaction settings, and the
+  measurements of how history size affects local and hosted model latency.
+
 ## License
 
 This project is released into the public domain under the [Unlicense](LICENSE).
