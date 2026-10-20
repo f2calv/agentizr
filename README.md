@@ -197,8 +197,9 @@ The runtime never applies migrations during normal startup.
 ## Observability
 
 Agent execution metrics use the `agentizr` meter by default and export through the configured OTLP
-endpoint. They cover run outcomes and latency, time to first token, provider-reported tokens, and
-tool calls. Every series is partitionable by tenant and active definition; bounded provider and
+endpoint. They cover run outcomes and latency, time to first token, provider-reported tokens,
+tool calls, and runs whose answer leaked reasoning markup (`<think>` tags) that the runtime removed.
+Every series is partitionable by tenant and active definition; bounded provider and
 model names are included when a definition resolves. Prompt text, output text, session identifiers,
 tool arguments, caller identifiers, and credentials are never metric labels.
 

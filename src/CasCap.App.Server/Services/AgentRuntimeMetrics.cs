@@ -11,6 +11,7 @@ public sealed class AgentRuntimeMetrics
     private readonly Histogram<double> _timeToFirstToken;
     private readonly Counter<long> _tokens;
     private readonly Counter<long> _toolCalls;
+    private readonly Counter<long> _reasoningMarkup;
 
     /// <summary>Creates Agent Runtime instruments on the configured application meter.</summary>
     public AgentRuntimeMetrics(IOptions<AppConfig> appConfig, IMeterFactory meterFactory)
@@ -37,6 +38,10 @@ public sealed class AgentRuntimeMetrics
             $"{prefix}.tool.calls",
             unit: "{call}",
             description: "Tool calls completed during Agent Runtime executions, including delegated agents, by tool outcome.");
+        _reasoningMarkup = meter.CreateCounter<long>(
+            $"{prefix}.reasoning_markup",
+            unit: "{run}",
+            description: "Agent runs, including delegated agents, whose answer leaked reasoning markup that was removed.");
     }
 
     /// <summary>Records a run whose requested definition was unavailable.</summary>
@@ -74,6 +79,9 @@ public sealed class AgentRuntimeMetrics
             _timeToFirstToken.Record(firstToken.TotalMilliseconds, tags);
         RecordToolCalls(toolCalls - toolErrors, "succeeded", tags);
         RecordToolCalls(toolErrors, "error", tags);
+        var reasoningMarkupRuns = runs.Count(run => run.ReasoningMarkupCharactersRemoved > 0);
+        if (reasoningMarkupRuns > 0)
+            _reasoningMarkup.Add(reasoningMarkupRuns, tags);
         if (diagnostics?.Usage is { } usage)
         {
             RecordTokens(usage.InputTokenCount, "input", tags);

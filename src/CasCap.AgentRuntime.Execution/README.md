@@ -25,6 +25,7 @@ definitions and separately resolved credentials into this execution layer.
 | Type | Description |
 | --- | --- |
 | `ToolOutputStrippingChatReducer` | `IChatReducer` that strips `FunctionCallContent`/`FunctionResultContent` from the history while retaining a sliding window of recent exchanges — critical for reducing context size on edge devices |
+| `ReasoningMarkupFilter` | Removes `<think>` markup that a model leaked into its answer; `RunAnalysisAsync` applies it, logs a Warning and sets `AgentRunResult.ReasoningMarkupCharactersRemoved` |
 
 ### Extensions
 

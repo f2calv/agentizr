@@ -23,11 +23,12 @@ produce the inventory below; counts come from attributes and expanded `[InlineDa
 | --- | --- | --- | --- |
 | `ToolOutputStrippingChatReducerTests` | 15 | 20 | Tool-content stripping, orphaned tool-call prevention, sliding window, trigger threshold, system-message retention, metadata preservation, input immutability, argument validation |
 | `SessionCompactionConfigTests` | 1 | 6 | Compaction notification modes |
+| `ReasoningMarkupFilterTests` | 3 | 8 | Complete, orphaned-closing and unclosed `<think>` markup, clean text and reasoning-only answers |
 | `AgentExtensionsCreateAgentTests` | 10 | 13 | Provider validation for Ollama / Azure OpenAI / OpenAI endpoints and credentials, caller-supplied transport, unsupported provider types |
 | `ToolSourceValidationTests` | 2 | 2 | Remote MCP logical credential references are valid only with endpoint sources |
 | `ToolFilterTests` | 3 | 4 | Include-list filtering always rejects unresolved tool names, regardless of hosting environment |
 | `ToolFailureTests` | 5 | 8 | Throwing tools and MCP `isError` results are flagged on `ToolCalls` and counted in `ToolErrorCount`; calls beyond the per-run tool budget are refused and the budget is shared with sub-agents |
-| `AgentResponseUsageTests` | 5 | 5 | Framework usage aggregation across tool-call round-trips, `RunAnalysisAsync` usage/tool-call reporting |
+| `AgentResponseUsageTests` | 6 | 6 | Framework usage aggregation across tool-call round-trips, `RunAnalysisAsync` usage/tool-call reporting and leaked reasoning-markup removal |
 | `AgentTelemetryTests` | 3 | 3 | Agent-level OpenTelemetry spans, sub-agent span nesting, sensitive-data opt-in |
 | `AgentRunScopeTests` | 9 | 11 | Depth nesting, callback inheritance, shared/thread-safe attachment collection, drain semantics, per-scope tool failures |
 | `AgentTypeRegistryTests` | 11 | 11 | Registry lookup, ambiguous-name rejection, DI and assembly indexing, tool resolution via registry |
@@ -36,7 +37,7 @@ produce the inventory below; counts come from attributes and expanded `[InlineDa
 | `AgentEvaluationReportTests` | 5 | 7 | Per-cell and cross-model summaries, speed ratios, session files, visible-thinking detection |
 | `LlamaCppIntegrationTests` | 4 | 4 | Opt-in real text, streaming, multimodal, and framework-session inference against local llama.cpp |
 | `SessionLatencyBenchmarkTests` | 2 | 2 | Opt-in time-to-first-token, total latency and input tokens by session size for llama.cpp and Azure OpenAI, uncompacted versus reduced history |
-| **Total** | **92** | **130** | Source-declared cases |
+| **Total** | **96** | **139** | Source-declared cases |
 
 ## Trait Categories
 
@@ -46,6 +47,7 @@ produce the inventory below; counts come from attributes and expanded `[InlineDa
 | `Agent Creation` | `AgentExtensionsCreateAgentTests`, `ToolSourceValidationTests`, `ToolFilterTests` |
 | `Tool Failures` | `ToolFailureTests` |
 | `Usage Reporting` | `AgentResponseUsageTests` |
+| `Reasoning Markup` | `ReasoningMarkupFilterTests` |
 | `Telemetry` | `AgentTelemetryTests` |
 | `Agent Run Scope` | `AgentRunScopeTests` |
 | `Type Resolution` | `AgentTypeRegistryTests` |
@@ -155,6 +157,7 @@ Tests/
     ├── AgentResponseUsageTests.cs
     ├── AgentTelemetryTests.cs
     ├── AgentTypeRegistryTests.cs
+    ├── ReasoningMarkupFilterTests.cs
     ├── SessionCompactionConfigTests.cs
     ├── ToolFailureTests.cs
     ├── ToolFilterTests.cs

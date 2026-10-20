@@ -84,6 +84,28 @@ public sealed class AgentRuntimeMetricsTests
         Assert.Equal(1, toolCalls["error"]);
     }
 
+    [Fact]
+    public void RecordCompleted_ReasoningMarkupInAnyRun_CountsEachAffectedRun()
+    {
+        using var services = new ServiceCollection().AddMetrics().BuildServiceProvider();
+        var measurements = new List<(string Instrument, long Value, Dictionary<string, object?> Tags)>();
+        using var listener = CreateListener(measurements, services.GetRequiredService<IMeterFactory>());
+        var metrics = new AgentRuntimeMetrics(
+            Options.Create(new AppConfig()),
+            services.GetRequiredService<IMeterFactory>());
+        var parent = new AgentRunResult("assistant") { ReasoningMarkupCharactersRemoved = 12 };
+        var cleanDelegate = new AgentRunResult("specialist");
+        var leakingDelegate = new AgentRunResult("other") { ReasoningMarkupCharactersRemoved = 3 };
+
+        metrics.RecordCompleted("tenant-a", CreateDefinition(), "model", TimeSpan.FromSeconds(1), parent,
+            [cleanDelegate, leakingDelegate]);
+
+        var markup = Assert.Single(measurements, measurement => measurement.Instrument == "agentizr.reasoning_markup");
+        Assert.Equal(2, markup.Value);
+        Assert.Equal("assistant", markup.Tags["agent"]);
+        Assert.Equal("model", markup.Tags["model"]);
+    }
+
     private static AgentDefinition CreateDefinition() => new()
     {
         Name = "assistant",

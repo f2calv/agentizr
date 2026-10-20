@@ -81,6 +81,9 @@ public sealed class AgentRunResult(string agentName)
     /// <summary>Number of <see cref="ToolCalls"/> that threw or returned an error result.</summary>
     public int ToolErrorCount => ToolCalls.Count(toolCall => toolCall.Failed);
 
+    /// <summary>Characters of leaked reasoning markup removed from the output text; zero when it was clean.</summary>
+    public int ReasoningMarkupCharactersRemoved { get; set; }
+
     /// <summary>Tracks whether the current streaming position is inside <c>&lt;think&gt;</c> tags.</summary>
     public bool IsThinking { get; set; }
 

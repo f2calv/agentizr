@@ -323,11 +323,20 @@ public static partial class AgentExtensions
             // Build output text from assistant text content only — exclude FunctionCallContent /
             // FunctionResultContent whose serialised payloads (e.g. base64 image bytes) would
             // otherwise leak into the user-facing message as garbled characters.
+            var reasoningMarkupRemoved = 0;
             var outputText = string.Join(" ", response.Messages
                 .Where(m => m.Role == ChatRole.Assistant)
                 .SelectMany(m => m.Contents.OfType<TextContent>())
-                .Select(tc => tc.Text)
+                .Select(tc =>
+                {
+                    var text = ReasoningMarkupFilter.Strip(tc.Text, out var removed);
+                    reasoningMarkupRemoved += removed;
+                    return text;
+                })
                 .Where(t => !string.IsNullOrWhiteSpace(t)));
+            if (reasoningMarkupRemoved > 0 && logger.IsEnabled(LogLevel.Warning))
+                logger.LogWarning("Agent {AgentName} output contained reasoning markup; removed {RemovedCharacters} character(s), provider={ProviderKey}, model={ModelName}",
+                    agentConfig.Name, reasoningMarkupRemoved, agentConfig.Provider, provider.ModelName);
             var formattedResult = $"Model: {provider.ModelName}" + Environment.NewLine
                 + $"Endpoint: {provider.Endpoint.MaskEndpoint()}" + Environment.NewLine
                 + $"Output: {outputText}" + Environment.NewLine
@@ -345,6 +354,7 @@ public static partial class AgentExtensions
                 // The framework aggregates usage across every IChatClient round-trip of a
                 // tool-calling loop and surfaces the total here (pinned by AgentResponseUsageTests).
                 Usage = response.Usage,
+                ReasoningMarkupCharactersRemoved = reasoningMarkupRemoved,
             };
             result.AppendText(outputText);
 

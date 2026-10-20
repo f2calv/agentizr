@@ -157,4 +157,24 @@ public class AgentResponseUsageTests
         Assert.Equal("test_tool", Assert.Single(result.ToolCalls).Name);
         Assert.Equal("done", result.OutputText);
     }
+
+    /// <summary>
+    /// Reasoning leaked before a tool call must not reach the answer, and the run must report it
+    /// so the host can count it.
+    /// </summary>
+    [Fact]
+    public async Task RunAnalysisAsync_RemovesAndReportsLeakedReasoningMarkup()
+    {
+        var leakedToolCall = new ChatResponse(new ChatMessage(ChatRole.Assistant,
+        [
+            new TextContent("Let me check the trades.\n</think>\n"),
+            new FunctionCallContent("call-1", "test_tool", new Dictionary<string, object?>()),
+        ]));
+        var (agent, _) = BuildAgent(leakedToolCall, TextResponse("No trades are open.", inputTokens: 1, outputTokens: 1));
+
+        var result = await RunAnalysisAsync(agent);
+
+        Assert.Equal("No trades are open.", result.OutputText);
+        Assert.Equal(34, result.ReasoningMarkupCharactersRemoved);
+    }
 }

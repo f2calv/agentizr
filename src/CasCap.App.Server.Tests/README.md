@@ -21,7 +21,7 @@ state; PostgreSQL integration cases exercise a disposable real database.
 | `TenantSecurityStartupTests` | 6 | 6 | Verifies anonymous execution/control-plane rejection, separate execution/admin policies, and Production requirements for authentication, tenant mappings, and Redis |
 | `AgentExecutionCoordinatorTests` | 3 | 3 | Verifies definition, credential, override, session, bypass, and executor orchestration |
 | `AgentRuntimeBuiltInToolsTests` | 3 | 5 | Verifies root runtime tools, reachable delegation metadata, tenant-local time formatting and opt-out |
-| `AgentRuntimeMetricsTests` | 3 | 3 | Verifies outcome, usage, tool-error and unavailable-agent metric dimensions |
+| `AgentRuntimeMetricsTests` | 4 | 4 | Verifies outcome, usage, tool-error, reasoning-markup and unavailable-agent metric dimensions |
 | `CommonAgentExecutorTests` | 6 | 6 | Verifies unique tool composition, read-only wildcard discovery, explicit mutating-tool includes and unreachable-source fallback |
 | `AgentDefinitionEvaluatorTests` | 4 | 6 | Verifies fixture-backed delegation grading, failed tool selection and answers, pass-rate thresholds, and request validation |
 | `TenantStateIsolationTests` | 3 | 3 | Proves tenant isolation, collision-free keys, pod-replacement persistence, and definition-version invalidation |
@@ -49,7 +49,7 @@ evaluation tests.
 | Category | Test-case count | Purpose |
 | --- | ---: | --- |
 | `Integration` | 41 | In-memory ASP.NET Core host, execution/control protocols, MCP endpoint and startup security tests |
-| `Agent Runtime` | 35 | Runtime orchestration, tools, metrics, evaluation, persistence, caching and compaction |
+| `Agent Runtime` | 36 | Runtime orchestration, tools, metrics, evaluation, persistence, caching and compaction |
 | `Tenant Isolation` | 20 | Cross-tenant state, JWT permissions, caller mappings, MCP and provider credentials and identity isolation |
 | `PostgreSQL` | 8 | Definition store against a disposable `postgres:18-alpine` container; requires Docker |
 | `Local Agent Runtime` | 1 | Explicitly enabled smoke test against a complete running runtime |
