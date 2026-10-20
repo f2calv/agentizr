@@ -1,6 +1,8 @@
 global using CasCap.Abstractions;
 global using CasCap.AgentRuntime.Client;
 global using CasCap.AgentRuntime.Contracts.V1;
+global using CasCap.AgentRuntime.Evaluation.Models;
+global using CasCap.AgentRuntime.Execution.Models;
 global using CasCap.Common.Models;
 global using CasCap.Models;
 global using CasCap.Services;

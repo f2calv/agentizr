@@ -11,7 +11,7 @@ using System.Text.Json;
 
 namespace CasCap.Services;
 
-/// <summary>Executes resolved definitions through the shared Common.AI agent primitives.</summary>
+/// <summary>Executes resolved definitions through the execution library's agent primitives.</summary>
 internal sealed class CommonAgentExecutor(
     IHttpClientFactory httpClientFactory,
     ILoggerFactory loggerFactory,

@@ -12,7 +12,7 @@ current `ITenantContext`, then coordinates tenant-qualified session and override
 `IAgentExecutor`. Development may use process-local stores; non-Development hosts require Redis-backed
 state so sessions and overrides survive replica and pod replacement.
 
-The v1 execution response projects Common.AI diagnostics into a stable wire surface: actual provider
+The v1 execution response projects execution diagnostics into a stable wire surface: actual provider
 model, finish reason, timing, token usage, tool calls, session summary, tool-produced attachments,
 and structured delegation/compaction events. Tool arguments and property bags require explicit
 diagnostic disclosure on the authenticated request.
@@ -123,7 +123,7 @@ disabled, and grant the identity an OpenAI user role on the resource. No tenant 
 
 An evaluation puts fixture-backed scenarios to one immutable version, inactive or not, through its
 real provider and model-facing tool surface, then grades each run's answer and tool selection with
-the `CasCap.Common.AI.Evaluation` grader. No external tool executes: read-only remote MCP, service
+the `CasCap.AgentRuntime.Evaluation` grader. No external tool executes: read-only remote MCP, service
 and delegation tools return the scenario's `ToolResponses` fixture (or a no-data response), and
 actuating remote tools are recorded and sandboxed. Only the runtime's read-only built-ins run for
 real. Delegation tools keep their production name and description but are never invoked, so each
@@ -159,7 +159,8 @@ EF migrations are applied externally and create schema only. The model deliberat
 | Dependency | Purpose |
 | --- | --- |
 | `CasCap.Common.Hosting.AspNetCore` | Shared Serilog, OpenTelemetry, configuration abstractions, and build metadata |
-| `CasCap.Common.AI` | Internal project: agent construction, providers, MCP tools, delegation and compaction |
+| `CasCap.AgentRuntime.Execution` | Internal project: agent construction, providers, MCP tools, delegation and compaction |
+| `CasCap.AgentRuntime.Evaluation` | Internal project: definition evaluation grading, fixtures and recording |
 | `CasCap.Common.Caching` | Redis-backed tenant session and override state |
 | `CasCap.AgentRuntime.Contracts` | Version 1 request and response DTOs |
 | `Microsoft.AspNetCore.Authentication.JwtBearer` | Trusted token validation and tenant-claim identity |

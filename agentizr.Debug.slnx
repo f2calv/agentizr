@@ -12,8 +12,8 @@
     <Project Path="src/CasCap.AgentRuntime.Contracts/CasCap.AgentRuntime.Contracts.csproj" />
     <Project Path="src/CasCap.App.Server/CasCap.App.Server.csproj" />
     <Project Path="src/CasCap.App.Server.Tests/CasCap.App.Server.Tests.csproj" />
-    <Project Path="src/CasCap.Common.AI/CasCap.Common.AI.csproj" />
-    <Project Path="src/CasCap.Common.AI.Evaluation/CasCap.Common.AI.Evaluation.csproj" />
-    <Project Path="src/CasCap.Common.AI.Tests/CasCap.Common.AI.Tests.csproj" />
+    <Project Path="src/CasCap.AgentRuntime.Execution/CasCap.AgentRuntime.Execution.csproj" />
+    <Project Path="src/CasCap.AgentRuntime.Evaluation/CasCap.AgentRuntime.Evaluation.csproj" />
+    <Project Path="src/CasCap.AgentRuntime.Execution.Tests/CasCap.AgentRuntime.Execution.Tests.csproj" />
   </Folder>
 </Solution>

@@ -15,7 +15,7 @@ public sealed record AgentExecutionResult
     /// <summary>Gets serialized updated session state, or <see langword="null" /> when no state should be persisted.</summary>
     public string? SessionStateJson { get; init; }
 
-    /// <summary>Gets detailed run diagnostics produced by Common.AI.</summary>
+    /// <summary>Gets detailed run diagnostics produced by the execution library.</summary>
     public AgentRunResult? Diagnostics { get; init; }
 
     /// <summary>Gets delegation and compaction events observed during the turn.</summary>

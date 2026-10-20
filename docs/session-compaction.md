@@ -100,7 +100,7 @@ A hosted model shared by every tenant, with a longer conversation for one tenant
 ## Measurements
 
 `SessionLatencyBenchmarkTests` in
-[CasCap.Common.AI.Tests](../src/CasCap.Common.AI.Tests/README.md#session-latency-benchmarks)
+[CasCap.AgentRuntime.Execution.Tests](../src/CasCap.AgentRuntime.Execution.Tests/README.md#session-latency-benchmarks)
 produced these figures on 2026-10-19:
 
 - **Synthetic history:** each turn is a user question, a status tool call, a JSON tool result of
