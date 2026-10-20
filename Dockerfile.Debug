@@ -88,7 +88,7 @@ EXPOSE 8080
 LABEL org.opencontainers.image.title="$WORKLOAD" \
     org.opencontainers.image.description="Multi-tenant Agent Runtime (debug build)" \
     org.opencontainers.image.source="https://github.com/f2calv/agentizr" \
-    org.opencontainers.image.licenses="Unlicense" \
+    org.opencontainers.image.licenses="MIT" \
     org.opencontainers.image.version="$GIT_TAG" \
     org.opencontainers.image.revision="$GIT_COMMIT"
 

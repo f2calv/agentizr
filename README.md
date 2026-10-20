@@ -172,4 +172,4 @@ application chart, so every chart deployment rolls it out with the runtime.
 
 ## License
 
-This project is released into the public domain under the [Unlicense](LICENSE).
+This project is released under the [MIT License](LICENSE).

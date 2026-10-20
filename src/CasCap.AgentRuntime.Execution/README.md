@@ -183,4 +183,4 @@ Each agent uses its own `AgentSession` keyed by `AgentConfig.Name`. Sub-agents i
 
 ## License
 
-This project is released under [The Unlicense](../../LICENSE). See the [LICENSE](../../LICENSE) file for details.
+This project is released under the [MIT License](../../LICENSE). See the [LICENSE](../../LICENSE) file for details.
