@@ -1,9 +1,32 @@
-# Agent Runtime Grafana dashboards
+# agentizr-dashboards
 
-Publishes the tenant-scoped Agent Runtime execution dashboard as a sidecar-discoverable ConfigMap.
+Helm chart providing the tenant-scoped Agent Runtime execution dashboard as a
+sidecar-discoverable ConfigMap for an existing Grafana installation.
 The [`agentizr`](../agentizr/README.md) application chart bundles it as a `file://` subchart enabled by
-`dashboards.enabled`; its version stays fixed at `0.1.0`. Set the values below under the application
+`dashboards.enabled`; the dependency currently selects version `0.1.0`. Set the values below under the application
 chart's `dashboards` key.
+
+## Usage
+
+With the application chart, select your existing Prometheus datasource UID:
+
+```yaml
+dashboards:
+  enabled: true
+  dashboardFolder: Agent Runtime
+  datasources:
+    prometheus: example-prometheus
+```
+
+For standalone installation from this checkout:
+
+```powershell
+helm upgrade --install example-runtime-dashboards charts\agentizr-dashboards --namespace example-monitoring --set datasources.prometheus=example-prometheus
+```
+
+Install this dashboard in only one release per Grafana instance: its UID and ConfigMap name are
+stable, not release-qualified. Grafana needs a sidecar watching `grafana_dashboard: "1"` and the
+`grafana_folder` annotation. The chart installs neither Grafana nor Prometheus.
 
 ## Configuration
 
@@ -38,3 +61,13 @@ The dashboard consumes these OpenTelemetry instruments after Prometheus translat
 Provider and model labels are absent when a requested definition is unavailable. Labels contain
 configuration names only; session identifiers, prompts, outputs, tool arguments, and caller IDs are
 never exported.
+
+Configure the runtime's OTLP exporter and a collector/Prometheus pipeline to make these metrics
+available. The dashboard does not scrape the HTTP service, and changing the runtime's
+`AppConfig:MetricNamePrefix` from `agentizr` requires corresponding dashboard query changes.
+
+## Documentation
+
+- [Application chart](../agentizr/README.md)
+- [Runtime observability](../../README.md#observability)
+- [License](../../LICENSE)

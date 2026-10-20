@@ -3,14 +3,16 @@
 The .NET 10 ASP.NET Core host for agentizr. It owns the multi-tenant execution and definition
 control-plane APIs plus Development configuration adapters.
 
-## Purpose
+## Quick Start
 
-`Program` delegates startup to the partial `AppHost`, whose files separate application services, web API registration, and endpoint mapping. The host initializes the shared Serilog and OpenTelemetry pipeline before building the application.
+Use the [source-run commands](../../README.md#run-from-source) with the Development example below,
+or the [Helm chart](../../charts/agentizr/README.md) for Kubernetes. Development can run without
+PostgreSQL, Redis or authentication, but still needs a reachable model provider for inference.
+Tracked settings define no agents.
 
-The runtime service layer resolves a versioned `AgentDefinition` and provider credential for the
-current `ITenantContext`, then coordinates tenant-qualified session and override state around an
-`IAgentExecutor`. Development may use process-local stores; non-Development hosts require Redis-backed
-state so sessions and overrides survive replica and pod replacement.
+The runtime resolves a versioned definition and provider credential for the authenticated tenant,
+then applies session overrides and coordinates execution and persistence. In non-Development
+deployments, PostgreSQL owns definitions and Redis holds runtime state across replicas.
 
 The v1 execution response projects execution diagnostics into a stable wire surface: actual provider
 model, finish reason, timing, token usage, tool calls, session summary, tool-produced attachments,
@@ -46,9 +48,10 @@ agent's reachable active delegation graph; delegated agents do not receive anoth
 | `POST /api/v1/agents/{agentName}/definitions/active/deactivate` | Deactivates the active version with an audited reason; refused while another active agent delegates to it |
 | `GET /api/v1/agents/{agentName}/definitions/activations` | Gets activation and rollback audit history |
 
-Controllers are registered and mapped, but no controller exists in the initial scaffold.
-The execution surface uses minimal APIs and derives tenancy from `ITenantContext`, never from the
-request body.
+The execution surface uses minimal APIs and derives tenancy from
+[`ITenantContext`](https://github.com/f2calv/agentizr/blob/13aa4a19180b9dbd0f14fa08fbf95f67039b69f0/src/CasCap.App.Server/Abstractions/ITenantContext.cs), never from the
+request body. `/healthz` uses the host's health checks; it does not probe the model provider,
+PostgreSQL or Redis.
 
 ## Configuration
 
@@ -59,7 +62,7 @@ each with an explicit `DefinitionVersion`, provider dictionary, and agent dictio
 configuration contains no tenant identifiers or credentials and is used only by the read-only
 Development adapter. `TenantAgentConfig.TimeZoneId` configures the built-in tenant-local date/time
 tool and defaults to UTC. `TenantAgentConfig.CurrentTimeContextEnabled` (default `true`) adds a
-line such as `[Current local time: Monday 2026-10-19 08:15 (Europe/Berlin, UTC+02:00)]` to the user
+line such as `[Current local time: Monday 2026-10-19 06:15 (UTC, UTC+00:00)]` to the user
 message of every run, including delegated runs, so agents know the date without a tool call. It
 travels with the message rather than the instructions, which keeps instructions identical between
 runs for provider prompt caching and dates each stored turn.
@@ -85,7 +88,8 @@ Execution and session operations require `agent.execute`. Definition administrat
 `agent.definition.read`, `agent.definition.publish` and `agent.definition.activate` permissions.
 Permissions are accepted from delegated `scope`/`scp` claims or application `roles`. Publisher and
 activation actor identifiers come from validated principal claims, never request bodies. Provider credentials remain behind
-`IProviderCredentialStore` and definition publication rejects embedded API keys.
+[`IProviderCredentialStore`](https://github.com/f2calv/agentizr/blob/13aa4a19180b9dbd0f14fa08fbf95f67039b69f0/src/CasCap.App.Server/Abstractions/IProviderCredentialStore.cs)
+and definition publication rejects embedded API keys.
 
 `AgentDefinitionPolicyConfig` limits publication to supported schema versions and explicit provider,
 remote MCP and in-process service-tool allowlists. Version 1 requires inline instructions, rejects
@@ -116,7 +120,7 @@ password.
 Provider API keys resolve the same way from `AgentRuntimeConfig:Tenants:{tenant}:Providers:{name}:ApiKey`.
 A tenant can instead list a provider name in `AgentRuntimeConfig:Tenants:{tenant}:EntraIdProviders`,
 which authenticates that Azure OpenAI provider with the runtime's own Microsoft Entra identity (the
-`AppConfig` certificate identity used for Key Vault). Use it for resources with key authentication
+`AzureAuthConfig` identity used for Key Vault). Use it for resources with key authentication
 disabled, and grant the identity an OpenAI user role on the resource. No tenant inherits it implicitly.
 
 ### Definition Evaluation
@@ -144,8 +148,11 @@ The definition version participates in every session and override key, so changi
 version invalidates state by namespace without scanning Redis. Previous snapshots and state remain
 available for rollback until normal retention expires.
 
-Execution reads the active version pointer from PostgreSQL and caches immutable definitions under
-version-qualified keys, so activation cannot race with stale active-definition cache writes.
+Execution caches both the active-version pointer and immutable version-qualified definitions in
+Redis. `ActiveVersionCacheExpirationMinutes` defaults to `10` (absolute expiry), and
+`DefinitionCacheExpirationMinutes` to `60` (sliding expiry). Activation invalidates the active
+pointer; a warm pointer and snapshot allow runs during a temporary PostgreSQL outage. A failed
+pointer invalidation can leave the old active version visible until the pointer expires.
 
 Named session snapshots use their own opaque state namespace. Session inspection and compaction are
 performed inside the runtime through Agent Framework serialization; raw session JSON never crosses
@@ -153,6 +160,108 @@ the HTTP boundary.
 
 EF migrations are applied externally and create schema only. The model deliberately contains no
 `HasData` payload.
+
+## Configuration Examples
+
+For Development, add this synthetic bootstrap to the gitignored `appsettings.Local.Development.json`
+at the repository root. The example assumes a local Ollama server with `example-model` already
+loaded; replace the model name with one installed on your server.
+
+```json
+{
+  "CasCap": {
+    "AgentRuntimeConfig": {
+      "DefaultTenantId": "example-tenant",
+      "Tenants": {
+        "example-tenant": {
+          "Providers": {
+            "Local": {
+              "Type": "Ollama",
+              "Endpoint": "http://localhost:11434",
+              "ModelName": "example-model"
+            }
+          },
+          "Agents": {
+            "assistant": {
+              "Provider": "Local",
+              "Name": "assistant",
+              "Description": "Example assistant",
+              "Prompt": "Respond to the user's request.",
+              "Instructions": "Give concise, accurate answers."
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+This uses the default definition version `1` and process-local state. It supports execution and
+definition reads; publication, activation and deactivation require PostgreSQL and return 501 with
+the read-only configuration adapter.
+
+For an authenticated deployment, the following non-secret settings illustrate caller mapping,
+publication policy and state tuning. They supplement, not replace, secret-supplied connections
+and credentials:
+
+```json
+{
+  "CasCap": {
+    "TenantAuthenticationConfig": {
+      "Enabled": true,
+      "Authority": "https://identity.example.com/",
+      "Audience": "api://example-runtime",
+      "TenantCallers": {
+        "example-tenant": ["00000000-0000-0000-0000-000000000000"]
+      }
+    },
+    "AgentDefinitionPolicyConfig": {
+      "AllowedProviderAuthorities": ["https://llm.example.com"],
+      "AllowedMcpAuthorities": ["https://tools.example.com"],
+      "AllowedServiceTools": [],
+      "RequireEvaluationBeforeActivation": true,
+      "EvaluationRunTimeoutSeconds": 120
+    },
+    "AgentRuntimeConfig": {
+      "StateSlidingExpirationHours": 168,
+      "DefinitionCacheExpirationMinutes": 60,
+      "ActiveVersionCacheExpirationMinutes": 10,
+      "MaximumToolInvocationsPerRun": 50,
+      "SessionCompaction": {
+        "ExampleProvider": {
+          "TargetMessageCount": 20,
+          "TriggerMessageCount": 30,
+          "Notification": "WindowTrimmed"
+        }
+      },
+      "Tenants": {
+        "example-tenant": {
+          "TimeZoneId": "UTC",
+          "CurrentTimeContextEnabled": true,
+          "InstructionsDisclosureEnabled": false
+        }
+      }
+    }
+  }
+}
+```
+
+Supply `CasCap__DatabaseConfig__ConnectionString` and
+`CasCap__CachingConfig__RemoteCacheConnectionString` through a private provider or secret-backed
+environment variables. Redis requires JSON serialization (`CasCap:CachingConfig:RemoteCache:SerializationType`,
+already set to `Json` in tracked settings). Provider API keys and logical MCP credentials use the
+tenant paths described above and must stay out of definition JSON and tracked settings.
+
+Apply database migrations separately before serving traffic. From a configured Release build:
+
+```powershell
+dotnet run --project src\CasCap.App.Server\CasCap.App.Server.csproj --configuration Release --no-launch-profile -- --migrate
+```
+
+The migration process still passes authentication/configuration startup validation outside
+Development and needs PostgreSQL, but does not require Redis or start the HTTP server. Normal
+startup never migrates the database.
 
 ## Dependencies
 

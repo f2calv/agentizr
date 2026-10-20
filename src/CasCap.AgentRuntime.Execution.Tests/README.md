@@ -1,20 +1,27 @@
 # CasCap.AgentRuntime.Execution.Tests
 
-Unit tests for [CasCap.AgentRuntime.Execution](../CasCap.AgentRuntime.Execution) and [CasCap.AgentRuntime.Evaluation](../CasCap.AgentRuntime.Evaluation).
+Unit and opt-in provider integration tests for
+[CasCap.AgentRuntime.Execution](../CasCap.AgentRuntime.Execution/README.md) and
+[CasCap.AgentRuntime.Evaluation](../CasCap.AgentRuntime.Evaluation/README.md).
 
 ## Running
 
-The repository uses the .NET 10 native Microsoft.Testing.Platform runner:
+The repository uses the .NET 10 native Microsoft.Testing.Platform runner. Debug builds need an
+adjacent `CasCap.Common` checkout; Release uses published dependencies. From the repository root,
+when test execution is intended:
 
 ```powershell
-dotnet test --project src/CasCap.AgentRuntime.Execution.Tests/CasCap.AgentRuntime.Execution.Tests.csproj
+dotnet test --project src\CasCap.AgentRuntime.Execution.Tests\CasCap.AgentRuntime.Execution.Tests.csproj --configuration Release
 ```
+
+The local provider categories stay skipped unless explicitly enabled. No tests were executed to
+produce the inventory below; counts come from attributes and expanded `[InlineData]` rows.
 
 ## Tests
 
 | Class | Methods | Cases | Covers |
 | --- | --- | --- | --- |
-| `ToolOutputStrippingChatReducerTests` | 14 | 20 | Tool-content stripping, orphaned tool-call prevention, sliding window, trigger threshold, system-message retention, metadata preservation, input immutability, argument validation |
+| `ToolOutputStrippingChatReducerTests` | 15 | 20 | Tool-content stripping, orphaned tool-call prevention, sliding window, trigger threshold, system-message retention, metadata preservation, input immutability, argument validation |
 | `SessionCompactionConfigTests` | 1 | 6 | Compaction notification modes |
 | `AgentExtensionsCreateAgentTests` | 10 | 13 | Provider validation for Ollama / Azure OpenAI / OpenAI endpoints and credentials, caller-supplied transport, unsupported provider types |
 | `ToolSourceValidationTests` | 2 | 2 | Remote MCP logical credential references are valid only with endpoint sources |
@@ -29,7 +36,7 @@ dotnet test --project src/CasCap.AgentRuntime.Execution.Tests/CasCap.AgentRuntim
 | `AgentEvaluationReportTests` | 5 | 7 | Per-cell and cross-model summaries, speed ratios, session files, visible-thinking detection |
 | `LlamaCppIntegrationTests` | 4 | 4 | Opt-in real text, streaming, multimodal, and framework-session inference against local llama.cpp |
 | `SessionLatencyBenchmarkTests` | 2 | 2 | Opt-in time-to-first-token, total latency and input tokens by session size for llama.cpp and Azure OpenAI, uncompacted versus reduced history |
-| **Total** | **91** | **130** | |
+| **Total** | **92** | **130** | Source-declared cases |
 
 ## Trait Categories
 
@@ -48,8 +55,17 @@ dotnet test --project src/CasCap.AgentRuntime.Execution.Tests/CasCap.AgentRuntim
 
 ## Skipped Tests
 
-The four `LlamaCppIntegrationTests` and the two `SessionLatencyBenchmarkTests` are skipped unless
-explicitly enabled on a non-CI workstation.
+| Conditional skip reason | Cases affected |
+| --- | ---: |
+| Local llama.cpp tests require `CASCAP_RUN_LOCAL_LLAMA_CPP_TESTS=true` outside CI | 4 |
+| Once enabled, missing/invalid local llama.cpp endpoint or model settings | 4 (same cases) |
+| Once configured, missing `CASCAP_LOCAL_LLAMA_CPP_VISION_MODEL` | 1 (same image case) |
+| Session latency benchmarks require `CASCAP_RUN_SESSION_LATENCY_BENCHMARKS=true` outside CI | 2 |
+| Once enabled, missing llama.cpp settings | 1 (same benchmark case) |
+| Once enabled, missing Azure OpenAI endpoint/deployment settings | 1 (same benchmark case) |
+
+The vision case sends a synthetic image and requires the selected server's multimodal support.
+Counts above overlap; they describe six conditionally skipped cases, not an observed run.
 
 ## Local llama.cpp Tests
 
@@ -148,12 +164,9 @@ Tests/
 
 ## Notes
 
-`ReduceAsync_MixedTextAndToolCall_NoOrphanedToolCall` is a regression test. An assistant
-message mixing `TextContent` with `FunctionCallContent` was previously retained while its
-matching `FunctionResultContent` message was dropped, leaving an orphaned tool call that
-OpenAI and Azure OpenAI reject with HTTP 400.
+`ReduceAsync_MixedTextAndToolCall_NoOrphanedToolCall` verifies that mixed assistant text/tool
+messages retain their text without orphaned calls. OpenAI-compatible APIs can reject calls
+without matching results.
 
-`AgentResponseUsageTests` pins framework behaviour rather than library behaviour:
-`AgentExtensions` previously carried an ambient accumulator because the agent framework did
-not surface per-round-trip usage. It now aggregates onto `AgentResponse.Usage`, so these
-tests guard the assumption that allowed that accumulator to be deleted.
+`AgentResponseUsageTests` pins the framework's aggregation of per-round-trip usage into
+`AgentResponse.Usage`, which runtime reporting depends on.
