@@ -60,7 +60,7 @@ A command-style local model that only needs the last exchange or two:
       "SessionCompaction": {
         "EdgeGpu": {
           "TargetMessageCount": 4,
-          "TriggerMessageCount": 10,
+          "TriggerMessageCount": 8,
           "Notification": "WindowTrimmed"
         }
       }
@@ -135,7 +135,7 @@ capped at 64 tokens. Azure OpenAI used a reasoning model at low effort with a 1,
 
 | Workload | Target | Trigger | Notification |
 | --- | ---: | ---: | --- |
-| Command-style chat on a local GPU | 4 | 10 | `WindowTrimmed` |
+| Command-style chat on a local GPU | 4 | 8 | `WindowTrimmed` |
 | Conversational use on a hosted model | 40 | 60 | `WindowTrimmed` |
 
 Command-style agents rarely need more than the previous two or three messages to repeat or refine an
