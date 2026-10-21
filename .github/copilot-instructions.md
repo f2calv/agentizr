@@ -33,8 +33,9 @@ Everything below is specific to this repository.
 
 ## Boundaries
 
-- Do not add frontend, containers, Helm, deployment configuration, or new cloud-service ownership
-  without an explicit implementation request.
+- CI publishes the NuGet packages, the Release image and the application chart. Do not add
+  frontend, new deployment targets, or new cloud-service ownership without an explicit
+  implementation request.
 - Keep tracked configuration and tests credential-free and free of real account, tenant, endpoint,
   host, subscription, or resource identifiers.
 - Add domain code only after its ownership boundary and public contract are established.
