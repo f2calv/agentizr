@@ -6,9 +6,11 @@ the runtime owns agent execution and session state.
 
 ## Installation
 
-Reference this project from your application. Its package ID is `CasCap.AgentRuntime.Client`,
-but a public NuGet listing is not currently available. The project targets `net10.0` and references
-`CasCap.AgentRuntime.Contracts`.
+```powershell
+dotnet package add CasCap.AgentRuntime.Client
+```
+
+The package targets `net10.0` and depends on `CasCap.AgentRuntime.Contracts`.
 
 ## Usage
 

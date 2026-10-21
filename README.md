@@ -6,6 +6,13 @@ execution, conversation state and controlled definition publication.
 
 [![CI status](https://github.com/f2calv/agentizr/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/f2calv/agentizr/actions/workflows/ci.yml)
 
+## Packages
+
+| Package | Purpose | NuGet |
+| --- | --- | --- |
+| [CasCap.AgentRuntime.Client](src/CasCap.AgentRuntime.Client/README.md) | Typed execution and definition-administration clients | [![NuGet version](https://img.shields.io/nuget/v/CasCap.AgentRuntime.Client)](https://www.nuget.org/packages/CasCap.AgentRuntime.Client) |
+| [CasCap.AgentRuntime.Contracts](src/CasCap.AgentRuntime.Contracts/README.md) | Versioned request and response DTOs | [![NuGet version](https://img.shields.io/nuget/v/CasCap.AgentRuntime.Contracts)](https://www.nuget.org/packages/CasCap.AgentRuntime.Contracts) |
+
 ## Quick Start
 
 ### Connect an Application
@@ -13,9 +20,8 @@ execution, conversation state and controlled definition publication.
 Use an existing configured runtime and an identity mapped to its tenant. The
 [typed client](src/CasCap.AgentRuntime.Client/README.md) registers
 [`IAgentRuntimeClient`](https://github.com/f2calv/agentizr/blob/13aa4a19180b9dbd0f14fa08fbf95f67039b69f0/src/CasCap.AgentRuntime.Client/Abstractions/IAgentRuntimeClient.cs)
-through `AddAgentRuntimeClient()`; authentication handlers belong to your application. The Client and
-Contracts projects are packable, but public NuGet listings are not currently available: reference
-the projects from this checkout.
+through `AddAgentRuntimeClient()`; authentication handlers belong to your application. Install it
+with `dotnet package add CasCap.AgentRuntime.Client`.
 
 The smallest execution request is:
 

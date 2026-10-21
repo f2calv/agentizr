@@ -6,9 +6,12 @@ messages without trusting caller-supplied tenant or actor identity.
 
 ## Installation
 
-Reference this project directly, or use `CasCap.AgentRuntime.Client`, which references it.
-The packable project targets `net10.0` with package ID
-`CasCap.AgentRuntime.Contracts`; a public NuGet listing is not currently available.
+```powershell
+dotnet package add CasCap.AgentRuntime.Contracts
+```
+
+The package targets `net10.0`. Applications using `CasCap.AgentRuntime.Client` receive it
+transitively.
 
 ## Usage
 
