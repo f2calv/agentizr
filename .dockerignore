@@ -1,0 +1,24 @@
+# first ignore everything
+**
+
+# explicitly add exceptions for required files/paths
+!src/**/*.cs
+!**/*.csproj
+!**/appsettings.*
+!global.json
+!**/*.props
+!**/*.targets
+
+# Debug builds sync local sibling repositories into deps/.
+!deps/**
+
+# never leak build output, VCS metadata, or local-only secrets into the image
+**/bin/**
+**/obj/**
+**/.git/**
+**/.vs/**
+**/appsettings.Local*.json
+
+# test projects and fakes are not part of the runtime image
+**/*.Tests/**
+**/*.Testing/**

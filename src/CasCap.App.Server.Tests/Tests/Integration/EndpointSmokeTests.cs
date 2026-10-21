@@ -2,8 +2,9 @@ namespace CasCap.IntegrationTests;
 
 /// <summary>Credential-free smoke tests for the application host endpoints.</summary>
 [Trait("Category", "Integration")]
-public sealed class EndpointSmokeTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
+[Collection(HostIntegrationCollection.Name)]
+public sealed class EndpointSmokeTests(AgentizrWebApplicationFactory factory)
+    : IClassFixture<AgentizrWebApplicationFactory>
 {
     [Theory]
     [InlineData("/")]
@@ -15,5 +16,16 @@ public sealed class EndpointSmokeTests(WebApplicationFactory<Program> factory)
         using var response = await client.GetAsync(path, CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task McpEndpoint_IsAbsentByDefault()
+    {
+        using var client = factory.CreateClient();
+        using var request = AgentizrMcpEndpointTests.CreateInitializeRequest();
+
+        using var response = await client.SendAsync(request, CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 }

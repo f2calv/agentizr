@@ -1,0 +1,3 @@
+# EF migrations are generated from the model and retain the migration DSL's inline array arguments.
+[**/Migrations/*.cs]
+dotnet_diagnostic.CA1861.severity = none

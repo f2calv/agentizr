@@ -10,12 +10,23 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="xunit.v3" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\CasCap.AgentRuntime.Client\CasCap.AgentRuntime.Client.csproj" />
     <ProjectReference Include="..\CasCap.App.Server\CasCap.App.Server.csproj" />
   </ItemGroup>
+
+  <!-- The server's gitignored Local tier holds private deployment settings; host tests stay credential-free. -->
+  <Target Name="RemoveLocalAppSettings" AfterTargets="CopyFilesToOutputDirectory">
+    <ItemGroup>
+      <LocalAppSettings Include="$(OutDir)appsettings.Local*.json" />
+    </ItemGroup>
+    <Delete Files="@(LocalAppSettings)" />
+  </Target>
 
 </Project>
