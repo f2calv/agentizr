@@ -29,3 +29,21 @@ updates:
     schedule:
       interval: weekly
       time: "04:00"
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      time: "04:00"
+
+  - package-ecosystem: devcontainers
+    directory: /
+    schedule:
+      interval: weekly
+      time: "04:00"
+
+  - package-ecosystem: helm
+    directory: /charts/agentizr
+    schedule:
+      interval: weekly
+      time: "04:00"
