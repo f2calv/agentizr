@@ -56,8 +56,44 @@ jobs:
           solution-name: agentizr.Release.slnx
           dotnet-test-args: --filter-not-trait Category=Integration
 
+  image:
+    needs: [versioning, build]
+    permissions:
+      contents: read
+      packages: write #push to ghcr.io
+    uses: f2calv/gha-workflows/.github/workflows/container-image-build.yml@v1
+    with:
+      registry: ghcr.io/${{ github.repository_owner }}
+      tag: ${{ needs.versioning.outputs.version }}
+      #A pull request proves the image builds on every architecture without publishing it.
+      push-image: ${{ github.event_name != 'pull_request' }}
+      #The host is long-lived, so the smoke test asserts the fail-closed startup guard instead:
+      #Production without JWT tenant authentication must refuse to start.
+      smoke-test: |
+        ! docker run --rm -e ASPNETCORE_ENVIRONMENT=Production $IMAGE
+
+  chart:
+    needs: [versioning, image]
+    permissions:
+      contents: read
+      packages: write #push the OCI chart to ghcr.io
+    uses: f2calv/gha-workflows/.github/workflows/helm-chart-package.yml@v1
+    with:
+      tag: ${{ needs.versioning.outputs.version }}
+      image-registry: ghcr.io/${{ github.repository_owner }}
+      image-repository: agentizr
+      chart-registry: ghcr.io
+      chart-registry-username: ${{ github.repository_owner }}
+      chart-repository: ${{ github.repository_owner }}/charts/agentizr
+      chart-path: ./charts/agentizr
+      #The umbrella chart owns no top-level image value; runtime and migrate each carry their own.
+      has-image: false
+      #Skipped for the same chart-testing argument handling defect documented in signalizr's CI.
+      chart-testing-cli-command: skip
+      push-chart: ${{ github.event_name != 'pull_request' }}
+
   release:
-    needs: [lint, versioning, build, package]
+    needs: [lint, versioning, build, package, image, chart]
     if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     uses: f2calv/gha-workflows/.github/workflows/gha-release-versioning.yml@v1
     permissions:

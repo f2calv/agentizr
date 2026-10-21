@@ -198,6 +198,10 @@ repository and Application path, then publish the Debug image and chart and patc
 
 The chart's `migrate` alias runs `agentizr --migrate` as an external Job; the
 [chart example](charts/agentizr/README.md#usage) shows Argo CD PreSync annotations.
+
+Releases from `main` build the Release `Dockerfile` and publish the image and chart to GHCR under
+the release version. The Debug wrappers above remain for testing changes to adjacent libraries
+before they are published.
 The runtime never applies migrations during normal startup.
 
 ## Observability

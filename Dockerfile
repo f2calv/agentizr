@@ -1,0 +1,106 @@
+# syntax=docker/dockerfile:1
+# Multi-architecture Release image of the multi-tenant Agent Runtime. Shared CasCap libraries resolve
+# from NuGet; Dockerfile.Debug builds against adjacent checkouts instead.
+# Profile: published
+
+# ------------------------------------------------------------------------------
+# Stage 1 of 2: build
+#
+# Pinned to $BUILDPLATFORM and cross-compiles to $TARGETPLATFORM; emulating the target under QEMU
+# is often an order of magnitude slower.
+# ------------------------------------------------------------------------------
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /repo
+COPY ["Directory.Build.props", "Directory.Packages.props", "global.json", "./"]
+
+ARG WORKLOAD=agentizr
+ARG PROJECT=src/CasCap.App.Server/CasCap.App.Server.csproj
+ARG CONFIGURATION=Release
+ARG TARGET_FRAMEWORK=net10.0
+ARG VERSION=0.0.0-local
+ARG GIT_REPOSITORY=n/a
+ARG GIT_BRANCH=n/a
+ARG GIT_COMMIT=n/a
+ARG GITHUB_WORKFLOW=n/a
+ARG GITHUB_RUN_ID=0
+ARG GITHUB_RUN_NUMBER=0
+
+# -- Dependency layer ----------------------------------------------------------
+# Restore is platform-agnostic, so it precedes ARG TARGETARCH and is shared across architectures.
+COPY --parents src/**/*.csproj ./
+RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked \
+    dotnet restore "$PROJECT" \
+    -p:Configuration="$CONFIGURATION" \
+    "-p:RuntimeIdentifiers=\"linux-x64;linux-arm64;linux-arm\""
+
+# -- Compile layer -------------------------------------------------------------
+COPY --exclude=src/*.Tests . .
+
+ARG TARGETARCH
+ARG TARGETVARIANT
+RUN --network=none --mount=type=cache,target=/root/.nuget/packages,sharing=shared <<EOF
+set -eux
+case "${TARGETARCH}${TARGETVARIANT}" in
+    amd64) RID=linux-x64   ;;
+    arm64) RID=linux-arm64 ;;
+    armv7) RID=linux-arm   ;;
+    *) echo "unsupported platform: linux/${TARGETARCH}/${TARGETVARIANT}" >&2; exit 1 ;;
+esac
+dotnet publish "$PROJECT" \
+    --configuration "$CONFIGURATION" \
+    --framework "$TARGET_FRAMEWORK" \
+    --output /app/publish \
+    --runtime "$RID" \
+    --self-contained false \
+    --no-restore \
+    -p:Version="$VERSION" \
+    -p:SourceRevisionId="$GIT_COMMIT" \
+    -p:GitRepository="$GIT_REPOSITORY" \
+    -p:GitBranch="$GIT_BRANCH" \
+    -p:BuildWorkflow="$GITHUB_WORKFLOW" \
+    -p:BuildRunId="$GITHUB_RUN_ID" \
+    -p:BuildRunNumber="$GITHUB_RUN_NUMBER"
+ln -s "$WORKLOAD.dll" /app/publish/entrypoint.dll
+EOF
+
+# ------------------------------------------------------------------------------
+# Stage 2 of 3: runtime
+#
+# Chiseled "extra" adds the ICU and tzdata that tenant time zones need; it has no shell or
+# package manager. Npgsql GSS probing is disabled in code, so no Kerberos library is required.
+# ------------------------------------------------------------------------------
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled-extra AS runtime
+WORKDIR /app
+
+COPY --link --from=build /app/publish .
+
+# -- Provenance ----------------------------------------------------------------
+# Supplied by the CI workflow (.github/workflows/ci.yml) or by build.ps1/build.sh.
+ARG WORKLOAD=agentizr
+ARG GIT_REPOSITORY=n/a
+ARG GIT_BRANCH=n/a
+ARG GIT_COMMIT=n/a
+ARG GIT_TAG=n/a
+ARG GITHUB_WORKFLOW=n/a
+ARG GITHUB_RUN_ID=0
+ARG GITHUB_RUN_NUMBER=0
+
+EXPOSE 8080
+
+# https://github.com/opencontainers/image-spec/blob/main/annotations.md
+LABEL org.opencontainers.image.title="$WORKLOAD" \
+    org.opencontainers.image.description="Multi-tenant Agent Runtime" \
+    org.opencontainers.image.source="https://github.com/f2calv/agentizr" \
+    org.opencontainers.image.licenses="MIT" \
+    org.opencontainers.image.version="$GIT_TAG" \
+    org.opencontainers.image.revision="$GIT_COMMIT"
+
+USER $APP_UID
+
+# Exec form makes dotnet PID 1 so it receives SIGTERM for a clean shutdown.
+ENTRYPOINT ["dotnet", "entrypoint.dll"]
+
+# ------------------------------------------------------------------------------
+# Stage 3 of 3: final
+# ------------------------------------------------------------------------------
+FROM runtime AS final

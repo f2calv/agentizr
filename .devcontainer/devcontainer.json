@@ -1,0 +1,49 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/dotnet
+{
+  "name": "agentizr",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:2-10.0-noble",
+  // Features to add to the dev container. More info: https://containers.dev/features.
+  "features": {
+    "ghcr.io/devcontainers-extra/features/pre-commit:2": {},
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+    "ghcr.io/devcontainers/features/powershell:2": {},
+    "ghcr.io/eitsupi/devcontainer-features/jq-likes:2": {
+      "jqVersion": "latest",
+      "yqVersion": "latest"
+    },
+    // The chart workflow reads the pinned helm version from this file, so it cannot be "none".
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
+      "version": "latest",
+      "helm": "3.20.2",
+      "minikube": "none"
+    }
+  },
+  "containerEnv": {
+    "XDG_DATA_HOME": "/home/vscode/.nuget/share"
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {},
+      "extensions": [
+        "editorconfig.editorconfig",
+        "ms-azuretools.vscode-containers",
+        "ms-vscode-remote.vscode-remote-extensionpack",
+        "davidanson.vscode-markdownlint",
+        "humao.rest-client",
+        "redhat.vscode-yaml",
+        "usernamehw.errorlens",
+        "eamodio.gitlens",
+        "mutantdino.resourcemonitor",
+        "ms-vscode.powershell",
+        "github.vscode-github-actions",
+        "tim-koehler.helm-intellisense",
+        "ms-dotnettools.csdevkit"
+      ]
+    }
+  },
+  "mounts": [
+    "source=${localEnv:HOME}/source/github,target=/workspaces,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.kube,target=/home/vscode/.kube,type=bind"
+  ]
+}
