@@ -5,16 +5,16 @@ migration job and an optional Grafana dashboard to Kubernetes.
 
 ## Installation
 
-Use the chart from this checkout with Helm and access to its OCI workload dependency:
+Every release publishes the chart to `oci://ghcr.io/f2calv/charts/agentizr` and the multi-architecture
+image to `ghcr.io/f2calv/agentizr` under the same version:
 
 ```powershell
-helm dependency build charts\agentizr
-helm upgrade --install agentizr charts\agentizr --namespace example-runtime --create-namespace --values runtime-values.yaml
+helm upgrade --install agentizr oci://ghcr.io/f2calv/charts/agentizr --version <version> --namespace example-runtime --create-namespace --values runtime-values.yaml
 ```
 
 Create `runtime-values.yaml` from the example below and supply the required configuration before
-enabling workloads. Both runtime and migration images need an available, explicitly selected
-image tag; chart source version `0.1.0` does not establish that a matching image was published.
+enabling workloads. Set `runtime.image.tag` and `migrate.image.tag` to the same release version;
+the chart leaves them empty so every deployment selects its image explicitly.
 
 ## Overview
 
@@ -95,8 +95,8 @@ graph TD
 
 | Chart | Version | Alias |
 | --- | --- | --- |
-| `oci://ghcr.io/f2calv/charts/workload` | `1.5.0` | `runtime` |
-| `oci://ghcr.io/f2calv/charts/workload` | `1.5.0` | `migrate` |
+| `oci://ghcr.io/f2calv/charts/workload` | `1.6.0` | `runtime` |
+| `oci://ghcr.io/f2calv/charts/workload` | `1.6.0` | `migrate` |
 | Local `agentizr-dashboards` | `0.1.0` | `dashboards` |
 
 ## Documentation
