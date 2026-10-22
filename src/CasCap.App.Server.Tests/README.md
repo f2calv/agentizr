@@ -21,13 +21,13 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | `TenantSecurityStartupTests` | 7 | 7 | Verifies anonymous execution/control-plane rejection, separate execution/admin policies, required JWT/PostgreSQL and optional Redis in Production |
 | `AgentExecutionCoordinatorTests` | 3 | 3 | Verifies definition, credential, override, session, bypass, and executor orchestration |
 | `AgentRuntimeBuiltInToolsTests` | 3 | 5 | Verifies root runtime tools, reachable delegation metadata, tenant-local time formatting and opt-out |
-| `AgentRuntimeMetricsTests` | 4 | 4 | Verifies outcome, usage, tool-error, reasoning-markup and unavailable-agent metric dimensions |
+| `AgentRuntimeMetricsTests` | 5 | 5 | Verifies execution and bounded HA dimensions, ownership balance, duration and conflict outcomes |
 | `CommonAgentExecutorTests` | 7 | 7 | Verifies tool composition/discovery, unreachable-source fallback and per-round-trip history projection without binary content |
 | `AgentDefinitionEvaluatorTests` | 4 | 6 | Verifies fixture-backed delegation grading, failed tool selection and answers, pass-rate thresholds, and request validation |
 | `TenantStateIsolationTests` | 2 | 2 | Verifies process-local tenant isolation and collision-free keys |
 | `AgentSessionLockTests` | 3 | 5 | Verifies fail-fast Development ownership, resource isolation, cancellation and idempotent release |
 | `AgentSessionConflictTests` | 1 | 8 | Verifies all session mutation routes return HTTP 409 on overlap, including streaming before headers |
-| `PostgresAgentStateTests` | 7 | 7 | Durable state after cache eviction/outage, tenant/version isolation, revision-qualified caching, database-only operation, connection-loss fencing and two-host contention |
+| `PostgresAgentStateTests` | 8 | 8 | Durable state/cache recovery, isolation, revisions, connection-loss fencing, two-host contention and real-operation HA metric privacy/balance |
 | `AgentRunHistoryTests` | 4 | 7 | Durable messages/tools, redaction/binary exclusion, success/failure/cancellation, interruption recovery, opt-in and archive preservation after reset |
 | `AuthenticatedTenantContextTests` | 4 | 4 | Verifies caller-derived tenant identity, missing/unmapped caller rejection, and opaque Redis keys |
 | `AgentRuntimeAuthorizationTests` | 4 | 6 | Verifies delegated scopes, application roles, and caller-to-tenant mapping validation |
@@ -38,7 +38,7 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | `ConfigurationProviderCredentialStoreTests` | 2 | 5 | Verifies the runtime's Entra credential is offered only to a tenant's opted-in providers |
 | `SessionCompactionConfigTests` | 3 | 6 | Verifies per-provider compaction resolution (tenant override, runtime entry, defaults) and startup validation |
 | `LiveAgentRuntimeSmokeTests` | 1 | 1 | Opt-in authenticated run, streaming, session inspection and cleanup against a complete live runtime |
-| **Total** | **101** | **134** | Source-declared cases, not an execution result |
+| **Total** | **103** | **136** | Source-declared cases, not an execution result |
 
 Counts expand every `[InlineData]` row; this project uses no `MemberData` or `ClassData` providers.
 
@@ -52,11 +52,11 @@ evaluation tests.
 
 | Category | Test-case count | Purpose |
 | --- | ---: | --- |
-| `Integration` | 72 | ASP.NET Core host protocols, startup security, PostgreSQL persistence and Redis payload caching |
-| `Agent Runtime` | 42 | Runtime orchestration, tools, metrics, evaluation, persistence, caching, locking and compaction |
+| `Integration` | 73 | ASP.NET Core host protocols, startup security, PostgreSQL persistence and Redis payload caching |
+| `Agent Runtime` | 43 | Runtime orchestration, tools, metrics, evaluation, persistence, caching, locking and compaction |
 | `Tenant Isolation` | 19 | Cross-tenant state, JWT permissions, caller mappings, MCP and provider credentials and identity isolation |
-| `PostgreSQL` | 22 | Definitions, durable state and run history against the Compose tests-profile database |
-| `Redis` | 7 | Revision-qualified state caching against the Compose tests-profile Redis service; also tagged `Integration` and `PostgreSQL` |
+| `PostgreSQL` | 23 | Definitions, durable state and run history against the Compose tests-profile database |
+| `Redis` | 8 | Revision-qualified state caching against the Compose tests-profile Redis service; also tagged `Integration` and `PostgreSQL` |
 | `Local Agent Runtime` | 1 | Explicitly enabled smoke test against a complete running runtime |
 
 ## Skipped Tests
@@ -80,6 +80,8 @@ docker compose --profile tests stop postgres-tests redis-tests
 ```
 
 Fixtures create/drop only their own random test databases and use tenant-qualified Redis keys.
+Localhost connection settings come from `appsettings.Test.json`; Compose credentials are loaded
+from `.env.example` and optional gitignored `.env`, not embedded in test fixtures.
 They never start ad hoc containers, touch the development database or flush Redis. See
 [persistence setup](../../docs/persistence.md#local-development-and-tests) for ports, volumes and cleanup.
 

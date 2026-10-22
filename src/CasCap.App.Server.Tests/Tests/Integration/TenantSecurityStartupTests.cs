@@ -1,4 +1,5 @@
 using CasCap.Constants;
+using CasCap.Tests.Integration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Hosting;
@@ -112,7 +113,7 @@ public sealed class TenantSecurityStartupTests
             new Dictionary<string, string?>
             {
                 ["CasCap__DatabaseConfig__ConnectionString"] = includePostgres
-                    ? "Host=localhost;Port=15433;Database=postgres;Username=postgres;Password=local-development"
+                    ? PersistenceTestSettings.PostgreSql
                     : null,
                 ["CasCap__TenantAuthenticationConfig__Enabled"] = bool.TrueString,
                 ["CasCap__TenantAuthenticationConfig__Authority"] = "https://identity.example.com",

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using CasCap.Exceptions;
 
 namespace CasCap.Services;
 
@@ -44,6 +45,8 @@ public sealed class AgentExecutionCoordinator(
             var sessionStateJson = sessionEnabled
                 ? await sessionStore.GetAsync(request.AgentName, definition.Version, request.SessionId, cancellationToken)
                 : null;
+            if (sessionEnabled)
+                metrics.RecordHa(tenantContext.TenantId, "session.load", sessionStateJson is null ? "new" : "resumed");
             var apiKey = await credentialStore.GetApiKeyAsync(definition.Agent.Provider, cancellationToken);
             historySvc?.ExcludeSecret(apiKey);
             if (historySvc is not null)
@@ -98,7 +101,8 @@ public sealed class AgentExecutionCoordinator(
         catch (Exception error)
         {
             metrics.RecordFailed(tenantContext.TenantId, request.AgentName, definition,
-                stopwatch.Elapsed, cancelled: error is OperationCanceledException);
+                stopwatch.Elapsed, cancelled: error is OperationCanceledException,
+                conflict: error is AgentSessionConflictException);
             if (runId is { } failedId && historySvc is not null)
             {
                 try

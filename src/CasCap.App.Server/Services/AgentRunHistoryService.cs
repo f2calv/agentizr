@@ -12,7 +12,8 @@ public sealed class AgentRunHistoryService(
     IOptions<AgentRuntimeConfig> runtimeConfig,
     TimeProvider timeProvider,
     IDbContextFactory<AgentRuntimeDbContext> dbContextFactory,
-    ITenantContext tenantContext)
+    ITenantContext tenantContext,
+    AgentRuntimeMetrics metrics)
 {
     private static readonly JsonSerializerOptions _historyJsonOptions = new(JsonSerializerOptions.Web)
     {
@@ -37,12 +38,14 @@ public sealed class AgentRunHistoryService(
             return null;
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         // The coordinator already owns the session lock, so no earlier Started turn can still own it.
-        await db.AgentRuns.Where(run => run.TenantId == tenantContext.TenantId
+        var interrupted = await db.AgentRuns.Where(run => run.TenantId == tenantContext.TenantId
                 && run.AgentName == request.AgentName && run.SessionId == request.SessionId
                 && run.Status == AgentRunStatuses.Started)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(run => run.Status, AgentRunStatuses.Interrupted)
                 .SetProperty(run => run.CompletedAtUtc, timeProvider.GetUtcNow()), cancellationToken);
+        if (interrupted > 0)
+            metrics.RecordHa(tenantContext.TenantId, "history.recover", "interrupted", count: interrupted);
         var id = Guid.NewGuid();
         db.AgentRuns.Add(new AgentRunEntity
         {
@@ -61,7 +64,7 @@ public sealed class AgentRunHistoryService(
             AgentName = request.AgentName,
             Data = new { Text = request.Input, BinaryInputOmitted = request.BinaryContent is not null },
         }));
-        await db.SaveChangesAsync(cancellationToken);
+        await SaveChangesAsync(db, "history.start", "started", cancellationToken);
         return id;
     }
 
@@ -70,7 +73,7 @@ public sealed class AgentRunHistoryService(
     {
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         db.AgentRunActivities.Add(CreateActivity(runId, activity));
-        await db.SaveChangesAsync(cancellationToken);
+        await SaveChangesAsync(db, "history.activity", "appended", cancellationToken);
     }
 
     /// <summary>Records a terminal outcome even when the caller's request has been cancelled.</summary>
@@ -112,7 +115,21 @@ public sealed class AgentRunHistoryService(
                     activity.WindowMessagesTrimmed,
                 }),
             });
-        await db.SaveChangesAsync(timeout.Token);
+        await SaveChangesAsync(db, "history.finish", run.Status.ToLowerInvariant(), timeout.Token);
+    }
+
+    private async Task SaveChangesAsync(AgentRuntimeDbContext db, string operation, string outcome, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            metrics.RecordHa(tenantContext.TenantId, operation, outcome);
+        }
+        catch
+        {
+            metrics.RecordHa(tenantContext.TenantId, operation, "error");
+            throw;
+        }
     }
 
     private AgentRunActivityEntity CreateActivity(Guid id, AgentRunActivity activity) => new()

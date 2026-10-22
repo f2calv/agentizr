@@ -11,8 +11,7 @@ public sealed class RedisStateFixture : IAsyncLifetime
     /// <inheritdoc/>
     public async ValueTask InitializeAsync()
     {
-        Connection = await ConnectionMultiplexer.ConnectAsync(
-            "localhost:16380,abortConnect=true,connectTimeout=3000");
+        Connection = await ConnectionMultiplexer.ConnectAsync(PersistenceTestSettings.Redis);
     }
 
     /// <inheritdoc/>

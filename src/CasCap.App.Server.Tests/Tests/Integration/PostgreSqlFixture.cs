@@ -8,7 +8,6 @@ namespace CasCap.Tests.Integration;
 /// <remarks>Start postgres-tests first. Only the generated database is removed; development data is never used.</remarks>
 public sealed class PostgreSqlFixture : IAsyncLifetime
 {
-    private const string ConnectionString = "Host=localhost;Port=15433;Database=postgres;Username=postgres;Password=local-development";
     private readonly string _databaseName = $"agentizr_test_{Guid.NewGuid():N}";
 
     /// <summary>Gets a factory for contexts connected to the migrated database.</summary>
@@ -17,12 +16,12 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
     /// <inheritdoc/>
     public async ValueTask InitializeAsync()
     {
-        await using var connection = new NpgsqlConnection(ConnectionString);
+        await using var connection = new NpgsqlConnection(PersistenceTestSettings.PostgreSql);
         await connection.OpenAsync();
         await using var command = connection.CreateCommand();
         command.CommandText = $"CREATE DATABASE {_databaseName}";
         await command.ExecuteNonQueryAsync();
-        var connectionString = new NpgsqlConnectionStringBuilder(ConnectionString) { Database = _databaseName }.ConnectionString;
+        var connectionString = new NpgsqlConnectionStringBuilder(PersistenceTestSettings.PostgreSql) { Database = _databaseName }.ConnectionString;
         var options = new DbContextOptionsBuilder<AgentRuntimeDbContext>()
             .UseNpgsql(connectionString)
             .Options;
@@ -34,7 +33,7 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
-        await using var connection = new NpgsqlConnection(ConnectionString);
+        await using var connection = new NpgsqlConnection(PersistenceTestSettings.PostgreSql);
         await connection.OpenAsync();
         await using var command = connection.CreateCommand();
         command.CommandText = $"DROP DATABASE IF EXISTS {_databaseName} WITH (FORCE)";

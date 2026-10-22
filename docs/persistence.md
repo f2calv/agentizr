@@ -122,6 +122,14 @@ before adding more users or treating this archive as production storage.
 One root Compose file owns the reusable services. The default starts development PostgreSQL on
 `localhost:15432` and Redis on `localhost:16379`, with separate named volumes. The IDE runs the app:
 
+Compose loads public localhost credentials from `.env.example`, then optional gitignored `.env`
+overrides. Copy `.env.example` to `.env` for local customization; never use these credentials for
+deployment. Existing PostgreSQL volumes retain their original password: changing an env file does
+not rotate a database role. Test connections live in the test project's `appsettings.Test.json`,
+copied to its output directory. Keep its localhost credentials aligned with the tests-profile
+service when overriding `.env`. No password is required for the offline EF design-time fallback;
+commands that connect must supply `CasCap__DatabaseConfig__ConnectionString` from local configuration.
+
 ```powershell
 docker compose up -d --wait postgres redis
 $env:ASPNETCORE_ENVIRONMENT = 'Development'

@@ -3,7 +3,7 @@
 
 dashboards:
   enabled: true
-  dashboardFolder: Agent Runtime
+  dashboardFolder: Agentizr
   datasources:
     prometheus: prometheus
 

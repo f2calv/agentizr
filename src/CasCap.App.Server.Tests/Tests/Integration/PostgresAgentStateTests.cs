@@ -4,6 +4,7 @@ using CasCap.IntegrationTests;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Diagnostics.Metrics;
 using Npgsql;
 using StackExchange.Redis;
 
@@ -15,8 +16,56 @@ namespace CasCap.Tests.Integration;
 [Trait("Category", "Redis")]
 [Collection(HostIntegrationCollection.Name)]
 public sealed class PostgresAgentStateTests(PostgreSqlFixture postgres, RedisStateFixture redis)
-    : IClassFixture<PostgreSqlFixture>, IClassFixture<RedisStateFixture>
+    : IClassFixture<PostgreSqlFixture>, IClassFixture<RedisStateFixture>, IDisposable
 {
+    private readonly ServiceProvider _metricServices = new ServiceCollection()
+        .AddMetrics().AddOptions().AddSingleton<AgentRuntimeMetrics>().BuildServiceProvider();
+
+    private AgentRuntimeMetrics Metrics => _metricServices.GetRequiredService<AgentRuntimeMetrics>();
+
+    /// <inheritdoc/>
+    public void Dispose() => _metricServices.Dispose();
+
+    [Fact]
+    public async Task Metrics_RecordRealLockCacheAndStateOutcomesWithoutSessionLabels()
+    {
+        var measurements = new List<(string Name, long Value, Dictionary<string, object?> Tags)>();
+        using var listener = new MeterListener
+        {
+            InstrumentPublished = (instrument, current) =>
+            {
+                if (ReferenceEquals(instrument.Meter.Scope, _metricServices.GetRequiredService<IMeterFactory>()))
+                    current.EnableMeasurementEvents(instrument);
+            },
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
+            measurements.Add((instrument.Name, value, tags.ToArray().ToDictionary(tag => tag.Key, tag => tag.Value))));
+        listener.Start();
+        var tenant = new StaticTenantContext(Guid.NewGuid().ToString("N"));
+        var store = CreateStore(tenant);
+        var sessions = new PostgresAgentSessionStore(store, tenant);
+        var lease = await store.AcquireAsync("assistant", "private-session", TestContext.Current.CancellationToken);
+        await using (lease)
+        {
+            var other = CreateStore(tenant);
+            await Assert.ThrowsAsync<AgentSessionConflictException>(async () =>
+                await other.AcquireAsync("assistant", "private-session", TestContext.Current.CancellationToken));
+            await sessions.SetAsync("assistant", "v1", "private-session", "private-content", TestContext.Current.CancellationToken);
+            Assert.Equal("private-content", await sessions.GetAsync("assistant", "v1", "private-session", TestContext.Current.CancellationToken));
+            Assert.Equal("private-content", await sessions.GetAsync("assistant", "v1", "private-session", TestContext.Current.CancellationToken));
+            await sessions.DeleteAsync("assistant", "v1", "private-session", TestContext.Current.CancellationToken);
+        }
+        await lease.DisposeAsync();
+        var operations = measurements.Where(item => item.Name == "agentizr.ha.operations").ToArray();
+        Assert.Contains(operations, item => Equals(item.Tags["operation"], "lock") && Equals(item.Tags["outcome"], "conflict"));
+        Assert.Contains(operations, item => Equals(item.Tags["operation"], "cache.read") && Equals(item.Tags["outcome"], "miss"));
+        Assert.Contains(operations, item => Equals(item.Tags["operation"], "cache.read") && Equals(item.Tags["outcome"], "hit"));
+        Assert.Contains(operations, item => Equals(item.Tags["operation"], "state.write") && Equals(item.Tags["outcome"], "succeeded"));
+        Assert.Contains(operations, item => Equals(item.Tags["operation"], "state.delete") && Equals(item.Tags["outcome"], "succeeded"));
+        Assert.All(operations, item => Assert.Equal(["operation", "outcome", "tenant"], item.Tags.Keys.Order().ToArray()));
+        Assert.Equal([1L, -1L], measurements.Where(item => item.Name == "agentizr.ha.session.owners").Select(item => item.Value).ToArray());
+    }
+
     [Fact]
     public async Task State_SurvivesCacheEvictionAndReplicaReplacement()
     {
@@ -169,7 +218,7 @@ public sealed class PostgresAgentStateTests(PostgreSqlFixture postgres, RedisSta
         var tenant = new StaticTenantContext(Guid.NewGuid().ToString("N"));
         var cachingConfig = Options.Create(new CachingConfig());
         var store = new PostgresAgentStateStore(NullLogger<PostgresAgentStateStore>.Instance,
-            Options.Create(new AgentRuntimeConfig()), cachingConfig, TimeProvider.System, postgres.DbContextFactory, tenant,
+            Options.Create(new AgentRuntimeConfig()), cachingConfig, TimeProvider.System, Metrics, postgres.DbContextFactory, tenant,
             new RedisCacheService(NullLogger<RedisCacheService>.Instance, cachingConfig, unavailable, TimeProvider.System));
         var sessions = new PostgresAgentSessionStore(store, tenant);
         await using (await store.AcquireAsync("assistant", "session", TestContext.Current.CancellationToken))
@@ -195,7 +244,7 @@ public sealed class PostgresAgentStateTests(PostgreSqlFixture postgres, RedisSta
             ? new RedisCacheService(NullLogger<RedisCacheService>.Instance, cachingConfig, redis.Connection, TimeProvider.System)
             : null;
         return new PostgresAgentStateStore(NullLogger<PostgresAgentStateStore>.Instance,
-            Options.Create(new AgentRuntimeConfig()), cachingConfig, TimeProvider.System, postgres.DbContextFactory, tenant, remoteCache);
+            Options.Create(new AgentRuntimeConfig()), cachingConfig, TimeProvider.System, Metrics, postgres.DbContextFactory, tenant, remoteCache);
     }
 
     private sealed class StaticTenantContext(string tenantId) : ITenantContext

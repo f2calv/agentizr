@@ -71,13 +71,12 @@ x-agentizr: &agentizr
 
 x-postgres: &postgres
   image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
-  environment:
-    POSTGRES_USER: postgres
-    # Public local-development constant; never use this password for deployment.
-    POSTGRES_PASSWORD: local-development
-    POSTGRES_DB: agentizr
+  env_file:
+    - path: .env.example
+    - path: .env
+      required: false
   healthcheck:
-    test: [ "CMD-SHELL", "pg_isready -U postgres -d agentizr" ]
+    test: [ "CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\"" ]
     interval: 5s
     timeout: 3s
     retries: 20

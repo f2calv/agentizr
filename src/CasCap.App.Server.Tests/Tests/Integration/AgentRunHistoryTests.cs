@@ -3,20 +3,31 @@ using CasCap.IntegrationTests;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Diagnostics.Metrics;
 
 namespace CasCap.Tests.Integration;
 
 /// <summary>Checks durable turn outcomes, partial activity, interruption recovery and history privacy.</summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "PostgreSQL")]
-public sealed class AgentRunHistoryTests(PostgreSqlFixture fixture) : IClassFixture<PostgreSqlFixture>
+public sealed class AgentRunHistoryTests(PostgreSqlFixture fixture) : IClassFixture<PostgreSqlFixture>, IDisposable
 {
+    private readonly ServiceProvider _metricServices = new ServiceCollection()
+        .AddMetrics().AddOptions().AddSingleton<AgentRuntimeMetrics>().BuildServiceProvider();
+
+    private AgentRuntimeMetrics Metrics => _metricServices.GetRequiredService<AgentRuntimeMetrics>();
+
+    /// <inheritdoc/>
+    public void Dispose() => _metricServices.Dispose();
+
     [Theory]
-    [InlineData(AgentRunStatuses.Completed)]
-    [InlineData(AgentRunStatuses.Failed)]
-    [InlineData(AgentRunStatuses.Cancelled)]
-    public async Task History_PreservesMessagesToolsAndTerminalOutcome(string expectedStatus)
+    [InlineData(AgentRunStatuses.Completed, "completed")]
+    [InlineData(AgentRunStatuses.Failed, "failed")]
+    [InlineData(AgentRunStatuses.Cancelled, "cancelled")]
+    public async Task History_PreservesMessagesToolsAndTerminalOutcome(string expectedStatus, string expectedOutcome)
     {
+        var measurements = new List<(string Operation, string Outcome, long Count)>();
+        using var listener = Listen(measurements);
         var tenant = new StaticTenantContext(Guid.NewGuid().ToString("N"));
         var history = CreateHistory(tenant);
         history.ExcludeSecret("synthetic-private-key");
@@ -61,16 +72,21 @@ public sealed class AgentRunHistoryTests(PostgreSqlFixture fixture) : IClassFixt
         Assert.DoesNotContain("AQID", content, StringComparison.Ordinal);
         if (error is null)
             Assert.Contains("answer", run.SummaryJson!, StringComparison.Ordinal);
+        Assert.Contains(("history.start", "started", 1L), measurements);
+        Assert.Contains(("history.activity", "appended", 1L), measurements);
+        Assert.Contains(("history.finish", expectedOutcome, 1L), measurements);
     }
 
     [Fact]
     public async Task History_NewOwnerMarksInterruptedAndResetDoesNotDeleteArchive()
     {
+        var measurements = new List<(string Operation, string Outcome, long Count)>();
+        using var listener = Listen(measurements);
         var tenant = new StaticTenantContext(Guid.NewGuid().ToString("N"));
         var history = CreateHistory(tenant);
         var state = new PostgresAgentStateStore(NullLogger<PostgresAgentStateStore>.Instance,
             Options.Create(new AgentRuntimeConfig()), Options.Create(new CachingConfig()),
-            TimeProvider.System, fixture.DbContextFactory, tenant);
+            TimeProvider.System, Metrics, fixture.DbContextFactory, tenant);
         Guid priorId;
         await using (await state.AcquireAsync("assistant", "session", TestContext.Current.CancellationToken))
         {
@@ -90,6 +106,7 @@ public sealed class AgentRunHistoryTests(PostgreSqlFixture fixture) : IClassFixt
         Assert.Equal(2, await db.AgentRuns.CountAsync(run => run.TenantId == tenant.TenantId, TestContext.Current.CancellationToken));
         Assert.Equal(2, await db.AgentRunActivities.CountAsync(activity =>
             db.AgentRuns.Any(run => run.Id == activity.RunId && run.TenantId == tenant.TenantId), TestContext.Current.CancellationToken));
+        Assert.Contains(("history.recover", "interrupted", 1L), measurements);
     }
 
     [Fact]
@@ -97,7 +114,7 @@ public sealed class AgentRunHistoryTests(PostgreSqlFixture fixture) : IClassFixt
     {
         var tenant = new StaticTenantContext(Guid.NewGuid().ToString("N"));
         var history = new AgentRunHistoryService(Options.Create(new AgentRuntimeConfig()),
-            TimeProvider.System, fixture.DbContextFactory, tenant);
+            TimeProvider.System, fixture.DbContextFactory, tenant, Metrics);
         Assert.Null(await history.StartAsync(CreateRequest(), CreateDefinition(), "model", TestContext.Current.CancellationToken));
     }
 
@@ -129,9 +146,30 @@ public sealed class AgentRunHistoryTests(PostgreSqlFixture fixture) : IClassFixt
         Assert.Equal(2, await db.AgentRunActivities.CountAsync(activity => activity.RunId == run.Id, TestContext.Current.CancellationToken));
     }
 
+    private MeterListener Listen(List<(string Operation, string Outcome, long Count)> measurements)
+    {
+        var listener = new MeterListener
+        {
+            InstrumentPublished = (instrument, current) =>
+            {
+                if (instrument.Name == "agentizr.ha.operations"
+                    && ReferenceEquals(instrument.Meter.Scope, _metricServices.GetRequiredService<IMeterFactory>()))
+                    current.EnableMeasurementEvents(instrument);
+            },
+        };
+        listener.SetMeasurementEventCallback<long>((_, value, tags, _) =>
+        {
+            var dimensions = tags.ToArray().ToDictionary(tag => tag.Key, tag => tag.Value);
+            Assert.Equal(["operation", "outcome", "tenant"], dimensions.Keys.Order().ToArray());
+            measurements.Add(((string)dimensions["operation"]!, (string)dimensions["outcome"]!, value));
+        });
+        listener.Start();
+        return listener;
+    }
+
     private AgentRunHistoryService CreateHistory(ITenantContext tenant) => new(
         Options.Create(new AgentRuntimeConfig { ConversationHistoryEnabled = true }),
-        TimeProvider.System, fixture.DbContextFactory, tenant);
+        TimeProvider.System, fixture.DbContextFactory, tenant, Metrics);
 
     private static AgentExecutionRequest CreateRequest() => new()
     {

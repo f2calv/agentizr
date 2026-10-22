@@ -115,6 +115,57 @@ for active conversations: they use different authorities and locks. Drain active
 explicit state import or session reset before that first cutover. The additive database schema
 alone does not migrate old Redis-only conversation data.
 
+## HTTP Connections And Pod Loss
+
+Clients use HTTP/JSON, not bidirectional gRPC. A streamed run uses one HTTP response carrying an
+incrementally consumed JSON array. Connection reuse may keep several requests on one replica,
+but neither a connection nor a Kubernetes Service owns the conversation.
+
+When a pod dies, its in-flight HTTP request/stream fails. After PostgreSQL releases the lost
+connection's lock, another replica can serve a new request using the same tenant, agent and
+session ID, continuing from the last committed state. This is **subsequent-request recovery**,
+not live migration or automatic replay. Inspect partial archived tool activity before deciding
+whether to repeat a failed turn.
+
+## Observability
+
+The [Agentizr dashboard](../charts/agentizr-dashboards/README.md) includes tenant-wide HA panels.
+The runtime emits these bounded operation/outcome pairs through `agentizr.ha.operations`:
+
+| Operation | Outcomes |
+| --- | --- |
+| `lock` | `acquired`, `conflict`, `error` |
+| `state.read` | `absent`, `postgres`, `revision_changed` |
+| `state.write`, `state.delete` | `succeeded`, `error`; missing ownership records `state.write` / `ownership_lost` |
+| `cache.read` | `hit`, `miss`, `error` |
+| `cache.fill` | `succeeded`, `error` |
+| `session.load` | `new`, `resumed` |
+| `history.start`, `history.activity` | `started`, `appended`, respectively, or `error` on a failed archive write |
+| `history.finish` | `completed`, `failed`, `cancelled`, or `error` on a failed archive write |
+| `history.recover` | `interrupted`, counted once for each recovered run |
+
+`agentizr.ha.duration` records lock acquisition and state write/delete duration in milliseconds.
+`agentizr.ha.session.owners` is an up/down counter of locally held advisory-lock handles; sum it
+across replicas. A database-disconnected handle can remain counted until request cleanup.
+Abrupt pod loss cannot emit a decrement: use current scrape target health/resource identity and
+Prometheus staleness rather than treating a retained series as a durable ownership registry.
+Database revision reads still occur on cache hits; `state.read/postgres` counts payload loads,
+not every database query. Archive metrics describe successful writes and save failures, not an
+audit record of every query or pre-save serialization failure.
+
+Session IDs, run IDs, state keys, conversation content and credentials are never labels.
+Expected ownership conflicts also have the distinct run outcome `conflict`, rather than `failed`.
+HA panels intentionally ignore agent/provider/model filters, because their metrics have only
+tenant and bounded operation/outcome labels. Missing series are not silently displayed as success.
+
+## Live Validation Follow-Up
+
+TODO: Exercise simultaneous same-session requests and abrupt pod termination against a deployed
+runtime. Local integration coverage checks lock contention and lost ownership, but does not replace
+live transport and pod-loss validation. Normal cross-replica continuation has been verified; defer
+these disruptive checks while collecting a longer soak, then verify conflict responses, lock release,
+last-committed-state recovery and interrupted-run archival without automatically replaying tools.
+
 ## Deferred API Cleanup
 
 TODO: After this persistence batch, migrate application routes to thin controllers without changing

@@ -579,6 +579,120 @@
       ],
       "title": "Successful runs by provider and model",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "{{ .Values.datasources.prometheus }}"
+      },
+      "description": "Tenant-wide HA metrics; agent/provider/model filters do not apply.",
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 29 },
+      "id": 11,
+      "targets": [
+        {
+          "expr": "sum by (tenant) (agentizr_ha_session_owners{tenant=~\"${tenant:regex}\"})",
+          "legendFormat": "{{tenant}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Active session owners",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "{{ .Values.datasources.prometheus }}"
+      },
+      "description": "Lock acquisitions, expected contention and failures across all agents in the selected tenants.",
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 29 },
+      "id": 12,
+      "targets": [
+        {
+          "expr": "sum by (tenant, outcome) (rate(agentizr_ha_operations_total{tenant=~\"${tenant:regex}\",operation=\"lock\"}[$__rate_interval]))",
+          "legendFormat": "{{tenant}} / {{outcome}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Session ownership and conflicts",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "{{ .Values.datasources.prometheus }}"
+      },
+      "description": "Cache hits/misses/errors and authoritative PostgreSQL payload loads. Tenant-wide; no agent/provider/model labels.",
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 37 },
+      "id": 13,
+      "targets": [
+        {
+          "expr": "sum by (tenant, operation, outcome) (rate(agentizr_ha_operations_total{tenant=~\"${tenant:regex}\",operation=~\"cache.read|cache.fill|state.read\"}[$__rate_interval]))",
+          "legendFormat": "{{tenant}} / {{operation}} / {{outcome}}",
+          "refId": "A"
+        }
+      ],
+      "title": "State cache and database fallback",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "{{ .Values.datasources.prometheus }}"
+      },
+      "description": "Successful durable writes/deletes and lock acquisition latency across all agents in the selected tenants.",
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 37 },
+      "id": 14,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, tenant, operation) (rate(agentizr_ha_duration_milliseconds_bucket{tenant=~\"${tenant:regex}\",outcome=~\"succeeded|acquired\"}[$__rate_interval])))",
+          "legendFormat": "{{tenant}} / {{operation}} p95",
+          "refId": "A"
+        }
+      ],
+      "title": "Durable state and ownership latency p95",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "{{ .Values.datasources.prometheus }}"
+      },
+      "description": "Recorded state/cache/history write errors and lost ownership. Tenant-wide; no agent/provider/model filters.",
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 45 },
+      "id": 15,
+      "targets": [
+        {
+          "expr": "sum by (tenant, operation, outcome) (rate(agentizr_ha_operations_total{tenant=~\"${tenant:regex}\",outcome=~\"error|ownership_lost\"}[$__rate_interval]))",
+          "legendFormat": "{{tenant}} / {{operation}} / {{outcome}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Persistence and cache errors",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "{{ .Values.datasources.prometheus }}"
+      },
+      "description": "Archive lifecycle and interruption recovery require ConversationHistoryEnabled. Session loads distinguish new from resumed state, not automatic in-flight replay.",
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 45 },
+      "id": 16,
+      "targets": [
+        {
+          "expr": "sum by (tenant, operation, outcome) (rate(agentizr_ha_operations_total{tenant=~\"${tenant:regex}\",operation=~\"history.start|history.finish|history.recover|session.load\"}[$__rate_interval]))",
+          "legendFormat": "{{tenant}} / {{operation}} / {{outcome}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Conversation archive and session continuation",
+      "type": "timeseries"
     }
   ],
   "refresh": "30s",
@@ -694,7 +808,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Agent Runtime",
+  "title": "Agentizr",
   "uid": "agentizr-runtime",
   "version": 1,
   "weekStart": ""

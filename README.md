@@ -219,8 +219,14 @@ Every series is partitionable by tenant and active definition; bounded provider 
 model names are included when a definition resolves. Prompt text, output text, session identifiers,
 tool arguments, caller identifiers, and credentials are never metric labels.
 
+HA persistence instruments cover session ownership/contention, cache hits and PostgreSQL fallback,
+durable write latency/failures, session continuation and opt-in archive outcomes. These use tenant
+and bounded operation/outcome dimensions, not definition/provider/model labels.
+See [HA observability](docs/high-availability.md#observability) and the
+[Agentizr dashboard](charts/agentizr-dashboards/README.md).
+
 The [`agentizr-dashboards`](charts/agentizr-dashboards/README.md) subchart ships the
-`Agent Runtime` Grafana dashboard with tenant, agent, provider, and model selectors inside the
+`Agentizr` Grafana dashboard with tenant, agent, provider, and model selectors inside the
 application chart. It is enabled by default and can be disabled with `dashboards.enabled=false`.
 
 ## Documentation

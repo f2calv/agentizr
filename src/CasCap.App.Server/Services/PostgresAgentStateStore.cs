@@ -5,6 +5,7 @@ using Npgsql;
 using StackExchange.Redis;
 using System.Collections.Concurrent;
 using System.Data;
+using System.Diagnostics;
 
 namespace CasCap.Services;
 
@@ -14,6 +15,7 @@ internal sealed class PostgresAgentStateStore(
     IOptions<AgentRuntimeConfig> runtimeConfig,
     IOptions<CachingConfig> cachingConfig,
     TimeProvider timeProvider,
+    AgentRuntimeMetrics metrics,
     IDbContextFactory<AgentRuntimeDbContext> dbContextFactory,
     ITenantContext tenantContext,
     IRemoteCache? remoteCache = null) : IAgentSessionLock
@@ -24,6 +26,7 @@ internal sealed class PostgresAgentStateStore(
     public async ValueTask<IAsyncDisposable> AcquireAsync(
         string agentName, string sessionId, CancellationToken cancellationToken)
     {
+        var stopwatch = Stopwatch.StartNew();
         var key = AgentStateKey.CreateRedisSessionLock(tenantContext.TenantId, agentName, sessionId);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var connection = new NpgsqlConnection(db.Database.GetConnectionString());
@@ -36,16 +39,21 @@ internal sealed class PostgresAgentStateStore(
             if (await command.ExecuteScalarAsync(cancellationToken) is not true)
                 throw new AgentSessionConflictException("The session is already being changed.");
 
-            var handle = new SessionHandle(connection, key, _sessions);
+            var handle = new SessionHandle(connection, key, _sessions, metrics, tenantContext.TenantId);
             if (!_sessions.TryAdd(key, handle))
             {
                 await handle.DisposeAsync();
                 throw new AgentSessionConflictException("The session operation has not finished releasing ownership.");
             }
+            metrics.RecordHa(tenantContext.TenantId, "lock", "acquired", stopwatch.Elapsed);
+            metrics.RecordSessionOwner(tenantContext.TenantId, acquired: true);
+            handle.Counted = true;
             return handle;
         }
-        catch
+        catch (Exception error)
         {
+            metrics.RecordHa(tenantContext.TenantId, "lock",
+                error is AgentSessionConflictException ? "conflict" : "error", stopwatch.Elapsed);
             await connection.DisposeAsync();
             throw;
         }
@@ -61,7 +69,10 @@ internal sealed class PostgresAgentStateStore(
                 .Where(state => state.Key == key && state.TenantId == tenantContext.TenantId)
                 .Select(state => (Guid?)state.Revision).SingleOrDefaultAsync(cancellationToken);
             if (revision is null)
+            {
+                metrics.RecordHa(tenantContext.TenantId, "state.read", "absent");
                 return null;
+            }
             var cacheKey = cachingConfig.Value.FormatCacheKey($"{key}:{revision:N}");
             if (remoteCache is not null)
             {
@@ -69,18 +80,27 @@ internal sealed class PostgresAgentStateStore(
                 {
                     var cached = await remoteCache.Db.StringGetAsync(cacheKey).WaitAsync(cancellationToken);
                     if (cached.HasValue)
+                    {
+                        metrics.RecordHa(tenantContext.TenantId, "cache.read", "hit");
                         return ((string)cached!).FromJson<T>();
+                    }
+                    metrics.RecordHa(tenantContext.TenantId, "cache.read", "miss");
                 }
                 catch (RedisException)
                 {
                     LogCacheUnavailable();
+                    metrics.RecordHa(tenantContext.TenantId, "cache.read", "error");
                 }
             }
             var payload = await db.AgentStates.AsNoTracking()
                 .Where(state => state.Key == key && state.TenantId == tenantContext.TenantId && state.Revision == revision)
                 .Select(state => state.PayloadJson).SingleOrDefaultAsync(cancellationToken);
             if (payload is null)
+            {
+                metrics.RecordHa(tenantContext.TenantId, "state.read", "revision_changed");
                 continue; // A concurrent status read crossed a write or delete; resolve the new revision.
+            }
+            metrics.RecordHa(tenantContext.TenantId, "state.read", "postgres");
             if (remoteCache is not null)
             {
                 try
@@ -88,10 +108,12 @@ internal sealed class PostgresAgentStateStore(
                     await remoteCache.Db.StringSetAsync(
                         cacheKey, payload, TimeSpan.FromHours(runtimeConfig.Value.StateSlidingExpirationHours))
                         .WaitAsync(cancellationToken);
+                    metrics.RecordHa(tenantContext.TenantId, "cache.fill", "succeeded");
                 }
                 catch (RedisException)
                 {
                     LogCacheUnavailable();
+                    metrics.RecordHa(tenantContext.TenantId, "cache.fill", "error");
                 }
             }
             return payload.FromJson<T>();
@@ -104,7 +126,10 @@ internal sealed class PostgresAgentStateStore(
     {
         var lockKey = AgentStateKey.CreateRedisSessionLock(tenantContext.TenantId, agentName, sessionId);
         if (!_sessions.TryGetValue(lockKey, out var handle) || handle.Connection.State != ConnectionState.Open)
+        {
+            metrics.RecordHa(tenantContext.TenantId, "state.write", "ownership_lost");
             throw new AgentSessionConflictException("Session ownership is required before changing runtime state.");
+        }
 
         await using var command = handle.Connection.CreateCommand();
         command.Parameters.AddWithValue("key", key);
@@ -125,7 +150,17 @@ internal sealed class PostgresAgentStateStore(
             command.Parameters.AddWithValue("payload", value.ToJson());
             command.Parameters.AddWithValue("updated", timeProvider.GetUtcNow());
         }
-        await command.ExecuteNonQueryAsync(cancellationToken);
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            metrics.RecordHa(tenantContext.TenantId, value is null ? "state.delete" : "state.write", "succeeded", stopwatch.Elapsed);
+        }
+        catch
+        {
+            metrics.RecordHa(tenantContext.TenantId, value is null ? "state.delete" : "state.write", "error", stopwatch.Elapsed);
+            throw;
+        }
     }
 
     private void LogCacheUnavailable()
@@ -137,10 +172,13 @@ internal sealed class PostgresAgentStateStore(
     private sealed class SessionHandle(
         NpgsqlConnection connection,
         string key,
-        ConcurrentDictionary<string, SessionHandle> sessions) : IAsyncDisposable
+        ConcurrentDictionary<string, SessionHandle> sessions,
+        AgentRuntimeMetrics metrics,
+        string tenant) : IAsyncDisposable
     {
         public NpgsqlConnection Connection { get; } = connection;
         private int _disposed;
+        public bool Counted { get; set; }
 
         public async ValueTask DisposeAsync()
         {
@@ -159,6 +197,8 @@ internal sealed class PostgresAgentStateStore(
             finally
             {
                 sessions.TryRemove(new KeyValuePair<string, SessionHandle>(key, this));
+                if (Counted)
+                    metrics.RecordSessionOwner(tenant, acquired: false);
                 await Connection.DisposeAsync();
             }
         }

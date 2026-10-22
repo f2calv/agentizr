@@ -69,7 +69,7 @@ Only the example above adds Argo CD hook annotations; they are not defaulted by 
 | `runtime.resources` | 50m/128Mi requests; 500m/512Mi limits | Runtime CPU and memory |
 | `migrate.resources` | 25m/64Mi requests; 250m/256Mi limits | Migration CPU and memory |
 | `dashboards.enabled` | `true` | Include the dashboard subchart |
-| `dashboards.dashboardFolder` | `Agent Runtime` | Grafana sidecar folder |
+| `dashboards.dashboardFolder` | `Agentizr` | Grafana sidecar folder |
 | `dashboards.datasources.prometheus` | `prometheus` | Existing Prometheus datasource UID |
 
 The workload dependency owns the underlying Deployment/Job, environment and Secret-reference
