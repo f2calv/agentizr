@@ -18,13 +18,7 @@ internal static class AgentDefinitionCacheKey
         return $"agentizr:v1:definition:version:{digest}";
     }
 
-    /// <summary>Creates the key holding a tenant agent's active definition version.</summary>
-    public static string CreateActiveVersion(string tenantId, string agentName)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
-        ArgumentException.ThrowIfNullOrWhiteSpace(agentName);
-        var source = $"{tenantId.Length}:{tenantId}{agentName.Length}:{agentName}";
-        var digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(source)));
-        return $"agentizr:v1:definition:active:{digest}";
-    }
+    /// <summary>Creates a tenant-qualified active-pointer cache key.</summary>
+    public static string CreateActive(string tenantId, string agentName) =>
+        Create(tenantId, agentName, "active") + ":pointer";
 }

@@ -1,6 +1,6 @@
 # agentizr-dashboards
 
-Helm chart providing the tenant-scoped Agent Runtime execution dashboard as a
+Helm chart providing the tenant-scoped Agentizr execution and HA dashboard as a
 sidecar-discoverable ConfigMap for an existing Grafana installation.
 The [`agentizr`](../agentizr/README.md) application chart bundles it as a `file://` subchart enabled by
 `dashboards.enabled`; the dependency currently selects version `0.1.0`. Set the values below under the application
@@ -13,7 +13,7 @@ With the application chart, select your existing Prometheus datasource UID:
 ```yaml
 dashboards:
   enabled: true
-  dashboardFolder: Agent Runtime
+  dashboardFolder: Agentizr
   datasources:
     prometheus: example-prometheus
 ```
@@ -33,7 +33,7 @@ stable, not release-qualified. Grafana needs a sidecar watching `grafana_dashboa
 | Value | Default | Notes |
 | --- | --- | --- |
 | `enabled` | `true` | Set `false` to render no dashboard ConfigMaps |
-| `dashboardFolder` | `Agent Runtime` | Grafana sidecar folder annotation |
+| `dashboardFolder` | `Agentizr` | Grafana sidecar folder annotation |
 | `datasources.prometheus` | `prometheus` | Prometheus datasource UID |
 
 Each JSON file under `dashboards/` becomes a ConfigMap labelled `grafana_dashboard: "1"`.
@@ -44,7 +44,7 @@ tokens remain unchanged.
 
 | File | Title | Scope |
 | --- | --- | --- |
-| `agentizr-runtime.json` | Agent Runtime | Runs, outcomes, latency, first-token latency, tokens, and tool calls by tenant and active definition |
+| `agentizr-runtime.json` | Agentizr | Execution, session ownership/contention, state caching, durable writes and conversation archival |
 
 ## Metric Contract
 
@@ -52,15 +52,23 @@ The dashboard consumes these OpenTelemetry instruments after Prometheus translat
 
 | Prometheus metric | Dimensions |
 | --- | --- |
-| `agentizr_run_total` | `tenant`, `agent`, `provider`, `model`, `outcome` (`succeeded`, `completed_with_tool_errors`, `failed`, `cancelled`, `unavailable`) |
+| `agentizr_run_total` | `tenant`, `agent`, `provider`, `model`, `outcome` (`succeeded`, `completed_with_tool_errors`, `failed`, `cancelled`, `conflict`, `unavailable`) |
 | `agentizr_run_duration_milliseconds_bucket` | Run dimensions plus `le` |
 | `agentizr_run_time_to_first_token_milliseconds_bucket` | Run dimensions plus `le` |
 | `agentizr_tokens_total` | Run dimensions plus `token_kind` |
 | `agentizr_tool_calls_total` | Run dimensions plus `tool_outcome` (`succeeded`, `error`); includes delegated agents' calls |
+| `agentizr_ha_operations_total` | `tenant`, bounded `operation` and `outcome`; see [HA observability](../../docs/high-availability.md#observability) |
+| `agentizr_ha_duration_milliseconds_bucket` | HA operation dimensions plus `le`; lock acquisition and durable state write/delete duration |
+| `agentizr_ha_session_owners` | `tenant`; active advisory-lock owners, summed across replicas |
 
 Provider and model labels are absent when a requested definition is unavailable. Labels contain
 configuration names only; session identifiers, prompts, outputs, tool arguments, and caller IDs are
 never exported.
+
+HA panels intentionally use only the tenant filter: persistence instruments have no agent,
+provider or model dimensions. Missing data means no matching operation has been observed, not
+proof of health. The dashboard UID and ConfigMap identity remain unchanged when moving the folder
+to `Agentizr`; Grafana may retain an empty old folder.
 
 Configure the runtime's OTLP exporter and a collector/Prometheus pipeline to make these metrics
 available. The dashboard does not scrape the HTTP service, and changing the runtime's

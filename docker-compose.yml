@@ -1,7 +1,10 @@
 # =============================================================================
-# agentizr local AI providers
+# agentizr local infrastructure and AI providers
 # =============================================================================
 #
+# Default: docker compose up -d starts PostgreSQL (15432) and Redis (16379).
+# Tests: docker compose --profile tests up -d postgres-tests redis-tests
+#   Dedicated PostgreSQL (15433) and Redis (16380); never use development data.
 # One Agent Runtime exposes provider-specific agent definitions. Profiles choose
 # which local provider containers start:
 #
@@ -9,7 +12,7 @@
 #   docker compose --profile ollama up
 #   docker compose --profile all up
 #
-# Every profile runs one agentizr instance from the Debug project graph with adjacent
+# Provider profiles run one agentizr instance from the Debug project graph with adjacent
 # CasCap.Common and CasCap.Api.Azure checkouts mounted read-only. NuGet packages
 # and model downloads persist in named volumes.
 #
@@ -66,7 +69,59 @@ x-agentizr: &agentizr
     - nuget_packages:/root/.nuget/packages
   restart: unless-stopped
 
+x-postgres: &postgres
+  image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+  env_file:
+    - path: .env.example
+    - path: .env
+      required: false
+  healthcheck:
+    test: [ "CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\"" ]
+    interval: 5s
+    timeout: 3s
+    retries: 20
+  restart: unless-stopped
+
+x-redis: &redis
+  image: redis:8.2-alpine@sha256:98561ce71de3f1126e799d127a7700e8057264c9ae34cb12e662ff4d6fbefd3f
+  healthcheck:
+    test: [ "CMD", "redis-cli", "ping" ]
+    interval: 5s
+    timeout: 3s
+    retries: 20
+  restart: unless-stopped
+
 services:
+  postgres:
+    <<: *postgres
+    ports:
+      - 127.0.0.1:15432:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+  redis:
+    <<: *redis
+    ports:
+      - 127.0.0.1:16379:6379
+    volumes:
+      - redis_data:/data
+
+  postgres-tests:
+    <<: *postgres
+    profiles: [ tests ]
+    ports:
+      - 127.0.0.1:15433:5432
+    volumes:
+      - postgres_tests_data:/var/lib/postgresql
+
+  redis-tests:
+    <<: *redis
+    profiles: [ tests ]
+    ports:
+      - 127.0.0.1:16380:6379
+    volumes:
+      - redis_tests_data:/data
+
   agentizr:
     <<: *agentizr
     profiles: [ llama-cpp, ollama, all ]
@@ -146,3 +201,7 @@ volumes:
   llama_cpp_models:
   nuget_packages:
   ollama_models:
+  postgres_data:
+  postgres_tests_data:
+  redis_data:
+  redis_tests_data:

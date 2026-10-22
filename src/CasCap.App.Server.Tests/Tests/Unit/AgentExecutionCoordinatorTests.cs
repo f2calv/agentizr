@@ -87,7 +87,8 @@ public sealed class AgentExecutionCoordinatorTests
             sessionStore,
             new StaticOverrideStore(overrides),
             new StaticSessionCodec(),
-            executor);
+            executor,
+            new ConfiguredAgentSessionLock(new InMemoryAgentSessionLock(), new StaticTenantContext()));
 
     private sealed class StaticTenantContext : ITenantContext
     {

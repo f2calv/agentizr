@@ -53,7 +53,11 @@ dotnet run --project src\CasCap.App.Server\CasCap.App.Server.csproj --configurat
 The tracked defaults start an empty host: `/` identifies it and `/healthz` reports host health.
 Before running an agent, add the [Development configuration](src/CasCap.App.Server/README.md#configuration-examples)
 and start its model provider. A health response does not verify provider, database or Redis readiness.
-Outside Development, PostgreSQL, Redis and JWT tenancy are mandatory.
+Outside Development, PostgreSQL and JWT tenancy are mandatory; Redis is an optional cache.
+
+For local persistence debugging and integration-test infrastructure, use the
+[Compose storage/test profiles](docs/persistence.md#local-development-and-tests). They do not
+require a GPU or model downloads.
 
 ### Local AI Provider Profiles
 
@@ -108,21 +112,22 @@ user secrets, environment variables and optional Key Vault. See the
 
 `AgentRuntimeConfig` provides a read-only Development bootstrap adapter. Outside Development,
 PostgreSQL owns immutable schema-versioned JSONB definition snapshots and an active-version pointer;
-Redis caches active lookups. Provider API keys remain separate from stored `AgentDefinition` values
+Redis caches immutable definition contents and briefly caches active pointers with bounded expiry.
+Provider API keys remain separate from stored `AgentDefinition` values
 and must arrive through a private configuration provider.
 
 Outside Development, `TenantAuthenticationConfig` must enable JWT validation with a trusted
 authority and audience. Validated caller application identifiers (the `azp` claim by default) map
 to logical tenants through an explicit allowlist. Execution requires the `agent.execute` permission;
 definition administration uses separate read, publish and activate permissions. Permissions may
-arrive through delegated `scope`/`scp` claims or application `roles`. Redis must also be configured
-through `CasCap:CachingConfig:RemoteCacheConnectionString`. Sessions and overrides use opaque
-tenant/agent/session key digests and a configurable sliding expiry. Provider and logical MCP
+arrive through delegated `scope`/`scp` claims or application `roles`. Optional Redis is configured
+through `CasCap:CachingConfig:RemoteCacheConnectionString`. PostgreSQL owns sessions, snapshots and
+overrides; a durable revision check selects Redis-cached payloads when available. Provider and logical MCP
 credentials remain in the final private configuration provider.
 
 Development bootstrap definitions and credentials use immutable startup options. Every state key
 includes the definition version, so activating a different PostgreSQL version selects a fresh
-namespace while the previous version's state remains available for rollback until its TTL expires.
+namespace while the previous version's durable state remains available for rollback.
 
 Definition publication appends an inactive immutable snapshot. Activation alone advances the active
 pointer and appends actor/reason audit history.
@@ -131,16 +136,17 @@ Remote MCP tool definitions carry only a logical credential name. The runtime re
 tenant-scoped Authorization header from private configuration and creates/disposes the authenticated
 MCP client per run.
 
-Development may omit JWT and Redis. It then uses the configured default tenant and process-local
-state so the host and tests remain credential-free. Production startup fails when either control is
-missing.
+Development may omit JWT and PostgreSQL. It then uses the configured default tenant and process-local
+state for single-process work. Production requires JWT and PostgreSQL. See
+[high availability](docs/high-availability.md) for multi-replica coordination and
+[persistence](docs/persistence.md) for opt-in PostgreSQL conversation/tool history.
 
 Set `AppConfig__OtlpExporterEndpoint` to an OTLP gRPC endpoint to enable OpenTelemetry export. When it is unset, the shared hosting library skips OpenTelemetry registration.
 
 ## Service Architecture
 
 Execution callers and definition administrators use separate permissions. PostgreSQL owns
-definitions; Redis holds cached definitions and version-qualified conversation state, not credentials.
+definitions, runtime state and optional debugging history; Redis caches payloads, not credentials.
 
 ```mermaid
 graph LR
@@ -148,8 +154,8 @@ graph LR
     classDef external fill:#fef3c7,stroke:#d97706,color:#78350f
     Client([Application or typed client]) --> Runtime[Agent Runtime]:::owned
     Admin([Definition administrator]) --> Runtime
-    Runtime --> Definitions[(PostgreSQL definitions)]:::external
-    Runtime --> State[(Redis cache and sessions)]:::external
+    Runtime --> Definitions[(PostgreSQL definitions, state and history)]:::external
+    Runtime --> State[(Redis payload cache)]:::external
     Runtime --> Model[Model provider]:::external
     Runtime --> Tools[MCP and in-process tools]:::external
     Runtime --> Credentials[Private credential provider]:::external
@@ -213,12 +219,20 @@ Every series is partitionable by tenant and active definition; bounded provider 
 model names are included when a definition resolves. Prompt text, output text, session identifiers,
 tool arguments, caller identifiers, and credentials are never metric labels.
 
+HA persistence instruments cover session ownership/contention, cache hits and PostgreSQL fallback,
+durable write latency/failures, session continuation and opt-in archive outcomes. These use tenant
+and bounded operation/outcome dimensions, not definition/provider/model labels.
+See [HA observability](docs/high-availability.md#observability) and the
+[Agentizr dashboard](charts/agentizr-dashboards/README.md).
+
 The [`agentizr-dashboards`](charts/agentizr-dashboards/README.md) subchart ships the
-`Agent Runtime` Grafana dashboard with tenant, agent, provider, and model selectors inside the
+`Agentizr` Grafana dashboard with tenant, agent, provider, and model selectors inside the
 application chart. It is enabled by default and can be disabled with `dashboards.enabled=false`.
 
 ## Documentation
 
+- [High Availability](docs/high-availability.md): session ownership, definition freshness, failure
+  semantics and the prerequisites for a multi-replica rollout.
 - [Session Compaction](docs/session-compaction.md): per-provider compaction settings, and the
   measurements of how history size affects local and hosted model latency.
 

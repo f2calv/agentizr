@@ -13,6 +13,15 @@ public sealed class ToolFailureTests
     [Fact]
     public async Task RunAnalysisAsync_FlagsThrowingAndErrorResultTools()
     {
+        var activities = new List<AgentRunActivity>();
+        var scope = new AgentRunScope
+        {
+            OnActivity = (activity, _) =>
+            {
+                activities.Add(activity);
+                return ValueTask.CompletedTask;
+            },
+        };
         var agent = BuildAgent(
             [
                 AIFunctionFactory.Create(() => "ok", "healthy_tool"),
@@ -32,12 +41,22 @@ public sealed class ToolFailureTests
             new AgentConfig { Provider = "test-provider", Name = "failure-probe", Description = "d", Prompt = "p", Instructions = "i" },
             AgentExtensions.BuildChatMessage("hi"),
             new ChatOptions(),
-            cancellationToken: TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken,
+            scope: scope);
 
         Assert.Equal(
             [("healthy_tool", false), ("throwing_tool", true), ("error_result_tool", true)],
             result.ToolCalls.Select(toolCall => (toolCall.Name, toolCall.Failed)));
         Assert.Equal(2, result.ToolErrorCount);
+        Assert.Equal(3, activities.Count(activity => activity.Kind == "tool-started"));
+        Assert.Equal(3, activities.Count(activity => activity.Kind == "tool-completed"));
+        var successfulResult = Assert.Single(activities, activity =>
+            activity.Kind == "tool-completed" && activity.ToolName == "healthy_tool");
+        Assert.Contains("ok", JsonSerializer.Serialize(successfulResult.Data), StringComparison.Ordinal);
+        var failure = Assert.Single(activities, activity =>
+            activity.Kind == "tool-completed" && activity.ToolName == "throwing_tool");
+        Assert.Contains(nameof(InvalidOperationException), JsonSerializer.Serialize(failure.Data), StringComparison.Ordinal);
+        Assert.DoesNotContain("boom", JsonSerializer.Serialize(failure.Data), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -71,13 +90,18 @@ public sealed class ToolFailureTests
     [Fact]
     public void ForSubAgent_SharesTheToolBudget()
     {
-        var parent = new AgentRunScope { MaximumToolInvocations = 2 };
+        var parent = new AgentRunScope
+        {
+            MaximumToolInvocations = 2,
+            OnActivity = (_, _) => ValueTask.CompletedTask,
+        };
         var child = parent.ForSubAgent();
 
         Assert.True(parent.TryConsumeToolInvocation());
         Assert.True(child.TryConsumeToolInvocation());
         Assert.False(parent.TryConsumeToolInvocation());
         Assert.Equal(3, child.ToolInvocationCount);
+        Assert.Same(parent.OnActivity, child.OnActivity);
     }
 
     [Theory]

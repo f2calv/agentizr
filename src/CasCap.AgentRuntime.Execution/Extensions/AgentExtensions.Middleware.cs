@@ -96,6 +96,18 @@ public static partial class AgentExtensions
             Func<FunctionInvocationContext, CancellationToken, ValueTask<object?>> next,
             CancellationToken cancellationToken)
         {
+            var scope = GetCurrentScope();
+            if (scope?.OnActivity is { } beforeTool)
+                await beforeTool(new AgentRunActivity
+                {
+                    Kind = "tool-started",
+                    AgentName = agent.Name ?? string.Empty,
+                    Depth = scope.Depth,
+                    CallId = context.CallContent.CallId,
+                    ToolName = context.Function.Name,
+                    Data = context.Arguments,
+                }, cancellationToken).ConfigureAwait(false);
+
             if (logger.IsEnabled(LogLevel.Trace))
             {
                 StringBuilder sb = new();
@@ -111,10 +123,21 @@ public static partial class AgentExtensions
                 if (logger.IsEnabled(LogLevel.Warning))
                     logger.LogWarning("Tool {FunctionName} refused: the run exceeded {MaximumToolInvocations} tool invocations",
                         context.Function.Name, budgetScope.MaximumToolInvocations);
+                if (scope?.OnActivity is { } refusedTool)
+                    await refusedTool(new AgentRunActivity
+                    {
+                        Kind = "tool-refused",
+                        AgentName = agent.Name ?? string.Empty,
+                        Depth = scope.Depth,
+                        CallId = context.CallContent.CallId,
+                        ToolName = context.Function.Name,
+                        Data = new { Reason = "tool-budget-exhausted" },
+                    }, cancellationToken).ConfigureAwait(false);
                 return $"Error: the tool budget of {budgetScope.MaximumToolInvocations} calls for this request is exhausted. Answer with the information already gathered.";
             }
 
             object? result;
+            string? errorType = null;
             try
             {
                 result = await next(context, cancellationToken).ConfigureAwait(false);
@@ -127,7 +150,8 @@ public static partial class AgentExtensions
             {
                 GetCurrentScope()?.MarkToolCallFailed(context.CallContent.CallId);
                 logger.LogError(ex, "Tool {FunctionName} threw an exception", context.Function.Name);
-                return $"Error: tool '{context.Function.Name}' failed — {ex.GetType().Name}: {ex.Message}";
+                errorType = ex.GetType().FullName;
+                result = $"Error: tool '{context.Function.Name}' failed — {ex.GetType().Name}: {ex.Message}";
             }
 
             // MCP servers report tool failures as a successful call whose result carries isError=true.
@@ -189,6 +213,18 @@ public static partial class AgentExtensions
                 logger.LogTrace("Tool call result: {Result}", resultPreview);
             }
 
+            if (scope?.OnActivity is { } afterTool)
+                await afterTool(new AgentRunActivity
+                {
+                    Kind = "tool-completed",
+                    AgentName = agent.Name ?? string.Empty,
+                    Depth = scope.Depth,
+                    CallId = context.CallContent.CallId,
+                    ToolName = context.Function.Name,
+                    Data = errorType is null
+                        ? new { Result = result, Failed = scope.IsToolCallFailed(context.CallContent.CallId) }
+                        : (object)new { ErrorType = errorType, Failed = true },
+                }, cancellationToken).ConfigureAwait(false);
             return result;
         }
     }

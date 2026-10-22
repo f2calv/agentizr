@@ -36,6 +36,8 @@ jobs:
     with:
       version: ${{ needs.versioning.outputs.version }}
       solution-name: agentizr.Release.slnx
+      test-compose-file: docker-compose.yml
+      test-compose-services: '["postgres-tests", "redis-tests"]'
 
   #Publishes only the IsPackable projects: CasCap.AgentRuntime.Contracts and CasCap.AgentRuntime.Client.
   package:

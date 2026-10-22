@@ -144,6 +144,34 @@ public sealed class AgentRuntimeMetricsTests
         Assert.DoesNotContain("model", run.Tags);
     }
 
+    [Fact]
+    public void RecordHa_UsesOnlyBoundedLabelsAndRecordsDurationAndOwnership()
+    {
+        using var services = new ServiceCollection().AddMetrics().BuildServiceProvider();
+        var measurements = new List<(string Instrument, long Value, Dictionary<string, object?> Tags)>();
+        using var listener = CreateListener(measurements, services.GetRequiredService<IMeterFactory>());
+        var durations = new List<double>();
+        listener.SetMeasurementEventCallback<double>((instrument, value, _, _) =>
+        {
+            if (instrument.Name == "agentizr.ha.duration")
+                durations.Add(value);
+        });
+        var metrics = new AgentRuntimeMetrics(Options.Create(new AppConfig()), services.GetRequiredService<IMeterFactory>());
+
+        metrics.RecordHa("tenant-a", "lock", "conflict", TimeSpan.FromMilliseconds(12));
+        metrics.RecordSessionOwner("tenant-a", acquired: true);
+        metrics.RecordSessionOwner("tenant-a", acquired: false);
+        metrics.RecordFailed("tenant-a", "assistant", null, TimeSpan.FromMilliseconds(12), cancelled: false, conflict: true);
+
+        var operation = Assert.Single(measurements, item => item.Instrument == "agentizr.ha.operations");
+        Assert.Equal(["operation", "outcome", "tenant"], operation.Tags.Keys.Order().ToArray());
+        Assert.Equal("lock", operation.Tags["operation"]);
+        Assert.Equal("conflict", operation.Tags["outcome"]);
+        Assert.Equal([12d], durations);
+        Assert.Equal([1L, -1L], measurements.Where(item => item.Instrument == "agentizr.ha.session.owners").Select(item => item.Value).ToArray());
+        Assert.Equal("conflict", Assert.Single(measurements, item => item.Instrument == "agentizr.run").Tags["outcome"]);
+    }
+
     private static MeterListener CreateListener(
         List<(string Instrument, long Value, Dictionary<string, object?> Tags)> measurements,
         IMeterFactory meterFactory)

@@ -39,7 +39,7 @@ public static partial class AppHost
             var tenantAuthenticationEnabled = AddWebApi(builder);
 
             // Feature registration
-            AddFeatures(builder, tenantAuthenticationEnabled, migrateOnly);
+            AddFeatures(builder, tenantAuthenticationEnabled);
             var mcpEnabled = AddMcp(builder, migrateOnly);
 
             // Build

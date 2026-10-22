@@ -93,6 +93,12 @@ using a streamed JSON response. Callers opt into tool arguments and property bag
 Unlike `RunAgentAsync`, streaming throws on any non-success response, including 404. The stream
 is a JSON array consumed incrementally, not Server-Sent Events.
 
+Overlapping turns or mutations of the same session return HTTP 409, surfaced as
+`HttpRequestException` with `StatusCode=Conflict`. Reads remain available during a turn.
+Do not automatically retry interrupted runs or streams: a provider or tool may already have
+performed work. A stream that fails after its HTTP headers are sent terminates without a final
+response rather than changing its status code.
+
 ## Definition Administration
 
 Register [`IAgentDefinitionAdminClient`](https://github.com/f2calv/agentizr/blob/13aa4a19180b9dbd0f14fa08fbf95f67039b69f0/src/CasCap.AgentRuntime.Client/Abstractions/IAgentDefinitionAdminClient.cs)

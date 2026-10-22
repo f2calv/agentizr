@@ -1,5 +1,6 @@
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Text.Json;
 
 namespace CasCap.Tests.Unit;
 
@@ -104,8 +105,59 @@ public sealed class CommonAgentExecutorTests
         Assert.Equal(3, source.IncludeTools.Length);
     }
 
+    [Fact]
+    public async Task HistoryChatClient_RecordsEachModelRoundTripWithoutBinaryAndKeepsPartialActivity()
+    {
+        var activities = new List<AgentRunActivity>();
+        var scope = new AgentRunScope
+        {
+            OnActivity = (activity, _) =>
+            {
+                activities.Add(activity);
+                return ValueTask.CompletedTask;
+            },
+        };
+        using var client = new AgentHistoryChatClient(new HistoryProbeChatClient(), "assistant", scope);
+        await client.GetResponseAsync([], cancellationToken: TestContext.Current.CancellationToken);
+        await client.GetResponseAsync([], cancellationToken: TestContext.Current.CancellationToken);
+        await Assert.ThrowsAsync<IOException>(() =>
+            client.GetResponseAsync([], cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Equal(2, activities.Count);
+        var content = JsonSerializer.Serialize(activities);
+        Assert.Contains("intermediate answer", content, StringComparison.Ordinal);
+        Assert.Contains("call-1", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("AQID", content, StringComparison.Ordinal);
+    }
+
     private static AIFunction CreateTool(string name) =>
         AIFunctionFactory.Create(
             (Func<string>)(() => name),
             new AIFunctionFactoryOptions { Name = name });
+
+    private sealed class HistoryProbeChatClient : IChatClient
+    {
+        private int _calls;
+
+        public Task<ChatResponse> GetResponseAsync(
+            IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
+        {
+            if (++_calls > 2)
+                throw new IOException("provider disconnected");
+            byte[] bytes = [1, 2, 3];
+            return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant,
+            [
+                new TextContent("intermediate answer"),
+                new FunctionCallContent("call-1", "test", new Dictionary<string, object?>()),
+                new DataContent(bytes, "image/png"),
+            ])));
+        }
+
+        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose() { }
+    }
 }

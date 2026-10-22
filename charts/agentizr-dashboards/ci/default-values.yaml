@@ -1,4 +1,4 @@
 # Default install with an explicit Prometheus datasource UID.
-dashboardFolder: Agent Runtime
+dashboardFolder: Agentizr
 datasources:
   prometheus: prometheus

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CasCap;
 
-/// <summary>PostgreSQL authority for versioned Agent Runtime definitions.</summary>
+/// <summary>PostgreSQL authority for Agent Runtime definitions, state and debugging history.</summary>
 public sealed class AgentRuntimeDbContext(
     DbContextOptions<AgentRuntimeDbContext> options) : DbContext(options)
 {
@@ -18,10 +18,67 @@ public sealed class AgentRuntimeDbContext(
     /// <summary>Gets append-only definition activation history.</summary>
     public DbSet<AgentDefinitionActivationEntity> AgentDefinitionActivations => Set<AgentDefinitionActivationEntity>();
 
+    /// <summary>Gets durable session, snapshot and override payloads.</summary>
+    public DbSet<AgentStateEntity> AgentStates => Set<AgentStateEntity>();
+
+    /// <summary>Gets durable execution history, independent of resumable state.</summary>
+    public DbSet<AgentRunEntity> AgentRuns => Set<AgentRunEntity>();
+
+    /// <summary>Gets ordered per-run messages and tool activity.</summary>
+    public DbSet<AgentRunActivityEntity> AgentRunActivities => Set<AgentRunActivityEntity>();
+
     /// <inheritdoc/>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         var schema = Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite" ? null : Schema;
+
+        modelBuilder.Entity<AgentStateEntity>(entity =>
+        {
+            entity.ToTable("agent_states", schema);
+            entity.HasKey(state => state.Key).HasName("pk_agent_states");
+            entity.Property(state => state.Key).HasColumnName("key").HasMaxLength(200);
+            entity.Property(state => state.TenantId).HasColumnName("tenant_id").HasMaxLength(200);
+            entity.Property(state => state.AgentName).HasColumnName("agent_name").HasMaxLength(200);
+            entity.Property(state => state.SessionId).HasColumnName("session_id");
+            entity.Property(state => state.Revision).HasColumnName("revision");
+            entity.Property(state => state.PayloadJson).HasColumnName("payload_json").HasColumnType("jsonb");
+            entity.Property(state => state.UpdatedAtUtc).HasColumnName("updated_at_utc");
+            entity.HasIndex(state => new { state.TenantId, state.AgentName })
+                .HasDatabaseName("ix_agent_states_tenant_agent");
+        });
+
+        modelBuilder.Entity<AgentRunEntity>(entity =>
+        {
+            entity.ToTable("agent_runs", schema);
+            entity.HasKey(run => run.Id).HasName("pk_agent_runs");
+            entity.Property(run => run.Id).HasColumnName("id");
+            entity.Property(run => run.TenantId).HasColumnName("tenant_id").HasMaxLength(200);
+            entity.Property(run => run.AgentName).HasColumnName("agent_name").HasMaxLength(200);
+            entity.Property(run => run.SessionId).HasColumnName("session_id");
+            entity.Property(run => run.DefinitionVersion).HasColumnName("definition_version").HasMaxLength(100);
+            entity.Property(run => run.ModelName).HasColumnName("model_name");
+            entity.Property(run => run.Status).HasColumnName("status").HasMaxLength(30);
+            entity.Property(run => run.StartedAtUtc).HasColumnName("started_at_utc");
+            entity.Property(run => run.CompletedAtUtc).HasColumnName("completed_at_utc");
+            entity.Property(run => run.ErrorType).HasColumnName("error_type");
+            entity.Property(run => run.SummaryJson).HasColumnName("summary_json").HasColumnType("jsonb");
+            entity.HasIndex(run => new { run.TenantId, run.AgentName, run.StartedAtUtc })
+                .HasDatabaseName("ix_agent_runs_tenant_agent_started");
+        });
+
+        modelBuilder.Entity<AgentRunActivityEntity>(entity =>
+        {
+            entity.ToTable("agent_run_activities", schema);
+            entity.HasKey(activity => activity.Id).HasName("pk_agent_run_activities");
+            entity.Property(activity => activity.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            entity.Property(activity => activity.RunId).HasColumnName("run_id");
+            entity.Property(activity => activity.RecordedAtUtc).HasColumnName("recorded_at_utc");
+            entity.Property(activity => activity.ActivityJson).HasColumnName("activity_json").HasColumnType("jsonb");
+            entity.HasOne<AgentRunEntity>().WithMany().HasForeignKey(activity => activity.RunId)
+                .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_agent_run_activities_run");
+            entity.HasIndex(activity => new { activity.RunId, activity.Id })
+                .HasDatabaseName("ix_agent_run_activities_run_id");
+        });
 
         modelBuilder.Entity<AgentDefinitionSnapshotEntity>(entity =>
         {

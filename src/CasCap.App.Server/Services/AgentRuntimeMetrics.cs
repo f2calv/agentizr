@@ -12,12 +12,24 @@ public sealed class AgentRuntimeMetrics
     private readonly Counter<long> _tokens;
     private readonly Counter<long> _toolCalls;
     private readonly Counter<long> _reasoningMarkup;
+    private readonly Counter<long> _haOperations;
+    private readonly Histogram<double> _haDuration;
+    private readonly UpDownCounter<long> _sessionOwners;
 
     /// <summary>Creates Agent Runtime instruments on the configured application meter.</summary>
     public AgentRuntimeMetrics(IOptions<AppConfig> appConfig, IMeterFactory meterFactory)
     {
         var prefix = appConfig.Value.MetricNamePrefix;
         var meter = meterFactory.Create(prefix);
+        _haOperations = meter.CreateCounter<long>(
+            $"{prefix}.ha.operations", unit: "{operation}",
+            description: "Persistence, cache, lock and conversation-history outcomes.");
+        _haDuration = meter.CreateHistogram<double>(
+            $"{prefix}.ha.duration", unit: "ms",
+            description: "Database state write and session lock acquisition duration.");
+        _sessionOwners = meter.CreateUpDownCounter<long>(
+            $"{prefix}.ha.session.owners", unit: "{session}",
+            description: "Session mutations currently holding a PostgreSQL advisory lock.");
         _runs = meter.CreateCounter<long>(
             $"{prefix}.run",
             unit: "{run}",
@@ -90,23 +102,37 @@ public sealed class AgentRuntimeMetrics
         }
     }
 
-    /// <summary>Records a failed or cancelled run.</summary>
+    /// <summary>Records a failed, cancelled or conflicting run.</summary>
     public void RecordFailed(
         string tenant,
         string agent,
         AgentDefinition? definition,
         TimeSpan duration,
-        bool cancelled)
+        bool cancelled,
+        bool conflict = false)
     {
         var tags = Tags(
             tenant,
             agent,
-            cancelled ? "cancelled" : "failed",
+            conflict ? "conflict" : cancelled ? "cancelled" : "failed",
             definition?.Agent.Provider,
             definition?.Provider.ModelName);
         _runs.Add(1, tags);
         _runDuration.Record(duration.TotalMilliseconds, tags);
     }
+
+    /// <summary>Records a bounded HA operation outcome without session, run or cache-key identifiers.</summary>
+    public void RecordHa(string tenant, string operation, string outcome, TimeSpan? duration = null, long count = 1)
+    {
+        var tags = new TagList([new("tenant", tenant), new("operation", operation), new("outcome", outcome)]);
+        _haOperations.Add(count, tags);
+        if (duration is { } elapsed)
+            _haDuration.Record(elapsed.TotalMilliseconds, tags);
+    }
+
+    /// <summary>Records acquisition or release of a connection-bound session owner.</summary>
+    public void RecordSessionOwner(string tenant, bool acquired) =>
+        _sessionOwners.Add(acquired ? 1 : -1, new TagList([new("tenant", tenant)]));
 
     private void RecordToolCalls(int count, string toolOutcome, TagList tags)
     {

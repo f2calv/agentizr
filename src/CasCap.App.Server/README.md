@@ -12,7 +12,7 @@ Tracked settings define no agents.
 
 The runtime resolves a versioned definition and provider credential for the authenticated tenant,
 then applies session overrides and coordinates execution and persistence. In non-Development
-deployments, PostgreSQL owns definitions and Redis holds runtime state across replicas.
+deployments, PostgreSQL owns definitions and runtime state across replicas; Redis is an optional cache.
 
 The v1 execution response projects execution diagnostics into a stable wire surface: actual provider
 model, finish reason, timing, token usage, tool calls, session summary, tool-produced attachments,
@@ -81,7 +81,7 @@ cache, not the authority.
 `TenantAuthenticationConfig` binds from `CasCap:TenantAuthenticationConfig`. When enabled, JWT
 validation maps the configured caller claim (`azp` by default) through an explicit tenant/caller
 allowlist to derive `ITenantContext.TenantId`. A caller identifier can belong to exactly one tenant.
-Authentication and Redis state are mandatory outside Development; startup fails closed when either
+Authentication and PostgreSQL are mandatory outside Development; startup fails closed when either
 is missing.
 
 Execution and session operations require `agent.execute`. Definition administration uses separate
@@ -139,20 +139,31 @@ below `MinimumPassRate`. Set `AgentDefinitionPolicyConfig.RequireEvaluationBefor
 refuse every activation, including rollback, that carries no evaluation.
 `EvaluationRunTimeoutSeconds` bounds each run. Results are returned to the caller and not persisted.
 
-Sessions and overrides use `CasCap.Common.Caching` Redis storage with opaque SHA-256 keys and
-`AgentRuntimeConfig.StateSlidingExpirationHours`. Redis stores serialized runtime state and
-secret-free active-definition cache entries, never provider credentials. Development falls back to
-process-local stores.
+Sessions, snapshots and overrides use PostgreSQL storage behind the existing store abstractions,
+with a durable revision check before reading their Redis-cached payloads. Runtime mutations hold a
+connection-bound PostgreSQL session advisory lock; overlapping requests return HTTP 409.
+`AgentRuntimeConfig.StateSlidingExpirationHours` controls only Redis payload TTL, not durable
+retention. Development without PostgreSQL uses process-local stores.
 
 The definition version participates in every session and override key, so changing the active
 version invalidates state by namespace without scanning Redis. Previous snapshots and state remain
-available for rollback until normal retention expires.
+available for rollback until explicitly removed.
 
-Execution caches both the active-version pointer and immutable version-qualified definitions in
-Redis. `ActiveVersionCacheExpirationMinutes` defaults to `10` (absolute expiry), and
-`DefinitionCacheExpirationMinutes` to `60` (sliding expiry). Activation invalidates the active
-pointer; a warm pointer and snapshot allow runs during a temporary PostgreSQL outage. A failed
-pointer invalidation can leave the old active version visible until the pointer expires.
+Immutable definition contents are cached with `DefinitionCacheExpirationMinutes` (default `60`,
+sliding expiry). `ActiveDefinitionCacheSeconds` bounds active-pointer cache age (default `5`,
+absolute expiry; `0` disables it), with invalidation after activation/deactivation. An already-started
+run keeps its selected immutable version. Session ownership/state still requires PostgreSQL.
+
+`ConversationHistoryEnabled` (default `false`) opts into durable debugging history: user/model text,
+tool calls/results, partial failed activity and turn outcomes. Reset/compaction leaves that archive
+intact. See [persistence](../../docs/persistence.md) for privacy, tables and Compose test setup, and
+[high availability](../../docs/high-availability.md) for concurrency and cutover constraints.
+
+Runtime turns and session mutations acquire exclusive tenant/agent/session ownership across
+definition versions. Overlap returns HTTP 409 without waiting. State writes use the owning
+PostgreSQL connection and cannot reconnect after ownership is lost. Development without PostgreSQL
+uses process-local coordination. See [high availability](../../docs/high-availability.md) for rollout
+and failure constraints.
 
 Named session snapshots use their own opaque state namespace. Session inspection and compaction are
 performed inside the runtime through Agent Framework serialization; raw session JSON never crosses
@@ -226,7 +237,8 @@ and credentials:
     "AgentRuntimeConfig": {
       "StateSlidingExpirationHours": 168,
       "DefinitionCacheExpirationMinutes": 60,
-      "ActiveVersionCacheExpirationMinutes": 10,
+      "ActiveDefinitionCacheSeconds": 5,
+      "ConversationHistoryEnabled": false,
       "MaximumToolInvocationsPerRun": 50,
       "SessionCompaction": {
         "ExampleProvider": {
@@ -270,7 +282,7 @@ startup never migrates the database.
 | `CasCap.Common.Hosting.AspNetCore` | Shared Serilog, OpenTelemetry, configuration abstractions, and build metadata |
 | `CasCap.AgentRuntime.Execution` | Internal project: agent construction, providers, MCP tools, delegation and compaction |
 | `CasCap.AgentRuntime.Evaluation` | Internal project: definition evaluation grading, fixtures and recording |
-| `CasCap.Common.Caching` | Redis-backed tenant session and override state |
+| `CasCap.Common.Caching` | Optional Redis payload/definition caching |
 | `CasCap.AgentRuntime.Contracts` | Version 1 request and response DTOs |
 | `Microsoft.AspNetCore.Authentication.JwtBearer` | Trusted token validation and tenant-claim identity |
 

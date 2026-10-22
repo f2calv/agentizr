@@ -26,7 +26,7 @@ The chart aliases the shared `workload` chart twice:
 | `migrate` | One-shot `agentizr --migrate` job for externally applied migrations |
 
 Both workload aliases default to zero replicas; dashboard rendering is enabled independently.
-A deployment supplies PostgreSQL, Redis, JWT tenancy,
+A deployment supplies PostgreSQL, optional Redis caching, JWT tenancy,
 definition publication policy and credential configuration through environment variables and
 Secrets, then enables both workloads. Configure the migration Job as an Argo CD PreSync hook so it
 completes before the runtime Deployment rolls.
@@ -69,12 +69,12 @@ Only the example above adds Argo CD hook annotations; they are not defaulted by 
 | `runtime.resources` | 50m/128Mi requests; 500m/512Mi limits | Runtime CPU and memory |
 | `migrate.resources` | 25m/64Mi requests; 250m/256Mi limits | Migration CPU and memory |
 | `dashboards.enabled` | `true` | Include the dashboard subchart |
-| `dashboards.dashboardFolder` | `Agent Runtime` | Grafana sidecar folder |
+| `dashboards.dashboardFolder` | `Agentizr` | Grafana sidecar folder |
 | `dashboards.datasources.prometheus` | `prometheus` | Existing Prometheus datasource UID |
 
 The workload dependency owns the underlying Deployment/Job, environment and Secret-reference
 contract. Both processes need PostgreSQL and valid non-Development authentication configuration;
-only the runtime needs Redis. Configure allowed callers, provider/tool authorities and private
+only the runtime uses optional Redis caching. Configure allowed callers, provider/tool authorities and private
 provider credentials using the [host configuration reference](../../src/CasCap.App.Server/README.md#configuration).
 The migration Job applies schema only; publish and activate initial agent definitions separately.
 

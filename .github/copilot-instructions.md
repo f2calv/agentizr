@@ -25,9 +25,18 @@ Everything below is specific to this repository.
   activation alone advances the pointer and appends actor/reason audit history.
 - Protect definition reads, publication and activation with separate scopes. Derive tenant,
   publisher and activation actor identity from validated claims, never request DTOs.
-- Use Redis only for secret-free definition caching and version-qualified runtime state. Provider
+- Use Redis only for definition caching and revision-qualified durable-state payload caching. Provider
   and MCP credentials remain behind `IProviderCredentialStore` / `IMcpCredentialStore` and must not
   enter PostgreSQL or Redis.
+- PostgreSQL owns sessions, named snapshots, overrides and opt-in debugging history. Check the
+  durable state revision before using a cached payload; old revisions expire without invalidation.
+  Active definition pointers may be cached briefly with absolute expiry and activation invalidation.
+  Runtime mutations must hold `IAgentSessionLock` and write using its owning PostgreSQL connection.
+  Never substitute cache-fill locking or local-cache invalidation for session coordination.
+- Keep debugging history separate from resumable state; reset and compaction must not remove it.
+  Persist only explicit message/tool/usage projections, never credentials, headers or raw framework
+  results. Use the Compose tests profile and isolated per-run databases/key namespaces for local
+  persistence integration tests.
 - Apply EF migrations externally. Never use `HasData` for runtime definitions or other mutable,
   tenant-owned data.
 

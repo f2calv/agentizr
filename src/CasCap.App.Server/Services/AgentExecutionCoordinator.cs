@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using CasCap.Exceptions;
 
 namespace CasCap.Services;
 
@@ -11,7 +12,9 @@ public sealed class AgentExecutionCoordinator(
     IAgentSessionStore sessionStore,
     IAgentOverrideStore overrideStore,
     IAgentSessionCodec sessionCodec,
-    IAgentExecutor executor)
+    IAgentExecutor executor,
+    IAgentSessionLock sessionLock,
+    AgentRunHistoryService? historySvc = null)
 {
     /// <summary>Executes one agent turn and persists returned session state when enabled.</summary>
     public async ValueTask<AgentExecutionResult?> ExecuteAsync(
@@ -20,8 +23,12 @@ public sealed class AgentExecutionCoordinator(
     {
         var stopwatch = Stopwatch.StartNew();
         AgentDefinition? definition = null;
+        Guid? runId = null;
+        IAsyncDisposable? sessionLease = null;
         try
         {
+            sessionLease = await sessionLock.AcquireAsync(
+                request.AgentName, request.SessionId, cancellationToken);
             definition = await definitionStore.GetAsync(request.AgentName, cancellationToken);
             if (definition is null)
             {
@@ -38,7 +45,13 @@ public sealed class AgentExecutionCoordinator(
             var sessionStateJson = sessionEnabled
                 ? await sessionStore.GetAsync(request.AgentName, definition.Version, request.SessionId, cancellationToken)
                 : null;
+            if (sessionEnabled)
+                metrics.RecordHa(tenantContext.TenantId, "session.load", sessionStateJson is null ? "new" : "resumed");
             var apiKey = await credentialStore.GetApiKeyAsync(definition.Agent.Provider, cancellationToken);
+            historySvc?.ExcludeSecret(apiKey);
+            if (historySvc is not null)
+                runId = await historySvc.StartAsync(
+                    request, definition, overrides.ModelName ?? definition.Provider.ModelName, cancellationToken);
 
             var result = await executor.ExecuteAsync(new AgentExecutionContext
             {
@@ -47,6 +60,9 @@ public sealed class AgentExecutionCoordinator(
                 ProviderApiKey = apiKey,
                 SessionStateJson = sessionStateJson,
                 Overrides = overrides,
+                HistorySink = runId is { } id && historySvc is not null
+                    ? (activity, token) => historySvc.AppendAsync(id, activity, token)
+                    : null,
             }, cancellationToken);
 
             AgentSessionInspection? sessionInspection = null;
@@ -71,6 +87,8 @@ public sealed class AgentExecutionCoordinator(
                 ModelName = overrides.ModelName ?? definition.Provider.ModelName,
                 SessionInspection = sessionInspection,
             };
+            if (runId is { } completedId && historySvc is not null)
+                await historySvc.FinishAsync(completedId, completed, null);
             metrics.RecordCompleted(
                 tenantContext.TenantId,
                 definition,
@@ -80,15 +98,32 @@ public sealed class AgentExecutionCoordinator(
                 completed.Events.Select(executionEvent => executionEvent.Diagnostics).OfType<AgentRunResult>());
             return completed;
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (Exception error)
         {
-            metrics.RecordFailed(tenantContext.TenantId, request.AgentName, definition, stopwatch.Elapsed, cancelled: true);
+            metrics.RecordFailed(tenantContext.TenantId, request.AgentName, definition,
+                stopwatch.Elapsed, cancelled: error is OperationCanceledException,
+                conflict: error is AgentSessionConflictException);
+            await FinishFailedHistoryAsync(runId, error);
             throw;
         }
-        catch
+        finally
         {
-            metrics.RecordFailed(tenantContext.TenantId, request.AgentName, definition, stopwatch.Elapsed, cancelled: false);
-            throw;
+            if (sessionLease is not null)
+                await sessionLease.DisposeAsync();
+        }
+    }
+
+    private async Task FinishFailedHistoryAsync(Guid? runId, Exception error)
+    {
+        if (runId is not { } failedId || historySvc is null)
+            return;
+        try
+        {
+            await historySvc.FinishAsync(failedId, null, error);
+        }
+        catch (Exception archiveError)
+        {
+            throw new AggregateException("Turn failed and its terminal history could not be recorded.", error, archiveError);
         }
     }
 }

@@ -1,4 +1,5 @@
 using CasCap.Constants;
+using CasCap.Tests.Integration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Hosting;
@@ -82,13 +83,22 @@ public sealed class TenantSecurityStartupTests
     }
 
     [Fact]
-    public void ProductionWithoutRedis_IsRejected()
+    public void ProductionWithoutPostgreSql_IsRejected()
     {
         using var factory = CreateAuthenticatedFactory("Production");
 
         var exception = Assert.ThrowsAny<Exception>(factory.CreateClient);
 
-        Assert.Contains("Redis-backed Agent Runtime state is required", exception.ToString(), StringComparison.Ordinal);
+        Assert.Contains("PostgreSQL Agent Runtime definitions are required", exception.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProductionWithPostgreSql_DoesNotRequireRedis()
+    {
+        using var factory = new TenantSecurityWebApplicationFactory("Production", includeTenantMappings: true, includePostgres: true);
+        using var scope = factory.Services.CreateScope();
+        Assert.IsType<PostgresAgentStateStore>(scope.ServiceProvider.GetRequiredService<IAgentSessionLock>());
+        Assert.IsType<PostgresAgentSessionStore>(scope.ServiceProvider.GetRequiredService<IAgentSessionStore>());
     }
 
     private static WebApplicationFactory<Program> CreateAuthenticatedFactory(string environment) =>
@@ -96,11 +106,15 @@ public sealed class TenantSecurityStartupTests
 
     private sealed class TenantSecurityWebApplicationFactory(
         string environment,
-        bool includeTenantMappings) : WebApplicationFactory<Program>
+        bool includeTenantMappings,
+        bool includePostgres = false) : WebApplicationFactory<Program>
     {
         private readonly IReadOnlyDictionary<string, string?> _startupEnvironment =
             new Dictionary<string, string?>
             {
+                ["CasCap__DatabaseConfig__ConnectionString"] = includePostgres
+                    ? PersistenceTestSettings.PostgreSql
+                    : null,
                 ["CasCap__TenantAuthenticationConfig__Enabled"] = bool.TrueString,
                 ["CasCap__TenantAuthenticationConfig__Authority"] = "https://identity.example.com",
                 ["CasCap__TenantAuthenticationConfig__Audience"] = "agentizr",

@@ -1,9 +1,10 @@
+using StackExchange.Redis;
+
 namespace CasCap.Services;
 
 /// <summary>Redis read-through cache over the PostgreSQL definition authority.</summary>
 /// <remarks>
-/// Both the active-version pointer and the immutable version snapshots are cached, so a run needs no
-/// database query while they are warm. Activation removes the pointer from every pod's cache.
+/// Immutable snapshots are cached separately from short-lived active pointers.
 /// </remarks>
 internal sealed class CachedAgentDefinitionStore(
     PostgresAgentDefinitionStore innerStore,
@@ -27,9 +28,9 @@ internal sealed class CachedAgentDefinitionStore(
             if (cached is not null)
                 return cached;
         }
-        catch (Exception ex)
+        catch (RedisException)
         {
-            logger.LogWarning(ex, "Unable to read cached agent definition");
+            LogCacheUnavailable();
         }
 
         var definition = (await innerStore.GetVersionAsync(agentName, definitionVersion, cancellationToken))?.Definition;
@@ -42,43 +43,12 @@ internal sealed class CachedAgentDefinitionStore(
                     definition,
                     slidingExpiration: TimeSpan.FromMinutes(runtimeConfig.Value.DefinitionCacheExpirationMinutes));
             }
-            catch (Exception ex)
+            catch (RedisException)
             {
-                logger.LogWarning(ex, "Unable to cache agent definition");
+                LogCacheUnavailable();
             }
         }
         return definition;
-    }
-
-    private async ValueTask<string?> GetActiveVersionAsync(string agentName, CancellationToken cancellationToken)
-    {
-        var key = AgentDefinitionCacheKey.CreateActiveVersion(tenantContext.TenantId, agentName);
-        try
-        {
-            if (await distributedCache.Get<string>(key) is { } cachedVersion)
-                return cachedVersion;
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Unable to read cached active definition version");
-        }
-
-        var definitionVersion = await innerStore.GetActiveVersionAsync(agentName, cancellationToken);
-        if (definitionVersion is not null)
-        {
-            try
-            {
-                await distributedCache.Set(
-                    key,
-                    definitionVersion,
-                    absoluteExpiration: timeProvider.GetUtcNow().AddMinutes(runtimeConfig.Value.ActiveVersionCacheExpirationMinutes));
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Unable to cache active definition version");
-            }
-        }
-        return definitionVersion;
     }
 
     /// <inheritdoc/>
@@ -129,15 +99,15 @@ internal sealed class CachedAgentDefinitionStore(
         string? changeReason,
         CancellationToken cancellationToken)
     {
-        var activated = await innerStore.ActivateAsync(
+        var changed = await innerStore.ActivateAsync(
             agentName,
             definitionVersion,
             activatedBy,
             changeReason,
             cancellationToken);
-        if (activated)
-            await InvalidateActiveVersionAsync(agentName);
-        return activated;
+        if (changed)
+            await InvalidatePointerAsync(agentName);
+        return changed;
     }
 
     /// <inheritdoc/>
@@ -147,28 +117,15 @@ internal sealed class CachedAgentDefinitionStore(
         string changeReason,
         CancellationToken cancellationToken)
     {
-        var deactivated = await innerStore.DeactivateAsync(agentName, deactivatedBy, changeReason, cancellationToken);
-        if (deactivated)
-            await InvalidateActiveVersionAsync(agentName);
-        return deactivated;
+        var changed = await innerStore.DeactivateAsync(agentName, deactivatedBy, changeReason, cancellationToken);
+        if (changed)
+            await InvalidatePointerAsync(agentName);
+        return changed;
     }
 
     /// <inheritdoc/>
     public ValueTask<IReadOnlyList<AgentDefinition>> GetActiveDefinitionsAsync(CancellationToken cancellationToken) =>
         innerStore.GetActiveDefinitionsAsync(cancellationToken);
-
-    private async Task InvalidateActiveVersionAsync(string agentName)
-    {
-        try
-        {
-            await distributedCache.Delete(AgentDefinitionCacheKey.CreateActiveVersion(tenantContext.TenantId, agentName));
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Unable to invalidate the cached active definition version; it expires within {Minutes} minutes",
-                runtimeConfig.Value.ActiveVersionCacheExpirationMinutes);
-        }
-    }
 
     /// <inheritdoc/>
     public ValueTask<IReadOnlyList<AgentDefinitionActivationItem>> GetActivationHistoryAsync(
@@ -176,4 +133,56 @@ internal sealed class CachedAgentDefinitionStore(
         int limit,
         CancellationToken cancellationToken) =>
         innerStore.GetActivationHistoryAsync(agentName, limit, cancellationToken);
+
+    private async ValueTask<string?> GetActiveVersionAsync(string agentName, CancellationToken cancellationToken)
+    {
+        var key = AgentDefinitionCacheKey.CreateActive(tenantContext.TenantId, agentName);
+        var observedAt = timeProvider.GetUtcNow();
+        if (runtimeConfig.Value.ActiveDefinitionCacheSeconds == 0)
+            return await innerStore.GetActiveVersionAsync(agentName, cancellationToken);
+        try
+        {
+            var cached = await distributedCache.Get<ActivePointer>(key);
+            if (cached is not null && cached.ExpiresAtUtc > observedAt)
+                return cached.Version;
+        }
+        catch (RedisException)
+        {
+            LogCacheUnavailable();
+        }
+        var version = await innerStore.GetActiveVersionAsync(agentName, cancellationToken);
+        var expiresAt = observedAt.AddSeconds(runtimeConfig.Value.ActiveDefinitionCacheSeconds);
+        if (expiresAt > timeProvider.GetUtcNow())
+        {
+            try
+            {
+                await distributedCache.Set(key, new ActivePointer(version, expiresAt), absoluteExpiration: expiresAt);
+            }
+            catch (RedisException)
+            {
+                LogCacheUnavailable();
+            }
+        }
+        return version;
+    }
+
+    private async ValueTask InvalidatePointerAsync(string agentName)
+    {
+        try
+        {
+            await distributedCache.Delete(AgentDefinitionCacheKey.CreateActive(tenantContext.TenantId, agentName));
+        }
+        catch (RedisException)
+        {
+            LogCacheUnavailable();
+        }
+    }
+
+    private void LogCacheUnavailable()
+    {
+        if (logger.IsEnabled(LogLevel.Warning))
+            logger.LogWarning("{ClassName} Definition cache unavailable; using PostgreSQL", nameof(CachedAgentDefinitionStore));
+    }
+
+    private sealed record ActivePointer(string? Version, DateTimeOffset ExpiresAtUtc);
 }

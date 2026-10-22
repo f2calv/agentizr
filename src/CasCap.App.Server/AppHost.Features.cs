@@ -9,8 +9,7 @@ public static partial class AppHost
 {
     private static void AddFeatures(
         WebApplicationBuilder builder,
-        bool tenantAuthenticationEnabled,
-        bool migrateOnly)
+        bool tenantAuthenticationEnabled)
     {
         builder.Services.AddOptionsWithValidateOnStart<AgentRuntimeConfig>()
             .BindConfiguration(AgentRuntimeConfig.ConfigurationSectionName)
@@ -28,9 +27,6 @@ public static partial class AppHost
             throw new InvalidOperationException("Agent Runtime Redis records require JSON serialization.");
         if (redisEnabled)
             builder.Services.AddCasCapCaching(builder.Configuration);
-        // Schema migration touches only PostgreSQL, so the migration job needs no runtime state store.
-        if (!redisEnabled && !migrateOnly && !builder.Environment.IsDevelopment())
-            throw new InvalidOperationException("Redis-backed Agent Runtime state is required outside Development.");
 
         var databaseConfig = builder.Configuration
             .GetSection(DatabaseConfig.ConfigurationSectionName)
@@ -95,14 +91,20 @@ public static partial class AppHost
         builder.Services.AddScoped<IMcpCredentialStore, ConfigurationMcpCredentialStore>();
         // Unvalidated: only Basic MCP credentials without their own parameter read it.
         builder.Services.AddOptions<ApiAuthConfig>().BindConfiguration(ApiAuthConfig.ConfigurationSectionName);
-        if (redisEnabled)
+        if (postgresEnabled)
         {
-            builder.Services.AddScoped<IAgentSessionStore, RedisAgentSessionStore>();
-            builder.Services.AddScoped<IAgentOverrideStore, RedisAgentOverrideStore>();
+            builder.Services.AddScoped<PostgresAgentStateStore>();
+            builder.Services.AddScoped<AgentRunHistoryService>();
+            builder.Services.AddScoped<IAgentSessionLock>(services =>
+                services.GetRequiredService<PostgresAgentStateStore>());
+            builder.Services.AddScoped<IAgentSessionStore, PostgresAgentSessionStore>();
+            builder.Services.AddScoped<IAgentOverrideStore, PostgresAgentOverrideStore>();
         }
         else
         {
             builder.Services.AddSingleton<AgentRuntimeState>();
+            builder.Services.AddSingleton<InMemoryAgentSessionLock>();
+            builder.Services.AddScoped<IAgentSessionLock, ConfiguredAgentSessionLock>();
             builder.Services.AddScoped<IAgentSessionStore, InMemoryAgentSessionStore>();
             builder.Services.AddScoped<IAgentOverrideStore, InMemoryAgentOverrideStore>();
         }

@@ -1,9 +1,8 @@
 namespace CasCap.Services;
 
-/// <summary>Redis-backed tenant-qualified runtime override store.</summary>
-internal sealed class RedisAgentOverrideStore(
-    IDistributedCache distributedCache,
-    IOptions<AgentRuntimeConfig> runtimeConfig,
+/// <summary>PostgreSQL-backed tenant-qualified runtime overrides with Redis payload caching.</summary>
+internal sealed class PostgresAgentOverrideStore(
+    PostgresAgentStateStore stateStore,
     ITenantContext tenantContext) : IAgentOverrideStore
 {
     /// <inheritdoc/>
@@ -14,25 +13,21 @@ internal sealed class RedisAgentOverrideStore(
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var value = await distributedCache.Get<AgentOverrideState>(GetKey(agentName, definitionVersion, sessionId));
+        var value = await stateStore.GetAsync<AgentOverrideState>(
+            GetKey(agentName, definitionVersion, sessionId), cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         return value ?? new AgentOverrideState();
     }
 
     /// <inheritdoc/>
-    public async ValueTask SetAsync(
+    public ValueTask SetAsync(
         string agentName,
         string definitionVersion,
         string sessionId,
-        AgentOverrideState stateValue,
+        AgentOverrideState state,
         CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        await distributedCache.Set(
-            GetKey(agentName, definitionVersion, sessionId),
-            stateValue,
-            TimeSpan.FromHours(runtimeConfig.Value.StateSlidingExpirationHours));
-    }
+        => stateStore.WriteAsync(
+            agentName, sessionId, GetKey(agentName, definitionVersion, sessionId), state, cancellationToken);
 
     private string GetKey(string agentName, string definitionVersion, string sessionId) =>
         AgentStateKey.CreateRedis("override", tenantContext.TenantId, agentName, definitionVersion, sessionId);
