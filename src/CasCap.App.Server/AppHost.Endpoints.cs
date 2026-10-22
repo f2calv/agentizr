@@ -7,18 +7,16 @@ public static partial class AppHost
     {
         app.UseExceptionHandler();
         if (tenantAuthenticationEnabled)
-        {
             app.UseAuthentication();
-            app.UseAuthorization();
-        }
+        app.UseAuthorization();
 
         app.MapGet("/", () => Results.Ok(new
         {
             Service = "agentizr"
         }));
-        if (tenantAuthenticationEnabled || app.Environment.IsDevelopment())
-            app.MapAgentRuntime(tenantAuthenticationEnabled);
-        app.MapControllers();
+        var controllers = app.MapControllers();
+        if (!tenantAuthenticationEnabled && app.Environment.IsDevelopment())
+            controllers.AllowAnonymous();
         app.MapHealthChecks("/healthz");
     }
 }

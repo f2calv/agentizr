@@ -14,11 +14,11 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 
 | Class | Method count | Test-case count | Description |
 | --- | ---: | ---: | --- |
-| `EndpointSmokeTests` | 2 | 3 | Verifies `/` and `/healthz` return HTTP 200 and `/mcp` is absent by default |
+| `EndpointSmokeTests` | 4 | 5 | Verifies host endpoints, disabled MCP, all 19 named controller actions and inferred API response metadata |
 | `AgentizrMcpEndpointTests` | 3 | 3 | Verifies MCP discovery of only the read-only status tool, its structured result, and `Origin` rejection |
-| `AgentRuntimeProtocolTests` | 8 | 8 | Verifies typed-client execution, live event streaming, validation, session-control lifecycle, and effective instruction disclosure |
-| `AgentDefinitionAdministrationProtocolTests` | 13 | 21 | Verifies inactive publication, evaluation, evaluation-gated activation, rollback, delegation-aware deactivation, audit attribution, strict policy/delegation/credential rejection, conflicts, and bounded history |
-| `TenantSecurityStartupTests` | 7 | 7 | Verifies anonymous execution/control-plane rejection, separate execution/admin policies, required JWT/PostgreSQL and optional Redis in Production |
+| `AgentRuntimeProtocolTests` | 9 | 12 | Verifies typed-client execution, streaming, DTO/JSON validation problems, session controls and instruction disclosure |
+| `AgentDefinitionAdministrationProtocolTests` | 13 | 23 | Verifies publication Location, evaluation/activation, rollback, deactivation, audit attribution, policy/credential rejection, conflicts and bounded query binding |
+| `TenantSecurityStartupTests` | 7 | 7 | Verifies anonymous rejection, policy separation on all controller actions, required JWT/PostgreSQL and optional Redis in Production |
 | `AgentExecutionCoordinatorTests` | 3 | 3 | Verifies definition, credential, override, session, bypass, and executor orchestration |
 | `AgentRuntimeBuiltInToolsTests` | 3 | 5 | Verifies root runtime tools, reachable delegation metadata, tenant-local time formatting and opt-out |
 | `AgentRuntimeMetricsTests` | 5 | 5 | Verifies execution and bounded HA dimensions, ownership balance, duration and conflict outcomes |
@@ -38,7 +38,7 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | `ConfigurationProviderCredentialStoreTests` | 2 | 5 | Verifies the runtime's Entra credential is offered only to a tenant's opted-in providers |
 | `SessionCompactionConfigTests` | 3 | 6 | Verifies per-provider compaction resolution (tenant override, runtime entry, defaults) and startup validation |
 | `LiveAgentRuntimeSmokeTests` | 1 | 1 | Opt-in authenticated run, streaming, session inspection and cleanup against a complete live runtime |
-| **Total** | **103** | **136** | Source-declared cases, not an execution result |
+| **Total** | **106** | **144** | Source-declared cases, not an execution result |
 
 Counts expand every `[InlineData]` row; this project uses no `MemberData` or `ClassData` providers.
 
@@ -52,7 +52,7 @@ evaluation tests.
 
 | Category | Test-case count | Purpose |
 | --- | ---: | --- |
-| `Integration` | 73 | ASP.NET Core host protocols, startup security, PostgreSQL persistence and Redis payload caching |
+| `Integration` | 81 | ASP.NET Core host protocols, startup security, PostgreSQL persistence and Redis payload caching |
 | `Agent Runtime` | 43 | Runtime orchestration, tools, metrics, evaluation, persistence, caching, locking and compaction |
 | `Tenant Isolation` | 19 | Cross-tenant state, JWT permissions, caller mappings, MCP and provider credentials and identity isolation |
 | `PostgreSQL` | 23 | Definitions, durable state and run history against the Compose tests-profile database |

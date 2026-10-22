@@ -48,7 +48,26 @@ agent's reachable active delegation graph; delegated agents do not receive anoth
 | `POST /api/v1/agents/{agentName}/definitions/active/deactivate` | Deactivates the active version with an audited reason; refused while another active agent delegates to it |
 | `GET /api/v1/agents/{agentName}/definitions/activations` | Gets activation and rollback audit history |
 
-The execution surface uses minimal APIs and derives tenancy from
+The application API uses thin
+[`AgentRuntimeController`](Controllers/AgentRuntimeController.cs) and
+[`AgentDefinitionsController`](Controllers/AgentDefinitionsController.cs) actions. Each delegates to
+one typed method on [`AgentRuntimeApiService`](Services/AgentRuntimeApiService.cs) or
+[`AgentDefinitionApiService`](Services/AgentDefinitionApiService.cs), which owns DTO projection
+and streaming orchestration. Services return DTOs or typed outcomes; controllers select the HTTP
+response with `TypedResults`. Concrete return types provide response metadata without duplicate
+success/error attributes. Explicit metadata covers controller validation, session-conflict handling
+and dynamic status codes.
+
+Routes remain defined by the version 1 contract, and endpoint names are stable. Controller validation
+checks request DTOs before execution. The streaming action returns the existing JSON-array stream
+without buffering it into a collection. The host retains its small root, health and MCP mappings.
+
+API services and authorization policies are registered by
+[`AddAgentRuntimeApi`](Extensions/ServiceCollectionExtensions.cs). Execution, definition reads,
+publication and activation retain separate permissions. Only Development with authentication
+explicitly disabled permits anonymous controller access; non-Development startup still fails closed.
+
+The runtime derives tenancy from
 [`ITenantContext`](https://github.com/f2calv/agentizr/blob/13aa4a19180b9dbd0f14fa08fbf95f67039b69f0/src/CasCap.App.Server/Abstractions/ITenantContext.cs), never from the
 request body. `/healthz` uses the host's health checks; it does not probe the model provider,
 PostgreSQL or Redis.

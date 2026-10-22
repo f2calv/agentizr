@@ -1,4 +1,4 @@
-using CasCap.Constants;
+using CasCap.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 namespace CasCap;
@@ -8,11 +8,7 @@ public static partial class AppHost
 {
     private static bool AddWebApi(WebApplicationBuilder builder)
     {
-        builder.Services.AddProblemDetails();
-        builder.Services.AddExceptionHandler<AgentSessionConflictHandler>();
-        builder.Services.AddHealthChecks();
-        builder.Services.AddControllers();
-        builder.Services.AddValidation();
+        builder.Services.AddAgentRuntimeApi();
 
         var authenticationConfig = builder.Configuration
             .GetSection(TenantAuthenticationConfig.ConfigurationSectionName)
@@ -45,39 +41,6 @@ public static partial class AppHost
                 options.RequireHttpsMetadata = authenticationConfig.HttpsMetadataRequired;
                 options.MapInboundClaims = false;
             });
-        builder.Services.AddAuthorization(options =>
-        {
-            options.AddPolicy(AgentRuntimePolicies.Execute, policy =>
-            {
-                policy.RequireAuthenticatedUser();
-                policy.RequireAssertion(context => AgentRuntimeAuthorization.HasPermission(
-                    context.User,
-                    AgentRuntimePermissions.Execute));
-            });
-            options.AddPolicy(AgentRuntimePolicies.DefinitionRead, policy =>
-            {
-                policy.RequireAuthenticatedUser();
-                policy.RequireAssertion(context => AgentRuntimeAuthorization.HasPermission(
-                    context.User,
-                    AgentRuntimePermissions.DefinitionRead));
-            });
-            options.AddPolicy(AgentRuntimePolicies.DefinitionPublish, policy =>
-            {
-                policy.RequireAuthenticatedUser();
-                policy.RequireAssertion(context => AgentRuntimeAuthorization.HasPermission(
-                    context.User,
-                    AgentRuntimePermissions.DefinitionPublish));
-                policy.RequireAssertion(context => AgentRuntimeAuthorization.HasActorIdentifier(context.User));
-            });
-            options.AddPolicy(AgentRuntimePolicies.DefinitionActivate, policy =>
-            {
-                policy.RequireAuthenticatedUser();
-                policy.RequireAssertion(context => AgentRuntimeAuthorization.HasPermission(
-                    context.User,
-                    AgentRuntimePermissions.DefinitionActivate));
-                policy.RequireAssertion(context => AgentRuntimeAuthorization.HasActorIdentifier(context.User));
-            });
-        });
         return true;
     }
 
