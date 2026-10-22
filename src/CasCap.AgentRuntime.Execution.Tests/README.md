@@ -27,7 +27,7 @@ produce the inventory below; counts come from attributes and expanded `[InlineDa
 | `AgentExtensionsCreateAgentTests` | 10 | 13 | Provider validation for Ollama / Azure OpenAI / OpenAI endpoints and credentials, caller-supplied transport, unsupported provider types |
 | `ToolSourceValidationTests` | 2 | 2 | Remote MCP logical credential references are valid only with endpoint sources |
 | `ToolFilterTests` | 3 | 4 | Include-list filtering always rejects unresolved tool names, regardless of hosting environment |
-| `ToolFailureTests` | 5 | 8 | Throwing tools and MCP `isError` results are flagged on `ToolCalls` and counted in `ToolErrorCount`; calls beyond the per-run tool budget are refused and the budget is shared with sub-agents |
+| `ToolFailureTests` | 5 | 8 | Throwing tools and MCP failures, awaited tool activity/results with safe exception metadata, and budget/activity-sink sharing with sub-agents |
 | `AgentResponseUsageTests` | 6 | 6 | Framework usage aggregation across tool-call round-trips, `RunAnalysisAsync` usage/tool-call reporting and leaked reasoning-markup removal |
 | `AgentTelemetryTests` | 3 | 3 | Agent-level OpenTelemetry spans, sub-agent span nesting, sensitive-data opt-in |
 | `AgentRunScopeTests` | 9 | 11 | Depth nesting, callback inheritance, shared/thread-safe attachment collection, drain semantics, per-scope tool failures |

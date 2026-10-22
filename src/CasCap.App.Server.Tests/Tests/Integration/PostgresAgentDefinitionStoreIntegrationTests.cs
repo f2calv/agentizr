@@ -10,6 +10,7 @@ namespace CasCap.Tests.Integration;
 /// </summary>
 /// <remarks>Each test uses its own tenant, so the tests share one migrated database without interfering.</remarks>
 [Trait("Category", "PostgreSQL")]
+[Trait("Category", "Integration")]
 public sealed class PostgresAgentDefinitionStoreIntegrationTests(PostgreSqlFixture fixture) : IClassFixture<PostgreSqlFixture>
 {
     [Fact]

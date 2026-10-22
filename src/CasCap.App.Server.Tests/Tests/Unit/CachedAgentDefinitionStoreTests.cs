@@ -10,6 +10,7 @@ public sealed class CachedAgentDefinitionStoreTests : IAsyncLifetime
 {
     private readonly SqliteConnection _connection = new("Data Source=:memory:");
     private readonly InMemoryDistributedCache _cache = new();
+    private readonly AdjustableTimeProvider _timeProvider = new();
     private TestDbContextFactory _dbContextFactory = null!;
 
     public async ValueTask InitializeAsync()
@@ -53,7 +54,7 @@ public sealed class CachedAgentDefinitionStoreTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetAsync_WarmCacheServesRunsWhileTheDatabaseIsUnavailable()
+    public async Task GetAsync_WarmPointerExpiresAndRequiresDatabase()
     {
         var tenantContext = new StaticTenantContext("tenant-a");
         var innerStore = new PostgresAgentDefinitionStore(_dbContextFactory, tenantContext, TimeProvider.System);
@@ -63,14 +64,15 @@ public sealed class CachedAgentDefinitionStoreTests : IAsyncLifetime
         await store.GetAsync("assistant", CancellationToken.None);
 
         await _connection.CloseAsync();
-        var definition = await store.GetAsync("assistant", CancellationToken.None);
-
-        Assert.Equal("v1", definition?.Version);
-        Assert.Equal("v1", await _cache.Get<string>(AgentDefinitionCacheKey.CreateActiveVersion("tenant-a", "assistant")));
+        Assert.Equal("v1", (await store.GetAsync("assistant", CancellationToken.None))?.Version);
+        _timeProvider.Advance(TimeSpan.FromSeconds(6));
+        await Assert.ThrowsAsync<SqliteException>(async () =>
+            await store.GetAsync("assistant", CancellationToken.None));
+        Assert.NotNull(await _cache.Get<AgentDefinition>(AgentDefinitionCacheKey.Create("tenant-a", "assistant", "v1")));
     }
 
     [Fact]
-    public async Task ActivateAsync_RemovesTheCachedActiveVersion()
+    public async Task GetAsync_ObservesActivationAndDeactivationFromAnotherReplica()
     {
         var tenantContext = new StaticTenantContext("tenant-a");
         var innerStore = new PostgresAgentDefinitionStore(_dbContextFactory, tenantContext, TimeProvider.System);
@@ -79,13 +81,13 @@ public sealed class CachedAgentDefinitionStoreTests : IAsyncLifetime
         await store.PublishAsync(CreateDefinition("v2"), 1, null, null, CancellationToken.None);
         await store.ActivateAsync("assistant", "v1", null, null, CancellationToken.None);
         await store.GetAsync("assistant", CancellationToken.None);
-        var pointerKey = AgentDefinitionCacheKey.CreateActiveVersion("tenant-a", "assistant");
-        var warmed = await _cache.Get<string>(pointerKey);
+        var otherReplica = CreateStore(innerStore, tenantContext);
 
-        await store.ActivateAsync("assistant", "v2", null, null, CancellationToken.None);
+        await otherReplica.ActivateAsync("assistant", "v2", null, null, CancellationToken.None);
+        Assert.Equal("v2", (await store.GetAsync("assistant", CancellationToken.None))?.Version);
 
-        Assert.Equal("v1", warmed);
-        Assert.Null(await _cache.Get<string>(pointerKey));
+        await otherReplica.DeactivateAsync("assistant", null, "stop", CancellationToken.None);
+        Assert.Null(await store.GetAsync("assistant", CancellationToken.None));
     }
 
     private CachedAgentDefinitionStore CreateStore(PostgresAgentDefinitionStore innerStore, ITenantContext tenantContext) => new(
@@ -94,7 +96,7 @@ public sealed class CachedAgentDefinitionStoreTests : IAsyncLifetime
         Options.Create(new AgentRuntimeConfig()),
         NullLogger<CachedAgentDefinitionStore>.Instance,
         tenantContext,
-        TimeProvider.System);
+        _timeProvider);
 
     private static AgentDefinition CreateDefinition(string version) => new()
     {
@@ -128,5 +130,14 @@ public sealed class CachedAgentDefinitionStoreTests : IAsyncLifetime
     private sealed class StaticTenantContext(string tenantId) : ITenantContext
     {
         public string TenantId { get; } = tenantId;
+    }
+
+    private sealed class AdjustableTimeProvider : TimeProvider
+    {
+        private DateTimeOffset _utcNow = DateTimeOffset.UtcNow;
+
+        public override DateTimeOffset GetUtcNow() => _utcNow;
+
+        public void Advance(TimeSpan duration) => _utcNow += duration;
     }
 }

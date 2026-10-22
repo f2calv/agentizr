@@ -17,4 +17,7 @@ public sealed record AgentExecutionContext
 
     /// <summary>Gets the per-session overrides.</summary>
     public required AgentOverrideState Overrides { get; init; }
+
+    /// <summary>Gets the optional durable activity sink; never includes provider configuration.</summary>
+    public Func<AgentRunActivity, CancellationToken, ValueTask>? HistorySink { get; init; }
 }

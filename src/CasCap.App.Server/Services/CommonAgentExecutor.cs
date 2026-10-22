@@ -35,6 +35,7 @@ internal sealed class CommonAgentExecutor(
         var compaction = GetSessionCompaction(context.Definition);
         var runScope = new AgentRunScope
         {
+            OnActivity = context.HistorySink,
             MaximumToolInvocations = runtimeConfig.Value.MaximumToolInvocationsPerRun,
             OnCompaction = stats =>
             {
@@ -102,6 +103,8 @@ internal sealed class CommonAgentExecutor(
             definition.Agent,
             httpClient,
             tools,
+            configureChatClient: builder => builder.Use(inner =>
+                new AgentHistoryChatClient(inner, definition.Agent.Name, runScope)),
             tokenCredential: credentialStore.GetTokenCredential(definition.Agent.Provider),
             loggerFactory: loggerFactory,
             sessionCompaction: GetSessionCompaction(definition));
@@ -125,6 +128,15 @@ internal sealed class CommonAgentExecutor(
             var message = AgentExtensions.BuildChatMessage(request.Input, request.BinaryContent, request.MimeType);
             if (builtInTools.CreateCurrentTimeContext() is { } currentTime)
                 message.Contents.Add(new TextContent(currentTime));
+
+            if (runScope.Depth > 0 && runScope.OnActivity is { } sink)
+                await sink(new AgentRunActivity
+                {
+                    Kind = "user-message",
+                    AgentName = definition.Agent.Name,
+                    Depth = runScope.Depth,
+                    Data = new { Text = message.Text },
+                }, cancellationToken);
 
             var result = await agent.RunAnalysisAsync(
                 provider,

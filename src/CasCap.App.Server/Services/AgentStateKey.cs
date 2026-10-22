@@ -19,6 +19,14 @@ internal static class AgentStateKey
         string snapshotName) =>
         CreateComposite(tenantId, agentName, definitionVersion, sessionId, snapshotName);
 
+    /// <summary>Creates an opaque session lock key shared across all definition versions.</summary>
+    public static string CreateRedisSessionLock(string tenantId, string agentName, string sessionId)
+    {
+        var composite = CreateComposite(tenantId, agentName, sessionId);
+        var digest = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(composite)));
+        return $"lock:agentizr:session:{digest}";
+    }
+
     /// <summary>Creates an opaque namespaced Redis key that does not disclose its identifiers.</summary>
     public static string CreateRedis(
         string stateKind,

@@ -13,8 +13,8 @@ public sealed record AgentRuntimeConfig : IAppConfig, IValidatableObject
     /// <summary>Gets tenant definitions keyed by stable tenant identifier.</summary>
     public Dictionary<string, TenantAgentConfig> Tenants { get; init; } = [];
 
-    /// <summary>Gets the sliding expiry in hours for session and override state.</summary>
-    /// <remarks>Used by Redis-backed runtime state stores. Defaults to seven days.</remarks>
+    /// <summary>Gets the Redis payload cache expiry in hours.</summary>
+    /// <remarks>Does not expire durable PostgreSQL state or conversation history. Defaults to seven days.</remarks>
     [Range(1, 24 * 365)]
     public int StateSlidingExpirationHours { get; init; } = 24 * 7;
 
@@ -22,13 +22,13 @@ public sealed record AgentRuntimeConfig : IAppConfig, IValidatableObject
     [Range(1, 24 * 60)]
     public int DefinitionCacheExpirationMinutes { get; init; } = 60;
 
-    /// <summary>Gets the absolute lifetime in minutes of a cached active-version pointer.</summary>
-    /// <remarks>
-    /// Activation removes the pointer immediately; this bounds staleness only if that removal is lost,
-    /// and is how long runs survive a PostgreSQL outage.
-    /// </remarks>
-    [Range(1, 24 * 60)]
-    public int ActiveVersionCacheExpirationMinutes { get; init; } = 10;
+    /// <summary>Gets the maximum active-definition pointer cache age; zero disables pointer caching.</summary>
+    [Range(0, 60)]
+    public int ActiveDefinitionCacheSeconds { get; init; } = 5;
+
+    /// <summary>Gets whether full debugging conversation and tool history is retained in PostgreSQL.</summary>
+    /// <remarks>Off by default. Content may belong to other people; retention cleanup is not yet implemented.</remarks>
+    public bool ConversationHistoryEnabled { get; init; }
 
     /// <summary>
     /// Gets the maximum tool invocations, including delegations, across one run and all of its sub-agents.

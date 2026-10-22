@@ -48,6 +48,7 @@ public sealed class AgentRunScope
         OnDelegation = parent.OnDelegation;
         OnCompletion = parent.OnCompletion;
         OnCompaction = parent.OnCompaction;
+        OnActivity = parent.OnActivity;
         MaximumToolInvocations = parent.MaximumToolInvocations;
         Depth = depth;
     }
@@ -84,6 +85,9 @@ public sealed class AgentRunScope
 
     /// <summary>Invoked when the chat history is compacted during this run.</summary>
     public Action<CompactionStats>? OnCompaction { get; init; }
+
+    /// <summary>Invoked before/after tool work and for model messages; awaited so a host can persist partial activity.</summary>
+    public Func<AgentRunActivity, CancellationToken, ValueTask>? OnActivity { get; init; }
 
     /// <summary>Attachments accumulated during this run, including those bubbled up from sub-agents.</summary>
     public IReadOnlyList<AgentRunAttachment> Attachments

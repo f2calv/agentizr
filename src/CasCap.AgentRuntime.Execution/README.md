@@ -47,7 +47,8 @@ definitions and separately resolved credentials into this execution layer.
 | --- | --- |
 | `AgentRunResult` | Accumulated result of an AI agent run — output text, token usage, tool calls, attachments, timing, streaming support |
 | `AgentRunAttachment` | Binary attachment produced by a tool during an agent run (`Base64Content`, `MimeType`, `FileName`) |
-| `AgentRunScope` | Per-run host callbacks (delegation, completion, compaction), nesting depth and shared attachment collection |
+| `AgentRunScope` | Per-run host callbacks (delegation, completion, compaction, awaited tool activity), nesting depth and shared attachment collection |
+| `AgentRunActivity` | Explicit tool/message observation for an optional host-owned history sink; the host owns privacy and persistence |
 | `CompactionStats` | Summary of a single chat-history compaction pass |
 | `AgentInfo` | MCP-friendly projection of `AgentConfig` (all properties carry `[Description]`) |
 | `ProviderInfo` | MCP-friendly projection of `ProviderConfig` excluding sensitive fields (all properties carry `[Description]`) |

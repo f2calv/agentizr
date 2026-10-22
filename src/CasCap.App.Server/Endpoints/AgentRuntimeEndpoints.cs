@@ -17,7 +17,8 @@ public static class AgentRuntimeEndpoints
     public static WebApplication MapAgentRuntime(this WebApplication app, bool authorizationRequired)
     {
         var executionGroup = app.MapGroup(AgentRuntimeRoutes.AgentGroup)
-            .WithTags("Agent Runtime");
+            .WithTags("Agent Runtime")
+            .ProducesProblem(StatusCodes.Status409Conflict);
         if (authorizationRequired)
             executionGroup.RequireAuthorization(AgentRuntimePolicies.Execute);
 
@@ -250,11 +251,11 @@ public static class AgentRuntimeEndpoints
             : TypedResults.Ok(MapResponse(request, result));
     }
 
-    private static async IAsyncEnumerable<RunAgentStreamItem> StreamAgentAsync(
+    private static async Task<Ok<IAsyncEnumerable<RunAgentStreamItem>>> StreamAgentAsync(
         string agentName,
         RunAgentRequest request,
         AgentExecutionCoordinator coordinator,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
     {
         var channel = Channel.CreateUnbounded<RunAgentStreamItem>(new UnboundedChannelOptions
         {
@@ -262,9 +263,33 @@ public static class AgentRuntimeEndpoints
             SingleWriter = true,
         });
         var execution = ExecuteStreamAsync(agentName, request, coordinator, channel.Writer, cancellationToken);
-        await foreach (var item in channel.Reader.ReadAllAsync(cancellationToken))
-            yield return item;
-        await execution;
+        // Surface acquisition failures before JSON streaming commits a successful HTTP status.
+        try
+        {
+            await channel.Reader.WaitToReadAsync(cancellationToken);
+        }
+        catch
+        {
+            await execution;
+            throw;
+        }
+        return TypedResults.Ok(ReadStreamAsync(channel.Reader, execution, cancellationToken));
+    }
+
+    private static async IAsyncEnumerable<RunAgentStreamItem> ReadStreamAsync(
+        ChannelReader<RunAgentStreamItem> reader,
+        Task execution,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (var item in reader.ReadAllAsync(cancellationToken))
+                yield return item;
+        }
+        finally
+        {
+            await execution;
+        }
     }
 
     private static async Task ExecuteStreamAsync(

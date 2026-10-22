@@ -9,6 +9,7 @@ public static partial class AppHost
     private static bool AddWebApi(WebApplicationBuilder builder)
     {
         builder.Services.AddProblemDetails();
+        builder.Services.AddExceptionHandler<AgentSessionConflictHandler>();
         builder.Services.AddHealthChecks();
         builder.Services.AddControllers();
         builder.Services.AddValidation();

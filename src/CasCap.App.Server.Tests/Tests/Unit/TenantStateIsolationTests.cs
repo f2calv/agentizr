@@ -48,37 +48,6 @@ public sealed class TenantStateIsolationTests
         Assert.Equal("second", await secondStore.GetAsync("alpha:agent", "v1", "session", CancellationToken.None));
     }
 
-    [Fact]
-    public async Task RedisState_SurvivesStoreReplacementAndInvalidatesByDefinitionVersion()
-    {
-        var distributedCache = new InMemoryDistributedCache();
-        var runtimeConfig = Options.Create(new AgentRuntimeConfig());
-        var tenantContext = new StaticTenantContext("tenant-a");
-        var firstSessions = new RedisAgentSessionStore(distributedCache, runtimeConfig, tenantContext);
-        var firstOverrides = new RedisAgentOverrideStore(distributedCache, runtimeConfig, tenantContext);
-
-        await firstSessions.SetAsync("assistant", "v1", "session", "persisted", CancellationToken.None);
-        await firstOverrides.SetAsync(
-            "assistant",
-            "v1",
-            "session",
-            new AgentOverrideState { ModelName = "model-v1" },
-            CancellationToken.None);
-
-        var replacementSessions = new RedisAgentSessionStore(distributedCache, runtimeConfig, tenantContext);
-        var replacementOverrides = new RedisAgentOverrideStore(distributedCache, runtimeConfig, tenantContext);
-
-        Assert.Equal(
-            "persisted",
-            await replacementSessions.GetAsync("assistant", "v1", "session", CancellationToken.None));
-        Assert.Equal(
-            "model-v1",
-            (await replacementOverrides.GetAsync("assistant", "v1", "session", CancellationToken.None)).ModelName);
-        Assert.Null(await replacementSessions.GetAsync("assistant", "v2", "session", CancellationToken.None));
-        Assert.Null(
-            (await replacementOverrides.GetAsync("assistant", "v2", "session", CancellationToken.None)).ModelName);
-    }
-
     private sealed class StaticTenantContext(string tenantId) : ITenantContext
     {
         public string TenantId { get; } = tenantId;

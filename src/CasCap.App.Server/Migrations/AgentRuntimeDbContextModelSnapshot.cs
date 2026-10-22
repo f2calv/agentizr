@@ -17,7 +17,7 @@ namespace CasCap.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -182,6 +182,148 @@ namespace CasCap.Migrations
                     b.ToTable("agent_definition_snapshots", "agent_runtime");
                 });
 
+            modelBuilder.Entity("CasCap.Entities.AgentRunActivityEntity", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ActivityJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("activity_json");
+
+                    b.Property<DateTimeOffset>("RecordedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at_utc");
+
+                    b.Property<Guid>("RunId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("run_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_agent_run_activities");
+
+                    b.HasIndex("RunId", "Id")
+                        .HasDatabaseName("ix_agent_run_activities_run_id");
+
+                    b.ToTable("agent_run_activities", "agent_runtime");
+                });
+
+            modelBuilder.Entity("CasCap.Entities.AgentRunEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AgentName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("agent_name");
+
+                    b.Property<DateTimeOffset?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at_utc");
+
+                    b.Property<string>("DefinitionVersion")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("definition_version");
+
+                    b.Property<string>("ErrorType")
+                        .HasColumnType("text")
+                        .HasColumnName("error_type");
+
+                    b.Property<string>("ModelName")
+                        .HasColumnType("text")
+                        .HasColumnName("model_name");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("session_id");
+
+                    b.Property<DateTimeOffset>("StartedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at_utc");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("SummaryJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("summary_json");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_agent_runs");
+
+                    b.HasIndex("TenantId", "AgentName", "StartedAtUtc")
+                        .HasDatabaseName("ix_agent_runs_tenant_agent_started");
+
+                    b.ToTable("agent_runs", "agent_runtime");
+                });
+
+            modelBuilder.Entity("CasCap.Entities.AgentStateEntity", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("key");
+
+                    b.Property<string>("AgentName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("agent_name");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("payload_json");
+
+                    b.Property<Guid>("Revision")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revision");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("session_id");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.HasKey("Key")
+                        .HasName("pk_agent_states");
+
+                    b.HasIndex("TenantId", "AgentName")
+                        .HasDatabaseName("ix_agent_states_tenant_agent");
+
+                    b.ToTable("agent_states", "agent_runtime");
+                });
+
             modelBuilder.Entity("CasCap.Entities.ActiveAgentDefinitionEntity", b =>
                 {
                     b.HasOne("CasCap.Entities.AgentDefinitionSnapshotEntity", "Snapshot")
@@ -206,6 +348,16 @@ namespace CasCap.Migrations
                         .HasConstraintName("fk_agent_definition_activations_snapshot");
 
                     b.Navigation("Snapshot");
+                });
+
+            modelBuilder.Entity("CasCap.Entities.AgentRunActivityEntity", b =>
+                {
+                    b.HasOne("CasCap.Entities.AgentRunEntity", null)
+                        .WithMany()
+                        .HasForeignKey("RunId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_agent_run_activities_run");
                 });
 #pragma warning restore 612, 618
         }

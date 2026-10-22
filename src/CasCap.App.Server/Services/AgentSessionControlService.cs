@@ -10,7 +10,8 @@ public sealed class AgentSessionControlService(
     IAgentOverrideStore overrideStore,
     IAgentSessionCodec sessionCodec,
     IOptions<AgentRuntimeConfig> runtimeConfig,
-    ITenantContext tenantContext)
+    ITenantContext tenantContext,
+    IAgentSessionLock sessionLock)
 {
     /// <summary>Gets active session status without exposing serialized framework state.</summary>
     public async ValueTask<AgentSessionStatus> GetStatusAsync(
@@ -50,6 +51,7 @@ public sealed class AgentSessionControlService(
         string sessionId,
         CancellationToken cancellationToken)
     {
+        await using var sessionLease = await sessionLock.AcquireAsync(agentName, sessionId, cancellationToken);
         var definition = await ResolveDefinitionAsync(agentName, sessionId, cancellationToken);
         if (definition is null)
             return false;
@@ -64,6 +66,7 @@ public sealed class AgentSessionControlService(
         int retainMessageCount,
         CancellationToken cancellationToken)
     {
+        await using var sessionLease = await sessionLock.AcquireAsync(agentName, sessionId, cancellationToken);
         var definition = await ResolveDefinitionAsync(agentName, sessionId, cancellationToken);
         if (definition is null)
             return new AgentSessionCompactionStatus();
@@ -106,6 +109,7 @@ public sealed class AgentSessionControlService(
         CancellationToken cancellationToken)
     {
         ValidateSnapshotName(snapshotName);
+        await using var sessionLease = await sessionLock.AcquireAsync(agentName, sessionId, cancellationToken);
         var definition = await ResolveDefinitionAsync(agentName, sessionId, cancellationToken);
         if (definition is null)
             return false;
@@ -130,6 +134,7 @@ public sealed class AgentSessionControlService(
         CancellationToken cancellationToken)
     {
         ValidateSnapshotName(snapshotName);
+        await using var sessionLease = await sessionLock.AcquireAsync(agentName, sessionId, cancellationToken);
         var definition = await ResolveDefinitionAsync(agentName, sessionId, cancellationToken);
         if (definition is null)
             return false;
@@ -153,6 +158,7 @@ public sealed class AgentSessionControlService(
         CancellationToken cancellationToken)
     {
         ValidateSnapshotName(snapshotName);
+        await using var sessionLease = await sessionLock.AcquireAsync(agentName, sessionId, cancellationToken);
         var definition = await ResolveDefinitionAsync(agentName, sessionId, cancellationToken);
         if (definition is null)
             return false;
@@ -193,6 +199,7 @@ public sealed class AgentSessionControlService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(overrides);
+        await using var sessionLease = await sessionLock.AcquireAsync(agentName, sessionId, cancellationToken);
         var definition = await ResolveDefinitionAsync(agentName, sessionId, cancellationToken);
         if (definition is null)
             return false;
