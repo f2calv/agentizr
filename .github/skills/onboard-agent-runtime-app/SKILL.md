@@ -1,6 +1,6 @@
 ---
 name: onboard-agent-runtime-app
-description: 'Onboard a new application onto the Agent Runtime with its own tenant, Microsoft Entra identities, Signal chat and monitor groups, Comms host wiring, GitOps deployment and published definitions. Use when bootstrapping an application such as a new Signal-fronted assistant, or adding a tenant to an existing runtime. - Brought to you by f2calv/agentizr'
+description: 'Onboard a new application onto the Agent Runtime with its own tenant, Microsoft Entra identities, Signal chat and monitor groups, Comms host wiring, GitOps deployment and published definitions. Use when bootstrapping an application such as a new Signal-fronted assistant, or adding a tenant to an existing runtime.'
 argument-hint: '[app=<name>] [tenant=<tenant-id>]'
 user-invocable: true
 ---
