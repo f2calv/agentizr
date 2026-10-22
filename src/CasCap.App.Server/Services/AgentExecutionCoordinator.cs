@@ -103,23 +103,27 @@ public sealed class AgentExecutionCoordinator(
             metrics.RecordFailed(tenantContext.TenantId, request.AgentName, definition,
                 stopwatch.Elapsed, cancelled: error is OperationCanceledException,
                 conflict: error is AgentSessionConflictException);
-            if (runId is { } failedId && historySvc is not null)
-            {
-                try
-                {
-                    await historySvc.FinishAsync(failedId, null, error);
-                }
-                catch (Exception archiveError)
-                {
-                    throw new AggregateException("Turn failed and its terminal history could not be recorded.", error, archiveError);
-                }
-            }
+            await FinishFailedHistoryAsync(runId, error);
             throw;
         }
         finally
         {
             if (sessionLease is not null)
                 await sessionLease.DisposeAsync();
+        }
+    }
+
+    private async Task FinishFailedHistoryAsync(Guid? runId, Exception error)
+    {
+        if (runId is not { } failedId || historySvc is null)
+            return;
+        try
+        {
+            await historySvc.FinishAsync(failedId, null, error);
+        }
+        catch (Exception archiveError)
+        {
+            throw new AggregateException("Turn failed and its terminal history could not be recorded.", error, archiveError);
         }
     }
 }

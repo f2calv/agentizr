@@ -16,11 +16,6 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
     /// <inheritdoc/>
     public async ValueTask InitializeAsync()
     {
-        await using var connection = new NpgsqlConnection(PersistenceTestSettings.PostgreSql);
-        await connection.OpenAsync();
-        await using var command = connection.CreateCommand();
-        command.CommandText = $"CREATE DATABASE {_databaseName}";
-        await command.ExecuteNonQueryAsync();
         var connectionString = new NpgsqlConnectionStringBuilder(PersistenceTestSettings.PostgreSql) { Database = _databaseName }.ConnectionString;
         var options = new DbContextOptionsBuilder<AgentRuntimeDbContext>()
             .UseNpgsql(connectionString)
@@ -33,10 +28,7 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
-        await using var connection = new NpgsqlConnection(PersistenceTestSettings.PostgreSql);
-        await connection.OpenAsync();
-        await using var command = connection.CreateCommand();
-        command.CommandText = $"DROP DATABASE IF EXISTS {_databaseName} WITH (FORCE)";
-        await command.ExecuteNonQueryAsync();
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync();
+        await dbContext.Database.EnsureDeletedAsync();
     }
 }
