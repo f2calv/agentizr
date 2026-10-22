@@ -149,38 +149,46 @@ public sealed class AgentRunHistoryService(
     private void Redact(JsonNode? node)
     {
         if (node is JsonObject obj)
-        {
-            if (obj["type"] is JsonValue type && type.TryGetValue<string>(out var contentType)
-                && contentType is "image" or "audio" or "resource")
-            {
-                obj.Clear();
-                obj["omitted"] = "binary or embedded resource";
-                return;
-            }
-            foreach (var property in obj.ToArray())
-            {
-                var name = property.Key.Replace("_", string.Empty, StringComparison.Ordinal)
-                    .Replace("-", string.Empty, StringComparison.Ordinal).ToLowerInvariant();
-                if (name.Contains("password", StringComparison.Ordinal)
-                    || name.Contains("secret", StringComparison.Ordinal)
-                    || name.Contains("token", StringComparison.Ordinal) && !name.EndsWith("tokens", StringComparison.Ordinal)
-                    || name.Contains("authorization", StringComparison.Ordinal)
-                    || name.Contains("apikey", StringComparison.Ordinal)
-                    || name.Contains("connectionstring", StringComparison.Ordinal)
-                    || name is "headers" or "bytes" or "base64content" or "datauri")
-                    obj[property.Key] = "[omitted]";
-                else if (property.Value is JsonValue scalar && scalar.TryGetValue<string>(out var text))
-                    obj[property.Key] = RedactText(text);
-                else
-                    Redact(property.Value);
-            }
-        }
+            RedactObject(obj);
         else if (node is JsonArray array)
             for (var index = 0; index < array.Count; index++)
                 if (array[index] is JsonValue scalar && scalar.TryGetValue<string>(out var text))
                     array[index] = RedactText(text);
                 else
                     Redact(array[index]);
+    }
+
+    private void RedactObject(JsonObject obj)
+    {
+        if (obj["type"] is JsonValue type && type.TryGetValue<string>(out var contentType)
+            && contentType is "image" or "audio" or "resource")
+        {
+            obj.Clear();
+            obj["omitted"] = "binary or embedded resource";
+            return;
+        }
+        foreach (var property in obj.ToArray())
+        {
+            if (IsSensitiveProperty(property.Key))
+                obj[property.Key] = "[omitted]";
+            else if (property.Value is JsonValue scalar && scalar.TryGetValue<string>(out var text))
+                obj[property.Key] = RedactText(text);
+            else
+                Redact(property.Value);
+        }
+    }
+
+    private static bool IsSensitiveProperty(string propertyName)
+    {
+        var name = propertyName.Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal).ToLowerInvariant();
+        return name.Contains("password", StringComparison.Ordinal)
+            || name.Contains("secret", StringComparison.Ordinal)
+            || name.Contains("token", StringComparison.Ordinal) && !name.EndsWith("tokens", StringComparison.Ordinal)
+            || name.Contains("authorization", StringComparison.Ordinal)
+            || name.Contains("apikey", StringComparison.Ordinal)
+            || name.Contains("connectionstring", StringComparison.Ordinal)
+            || name is "headers" or "bytes" or "base64content" or "datauri";
     }
 
     private string RedactText(string text)

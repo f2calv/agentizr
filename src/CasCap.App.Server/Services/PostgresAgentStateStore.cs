@@ -101,22 +101,26 @@ internal sealed class PostgresAgentStateStore(
                 continue; // A concurrent status read crossed a write or delete; resolve the new revision.
             }
             metrics.RecordHa(tenantContext.TenantId, "state.read", "postgres");
-            if (remoteCache is not null)
-            {
-                try
-                {
-                    await remoteCache.Db.StringSetAsync(
-                        cacheKey, payload, TimeSpan.FromHours(runtimeConfig.Value.StateSlidingExpirationHours))
-                        .WaitAsync(cancellationToken);
-                    metrics.RecordHa(tenantContext.TenantId, "cache.fill", "succeeded");
-                }
-                catch (RedisException)
-                {
-                    LogCacheUnavailable();
-                    metrics.RecordHa(tenantContext.TenantId, "cache.fill", "error");
-                }
-            }
+            await FillCacheAsync(cacheKey, payload, cancellationToken);
             return payload.FromJson<T>();
+        }
+    }
+
+    private async ValueTask FillCacheAsync(string cacheKey, string payload, CancellationToken cancellationToken)
+    {
+        if (remoteCache is null)
+            return;
+        try
+        {
+            await remoteCache.Db.StringSetAsync(
+                cacheKey, payload, TimeSpan.FromHours(runtimeConfig.Value.StateSlidingExpirationHours))
+                .WaitAsync(cancellationToken);
+            metrics.RecordHa(tenantContext.TenantId, "cache.fill", "succeeded");
+        }
+        catch (RedisException)
+        {
+            LogCacheUnavailable();
+            metrics.RecordHa(tenantContext.TenantId, "cache.fill", "error");
         }
     }
 

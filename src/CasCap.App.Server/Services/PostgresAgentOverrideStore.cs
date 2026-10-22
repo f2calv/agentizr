@@ -24,10 +24,10 @@ internal sealed class PostgresAgentOverrideStore(
         string agentName,
         string definitionVersion,
         string sessionId,
-        AgentOverrideState stateValue,
+        AgentOverrideState state,
         CancellationToken cancellationToken)
         => stateStore.WriteAsync(
-            agentName, sessionId, GetKey(agentName, definitionVersion, sessionId), stateValue, cancellationToken);
+            agentName, sessionId, GetKey(agentName, definitionVersion, sessionId), state, cancellationToken);
 
     private string GetKey(string agentName, string definitionVersion, string sessionId) =>
         AgentStateKey.CreateRedis("override", tenantContext.TenantId, agentName, definitionVersion, sessionId);
