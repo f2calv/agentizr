@@ -1,0 +1,95 @@
+### Agentizr immutable definition administration
+### Separate read, publish and activate permissions; publication never activates a version.
+
+@baseUrl = {{$dotenv AGENTIZR_BASE_URL}}
+@readToken = {{$dotenv AGENTIZR_READ_TOKEN}}
+@publishToken = {{$dotenv AGENTIZR_PUBLISH_TOKEN}}
+@activateToken = {{$dotenv AGENTIZR_ACTIVATE_TOKEN}}
+@agentName = {{$dotenv AGENTIZR_AGENT_NAME}}
+@definitionVersion = {{$dotenv AGENTIZR_DEFINITION_VERSION}}
+@providerName = {{$dotenv AGENTIZR_PROVIDER_NAME}}
+@modelName = {{$dotenv AGENTIZR_MODEL_NAME}}
+
+### List published history - expected 200 JSON; limit defaults to 100, range 1-1000
+# @name getDefinitions
+GET {{baseUrl}}/api/v1/agents/{{agentName}}/definitions?limit=100 HTTP/1.1
+Authorization: Bearer {{readToken}}
+Accept: application/json
+
+### Read active definition - expected 200 JSON or 404
+# @name getActiveDefinition
+GET {{baseUrl}}/api/v1/agents/{{agentName}}/definitions/active HTTP/1.1
+Authorization: Bearer {{readToken}}
+Accept: application/json
+
+### Read one immutable version - expected 200 JSON or 404
+# @name getDefinitionVersion
+GET {{baseUrl}}/api/v1/agents/{{agentName}}/definitions/{{definitionVersion}} HTTP/1.1
+Authorization: Bearer {{readToken}}
+Accept: application/json
+
+### Read activation audit - expected 200 JSON
+# @name getActivationHistory
+GET {{baseUrl}}/api/v1/agents/{{agentName}}/definitions/activations?limit=100 HTTP/1.1
+Authorization: Bearer {{readToken}}
+Accept: application/json
+
+### Publish inactive schema-1 definition - expected 201 with Location; 400 invalid or 409 duplicate version
+# @name publishDefinition
+# @note Persists an immutable inactive definition. Choose an approved provider/model and unused version; this is not a dry run.
+POST {{baseUrl}}/api/v1/agents/{{agentName}}/definitions HTTP/1.1
+Authorization: Bearer {{publishToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "definitionVersion":"{{definitionVersion}}",
+  "schemaVersion":1,
+  "changeReason":"Publish an operator-reviewed example",
+  "definition":{
+    "agent":{
+      "provider":"{{providerName}}",
+      "name":"{{agentName}}",
+      "description":"Example text-only agent",
+      "instructions":"Answer concisely. No tools are available.",
+      "prompt":"Reply with a short greeting.",
+      "tools":[],
+      "prompts":[]
+    },
+    "provider":{"type":"OpenAI","modelName":"{{modelName}}"}
+  }
+}
+
+### Evaluate version - expected 200 JSON, 400 or 404
+# @name evaluateDefinition
+# @note Calls the real model and may incur charges. Tools are fixture-backed, not actuated; review prompt disclosure separately.
+POST {{baseUrl}}/api/v1/agents/{{agentName}}/definitions/{{definitionVersion}}/evaluate HTTP/1.1
+Authorization: Bearer {{activateToken}}
+Content-Type: application/json
+Accept: application/json
+
+{"scenarios":[{"id":"example-greeting","question":"Reply with a short greeting.","sideEffectsForbidden":true}],"repetitions":1,"minimumPassRate":1}
+
+### Activate or roll back to version - expected 204, 400 evaluation/policy failure or 404
+# @name activateDefinition
+# @note Changes the active version used by new runs. Confirm target/version; existing evaluation and dependency gates still apply.
+PUT {{baseUrl}}/api/v1/agents/{{agentName}}/definitions/{{definitionVersion}}/activate HTTP/1.1
+Authorization: Bearer {{activateToken}}
+Content-Type: application/json
+
+{"changeReason":"Activate an operator-reviewed version","evaluation":{"scenarios":[{"id":"example-greeting","question":"Reply with a short greeting.","sideEffectsForbidden":true}],"repetitions":1,"minimumPassRate":1}}
+
+### Deactivate agent - expected 204, 400 dependency/policy failure or 404
+# @name deactivateDefinition
+# @note Removes the active definition pointer; subsequent callers may no longer run this agent.
+POST {{baseUrl}}/api/v1/agents/{{agentName}}/definitions/active/deactivate HTTP/1.1
+Authorization: Bearer {{activateToken}}
+Content-Type: application/json
+
+{"changeReason":"Deactivate the operator-selected agent"}
+
+### Expected 400 validation Problem Details - out-of-range limit
+# @name invalidDefinitionLimit
+GET {{baseUrl}}/api/v1/agents/{{agentName}}/definitions?limit=1001 HTTP/1.1
+Authorization: Bearer {{readToken}}
+Accept: application/json
