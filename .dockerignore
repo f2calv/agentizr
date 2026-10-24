@@ -3,6 +3,8 @@
 
 # explicitly add exceptions for required files/paths
 !src/**/*.cs
+!src/**/*.razor
+!src/**/*.razor.css
 !**/*.csproj
 !**/appsettings.*
 !global.json

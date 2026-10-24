@@ -1,6 +1,7 @@
 using CasCap.Constants;
 using CasCap.Tests.Integration;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Hosting;
 
@@ -50,26 +51,49 @@ public sealed class TenantSecurityStartupTests
     }
 
     [Fact]
-    public void DevelopmentWithTenantAuthentication_DefinitionPublishDoesNotRequireExecutePermission()
+    public void DevelopmentWithTenantAuthentication_ControllerPoliciesRemainSeparated()
     {
         using var factory = CreateAuthenticatedFactory("Development");
         using var scope = factory.Services.CreateScope();
-        var endpoint = scope.ServiceProvider
+        var endpoints = scope.ServiceProvider
             .GetRequiredService<IEnumerable<EndpointDataSource>>()
             .SelectMany(source => source.Endpoints)
             .OfType<RouteEndpoint>()
-            .Single(candidate => candidate.RoutePattern.RawText
-                == "/api/v1/agents/{agentName}/definitions"
-                && candidate.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods.Contains("POST") is true);
-
-        var policies = endpoint.Metadata
-            .GetOrderedMetadata<IAuthorizeData>()
-            .Select(metadata => metadata.Policy)
-            .OfType<string>()
+            .Where(endpoint => endpoint.Metadata.GetMetadata<ControllerActionDescriptor>() is not null)
             .ToArray();
+        var sessionEndpoints = endpoints
+            .Where(endpoint => endpoint.Metadata.GetMetadata<ControllerActionDescriptor>()!.ControllerName == "AdministrationSession")
+            .ToArray();
+        var protectedEndpoints = endpoints.Except(sessionEndpoints).ToArray();
+        var expectedDefinitionPolicies = new Dictionary<string, string>
+        {
+            ["PublishAgentDefinitionV1"] = AgentRuntimePolicies.DefinitionPublish,
+            ["GetAgentDefinitionHistoryV1"] = AgentRuntimePolicies.DefinitionRead,
+            ["GetActiveAgentDefinitionV1"] = AgentRuntimePolicies.DefinitionRead,
+            ["GetAgentDefinitionVersionV1"] = AgentRuntimePolicies.DefinitionRead,
+            ["EvaluateAgentDefinitionV1"] = AgentRuntimePolicies.DefinitionActivate,
+            ["ActivateAgentDefinitionV1"] = AgentRuntimePolicies.DefinitionActivate,
+            ["GetAgentDefinitionActivationHistoryV1"] = AgentRuntimePolicies.DefinitionRead,
+            ["DeactivateAgentDefinitionV1"] = AgentRuntimePolicies.DefinitionActivate,
+        };
 
-        Assert.Contains(AgentRuntimePolicies.DefinitionPublish, policies);
-        Assert.DoesNotContain(AgentRuntimePolicies.Execute, policies);
+        Assert.Equal(19, protectedEndpoints.Count(endpoint => !AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
+        Assert.Equal(11, protectedEndpoints.Count(endpoint => AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
+        // Session description, sign-in and sign-out must be reachable before an administrator signs in.
+        Assert.Equal(3, sessionEndpoints.Length);
+        Assert.All(sessionEndpoints, endpoint => Assert.Empty(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()));
+        Assert.All(protectedEndpoints, endpoint =>
+        {
+            var name = endpoint.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName;
+            Assert.NotNull(name);
+            var expectedPolicy = AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)
+                ? AdministrationPolicies.AppAdministrator
+                : expectedDefinitionPolicies.GetValueOrDefault(name, AgentRuntimePolicies.Execute);
+            var policies = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()
+                .Select(metadata => metadata.Policy).OfType<string>();
+            Assert.Equal(expectedPolicy, Assert.Single(policies));
+            Assert.Null(endpoint.Metadata.GetMetadata<IAllowAnonymous>());
+        });
     }
 
     [Fact]

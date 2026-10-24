@@ -1,0 +1,22 @@
+<!-- A server publish for a Linux runtime passes its runtime identifiers globally; the browser client must keep its own. -->
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly" TreatAsLocalProperty="RuntimeIdentifier;RuntimeIdentifiers;SelfContained">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>CasCap.Client</RootNamespace>
+    <RuntimeIdentifier>browser-wasm</RuntimeIdentifier>
+    <RuntimeIdentifiers></RuntimeIdentifiers>
+    <SelfContained>true</SelfContained>
+    <NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
+    <StaticWebAssetProjectMode>Default</StaticWebAssetProjectMode>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CasCap.AgentRuntime.Contracts\CasCap.AgentRuntime.Contracts.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="MudBlazor" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,47 @@
+@inject NavigationManager NavigationManager
+
+@switch (Status)
+{
+    case ApiStatus.Unauthorized:
+        <MudAlert Severity="Severity.Info">
+            Sign in to manage agent definitions.
+            <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="() => NavigationManager.NavigateToSignIn()">Sign in</MudButton>
+        </MudAlert>
+        break;
+    case ApiStatus.Forbidden:
+        <MudAlert Severity="Severity.Warning">You are not assigned to administer this app.</MudAlert>
+        break;
+    case ApiStatus.NotFound:
+        <MudAlert Severity="Severity.Info">Nothing was found here. It may have been removed or never existed.</MudAlert>
+        break;
+    case ApiStatus.Unavailable:
+        <MudAlert Severity="Severity.Error">
+            The server is unavailable or does not support this operation in its current configuration.
+            <MudButton Variant="Variant.Text" OnClick="OnRetry">Retry</MudButton>
+        </MudAlert>
+        break;
+    default:
+        <MudAlert Severity="Severity.Error">
+            The request failed.
+            @foreach (var error in Errors ?? [])
+            {
+                <div>@error</div>
+            }
+            <MudButton Variant="Variant.Text" OnClick="OnRetry">Retry</MudButton>
+        </MudAlert>
+        break;
+}
+
+@code {
+    /// <summary>Gets or sets the unsuccessful outcome to describe.</summary>
+    [Parameter, EditorRequired]
+    public ApiStatus Status { get; set; }
+
+    /// <summary>Gets or sets messages returned by the server.</summary>
+    [Parameter]
+    public IReadOnlyList<string>? Errors { get; set; }
+
+    /// <summary>Gets or sets the action that repeats the failed load.</summary>
+    [Parameter]
+    public EventCallback OnRetry { get; set; }
+}

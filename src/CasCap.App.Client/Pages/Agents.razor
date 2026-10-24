@@ -1,0 +1,72 @@
+@page "/apps/{AppId}"
+@inherits CancellableComponentBase
+
+<PageTitle>@AppId agents · agentizr</PageTitle>
+
+<MudBreadcrumbs Items="Breadcrumbs" />
+<MudText Typo="Typo.h4" HtmlTag="h1">Agents in @AppId</MudText>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="my-4">
+    <MudTextField T="string" Value="_searchInput" ValueChanged="SearchChanged" Label="Search agents"
+                  DebounceInterval="400" Immediate="true" Clearable="true"
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+    <MudButton Href="@ProvidersPath" Variant="Variant.Outlined">Providers</MudButton>
+    <MudButton Href="@NewAgentPath" Variant="Variant.Filled" Color="Color.Primary">New agent</MudButton>
+    <MudButton OnClick="ReloadAsync" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Refresh">Refresh</MudButton>
+</MudStack>
+
+@if (_result is null)
+{
+    <MudProgressLinear Indeterminate="true" aria-label="Loading agents" />
+}
+else if (!_result.IsSuccess)
+{
+    <PageState Status="_result.Status" Errors="_result.Errors" OnRetry="ReloadAsync" />
+}
+else if (_result.Value is not { Items.Count: > 0 } page)
+{
+    <MudAlert Severity="Severity.Info">
+        @(string.IsNullOrWhiteSpace(Search) ? "This app has no published agents yet." : "No agents match the search.")
+    </MudAlert>
+}
+else
+{
+    <MudSimpleTable Hover="true" Dense="true">
+        <thead>
+            <tr>
+                <th>Agent</th>
+                <th>Status</th>
+                <th>Active provider and model</th>
+                <th>Latest version</th>
+                <th>Latest published</th>
+                <th>Versions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var agent in page.Items)
+            {
+                <tr @key="agent.AgentName">
+                    <td><MudLink Href="@AgentPath(AppId, agent.AgentName)">@agent.AgentName</MudLink></td>
+                    <td>
+                        @if (agent.ActiveVersion is { } activeVersion)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Success" Icon="@Icons.Material.Filled.CheckCircle">Active @activeVersion</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Filled.PauseCircle">Inactive</MudChip>
+                        }
+                    </td>
+                    <td>@(agent.ActiveVersion is null ? "—" : $"{agent.ActiveProviderType} / {agent.ActiveModelName}")</td>
+                    <td>@agent.LatestVersion</td>
+                    <td>@Formats.DateTime(agent.LatestPublishedAtUtc) @(agent.LatestPublishedBy is { } by ? $"by {by}" : null)</td>
+                    <td>@agent.VersionCount</td>
+                </tr>
+            }
+        </tbody>
+    </MudSimpleTable>
+    @if (PageCount > 1)
+    {
+        <MudPagination Count="PageCount" Selected="Page" SelectedChanged="PageChanged" Class="mt-4" />
+    }
+}

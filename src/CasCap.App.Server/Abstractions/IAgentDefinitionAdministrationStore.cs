@@ -29,12 +29,17 @@ public interface IAgentDefinitionAdministrationStore
         CancellationToken cancellationToken);
 
     /// <summary>Activates an existing immutable version and appends an audit event.</summary>
+    /// <remarks>
+    /// When <paramref name="expectedActive"/> is supplied, the active version is compared atomically with the
+    /// change and a mismatch throws <see cref="Exceptions.AgentDefinitionActiveVersionConflictException"/>.
+    /// </remarks>
     public ValueTask<bool> ActivateAsync(
         string agentName,
         string definitionVersion,
         string? activatedBy,
         string? changeReason,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        ExpectedActiveDefinition? expectedActive = null);
 
     /// <summary>
     /// Serializes activations across every agent of the current tenant until the returned handle is
@@ -46,14 +51,39 @@ public interface IAgentDefinitionAdministrationStore
     /// Removes the agent's active pointer and appends a deactivation audit event, or returns
     /// <see langword="false" /> when no version is active.
     /// </summary>
+    /// <remarks>
+    /// When <paramref name="expectedActive"/> is supplied, the active version is compared atomically with the
+    /// change and a mismatch throws <see cref="Exceptions.AgentDefinitionActiveVersionConflictException"/>.
+    /// </remarks>
     public ValueTask<bool> DeactivateAsync(
         string agentName,
         string? deactivatedBy,
         string changeReason,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        ExpectedActiveDefinition? expectedActive = null);
 
     /// <summary>Gets every active definition of the current tenant.</summary>
     public ValueTask<IReadOnlyList<AgentDefinition>> GetActiveDefinitionsAsync(CancellationToken cancellationToken);
+
+    /// <summary>Gets one page of the current tenant's agents, active or not, ordered by name.</summary>
+    /// <param name="nameFilter">An optional case-insensitive substring of the agent name.</param>
+    /// <param name="skip">How many matching agents to skip.</param>
+    /// <param name="take">The maximum number of agents to return.</param>
+    /// <param name="cancellationToken">Cancels the query.</param>
+    public ValueTask<AgentDefinitionSummaryPage> GetAgentsAsync(
+        string? nameFilter,
+        int skip,
+        int take,
+        CancellationToken cancellationToken);
+
+    /// <summary>Counts the agents with at least one published version in each requested tenant.</summary>
+    /// <remarks>
+    /// The only cross-tenant read: callers must have authorized every requested tenant. Tenants without
+    /// agents are omitted.
+    /// </remarks>
+    public ValueTask<IReadOnlyDictionary<string, int>> CountAgentsAsync(
+        IReadOnlyCollection<string> tenantIds,
+        CancellationToken cancellationToken);
 
     /// <summary>Gets newest-first activation and rollback history.</summary>
     public ValueTask<IReadOnlyList<AgentDefinitionActivationItem>> GetActivationHistoryAsync(

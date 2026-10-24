@@ -152,6 +152,28 @@ public sealed class PostgresAgentDefinitionStoreIntegrationTests(PostgreSqlFixtu
         await using var acquired = await waiting.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
     }
 
+    [Fact]
+    public async Task Discovery_AndExpectedActiveVersion_TranslateToPostgreSql()
+    {
+        var tenantId = $"tenant-{Guid.NewGuid():N}";
+        var store = new PostgresAgentDefinitionStore(fixture.DbContextFactory, new StaticTenantContext(tenantId), TimeProvider.System);
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await store.PublishAsync(CreateDefinition("v1"), 1, "publisher", null, cancellationToken);
+        await store.PublishAsync(CreateDefinition("v2"), 1, "publisher", null, cancellationToken);
+        await store.ActivateAsync("assistant", "v1", null, null, cancellationToken, new ExpectedActiveDefinition(null));
+
+        var page = await store.GetAgentsAsync("ASSIST", 0, 10, cancellationToken);
+        var counts = await store.CountAgentsAsync([tenantId], cancellationToken);
+        await Assert.ThrowsAsync<AgentDefinitionActiveVersionConflictException>(async () =>
+            await store.ActivateAsync("assistant", "v2", null, null, cancellationToken, new ExpectedActiveDefinition("v0")));
+
+        var agent = Assert.Single(page.Items);
+        Assert.Equal(1, page.TotalCount);
+        Assert.Equal(("v1", "v2", 2), (agent.ActiveDefinition?.Version, agent.LatestVersion, agent.VersionCount));
+        Assert.Equal(1, counts[tenantId]);
+        Assert.Equal("v1", (await store.GetAsync("assistant", cancellationToken))?.Version);
+    }
+
     private PostgresAgentDefinitionStore CreateStore() =>
         new(fixture.DbContextFactory, new StaticTenantContext($"tenant-{Guid.NewGuid():N}"), TimeProvider.System);
 

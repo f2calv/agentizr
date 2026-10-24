@@ -166,9 +166,25 @@ live transport and pod-loss validation. Normal cross-replica continuation has be
 these disruptive checks while collecting a longer soak, then verify conflict responses, lock release,
 last-committed-state recovery and interrupted-run archival without automatically replaying tools.
 
-## Deferred API Cleanup
+## HTTP API Boundary
 
-TODO: After this persistence batch, migrate application routes to thin controllers without changing
-route constants, contracts or status/streaming behavior. Move application-owned mapping extensions
-to the application `Extensions` namespace; keeping that migration separate makes HA behavior easier
-to review.
+Execution and definition administration use
+[thin controllers](../src/CasCap.App.Server/README.md#public-surface), which map typed service
+outcomes to HTTP results. API services own DTO projection and streaming orchestration.
+Route constants, authorization policies,
+session locking and conflict responses are shared across replicas. Streaming still waits for
+execution to produce an item or fail before returning a successful response, so ownership conflicts
+remain HTTP 409 rather than a successful stream containing an error.
+
+## Browser Administration Sessions
+
+The administration frontend keeps no server-side circuit. Its session cookie and antiforgery tokens
+are protected by a Data Protection key ring shared through PostgreSQL with a fixed application
+name, so any replica accepts them without session affinity; an integration test checks a token
+issued by one host against another. Activation and deactivation carry the administrator's observed
+active version and are rejected with 409 when another decision changed it.
+
+TODO: Before relying on several frontend replicas, verify sign-in callbacks, a pod replacement
+mid-session and a page reload during a rolling release against a deployment. Old pages may request
+client assets that the new release no longer serves. Encrypting the persisted keys at rest is also
+outstanding.

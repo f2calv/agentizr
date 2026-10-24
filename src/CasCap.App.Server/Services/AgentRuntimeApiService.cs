@@ -1,113 +1,26 @@
 using CasCap.AgentRuntime.Contracts.V1;
-using CasCap.AgentRuntime.Contracts.V1.Constants;
-using CasCap.Constants;
-using CasCap.Services;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.AI;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading.Channels;
 
-namespace Microsoft.AspNetCore.Builder;
+namespace CasCap.Services;
 
-/// <summary>Maps version 1 Agent Runtime endpoints.</summary>
-public static class AgentRuntimeEndpoints
+/// <summary>Maps runtime operations to version 1 DTOs and orchestrates execution streams.</summary>
+public sealed class AgentRuntimeApiService(
+    AgentExecutionCoordinator coordinator,
+    AgentSessionControlService controlSvc)
 {
-    /// <summary>Maps the version 1 agent execution surface.</summary>
-    public static WebApplication MapAgentRuntime(this WebApplication app, bool authorizationRequired)
-    {
-        var executionGroup = app.MapGroup(AgentRuntimeRoutes.AgentGroup)
-            .WithTags("Agent Runtime")
-            .ProducesProblem(StatusCodes.Status409Conflict);
-        if (authorizationRequired)
-            executionGroup.RequireAuthorization(AgentRuntimePolicies.Execute);
-
-        executionGroup.MapPost(AgentRuntimeRoutes.Runs, RunAgentAsync)
-            .WithName("RunAgentV1")
-            .WithSummary("Runs one turn against a tenant-scoped agent session")
-            .Produces<RunAgentResponse>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status404NotFound)
-            .ProducesValidationProblem();
-
-        executionGroup.MapPost(AgentRuntimeRoutes.RunStream, StreamAgentAsync)
-            .WithName("StreamAgentV1")
-            .WithSummary("Streams execution events followed by the final tenant-scoped agent response")
-            .Produces<IEnumerable<RunAgentStreamItem>>(StatusCodes.Status200OK)
-            .ProducesValidationProblem();
-
-        executionGroup.MapGet(AgentRuntimeRoutes.Session, GetSessionAsync)
-            .WithName("GetAgentSessionV1")
-            .WithSummary("Gets tenant-scoped agent session status")
-            .Produces<AgentSessionInfoResponse>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status404NotFound);
-
-        executionGroup.MapDelete(AgentRuntimeRoutes.Session, ResetSessionAsync)
-            .WithName("ResetAgentSessionV1")
-            .WithSummary("Resets tenant-scoped active agent session state")
-            .Produces(StatusCodes.Status204NoContent)
-            .Produces(StatusCodes.Status404NotFound);
-
-        executionGroup.MapPost(AgentRuntimeRoutes.SessionCompaction, CompactSessionAsync)
-            .WithName("CompactAgentSessionV1")
-            .WithSummary("Compacts tenant-scoped active agent session history")
-            .Produces<CompactAgentSessionResponse>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status404NotFound)
-            .ProducesValidationProblem();
-
-        executionGroup.MapPut(AgentRuntimeRoutes.SessionSnapshot, SaveSessionSnapshotAsync)
-            .WithName("SaveAgentSessionSnapshotV1")
-            .WithSummary("Saves active agent session state as a named snapshot")
-            .Produces(StatusCodes.Status204NoContent)
-            .Produces(StatusCodes.Status404NotFound);
-
-        executionGroup.MapPost(AgentRuntimeRoutes.SessionSnapshotActivation, LoadSessionSnapshotAsync)
-            .WithName("LoadAgentSessionSnapshotV1")
-            .WithSummary("Loads a named snapshot into the active agent session")
-            .Produces(StatusCodes.Status204NoContent)
-            .Produces(StatusCodes.Status404NotFound);
-
-        executionGroup.MapDelete(AgentRuntimeRoutes.SessionSnapshot, DeleteSessionSnapshotAsync)
-            .WithName("DeleteAgentSessionSnapshotV1")
-            .WithSummary("Deletes a named agent session snapshot")
-            .Produces(StatusCodes.Status204NoContent)
-            .Produces(StatusCodes.Status404NotFound);
-
-        executionGroup.MapGet(AgentRuntimeRoutes.SessionOverrides, GetOverridesAsync)
-            .WithName("GetAgentOverridesV1")
-            .WithSummary("Gets complete per-session agent runtime overrides")
-            .Produces<AgentOverridesResponse>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status404NotFound);
-
-        executionGroup.MapPut(AgentRuntimeRoutes.SessionOverrides, SetOverridesAsync)
-            .WithName("SetAgentOverridesV1")
-            .WithSummary("Replaces complete per-session agent runtime overrides")
-            .Produces<AgentOverridesResponse>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status404NotFound)
-            .ProducesValidationProblem();
-
-        executionGroup.MapGet(AgentRuntimeRoutes.SessionInstructions, GetInstructionsAsync)
-            .WithName("GetAgentInstructionsV1")
-            .WithSummary("Gets the effective instructions when the tenant enables disclosure")
-            .Produces<AgentInstructionsResponse>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status404NotFound);
-
-        app.MapGroup(AgentRuntimeRoutes.AgentGroup)
-            .WithTags("Agent Definitions")
-            .MapAgentDefinitionAdministration(authorizationRequired);
-
-        return app;
-    }
-
-    private static async Task<Results<Ok<AgentSessionInfoResponse>, NotFound>> GetSessionAsync(
+    /// <summary>Gets tenant-scoped agent session status.</summary>
+    public async Task<AgentSessionInfoResponse?> GetSessionAsync(
         string agentName,
         string sessionId,
-        AgentSessionControlService controlSvc,
         CancellationToken cancellationToken)
     {
         var status = await controlSvc.GetStatusAsync(agentName, sessionId, cancellationToken);
         if (!status.AgentExists)
-            return TypedResults.NotFound();
-        return TypedResults.Ok(new AgentSessionInfoResponse
+            return null;
+        return new AgentSessionInfoResponse
         {
             Exists = status.SessionExists,
             SessionEnabled = status.SessionEnabled,
@@ -120,23 +33,21 @@ public static class AgentRuntimeEndpoints
                 UserMessageCount = entry.UserMessageCount,
                 AssistantMessageCount = entry.AssistantMessageCount,
             }).ToArray() ?? [],
-        });
+        };
     }
 
-    private static async Task<Results<NoContent, NotFound>> ResetSessionAsync(
+    /// <summary>Resets tenant-scoped active agent session state.</summary>
+    public ValueTask<bool> ResetSessionAsync(
         string agentName,
         string sessionId,
-        AgentSessionControlService controlSvc,
         CancellationToken cancellationToken) =>
-        await controlSvc.ResetAsync(agentName, sessionId, cancellationToken)
-            ? TypedResults.NoContent()
-            : TypedResults.NotFound();
+        controlSvc.ResetAsync(agentName, sessionId, cancellationToken);
 
-    private static async Task<Results<Ok<CompactAgentSessionResponse>, NotFound>> CompactSessionAsync(
+    /// <summary>Compacts tenant-scoped active agent session history.</summary>
+    public async Task<CompactAgentSessionResponse?> CompactSessionAsync(
         string agentName,
         string sessionId,
         CompactAgentSessionRequest request,
-        AgentSessionControlService controlSvc,
         CancellationToken cancellationToken)
     {
         var status = await controlSvc.CompactAsync(
@@ -145,62 +56,56 @@ public static class AgentRuntimeEndpoints
             request.RetainMessageCount,
             cancellationToken);
         return status.AgentExists
-            ? TypedResults.Ok(new CompactAgentSessionResponse
+            ? new CompactAgentSessionResponse
             {
                 SessionExists = status.SessionExists,
                 HistoryAvailable = status.HistoryAvailable,
                 RemovedMessageCount = status.RemovedMessageCount,
-            })
-            : TypedResults.NotFound();
+            }
+            : null;
     }
 
-    private static async Task<Results<NoContent, NotFound>> SaveSessionSnapshotAsync(
+    /// <summary>Saves active agent session state as a named snapshot.</summary>
+    public ValueTask<bool> SaveSessionSnapshotAsync(
         string agentName,
         string sessionId,
         string snapshotName,
-        AgentSessionControlService controlSvc,
         CancellationToken cancellationToken) =>
-        await controlSvc.SaveSnapshotAsync(agentName, sessionId, snapshotName, cancellationToken)
-            ? TypedResults.NoContent()
-            : TypedResults.NotFound();
+        controlSvc.SaveSnapshotAsync(agentName, sessionId, snapshotName, cancellationToken);
 
-    private static async Task<Results<NoContent, NotFound>> LoadSessionSnapshotAsync(
+    /// <summary>Loads a named snapshot into the active agent session.</summary>
+    public ValueTask<bool> LoadSessionSnapshotAsync(
         string agentName,
         string sessionId,
         string snapshotName,
-        AgentSessionControlService controlSvc,
         CancellationToken cancellationToken) =>
-        await controlSvc.LoadSnapshotAsync(agentName, sessionId, snapshotName, cancellationToken)
-            ? TypedResults.NoContent()
-            : TypedResults.NotFound();
+        controlSvc.LoadSnapshotAsync(agentName, sessionId, snapshotName, cancellationToken);
 
-    private static async Task<Results<NoContent, NotFound>> DeleteSessionSnapshotAsync(
+    /// <summary>Deletes a named agent session snapshot.</summary>
+    public ValueTask<bool> DeleteSessionSnapshotAsync(
         string agentName,
         string sessionId,
         string snapshotName,
-        AgentSessionControlService controlSvc,
         CancellationToken cancellationToken) =>
-        await controlSvc.DeleteSnapshotAsync(agentName, sessionId, snapshotName, cancellationToken)
-            ? TypedResults.NoContent()
-            : TypedResults.NotFound();
+        controlSvc.DeleteSnapshotAsync(agentName, sessionId, snapshotName, cancellationToken);
 
-    private static async Task<Results<Ok<AgentOverridesResponse>, NotFound>> GetOverridesAsync(
+    /// <summary>Gets complete per-session agent runtime overrides.</summary>
+    public async Task<AgentOverridesResponse?> GetOverridesAsync(
         string agentName,
         string sessionId,
-        AgentSessionControlService controlSvc,
         CancellationToken cancellationToken)
     {
         var overrides = await controlSvc.GetOverridesAsync(agentName, sessionId, cancellationToken);
         return overrides is null
-            ? TypedResults.NotFound()
-            : TypedResults.Ok(MapOverrides(overrides));
+            ? null
+            : MapOverrides(overrides);
     }
 
-    private static async Task<Results<Ok<AgentOverridesResponse>, NotFound>> SetOverridesAsync(
+    /// <summary>Replaces complete per-session agent runtime overrides.</summary>
+    public async Task<AgentOverridesResponse?> SetOverridesAsync(
         string agentName,
         string sessionId,
         UpdateAgentOverridesRequest request,
-        AgentSessionControlService controlSvc,
         CancellationToken cancellationToken)
     {
         var overrides = new AgentOverrideState
@@ -210,8 +115,8 @@ public static class AgentRuntimeEndpoints
             Instructions = request.Instructions,
         };
         return await controlSvc.SetOverridesAsync(agentName, sessionId, overrides, cancellationToken)
-            ? TypedResults.Ok(MapOverrides(overrides))
-            : TypedResults.NotFound();
+            ? MapOverrides(overrides)
+            : null;
     }
 
     private static AgentOverridesResponse MapOverrides(AgentOverrideState overrides) => new()
@@ -221,40 +126,40 @@ public static class AgentRuntimeEndpoints
         Instructions = overrides.Instructions,
     };
 
-    private static async Task<Results<Ok<AgentInstructionsResponse>, NotFound>> GetInstructionsAsync(
+    /// <summary>Gets effective instructions when the tenant enables disclosure.</summary>
+    public async Task<AgentInstructionsResponse?> GetInstructionsAsync(
         string agentName,
         string sessionId,
-        AgentSessionControlService controlSvc,
         CancellationToken cancellationToken)
     {
         var view = await controlSvc.GetInstructionsAsync(agentName, sessionId, cancellationToken);
         return view is null
-            ? TypedResults.NotFound()
-            : TypedResults.Ok(new AgentInstructionsResponse
+            ? null
+            : new AgentInstructionsResponse
             {
                 DefinitionVersion = view.DefinitionVersion,
                 Overridden = view.Overridden,
                 Instructions = view.Instructions,
-            });
+            };
     }
 
-    private static async Task<Results<Ok<RunAgentResponse>, NotFound>> RunAgentAsync(
+    /// <summary>Runs one turn against a tenant-scoped agent session.</summary>
+    public async Task<RunAgentResponse?> RunAgentAsync(
         string agentName,
         RunAgentRequest request,
-        AgentExecutionCoordinator coordinator,
         CancellationToken cancellationToken)
     {
         var result = await coordinator.ExecuteAsync(MapRequest(agentName, request), cancellationToken);
 
         return result is null
-            ? TypedResults.NotFound()
-            : TypedResults.Ok(MapResponse(request, result));
+            ? null
+            : MapResponse(request, result);
     }
 
-    private static async Task<Ok<IAsyncEnumerable<RunAgentStreamItem>>> StreamAgentAsync(
+    /// <summary>Streams execution events followed by the final tenant-scoped agent response.</summary>
+    public async Task<IAsyncEnumerable<RunAgentStreamItem>> StreamAgentAsync(
         string agentName,
         RunAgentRequest request,
-        AgentExecutionCoordinator coordinator,
         CancellationToken cancellationToken)
     {
         var channel = Channel.CreateUnbounded<RunAgentStreamItem>(new UnboundedChannelOptions
@@ -273,7 +178,7 @@ public static class AgentRuntimeEndpoints
             await execution;
             throw;
         }
-        return TypedResults.Ok(ReadStreamAsync(channel.Reader, execution, cancellationToken));
+        return ReadStreamAsync(channel.Reader, execution, cancellationToken);
     }
 
     private static async IAsyncEnumerable<RunAgentStreamItem> ReadStreamAsync(

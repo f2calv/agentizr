@@ -1,0 +1,71 @@
+@page "/apps/{AppId}/providers"
+@inherits CancellableComponentBase
+
+<PageTitle>@AppId providers · agentizr</PageTitle>
+
+<MudBreadcrumbs Items="Breadcrumbs" />
+<MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Providers in @AppId</MudText>
+<MudAlert Severity="Severity.Normal" Dense="true" Class="mb-4">
+    These are the server's current provider registrations. Each published version keeps its own copy of
+    the provider settings, so changing a registration never rewrites an existing version. Providers are
+    not probed, so this page does not report their health.
+</MudAlert>
+
+@if (_result is null)
+{
+    <MudProgressLinear Indeterminate="true" aria-label="Loading providers" />
+}
+else if (!_result.IsSuccess)
+{
+    <PageState Status="_result.Status" Errors="_result.Errors" OnRetry="LoadAsync" />
+}
+else
+{
+    var catalogue = _result.Value!;
+    @if (catalogue.Providers.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info">No providers are registered in configuration for this app.</MudAlert>
+    }
+    else
+    {
+        <MudSimpleTable Dense="true">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Endpoint</th>
+                    <th>Model</th>
+                    <th>Reasoning effort</th>
+                    <th>Authentication</th>
+                    <th>Endpoint allowed for definitions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var provider in catalogue.Providers)
+                {
+                    <tr @key="provider.Name">
+                        <td>@provider.Name</td>
+                        <td>@provider.Type</td>
+                        <td>@(provider.EndpointAuthority ?? "Provider default")</td>
+                        <td>@provider.ModelName</td>
+                        <td>@(provider.ReasoningEffort ?? "—")</td>
+                        <td>@provider.CredentialSource</td>
+                        <td>@(provider.IsEndpointAllowed ? "Yes" : "No")</td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+
+    <MudText Typo="Typo.h5" HtmlTag="h2" Class="mt-6 mb-2">Definition policy</MudText>
+    <MudSimpleTable Dense="true">
+        <tbody>
+            <tr><th scope="row">Allowed provider endpoints</th><td>@Join(catalogue.AllowedProviderAuthorities)</td></tr>
+            <tr><th scope="row">Allowed remote MCP endpoints</th><td>@Join(catalogue.AllowedMcpAuthorities)</td></tr>
+            <tr><th scope="row">Allowed service tools</th><td>@Join(catalogue.AllowedServiceTools)</td></tr>
+            <tr><th scope="row">Supported schema versions</th><td>@string.Join(", ", catalogue.SupportedSchemaVersions)</td></tr>
+            <tr><th scope="row">Evaluation required to activate</th><td>@(catalogue.EvaluationRequiredForActivation ? "Yes" : "No")</td></tr>
+            <tr><th scope="row">Publication supported</th><td>@(catalogue.PublicationSupported ? "Yes" : "No: this host reads definitions from configuration")</td></tr>
+        </tbody>
+    </MudSimpleTable>
+}

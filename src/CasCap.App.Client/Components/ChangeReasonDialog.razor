@@ -1,0 +1,21 @@
+<MudDialog>
+    <DialogContent>
+        <MudText Class="mb-3">@Message</MudText>
+        <MudTextField T="string" @bind-Value="_reason" Label="Reason, recorded in the audit history" Required="true"
+                      Lines="2" MaxLength="2000" AutoFocus="true" />
+        @if (ShowEvaluation)
+        {
+            <MudTextField T="string" @bind-Value="_evaluationJson" Lines="8" Class="mt-3"
+                          Label="@(EvaluationRequired ? "Evaluation scenarios (required JSON)" : "Evaluation scenarios (optional JSON)")"
+                          HelperText="@EvaluationExample" />
+        }
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-3">@_error</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="ConfirmColor" Variant="Variant.Filled" OnClick="Confirm">@ConfirmText</MudButton>
+    </DialogActions>
+</MudDialog>

@@ -1,0 +1,27 @@
+.definition-text {
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 24rem;
+    overflow: auto;
+    padding: 0.75rem;
+    border-radius: 4px;
+    background: var(--mud-palette-background-gray);
+    font-size: 0.875rem;
+}
+
+.selected-version {
+    background: var(--mud-palette-action-default-hover);
+}
+
+.text-secondary {
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.8125rem;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+}

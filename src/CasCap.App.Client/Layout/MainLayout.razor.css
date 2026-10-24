@@ -1,0 +1,15 @@
+#blazor-error-ui {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 0.75rem 1.25rem;
+    background: #fff3cd;
+    color: #000;
+    z-index: 2000;
+}
+
+#blazor-error-ui .reload {
+    margin-left: 1rem;
+}

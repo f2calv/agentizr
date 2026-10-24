@@ -8,10 +8,14 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="CasCap.App.Server.Tests" />
+    <ProjectReference Include="..\CasCap.App.Client\CasCap.App.Client.csproj" />
     <ProjectReference Include="..\CasCap.AgentRuntime.Contracts\CasCap.AgentRuntime.Contracts.csproj" />
     <ProjectReference Include="..\CasCap.AgentRuntime.Execution\CasCap.AgentRuntime.Execution.csproj" />
     <ProjectReference Include="..\CasCap.AgentRuntime.Evaluation\CasCap.AgentRuntime.Evaluation.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
+    <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">

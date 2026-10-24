@@ -1,0 +1,20 @@
+@if (_session is null)
+{
+    return;
+}
+@if (!_session.SignInRequired)
+{
+    <MudChip T="string" Color="Color.Warning" Size="Size.Small">Development: sign-in disabled</MudChip>
+}
+else if (_session.IsAuthenticated)
+{
+    <MudText Typo="Typo.body2" Class="mr-2">@_session.DisplayName</MudText>
+    <form method="post" action="@AdministrationRoutes.Logout">
+        <input type="hidden" name="@AdministrationRoutes.AntiforgeryFormFieldName" value="@_session.AntiforgeryToken" />
+        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Text" Color="Color.Inherit">Sign out</MudButton>
+    </form>
+}
+else
+{
+    <MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="SignIn">Sign in</MudButton>
+}

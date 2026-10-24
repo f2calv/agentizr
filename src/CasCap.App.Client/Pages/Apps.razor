@@ -1,0 +1,49 @@
+@page "/"
+@inherits CancellableComponentBase
+
+<PageTitle>Apps · agentizr</PageTitle>
+
+<MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Apps</MudText>
+<MudText Typo="Typo.body2" Class="mb-4">
+    An app is a tenant boundary: its agents, definitions and the caller applications allowed to run them.
+</MudText>
+
+@if (_result is null)
+{
+    <MudProgressLinear Indeterminate="true" aria-label="Loading apps" />
+}
+else if (!_result.IsSuccess)
+{
+    <PageState Status="_result.Status" Errors="_result.Errors" OnRetry="LoadAsync" />
+}
+else if (_result.Value is not { Count: > 0 } apps)
+{
+    <MudAlert Severity="Severity.Info">You are not assigned to administer any app.</MudAlert>
+}
+else
+{
+    <MudSimpleTable Hover="true" Dense="true">
+        <thead>
+            <tr>
+                <th>App</th>
+                <th>Caller applications</th>
+                <th>Agents</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var app in apps)
+            {
+                <tr @key="app.AppId">
+                    <td><MudLink Href="@AppPath(app.AppId)">@app.AppId</MudLink></td>
+                    <td>
+                        @foreach (var caller in app.CallerApplications)
+                        {
+                            <MudChip T="string" Size="Size.Small" @key="caller">@caller</MudChip>
+                        }
+                    </td>
+                    <td>@app.AgentCount</td>
+                </tr>
+            }
+        </tbody>
+    </MudSimpleTable>
+}

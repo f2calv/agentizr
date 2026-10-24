@@ -1,0 +1,90 @@
+### Agentizr runtime and durable session API
+### Requires agent.execute and a trusted tenant caller mapping; requests are independent.
+
+@baseUrl = {{$dotenv AGENTIZR_BASE_URL}}
+@token = {{$dotenv AGENTIZR_EXECUTE_TOKEN}}
+@agentName = {{$dotenv AGENTIZR_AGENT_NAME}}
+@sessionId = {{$dotenv AGENTIZR_SESSION_ID}}
+@snapshotName = {{$dotenv AGENTIZR_SNAPSHOT_NAME}}
+
+### Run one turn - expected 200 JSON, 404 absent agent, 400 validation or 409 busy session
+# @name runAgent
+# @note Invokes the configured model/tools and persists session state. Confirm tool permissions and costs; do not retry an uncertain run automatically.
+POST {{baseUrl}}/api/v1/agents/{{agentName}}/runs HTTP/1.1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{"sessionId":"{{sessionId}}","input":"Reply with a short greeting without using tools.","includeDiagnosticDetails":false}
+
+### Stream one turn - expected 200 incremental JSON array, not SSE
+# @name streamAgent
+# @note Invokes model/tools and persists state. An interrupted stream has an uncertain outcome; no automatic replay.
+POST {{baseUrl}}/api/v1/agents/{{agentName}}/runs/stream HTTP/1.1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{"sessionId":"{{sessionId}}","input":"Reply with a short greeting without using tools.","includeDiagnosticDetails":false}
+
+### Inspect committed session status - expected 200 JSON or 404
+# @name getSession
+GET {{baseUrl}}/api/v1/agents/{{agentName}}/sessions/{{sessionId}} HTTP/1.1
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### Reset active session - expected 204, 404 or 409
+# @name resetSession
+# @note Removes resumable conversation state. This is not cleanup for an approved read; obtain separate approval.
+DELETE {{baseUrl}}/api/v1/agents/{{agentName}}/sessions/{{sessionId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+### Compact session - expected 200 JSON, 400, 404 or 409
+# @name compactSession
+# @note Replaces conversation history with its compacted form; review retention before sending.
+POST {{baseUrl}}/api/v1/agents/{{agentName}}/sessions/{{sessionId}}/compact HTTP/1.1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{"retainMessageCount":20}
+
+### Save named snapshot - expected 204, 404 or 409
+# @name saveSnapshot
+# @note Saves current conversation state and can replace the selected named snapshot.
+PUT {{baseUrl}}/api/v1/agents/{{agentName}}/sessions/{{sessionId}}/snapshots/{{snapshotName}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+### Restore snapshot - expected 204, 404 or 409
+# @name restoreSnapshot
+# @note Replaces active conversation state with the named snapshot; confirm both identifiers.
+POST {{baseUrl}}/api/v1/agents/{{agentName}}/sessions/{{sessionId}}/snapshots/{{snapshotName}}/activate HTTP/1.1
+Authorization: Bearer {{token}}
+
+### Delete snapshot - expected 204, 404 or 409
+# @name deleteSnapshot
+# @note Deletes the selected saved conversation snapshot.
+DELETE {{baseUrl}}/api/v1/agents/{{agentName}}/sessions/{{sessionId}}/snapshots/{{snapshotName}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+### Read complete overrides - expected 200 JSON or 404
+# @name getOverrides
+GET {{baseUrl}}/api/v1/agents/{{agentName}}/sessions/{{sessionId}}/overrides HTTP/1.1
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### Replace complete overrides - expected 200 JSON, 400, 404 or 409
+# @name replaceOverrides
+# @note Replaces all session overrides; null model/instructions restores definition defaults, not the previous override.
+PUT {{baseUrl}}/api/v1/agents/{{agentName}}/sessions/{{sessionId}}/overrides HTTP/1.1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{"sessionEnabled":true,"modelName":null,"instructions":null}
+
+### Read effective instructions - expected 200 JSON or 404 when absent/disclosure disabled
+# @name getInstructions
+GET {{baseUrl}}/api/v1/agents/{{agentName}}/sessions/{{sessionId}}/instructions HTTP/1.1
+Authorization: Bearer {{token}}
+Accept: application/json

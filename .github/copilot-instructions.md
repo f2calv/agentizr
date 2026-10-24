@@ -40,11 +40,22 @@ Everything below is specific to this repository.
 - Apply EF migrations externally. Never use `HasData` for runtime definitions or other mutable,
   tenant-owned data.
 
+## Administration Frontend
+
+- The browser frontend is a co-hosted Blazor Web App with WebAssembly-only interactivity and no
+  prerendering. Keep components in `CasCap.App.Client` thin: they call `/admin/api` through
+  `AdministrationApiClient` and never reference server-only code.
+- An "app" is the tenant boundary. A route `appId` is only a requested target until
+  `AdministrationAccessService` confirms the configured administrator assignment.
+- Administrators are assigned by configuration only. Machine bearer tokens never grant
+  administration; the app-administrator policy authenticates only the administration cookie.
+- Administration mutations require antiforgery tokens, and activation or deactivation carries the
+  observed active version so concurrent decisions return 409.
+
 ## Boundaries
 
 - CI publishes the NuGet packages, the Release image and the application chart. Do not add
-  frontend, new deployment targets, or new cloud-service ownership without an explicit
-  implementation request.
+  new deployment targets or new cloud-service ownership without an explicit implementation request.
 - Keep tracked configuration and tests credential-free and free of real account, tenant, endpoint,
   host, subscription, or resource identifiers.
 - Add domain code only after its ownership boundary and public contract are established.

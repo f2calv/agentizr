@@ -40,13 +40,23 @@ public static partial class AppHost
 
         if (tenantAuthenticationEnabled)
         {
-            builder.Services.AddScoped<ITenantContext, AuthenticatedTenantContext>();
+            builder.Services.AddScoped<AuthenticatedTenantContext>();
+            builder.Services.AddScoped<ITenantContext>(services => new AdministrationTenantContext(
+                services.GetRequiredService<IHttpContextAccessor>(),
+                services.GetRequiredService<AuthenticatedTenantContext>()));
             builder.Services.AddScoped<IActorContext, AuthenticatedActorContext>();
         }
         else
         {
-            builder.Services.AddScoped<ITenantContext, ConfiguredTenantContext>();
-            builder.Services.AddScoped<IActorContext, ConfiguredActorContext>();
+            builder.Services.AddScoped<ConfiguredTenantContext>();
+            builder.Services.AddScoped<ITenantContext>(services => new AdministrationTenantContext(
+                services.GetRequiredService<IHttpContextAccessor>(),
+                services.GetRequiredService<ConfiguredTenantContext>()));
+            // A signed-in administrator is still audited by identity when machine authentication is disabled.
+            builder.Services.AddScoped<IActorContext>(services =>
+                services.GetRequiredService<IHttpContextAccessor>().HttpContext?.User.Identity?.IsAuthenticated is true
+                    ? new AuthenticatedActorContext(services.GetRequiredService<IHttpContextAccessor>())
+                    : new ConfiguredActorContext());
         }
 
         if (postgresEnabled)

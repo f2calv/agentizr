@@ -225,6 +225,9 @@ public sealed class AgentDefinitionAdministrationProtocolTests(
             TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        Assert.Equal("/api/v1/agents/duplicate-agent/definitions/duplicate", first.Headers.Location?.OriginalString);
+        using var stored = await httpClient.GetAsync(first.Headers.Location, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, stored.StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
     }
 
@@ -241,13 +244,16 @@ public sealed class AgentDefinitionAdministrationProtocolTests(
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    [Fact]
-    public async Task GetDefinitionHistory_InvalidLimitReturnsBadRequest()
+    [Theory]
+    [InlineData("0")]
+    [InlineData("1001")]
+    [InlineData("invalid")]
+    public async Task GetDefinitionHistory_InvalidLimitReturnsBadRequest(string limit)
     {
         using var httpClient = factory.CreateClient();
 
         using var response = await httpClient.GetAsync(
-            "/api/v1/agents/assistant/definitions?limit=0",
+            $"/api/v1/agents/assistant/definitions?limit={limit}",
             TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);

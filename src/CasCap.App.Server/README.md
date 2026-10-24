@@ -29,8 +29,9 @@ agent's reachable active delegation graph; delegated agents do not receive anoth
 
 | Endpoint | Response |
 | --- | --- |
-| `/` | Host identity |
+| `/status` | Host identity |
 | `/healthz` | ASP.NET Core health status |
+| `/`, `/apps/...` | [Administration frontend](../../docs/administration-frontend.md) shell and WebAssembly assets, served when `AdministrationConfig` is enabled or in Development |
 | `/mcp` | Opt-in Streamable HTTP MCP endpoint (`CasCap:McpConfig:Enabled`, default off) serving the read-only `get_agentizr_status` tool: service name, version, commit and UTC time only. Requests carrying an `Origin` header are rejected with 403; when disabled the route does not exist |
 | `POST /api/v1/agents/{agentName}/runs` | Executes one tenant-scoped agent turn |
 | `POST /api/v1/agents/{agentName}/runs/stream` | Streams live execution events followed by the final response |
@@ -47,8 +48,45 @@ agent's reachable active delegation graph; delegated agents do not receive anoth
 | `PUT /api/v1/agents/{agentName}/definitions/{definitionVersion}/activate` | Activates or rolls back to a version, optionally gated by an evaluation |
 | `POST /api/v1/agents/{agentName}/definitions/active/deactivate` | Deactivates the active version with an audited reason; refused while another active agent delegates to it |
 | `GET /api/v1/agents/{agentName}/definitions/activations` | Gets activation and rollback audit history |
+| `GET /admin/api/session` | Describes the administrator session and issues an antiforgery token |
+| `GET /admin/login`, `POST /admin/logout` | Browser navigations that start OpenID Connect sign-in or end the session |
+| `GET /admin/api/apps` | Lists the apps the administrator may manage, with caller applications and agent counts |
+| `GET /admin/api/apps/{appId}/agents` | Pages the app's agents, including inactive and never-activated agents |
+| `GET /admin/api/apps/{appId}/providers` | Gets secret-free provider registrations and the definition policy |
+| `/admin/api/apps/{appId}/agents/{agentName}/definitions/...` | Mirrors the definition routes above for the selected app; activation and deactivation require the administrator's observed active version and return 409 when it changed |
 
-The execution surface uses minimal APIs and derives tenancy from
+The application API uses thin
+[`AgentRuntimeController`](Controllers/AgentRuntimeController.cs) and
+[`AgentDefinitionsController`](Controllers/AgentDefinitionsController.cs) actions. Each delegates to
+one typed method on [`AgentRuntimeApiService`](Services/AgentRuntimeApiService.cs) or
+[`AgentDefinitionApiService`](Services/AgentDefinitionApiService.cs), which owns DTO projection
+and streaming orchestration. Services return DTOs or typed outcomes; controllers select the HTTP
+response with `TypedResults`. Concrete return types provide response metadata without duplicate
+success/error attributes. Explicit metadata covers controller validation, session-conflict handling
+and dynamic status codes.
+
+The administration API serves the browser frontend from
+[`AdministrationController`](Controllers/AdministrationController.cs) and
+[`AdministrationDefinitionsController`](Controllers/AdministrationDefinitionsController.cs) through
+[`AdministrationApiService`](Services/AdministrationApiService.cs). Its route and DTO contracts live in
+the [browser client project](../CasCap.App.Client/README.md), not the published contracts package.
+Every action requires the app-administrator policy: the route's `appId` is only a requested target
+until [`AdministrationAccessService`](Services/AdministrationAccessService.cs) confirms the user is
+assigned to it, after which the app becomes the tenant for that request. Failed authorization returns
+401 or 403 Problem Details rather than a redirect.
+
+Routes remain defined by the version 1 contract, and endpoint names are stable. Controller validation
+checks request DTOs before execution. The streaming action returns the existing JSON-array stream
+without buffering it into a collection. The host retains its small status, health and MCP mappings.
+
+API services and authorization policies are registered by
+[`AddAgentRuntimeApi`](Extensions/ServiceCollectionExtensions.cs). Execution, definition reads,
+publication and activation retain separate permissions. Only Development with authentication
+explicitly disabled permits anonymous controller access; non-Development startup still fails closed.
+Administration endpoints are excluded from that anonymous convention and are open only when
+`AdministrationConfig` is also disabled.
+
+The runtime derives tenancy from
 [`ITenantContext`](https://github.com/f2calv/agentizr/blob/13aa4a19180b9dbd0f14fa08fbf95f67039b69f0/src/CasCap.App.Server/Abstractions/ITenantContext.cs), never from the
 request body. `/healthz` uses the host's health checks; it does not probe the model provider,
 PostgreSQL or Redis.
@@ -90,6 +128,23 @@ Permissions are accepted from delegated `scope`/`scp` claims or application `rol
 activation actor identifiers come from validated principal claims, never request bodies. Provider credentials remain behind
 [`IProviderCredentialStore`](https://github.com/f2calv/agentizr/blob/13aa4a19180b9dbd0f14fa08fbf95f67039b69f0/src/CasCap.App.Server/Abstractions/IProviderCredentialStore.cs)
 and definition publication rejects embedded API keys.
+
+`AdministrationConfig` binds from `CasCap:AdministrationConfig` and controls the browser frontend.
+`AppAdministrators` maps each app to the user identifiers, read from `AdministratorClaimType`
+(`oid` by default), who may read, publish and activate its definitions. An app is the tenant
+boundary shared by `TenantAuthenticationConfig.TenantCallers` and `AgentRuntimeConfig.Tenants`.
+Assignments are configuration-only; machine callers and their scopes never grant administration.
+
+When enabled, administrators sign in with an OpenID Connect authorization-code flow with PKCE
+against a dedicated web registration (`Authority`, `ClientId` and a secret-supplied `ClientSecret`),
+and the host issues its own Secure, HttpOnly `agentizr-admin` cookie. Identity tokens are not saved
+and never reach the browser. Register the exact HTTPS `CallbackPath` (`/signin-oidc`) and
+`SignedOutCallbackPath` (`/signout-callback-oidc`) redirect URIs. Behind a TLS-terminating proxy, set
+`ASPNETCORE_FORWARDEDHEADERS_ENABLED=true` so the callbacks keep their HTTPS scheme. Administration
+mutations and sign-out require the antiforgery token from `/admin/api/session`, sent in the
+`X-XSRF-TOKEN` header or the sign-out form. With PostgreSQL configured, the Data Protection key ring
+that protects cookies and antiforgery tokens is shared through the `data_protection_keys` table, so
+any replica accepts them; the keys are not yet encrypted at rest.
 
 `AgentDefinitionPolicyConfig` limits publication to supported schema versions and explicit provider,
 remote MCP and in-process service-tool allowlists. Version 1 requires inline instructions, rejects
@@ -224,6 +279,14 @@ and credentials:
       "Authority": "https://identity.example.com/",
       "Audience": "api://example-runtime",
       "TenantCallers": {
+        "example-tenant": ["00000000-0000-0000-0000-000000000000"]
+      }
+    },
+    "AdministrationConfig": {
+      "Enabled": true,
+      "Authority": "https://identity.example.com/",
+      "ClientId": "00000000-0000-0000-0000-000000000000",
+      "AppAdministrators": {
         "example-tenant": ["00000000-0000-0000-0000-000000000000"]
       }
     },

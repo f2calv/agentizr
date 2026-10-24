@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Configuration;
+using System.Text;
+using System.Text.Json;
 
 namespace CasCap.IntegrationTests;
 
@@ -115,6 +117,26 @@ public sealed class AgentRuntimeProtocolTests(AgentizrWebApplicationFactory fact
             CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{")]
+    [InlineData("")]
+    [InlineData("{\"sessionId\":\"validation-test\",\"input\":null}")]
+    public async Task RunAgent_InvalidJsonReturnsValidationProblem(string json)
+    {
+        using var httpClient = factory.CreateClient();
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        using var response = await httpClient.PostAsync(
+            "/api/v1/agents/assistant/runs", content, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal(400, problem.GetProperty("status").GetInt32());
+        Assert.NotEmpty(problem.GetProperty("errors").EnumerateObject());
     }
 
     [Fact]

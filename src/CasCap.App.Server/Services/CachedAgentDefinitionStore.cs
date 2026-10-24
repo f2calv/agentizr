@@ -97,14 +97,16 @@ internal sealed class CachedAgentDefinitionStore(
         string definitionVersion,
         string? activatedBy,
         string? changeReason,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ExpectedActiveDefinition? expectedActive = null)
     {
         var changed = await innerStore.ActivateAsync(
             agentName,
             definitionVersion,
             activatedBy,
             changeReason,
-            cancellationToken);
+            cancellationToken,
+            expectedActive);
         if (changed)
             await InvalidatePointerAsync(agentName);
         return changed;
@@ -115,13 +117,28 @@ internal sealed class CachedAgentDefinitionStore(
         string agentName,
         string? deactivatedBy,
         string changeReason,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ExpectedActiveDefinition? expectedActive = null)
     {
-        var changed = await innerStore.DeactivateAsync(agentName, deactivatedBy, changeReason, cancellationToken);
+        var changed = await innerStore.DeactivateAsync(agentName, deactivatedBy, changeReason, cancellationToken, expectedActive);
         if (changed)
             await InvalidatePointerAsync(agentName);
         return changed;
     }
+
+    /// <inheritdoc/>
+    public ValueTask<AgentDefinitionSummaryPage> GetAgentsAsync(
+        string? nameFilter,
+        int skip,
+        int take,
+        CancellationToken cancellationToken) =>
+        innerStore.GetAgentsAsync(nameFilter, skip, take, cancellationToken);
+
+    /// <inheritdoc/>
+    public ValueTask<IReadOnlyDictionary<string, int>> CountAgentsAsync(
+        IReadOnlyCollection<string> tenantIds,
+        CancellationToken cancellationToken) =>
+        innerStore.CountAgentsAsync(tenantIds, cancellationToken);
 
     /// <inheritdoc/>
     public ValueTask<IReadOnlyList<AgentDefinition>> GetActiveDefinitionsAsync(CancellationToken cancellationToken) =>
