@@ -1,5 +1,6 @@
 using CasCap.Client.Constants;
 using CasCap.Client.Models;
+using System.Text.Json;
 
 namespace CasCap.IntegrationTests;
 
@@ -72,6 +73,33 @@ public sealed class AdministrationApiTests(AgentDefinitionAdministrationWebAppli
         Assert.Equal(HttpStatusCode.NoContent, deactivated.StatusCode);
         Assert.Equal([true, false], activations!.Select(activation => activation.IsDeactivation));
         Assert.All(activations!, activation => Assert.Equal("development", activation.ActivatedBy));
+    }
+
+    [Fact]
+    public async Task Publication_AcceptsEnumNamesAndReturnsThemToTheBrowser()
+    {
+        using var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await AdministrationTestClient.PrepareAsync(client);
+        var request = AgentDefinitionTestData.CreatePublishRequest("v1") with
+        {
+            Definition = JsonSerializer.SerializeToElement(new
+            {
+                agent = AgentDefinitionTestData.CreateAgent(),
+                provider = new { type = "Ollama", endpoint = "http://localhost:11434", modelName = "named-model", reasoningEffort = "Low" },
+            }, JsonSerializerOptions.Web),
+        };
+
+        using var published = await client.PostAsJsonAsync(
+            AdministrationRoutes.Format(AdministrationRoutes.Definitions, AppId, "named-enums"),
+            request,
+            cancellationToken);
+        var snapshot = await published.Content.ReadFromJsonAsync<AgentDefinitionSnapshotResponse>(cancellationToken);
+
+        Assert.Equal(HttpStatusCode.Created, published.StatusCode);
+        var provider = snapshot!.Definition.GetProperty("provider");
+        Assert.Equal("Ollama", provider.GetProperty("type").GetString());
+        Assert.Equal("Low", provider.GetProperty("reasoningEffort").GetString());
     }
 
     [Fact]

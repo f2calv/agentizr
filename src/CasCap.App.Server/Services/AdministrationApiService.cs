@@ -1,12 +1,19 @@
 using CasCap.Client.Constants;
 using CasCap.Client.Models;
 using System.Security.Claims;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace CasCap.Services;
 
 /// <summary>Maps administrator discovery and guarded activation to browser-facing DTOs.</summary>
 public sealed class AdministrationApiService
 {
+    private static readonly JsonSerializerOptions BrowserDefinitionJsonOptions = new(JsonSerializerOptions.Web)
+    {
+        Converters = { new JsonStringEnumConverter() },
+    };
+
     private readonly IOptions<AgentDefinitionPolicyConfig> _policyConfig;
     private readonly IOptions<AgentRuntimeConfig> _runtimeConfig;
     private readonly IOptions<DatabaseConfig> _databaseConfig;
@@ -26,7 +33,11 @@ public sealed class AdministrationApiService
         _databaseConfig = databaseConfig;
         _accessSvc = accessSvc;
         _administrationSvc = administrationSvc;
+        Definitions = new AgentDefinitionApiService(administrationSvc, BrowserDefinitionJsonOptions);
     }
+
+    /// <summary>Gets definition reads, publication and evaluation, with enum names in snapshot definitions for the browser.</summary>
+    public AgentDefinitionApiService Definitions { get; }
 
     /// <summary>Lists the apps the administrator may manage, with caller applications and agent counts.</summary>
     public async Task<IReadOnlyList<AppSummaryResponse>> GetAppsAsync(

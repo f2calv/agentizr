@@ -16,9 +16,7 @@ namespace CasCap.Controllers;
 [Authorize(Policy = AdministrationPolicies.AppAdministrator)]
 [ValidateAdministrationAntiforgery]
 [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
-public sealed class AdministrationDefinitionsController(
-    AgentDefinitionApiService definitionApiSvc,
-    AdministrationApiService administrationApiSvc) : ControllerBase
+public sealed class AdministrationDefinitionsController(AdministrationApiService administrationApiSvc) : ControllerBase
 {
     /// <inheritdoc cref="AgentDefinitionApiService.PublishAsync"/>
     [HttpPost(AdministrationRoutes.Definitions, Name = "PublishAdministeredDefinition")]
@@ -30,7 +28,7 @@ public sealed class AdministrationDefinitionsController(
         [FromBody] PublishAgentDefinitionRequest request,
         CancellationToken cancellationToken)
     {
-        var outcome = await definitionApiSvc.PublishAsync(agentName, request, cancellationToken);
+        var outcome = await administrationApiSvc.Definitions.PublishAsync(agentName, request, cancellationToken);
         if (outcome.ValidationError is { } validationError)
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
             {
@@ -54,7 +52,7 @@ public sealed class AdministrationDefinitionsController(
         [StringLength(200, MinimumLength = 1)] string agentName,
         CancellationToken cancellationToken,
         [FromQuery, Range(1, 1_000)] int limit = 100) =>
-        TypedResults.Ok(await definitionApiSvc.GetHistoryAsync(agentName, cancellationToken, limit));
+        TypedResults.Ok(await administrationApiSvc.Definitions.GetHistoryAsync(agentName, cancellationToken, limit));
 
     /// <inheritdoc cref="AgentDefinitionApiService.GetActiveAsync"/>
     [HttpGet(AdministrationRoutes.ActiveDefinition, Name = "GetAdministeredActiveDefinition")]
@@ -62,7 +60,7 @@ public sealed class AdministrationDefinitionsController(
     public async Task<Results<Ok<AgentDefinitionSnapshotResponse>, NotFound>> GetActiveAsync(
         [StringLength(200, MinimumLength = 1)] string agentName,
         CancellationToken cancellationToken) =>
-        await definitionApiSvc.GetActiveAsync(agentName, cancellationToken) is { } snapshot
+        await administrationApiSvc.Definitions.GetActiveAsync(agentName, cancellationToken) is { } snapshot
             ? TypedResults.Ok(snapshot)
             : TypedResults.NotFound();
 
@@ -73,7 +71,7 @@ public sealed class AdministrationDefinitionsController(
         [StringLength(200, MinimumLength = 1)] string agentName,
         [StringLength(100, MinimumLength = 1)] string definitionVersion,
         CancellationToken cancellationToken) =>
-        await definitionApiSvc.GetVersionAsync(agentName, definitionVersion, cancellationToken) is { } snapshot
+        await administrationApiSvc.Definitions.GetVersionAsync(agentName, definitionVersion, cancellationToken) is { } snapshot
             ? TypedResults.Ok(snapshot)
             : TypedResults.NotFound();
 
@@ -85,7 +83,7 @@ public sealed class AdministrationDefinitionsController(
         [StringLength(100, MinimumLength = 1)] string definitionVersion,
         [FromBody] EvaluateAgentDefinitionRequest request,
         CancellationToken cancellationToken) =>
-        (await definitionApiSvc.EvaluateAsync(agentName, definitionVersion, request, cancellationToken)) switch
+        (await administrationApiSvc.Definitions.EvaluateAsync(agentName, definitionVersion, request, cancellationToken)) switch
         {
             { ValidationError: { } validationError } => TypedResults.ValidationProblem(
                 new Dictionary<string, string[]> { [nameof(request)] = [validationError] }),
@@ -119,7 +117,7 @@ public sealed class AdministrationDefinitionsController(
         [StringLength(200, MinimumLength = 1)] string agentName,
         CancellationToken cancellationToken,
         [FromQuery, Range(1, 1_000)] int limit = 100) =>
-        TypedResults.Ok(await definitionApiSvc.GetActivationHistoryAsync(agentName, cancellationToken, limit));
+        TypedResults.Ok(await administrationApiSvc.Definitions.GetActivationHistoryAsync(agentName, cancellationToken, limit));
 
     /// <inheritdoc cref="AdministrationApiService.DeactivateAsync"/>
     [HttpPost(AdministrationRoutes.DefinitionDeactivation, Name = "DeactivateAdministeredDefinition")]

@@ -18,6 +18,8 @@ internal sealed class AgentDefinitionAdministrationService(
     private static readonly JsonSerializerOptions DefinitionJsonOptions = new(JsonSerializerOptions.Web)
     {
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+        // Accepts provider types and reasoning efforts by name as well as by number.
+        Converters = { new JsonStringEnumConverter() },
     };
 
     /// <summary>Gets the active immutable snapshot.</summary>

@@ -7,10 +7,18 @@ namespace CasCap.Services;
 public sealed class AgentDefinitionApiService
 {
     private readonly AgentDefinitionAdministrationService _administrationSvc;
+    private readonly JsonSerializerOptions _definitionJsonOptions;
 
     /// <summary>Creates the DTO service without exposing internal administration dependencies.</summary>
-    internal AgentDefinitionApiService(AgentDefinitionAdministrationService administrationSvc) =>
+    /// <param name="administrationSvc">The definition administration service.</param>
+    /// <param name="definitionJsonOptions">Serializes snapshot definitions; defaults to web options with numeric enums.</param>
+    internal AgentDefinitionApiService(
+        AgentDefinitionAdministrationService administrationSvc,
+        JsonSerializerOptions? definitionJsonOptions = null)
+    {
         _administrationSvc = administrationSvc;
+        _definitionJsonOptions = definitionJsonOptions ?? JsonSerializerOptions.Web;
+    }
 
     /// <summary>Publishes an immutable agent definition without activating it.</summary>
     public async Task<AgentDefinitionPublicationResult> PublishAsync(
@@ -106,12 +114,12 @@ public sealed class AgentDefinitionApiService
             })
             .ToArray();
 
-    private static AgentDefinitionSnapshotResponse MapSnapshot(AgentDefinitionSnapshotItem snapshot) => new()
+    private AgentDefinitionSnapshotResponse MapSnapshot(AgentDefinitionSnapshotItem snapshot) => new()
     {
         AgentName = snapshot.Definition.Name,
         DefinitionVersion = snapshot.Definition.Version,
         SchemaVersion = snapshot.SchemaVersion,
-        Definition = JsonSerializer.SerializeToElement(snapshot.Definition, JsonSerializerOptions.Web),
+        Definition = JsonSerializer.SerializeToElement(snapshot.Definition, _definitionJsonOptions),
         PublishedAtUtc = snapshot.PublishedAtUtc,
         PublishedBy = snapshot.PublishedBy,
         ChangeReason = snapshot.ChangeReason,
