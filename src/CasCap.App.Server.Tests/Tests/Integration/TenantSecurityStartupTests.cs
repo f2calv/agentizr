@@ -60,7 +60,7 @@ public sealed class TenantSecurityStartupTests
             .SelectMany(source => source.Endpoints)
             .OfType<RouteEndpoint>()
             .Where(endpoint => endpoint.Metadata.GetMetadata<ControllerActionDescriptor>() is not null)
-            .ToArray();
+            .ToLookup(endpoint => AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata));
         var expectedDefinitionPolicies = new Dictionary<string, string>
         {
             ["PublishAgentDefinitionV1"] = AgentRuntimePolicies.DefinitionPublish,
@@ -73,12 +73,15 @@ public sealed class TenantSecurityStartupTests
             ["DeactivateAgentDefinitionV1"] = AgentRuntimePolicies.DefinitionActivate,
         };
 
-        Assert.Equal(19, endpoints.Length);
-        Assert.All(endpoints, endpoint =>
+        Assert.Equal(19, endpoints[false].Count());
+        Assert.Equal(11, endpoints[true].Count());
+        Assert.All(endpoints.SelectMany(group => group), endpoint =>
         {
             var name = endpoint.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName;
             Assert.NotNull(name);
-            var expectedPolicy = expectedDefinitionPolicies.GetValueOrDefault(name, AgentRuntimePolicies.Execute);
+            var expectedPolicy = AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)
+                ? AdministrationPolicies.AppAdministrator
+                : expectedDefinitionPolicies.GetValueOrDefault(name, AgentRuntimePolicies.Execute);
             var policies = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()
                 .Select(metadata => metadata.Policy).OfType<string>();
             Assert.Equal(expectedPolicy, Assert.Single(policies));

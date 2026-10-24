@@ -40,12 +40,18 @@ public static partial class AppHost
 
         if (tenantAuthenticationEnabled)
         {
-            builder.Services.AddScoped<ITenantContext, AuthenticatedTenantContext>();
+            builder.Services.AddScoped<AuthenticatedTenantContext>();
+            builder.Services.AddScoped<ITenantContext>(services => new AdministrationTenantContext(
+                services.GetRequiredService<IHttpContextAccessor>(),
+                services.GetRequiredService<AuthenticatedTenantContext>()));
             builder.Services.AddScoped<IActorContext, AuthenticatedActorContext>();
         }
         else
         {
-            builder.Services.AddScoped<ITenantContext, ConfiguredTenantContext>();
+            builder.Services.AddScoped<ConfiguredTenantContext>();
+            builder.Services.AddScoped<ITenantContext>(services => new AdministrationTenantContext(
+                services.GetRequiredService<IHttpContextAccessor>(),
+                services.GetRequiredService<ConfiguredTenantContext>()));
             builder.Services.AddScoped<IActorContext, ConfiguredActorContext>();
         }
 

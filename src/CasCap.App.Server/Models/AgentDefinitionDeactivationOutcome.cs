@@ -6,6 +6,9 @@ public sealed record AgentDefinitionDeactivationOutcome
     /// <summary>Gets whether an active definition was deactivated.</summary>
     public bool Deactivated { get; init; }
 
+    /// <summary>Gets whether another decision changed the active version since the caller observed it.</summary>
+    public bool IsConflict { get; init; }
+
     /// <summary>Gets whether the current definition authority supports deactivation.</summary>
     public bool IsSupported { get; init; } = true;
 

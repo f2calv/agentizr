@@ -6,6 +6,9 @@ public sealed record AgentDefinitionActivationOutcome
     /// <summary>Gets whether the version was activated.</summary>
     public bool Activated { get; init; }
 
+    /// <summary>Gets whether another decision changed the active version since the caller observed it.</summary>
+    public bool IsConflict { get; init; }
+
     /// <summary>Gets whether the current definition authority supports activation.</summary>
     public bool IsSupported { get; init; } = true;
 

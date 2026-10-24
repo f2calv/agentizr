@@ -80,7 +80,8 @@ internal sealed class ConfigurationAgentDefinitionStore(
         string definitionVersion,
         string? activatedBy,
         string? changeReason,
-        CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken,
+        ExpectedActiveDefinition? expectedActive = null) =>
         ValueTask.FromException<bool>(new NotSupportedException(
             "Configuration-backed definitions are read-only. Configure PostgreSQL to activate definitions."));
 
@@ -94,7 +95,8 @@ internal sealed class ConfigurationAgentDefinitionStore(
         string agentName,
         string? deactivatedBy,
         string changeReason,
-        CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken,
+        ExpectedActiveDefinition? expectedActive = null) =>
         ValueTask.FromException<bool>(new NotSupportedException(
             "Configuration-backed definitions are read-only. Configure PostgreSQL to deactivate definitions."));
 
@@ -111,5 +113,48 @@ internal sealed class ConfigurationAgentDefinitionStore(
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
         return ValueTask.FromResult<IReadOnlyList<AgentDefinitionActivationItem>>([]);
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask<AgentDefinitionSummaryPage> GetAgentsAsync(
+        string? nameFilter,
+        int skip,
+        int take,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(skip);
+        ArgumentOutOfRangeException.ThrowIfLessThan(take, 1);
+        var agentNames = runtimeConfig.Value.Tenants.TryGetValue(tenantContext.TenantId, out var tenant)
+            ? tenant.Agents.Keys
+                .Where(name => string.IsNullOrWhiteSpace(nameFilter)
+                    || name.Contains(nameFilter.Trim(), StringComparison.OrdinalIgnoreCase))
+                .Order(StringComparer.Ordinal)
+                .ToArray()
+            : [];
+
+        var items = new List<AgentDefinitionSummaryItem>();
+        foreach (var agentName in agentNames.Skip(skip).Take(take))
+        {
+            var definition = await GetAsync(agentName, cancellationToken);
+            items.Add(new AgentDefinitionSummaryItem
+            {
+                AgentName = agentName,
+                ActiveDefinition = definition,
+                LatestVersion = definition?.Version,
+                VersionCount = definition is null ? 0 : 1,
+            });
+        }
+        return new AgentDefinitionSummaryPage(items, agentNames.Length);
+    }
+
+    /// <inheritdoc/>
+    public ValueTask<IReadOnlyDictionary<string, int>> CountAgentsAsync(
+        IReadOnlyCollection<string> tenantIds,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult<IReadOnlyDictionary<string, int>>(runtimeConfig.Value.Tenants
+            .Where(tenant => tenantIds.Contains(tenant.Key) && tenant.Value.Agents.Count > 0)
+            .ToDictionary(tenant => tenant.Key, tenant => tenant.Value.Agents.Count, StringComparer.Ordinal));
     }
 }

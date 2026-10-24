@@ -106,14 +106,78 @@ public sealed class PostgresAgentDefinitionStoreTests : IAsyncLifetime
         Assert.Equal("model-b", (await tenantB.GetAsync("assistant", CancellationToken.None))?.Provider.ModelName);
     }
 
-    private static AgentDefinition CreateDefinition(string version, string modelName) => new()
+    [Fact]
+    public async Task GetAgentsAsync_ListsActiveInactiveAndNeverActivatedAgents()
     {
-        Name = "assistant",
+        var store = new PostgresAgentDefinitionStore(
+            _dbContextFactory,
+            new StaticTenantContext("tenant-a"),
+            _timeProvider);
+        var otherTenant = new PostgresAgentDefinitionStore(
+            _dbContextFactory,
+            new StaticTenantContext("tenant-b"),
+            _timeProvider);
+        await store.PublishAsync(CreateDefinition("v1", "model-v1", "assistant"), 1, "operator", null, CancellationToken.None);
+        await store.ActivateAsync("assistant", "v1", null, null, CancellationToken.None);
+        _timeProvider.Advance(TimeSpan.FromMinutes(1));
+        await store.PublishAsync(CreateDefinition("v2", "model-v2", "assistant"), 1, "publisher", null, CancellationToken.None);
+        await store.PublishAsync(CreateDefinition("v1", "model-v1", "drafted"), 1, null, null, CancellationToken.None);
+        await store.PublishAsync(CreateDefinition("v1", "model-v1", "retired"), 1, null, null, CancellationToken.None);
+        await store.ActivateAsync("retired", "v1", null, null, CancellationToken.None);
+        await store.DeactivateAsync("retired", null, "retire", CancellationToken.None);
+        await otherTenant.PublishAsync(CreateDefinition("v1", "model-b", "elsewhere"), 1, null, null, CancellationToken.None);
+
+        var firstPage = await store.GetAgentsAsync(null, 0, 2, CancellationToken.None);
+        var secondPage = await store.GetAgentsAsync(null, 2, 2, CancellationToken.None);
+        var filtered = await store.GetAgentsAsync("RAFT", 0, 10, CancellationToken.None);
+        var counts = await store.CountAgentsAsync(["tenant-a", "tenant-b", "tenant-c"], CancellationToken.None);
+
+        Assert.Equal(3, firstPage.TotalCount);
+        Assert.Equal(["assistant", "drafted"], firstPage.Items.Select(item => item.AgentName));
+        var assistant = firstPage.Items[0];
+        Assert.Equal("v1", assistant.ActiveDefinition?.Version);
+        Assert.Equal("model-v1", assistant.ActiveDefinition?.Provider.ModelName);
+        Assert.Equal("v2", assistant.LatestVersion);
+        Assert.Equal("publisher", assistant.LatestPublishedBy);
+        Assert.Equal(2, assistant.VersionCount);
+        Assert.Null(firstPage.Items[1].ActiveDefinition);
+        var retired = Assert.Single(secondPage.Items);
+        Assert.Equal("retired", retired.AgentName);
+        Assert.Null(retired.ActiveDefinition);
+        Assert.Equal("drafted", Assert.Single(filtered.Items).AgentName);
+        Assert.Equal(new Dictionary<string, int> { ["tenant-a"] = 3, ["tenant-b"] = 1 }, counts);
+    }
+
+    [Fact]
+    public async Task ExpectedActiveVersion_RejectsStaleDecisions()
+    {
+        var store = new PostgresAgentDefinitionStore(
+            _dbContextFactory,
+            new StaticTenantContext("tenant-a"),
+            _timeProvider);
+        await store.PublishAsync(CreateDefinition("v1", "model-v1"), 1, null, null, CancellationToken.None);
+        await store.PublishAsync(CreateDefinition("v2", "model-v2"), 1, null, null, CancellationToken.None);
+
+        Assert.True(await store.ActivateAsync("assistant", "v1", null, null, CancellationToken.None, new ExpectedActiveDefinition(null)));
+        await Assert.ThrowsAsync<CasCap.Exceptions.AgentDefinitionActiveVersionConflictException>(async () =>
+            await store.ActivateAsync("assistant", "v2", null, null, CancellationToken.None, new ExpectedActiveDefinition(null)));
+        Assert.True(await store.ActivateAsync("assistant", "v2", null, null, CancellationToken.None, new ExpectedActiveDefinition("v1")));
+        await Assert.ThrowsAsync<CasCap.Exceptions.AgentDefinitionActiveVersionConflictException>(async () =>
+            await store.DeactivateAsync("assistant", null, "retire", CancellationToken.None, new ExpectedActiveDefinition("v1")));
+        Assert.True(await store.DeactivateAsync("assistant", null, "retire", CancellationToken.None, new ExpectedActiveDefinition("v2")));
+
+        Assert.Null(await store.GetAsync("assistant", CancellationToken.None));
+        Assert.Equal(3, (await store.GetActivationHistoryAsync("assistant", 10, CancellationToken.None)).Count);
+    }
+
+    private static AgentDefinition CreateDefinition(string version, string modelName, string name = "assistant") => new()
+    {
+        Name = name,
         Version = version,
         Agent = new AgentConfig
         {
             Provider = "provider",
-            Name = "assistant",
+            Name = name,
             Description = "Test assistant",
             Prompt = "Test prompt",
         },

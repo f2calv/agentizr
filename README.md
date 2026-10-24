@@ -50,7 +50,7 @@ $env:ASPNETCORE_URLS = 'http://localhost:5090'
 dotnet run --project src\CasCap.App.Server\CasCap.App.Server.csproj --configuration Release --no-launch-profile
 ```
 
-The tracked defaults start an empty host: `/` identifies it and `/healthz` reports host health.
+The tracked defaults start an empty host: `/status` identifies it and `/healthz` reports host health.
 Before running an agent, add the [Development configuration](src/CasCap.App.Server/README.md#configuration-examples)
 and start its model provider. A health response does not verify provider, database or Redis readiness.
 Outside Development, PostgreSQL and JWT tenancy are mandatory; Redis is an optional cache.

@@ -149,13 +149,15 @@ public sealed class AgentDefinitionAdministrationWebApplicationFactory : Agentiz
             string definitionVersion,
             string? activatedBy,
             string? changeReason,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            ExpectedActiveDefinition? expectedActive = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
             lock (_lock)
             {
                 if (!_snapshots.ContainsKey((agentName, definitionVersion)))
                     return ValueTask.FromResult(false);
+                EnsureExpectedActive(agentName, expectedActive);
                 _activeVersions[agentName] = definitionVersion;
                 _activations.Add((agentName, new AgentDefinitionActivationItem
                 {
@@ -172,11 +174,13 @@ public sealed class AgentDefinitionAdministrationWebApplicationFactory : Agentiz
             string agentName,
             string? deactivatedBy,
             string changeReason,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            ExpectedActiveDefinition? expectedActive = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
             lock (_lock)
             {
+                EnsureExpectedActive(agentName, expectedActive);
                 if (!_activeVersions.Remove(agentName, out var version))
                     return ValueTask.FromResult(false);
                 _activations.Add((agentName, new AgentDefinitionActivationItem
@@ -213,6 +217,59 @@ public sealed class AgentDefinitionAdministrationWebApplicationFactory : Agentiz
                         .Take(limit)
                         .Select(activation => activation.Item)
                         .ToArray());
+        }
+
+        public ValueTask<AgentDefinitionSummaryPage> GetAgentsAsync(
+            string? nameFilter,
+            int skip,
+            int take,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_lock)
+            {
+                var agents = _snapshots.Values
+                    .GroupBy(snapshot => snapshot.Definition.Name)
+                    .Where(group => nameFilter is null || group.Key.Contains(nameFilter, StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(group => group.Key, StringComparer.Ordinal)
+                    .ToArray();
+                return ValueTask.FromResult(new AgentDefinitionSummaryPage(
+                    [.. agents.Skip(skip).Take(take).Select(group =>
+                    {
+                        var latest = group.MaxBy(snapshot => snapshot.PublishedAtUtc)!;
+                        return new AgentDefinitionSummaryItem
+                        {
+                            AgentName = group.Key,
+                            ActiveDefinition = _activeVersions.TryGetValue(group.Key, out var version)
+                                ? _snapshots[(group.Key, version)].Definition
+                                : null,
+                            LatestVersion = latest.Definition.Version,
+                            LatestPublishedAtUtc = latest.PublishedAtUtc,
+                            LatestPublishedBy = latest.PublishedBy,
+                            VersionCount = group.Count(),
+                        };
+                    })],
+                    agents.Length));
+            }
+        }
+
+        public ValueTask<IReadOnlyDictionary<string, int>> CountAgentsAsync(
+            IReadOnlyCollection<string> tenantIds,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_lock)
+            {
+                var count = _snapshots.Keys.Select(key => key.AgentName).Distinct(StringComparer.Ordinal).Count();
+                return ValueTask.FromResult<IReadOnlyDictionary<string, int>>(
+                    tenantIds.ToDictionary(tenantId => tenantId, _ => count, StringComparer.Ordinal));
+            }
+        }
+
+        private void EnsureExpectedActive(string agentName, ExpectedActiveDefinition? expectedActive)
+        {
+            if (expectedActive is not null && expectedActive.Version != _activeVersions.GetValueOrDefault(agentName))
+                throw new CasCap.Exceptions.AgentDefinitionActiveVersionConflictException();
         }
 
         private static AgentDefinitionSnapshotItem WithActive(AgentDefinitionSnapshotItem snapshot, bool isActive) =>

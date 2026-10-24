@@ -10,13 +10,20 @@ public static partial class AppHost
             app.UseAuthentication();
         app.UseAuthorization();
 
-        app.MapGet("/", () => Results.Ok(new
+        app.MapGet("/status", () => Results.Ok(new
         {
             Service = "agentizr"
         }));
         var controllers = app.MapControllers();
         if (!tenantAuthenticationEnabled && app.Environment.IsDevelopment())
-            controllers.AllowAnonymous();
+        {
+            // Administration keeps its own policy, which opens it only when administration is also disabled.
+            controllers.Add(endpoint =>
+            {
+                if (!AdministrationAccessService.IsAdministrationEndpoint(new EndpointMetadataCollection(endpoint.Metadata)))
+                    endpoint.Metadata.Add(new Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute());
+            });
+        }
         app.MapHealthChecks("/healthz");
     }
 }

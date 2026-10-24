@@ -15,7 +15,7 @@ public sealed class EndpointSmokeTests(AgentizrWebApplicationFactory factory)
     : IClassFixture<AgentizrWebApplicationFactory>
 {
     [Theory]
-    [InlineData("/")]
+    [InlineData("/status")]
     [InlineData("/healthz")]
     public async Task GetEndpoint(string path)
     {

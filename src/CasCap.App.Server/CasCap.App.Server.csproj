@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="CasCap.App.Server.Tests" />
+    <ProjectReference Include="..\CasCap.App.Client\CasCap.App.Client.csproj" />
     <ProjectReference Include="..\CasCap.AgentRuntime.Contracts\CasCap.AgentRuntime.Contracts.csproj" />
     <ProjectReference Include="..\CasCap.AgentRuntime.Execution\CasCap.AgentRuntime.Execution.csproj" />
     <ProjectReference Include="..\CasCap.AgentRuntime.Evaluation\CasCap.AgentRuntime.Evaluation.csproj" />

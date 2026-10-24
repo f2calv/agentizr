@@ -141,14 +141,15 @@ internal sealed class AgentDefinitionAdministrationService(
 
     /// <summary>
     /// Activates an existing version and records the authenticated actor. A supplied evaluation must pass
-    /// first, and the policy can require one.
+    /// first, and the policy can require one. A supplied expected active version must still be active.
     /// </summary>
     public async ValueTask<AgentDefinitionActivationOutcome> ActivateAsync(
         string agentName,
         string definitionVersion,
         string? changeReason,
         EvaluateAgentDefinitionRequest? evaluation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ExpectedActiveDefinition? expectedActive = null)
     {
         if (string.IsNullOrWhiteSpace(agentName) || agentName.Length > 200
             || string.IsNullOrWhiteSpace(definitionVersion) || definitionVersion.Length > 100)
@@ -163,6 +164,9 @@ internal sealed class AgentDefinitionAdministrationService(
             var snapshot = await administrationStore.GetVersionAsync(agentName, definitionVersion, cancellationToken);
             if (snapshot is null)
                 return new AgentDefinitionActivationOutcome();
+            // Fail before a costly evaluation; the store repeats the check atomically with the change.
+            if (expectedActive is not null && !await IsExpectedActiveAsync(agentName, expectedActive, cancellationToken))
+                return new AgentDefinitionActivationOutcome { IsConflict = true };
             var delegationError = await ValidateDelegationGraphAsync(
                 snapshot.Definition,
                 [],
@@ -191,8 +195,13 @@ internal sealed class AgentDefinitionAdministrationService(
                     definitionVersion,
                     actorContext.ActorId,
                     changeReason,
-                    cancellationToken),
+                    cancellationToken,
+                    expectedActive),
             };
+        }
+        catch (AgentDefinitionActiveVersionConflictException)
+        {
+            return new AgentDefinitionActivationOutcome { IsConflict = true };
         }
         catch (NotSupportedException)
         {
@@ -202,12 +211,13 @@ internal sealed class AgentDefinitionAdministrationService(
 
     /// <summary>
     /// Deactivates the agent's active definition and records the authenticated actor. Refused while another
-    /// active agent of the tenant still delegates to it.
+    /// active agent of the tenant still delegates to it, or when a supplied expected version is no longer active.
     /// </summary>
     public async ValueTask<AgentDefinitionDeactivationOutcome> DeactivateAsync(
         string agentName,
         string changeReason,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ExpectedActiveDefinition? expectedActive = null)
     {
         if (string.IsNullOrWhiteSpace(agentName) || agentName.Length > 200)
             return new AgentDefinitionDeactivationOutcome { ValidationError = "Agent name must contain 1 to 200 characters." };
@@ -237,14 +247,42 @@ internal sealed class AgentDefinitionAdministrationService(
                     agentName,
                     actorContext.ActorId,
                     changeReason,
-                    cancellationToken),
+                    cancellationToken,
+                    expectedActive),
             };
+        }
+        catch (AgentDefinitionActiveVersionConflictException)
+        {
+            return new AgentDefinitionDeactivationOutcome { IsConflict = true };
         }
         catch (NotSupportedException)
         {
             return new AgentDefinitionDeactivationOutcome { IsSupported = false };
         }
     }
+
+    /// <summary>Gets one page of the current tenant's agents, active or not, ordered by name.</summary>
+    public ValueTask<AgentDefinitionSummaryPage> GetAgentsAsync(
+        string? nameFilter,
+        int skip,
+        int take,
+        CancellationToken cancellationToken) =>
+        administrationStore.GetAgentsAsync(nameFilter, skip, take, cancellationToken);
+
+    /// <summary>Counts the agents with at least one published version in each authorized tenant.</summary>
+    public ValueTask<IReadOnlyDictionary<string, int>> CountAgentsAsync(
+        IReadOnlyCollection<string> tenantIds,
+        CancellationToken cancellationToken) =>
+        administrationStore.CountAgentsAsync(tenantIds, cancellationToken);
+
+    private async ValueTask<bool> IsExpectedActiveAsync(
+        string agentName,
+        ExpectedActiveDefinition expectedActive,
+        CancellationToken cancellationToken) =>
+        string.Equals(
+            (await administrationStore.GetActiveAsync(agentName, cancellationToken))?.Definition.Version,
+            expectedActive.Version,
+            StringComparison.Ordinal);
 
     private static string DescribeFailedEvaluation(AgentEvaluationResponse result)
     {

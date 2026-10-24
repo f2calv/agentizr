@@ -29,7 +29,7 @@ agent's reachable active delegation graph; delegated agents do not receive anoth
 
 | Endpoint | Response |
 | --- | --- |
-| `/` | Host identity |
+| `/status` | Host identity |
 | `/healthz` | ASP.NET Core health status |
 | `/mcp` | Opt-in Streamable HTTP MCP endpoint (`CasCap:McpConfig:Enabled`, default off) serving the read-only `get_agentizr_status` tool: service name, version, commit and UTC time only. Requests carrying an `Origin` header are rejected with 403; when disabled the route does not exist |
 | `POST /api/v1/agents/{agentName}/runs` | Executes one tenant-scoped agent turn |
@@ -47,6 +47,10 @@ agent's reachable active delegation graph; delegated agents do not receive anoth
 | `PUT /api/v1/agents/{agentName}/definitions/{definitionVersion}/activate` | Activates or rolls back to a version, optionally gated by an evaluation |
 | `POST /api/v1/agents/{agentName}/definitions/active/deactivate` | Deactivates the active version with an audited reason; refused while another active agent delegates to it |
 | `GET /api/v1/agents/{agentName}/definitions/activations` | Gets activation and rollback audit history |
+| `GET /admin/api/apps` | Lists the apps the administrator may manage, with caller applications and agent counts |
+| `GET /admin/api/apps/{appId}/agents` | Pages the app's agents, including inactive and never-activated agents |
+| `GET /admin/api/apps/{appId}/providers` | Gets secret-free provider registrations and the definition policy |
+| `/admin/api/apps/{appId}/agents/{agentName}/definitions/...` | Mirrors the definition routes above for the selected app; activation and deactivation require the administrator's observed active version and return 409 when it changed |
 
 The application API uses thin
 [`AgentRuntimeController`](Controllers/AgentRuntimeController.cs) and
@@ -58,14 +62,26 @@ response with `TypedResults`. Concrete return types provide response metadata wi
 success/error attributes. Explicit metadata covers controller validation, session-conflict handling
 and dynamic status codes.
 
+The administration API serves the browser frontend from
+[`AdministrationController`](Controllers/AdministrationController.cs) and
+[`AdministrationDefinitionsController`](Controllers/AdministrationDefinitionsController.cs) through
+[`AdministrationApiService`](Services/AdministrationApiService.cs). Its route and DTO contracts live in
+the [browser client project](../CasCap.App.Client/README.md), not the published contracts package.
+Every action requires the app-administrator policy: the route's `appId` is only a requested target
+until [`AdministrationAccessService`](Services/AdministrationAccessService.cs) confirms the user is
+assigned to it, after which the app becomes the tenant for that request. Failed authorization returns
+401 or 403 Problem Details rather than a redirect.
+
 Routes remain defined by the version 1 contract, and endpoint names are stable. Controller validation
 checks request DTOs before execution. The streaming action returns the existing JSON-array stream
-without buffering it into a collection. The host retains its small root, health and MCP mappings.
+without buffering it into a collection. The host retains its small status, health and MCP mappings.
 
 API services and authorization policies are registered by
 [`AddAgentRuntimeApi`](Extensions/ServiceCollectionExtensions.cs). Execution, definition reads,
 publication and activation retain separate permissions. Only Development with authentication
 explicitly disabled permits anonymous controller access; non-Development startup still fails closed.
+Administration endpoints are excluded from that anonymous convention and are open only when
+`AdministrationConfig` is also disabled.
 
 The runtime derives tenancy from
 [`ITenantContext`](https://github.com/f2calv/agentizr/blob/13aa4a19180b9dbd0f14fa08fbf95f67039b69f0/src/CasCap.App.Server/Abstractions/ITenantContext.cs), never from the
@@ -109,6 +125,12 @@ Permissions are accepted from delegated `scope`/`scp` claims or application `rol
 activation actor identifiers come from validated principal claims, never request bodies. Provider credentials remain behind
 [`IProviderCredentialStore`](https://github.com/f2calv/agentizr/blob/13aa4a19180b9dbd0f14fa08fbf95f67039b69f0/src/CasCap.App.Server/Abstractions/IProviderCredentialStore.cs)
 and definition publication rejects embedded API keys.
+
+`AdministrationConfig` binds from `CasCap:AdministrationConfig` and controls the browser frontend.
+`AppAdministrators` maps each app to the user identifiers, read from `AdministratorClaimType`
+(`oid` by default), who may read, publish and activate its definitions. An app is the tenant
+boundary shared by `TenantAuthenticationConfig.TenantCallers` and `AgentRuntimeConfig.Tenants`.
+Assignments are configuration-only; machine callers and their scopes never grant administration.
 
 `AgentDefinitionPolicyConfig` limits publication to supported schema versions and explicit provider,
 remote MCP and in-process service-tool allowlists. Version 1 requires inline instructions, rejects

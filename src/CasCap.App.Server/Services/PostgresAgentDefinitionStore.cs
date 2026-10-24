@@ -202,7 +202,8 @@ internal sealed class PostgresAgentDefinitionStore(
         string definitionVersion,
         string? activatedBy,
         string? changeReason,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ExpectedActiveDefinition? expectedActive = null)
     {
         ValidateKey(agentName, nameof(agentName), 200);
         ValidateKey(definitionVersion, nameof(definitionVersion), 100);
@@ -222,6 +223,7 @@ internal sealed class PostgresAgentDefinitionStore(
             return false;
 
         var activatedAtUtc = timeProvider.GetUtcNow();
+        await EnsureExpectedActiveAsync(dbContext, agentName, expectedActive, cancellationToken);
         var active = await dbContext.ActiveAgentDefinitions.SingleOrDefaultAsync(
             pointer => pointer.TenantId == tenantContext.TenantId && pointer.AgentName == agentName,
             cancellationToken);
@@ -285,7 +287,8 @@ internal sealed class PostgresAgentDefinitionStore(
         string agentName,
         string? deactivatedBy,
         string changeReason,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ExpectedActiveDefinition? expectedActive = null)
     {
         ValidateKey(agentName, nameof(agentName), 200);
         ValidateKey(tenantContext.TenantId, nameof(tenantContext.TenantId), 200);
@@ -295,6 +298,7 @@ internal sealed class PostgresAgentDefinitionStore(
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
         await AcquireAgentLockAsync(dbContext, agentName, cancellationToken);
+        await EnsureExpectedActiveAsync(dbContext, agentName, expectedActive, cancellationToken);
         var active = await dbContext.ActiveAgentDefinitions.SingleOrDefaultAsync(
             pointer => pointer.TenantId == tenantContext.TenantId && pointer.AgentName == agentName,
             cancellationToken);
@@ -328,6 +332,95 @@ internal sealed class PostgresAgentDefinitionStore(
             .Select(pointer => pointer.Snapshot!.DefinitionJson)
             .ToListAsync(cancellationToken);
         return [.. json.Select(Deserialize)];
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask<AgentDefinitionSummaryPage> GetAgentsAsync(
+        string? nameFilter,
+        int skip,
+        int take,
+        CancellationToken cancellationToken)
+    {
+        var tenantId = tenantContext.TenantId;
+        ValidateKey(tenantId, nameof(tenantContext.TenantId), 200);
+        ArgumentOutOfRangeException.ThrowIfNegative(skip);
+        ArgumentOutOfRangeException.ThrowIfLessThan(take, 1);
+        ValidateOptional(nameFilter, nameof(nameFilter), 200);
+
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var snapshots = dbContext.AgentDefinitionSnapshots.AsNoTracking().Where(snapshot => snapshot.TenantId == tenantId);
+        if (!string.IsNullOrWhiteSpace(nameFilter))
+        {
+            var filter = nameFilter.Trim().ToLowerInvariant();
+            snapshots = snapshots.Where(snapshot => snapshot.AgentName.ToLower().Contains(filter));
+        }
+        var agents = snapshots
+            .GroupBy(snapshot => snapshot.AgentName)
+            .Select(group => new { AgentName = group.Key, VersionCount = group.Count(), LatestId = group.Max(snapshot => snapshot.Id) });
+        var totalCount = await agents.CountAsync(cancellationToken);
+        var page = await agents.OrderBy(agent => agent.AgentName).Skip(skip).Take(take).ToListAsync(cancellationToken);
+        if (page.Count == 0)
+            return new AgentDefinitionSummaryPage([], totalCount);
+
+        var latestIds = page.Select(agent => agent.LatestId).ToArray();
+        var latest = await dbContext.AgentDefinitionSnapshots
+            .AsNoTracking()
+            .Where(snapshot => latestIds.Contains(snapshot.Id))
+            .Select(snapshot => new { snapshot.AgentName, snapshot.DefinitionVersion, snapshot.PublishedAtUtc, snapshot.PublishedBy })
+            .ToDictionaryAsync(snapshot => snapshot.AgentName, StringComparer.Ordinal, cancellationToken);
+        var agentNames = page.Select(agent => agent.AgentName).ToArray();
+        var active = await dbContext.ActiveAgentDefinitions
+            .AsNoTracking()
+            .Where(pointer => pointer.TenantId == tenantId && agentNames.Contains(pointer.AgentName))
+            .Select(pointer => new { pointer.AgentName, pointer.Snapshot!.DefinitionJson })
+            .ToDictionaryAsync(pointer => pointer.AgentName, pointer => pointer.DefinitionJson, StringComparer.Ordinal, cancellationToken);
+
+        return new AgentDefinitionSummaryPage(
+            [.. page.Select(agent => new AgentDefinitionSummaryItem
+            {
+                AgentName = agent.AgentName,
+                ActiveDefinition = active.TryGetValue(agent.AgentName, out var json) ? Deserialize(json) : null,
+                LatestVersion = latest[agent.AgentName].DefinitionVersion,
+                LatestPublishedAtUtc = latest[agent.AgentName].PublishedAtUtc,
+                LatestPublishedBy = latest[agent.AgentName].PublishedBy,
+                VersionCount = agent.VersionCount,
+            })],
+            totalCount);
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask<IReadOnlyDictionary<string, int>> CountAgentsAsync(
+        IReadOnlyCollection<string> tenantIds,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(tenantIds);
+        if (tenantIds.Count == 0)
+            return new Dictionary<string, int>(StringComparer.Ordinal);
+
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await dbContext.AgentDefinitionSnapshots
+            .AsNoTracking()
+            .Where(snapshot => tenantIds.Contains(snapshot.TenantId))
+            .GroupBy(snapshot => snapshot.TenantId)
+            .Select(group => new { TenantId = group.Key, Count = group.Select(snapshot => snapshot.AgentName).Distinct().Count() })
+            .ToDictionaryAsync(group => group.TenantId, group => group.Count, StringComparer.Ordinal, cancellationToken);
+    }
+
+    private async Task EnsureExpectedActiveAsync(
+        AgentRuntimeDbContext dbContext,
+        string agentName,
+        ExpectedActiveDefinition? expectedActive,
+        CancellationToken cancellationToken)
+    {
+        if (expectedActive is null)
+            return;
+        var activeVersion = await dbContext.ActiveAgentDefinitions
+            .AsNoTracking()
+            .Where(pointer => pointer.TenantId == tenantContext.TenantId && pointer.AgentName == agentName)
+            .Select(pointer => pointer.Snapshot!.DefinitionVersion)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (!string.Equals(expectedActive.Version, activeVersion, StringComparison.Ordinal))
+            throw new AgentDefinitionActiveVersionConflictException();
     }
 
     private async Task AcquireAgentLockAsync(AgentRuntimeDbContext dbContext, string agentName, CancellationToken cancellationToken)

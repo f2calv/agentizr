@@ -9,6 +9,10 @@ public static partial class AppHost
     private static bool AddWebApi(WebApplicationBuilder builder)
     {
         builder.Services.AddAgentRuntimeApi();
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddOptionsWithValidateOnStart<AdministrationConfig>()
+            .BindConfiguration(AdministrationConfig.ConfigurationSectionName)
+            .ValidateDataAnnotations();
 
         var authenticationConfig = builder.Configuration
             .GetSection(TenantAuthenticationConfig.ConfigurationSectionName)
@@ -32,7 +36,6 @@ public static partial class AppHost
             || string.IsNullOrWhiteSpace(authenticationConfig.Audience))
             throw new InvalidOperationException("JWT tenant authentication requires Authority and Audience.");
 
-        builder.Services.AddHttpContextAccessor();
         builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
