@@ -177,12 +177,8 @@ internal sealed class AgentDefinitionAdministrationService(
             if (delegationError is not null)
                 return new AgentDefinitionActivationOutcome { ValidationError = delegationError };
 
-            if (evaluation is not null)
-            {
-                var result = await evaluator.EvaluateAsync(snapshot.Definition, evaluation, cancellationToken);
-                if (!result.Passed)
-                    return new AgentDefinitionActivationOutcome { ValidationError = DescribeFailedEvaluation(result) };
-            }
+            if (await EvaluateForActivationAsync(snapshot.Definition, evaluation, cancellationToken) is { } failure)
+                return new AgentDefinitionActivationOutcome { ValidationError = failure };
 
             // Revalidate under the tenant lock: another agent's activation may have changed the graph since.
             await using var activationLock = await administrationStore.AcquireTenantActivationLockAsync(cancellationToken);
@@ -285,6 +281,17 @@ internal sealed class AgentDefinitionAdministrationService(
             (await administrationStore.GetActiveAsync(agentName, cancellationToken))?.Definition.Version,
             expectedActive.Version,
             StringComparison.Ordinal);
+
+    private async Task<string?> EvaluateForActivationAsync(
+        AgentDefinition definition,
+        EvaluateAgentDefinitionRequest? evaluation,
+        CancellationToken cancellationToken)
+    {
+        if (evaluation is null)
+            return null;
+        var result = await evaluator.EvaluateAsync(definition, evaluation, cancellationToken);
+        return result.Passed ? null : DescribeFailedEvaluation(result);
+    }
 
     private static string DescribeFailedEvaluation(AgentEvaluationResponse result)
     {
