@@ -93,9 +93,11 @@ public sealed class AdministrationApiService
                 : [.. tenant.Providers
                     .OrderBy(provider => provider.Key, StringComparer.Ordinal)
                     .Select(provider => MapProvider(provider.Key, provider.Value, tenant, policy))],
-            AllowedProviderAuthorities = policy.AllowedProviderAuthorities,
-            AllowedMcpAuthorities = policy.AllowedMcpAuthorities,
-            AllowedServiceTools = policy.AllowedServiceTools,
+            SupportedProviderTypes = [nameof(AgentType.AzureOpenAI), nameof(AgentType.Ollama), nameof(AgentType.OpenAI)],
+            ReasoningEfforts = Enum.GetNames<Microsoft.Extensions.AI.ReasoningEffort>(),
+            AllowedProviderAuthorities = [.. policy.AllowedProviderAuthorities.Distinct(StringComparer.OrdinalIgnoreCase)],
+            AllowedMcpAuthorities = [.. policy.AllowedMcpAuthorities.Distinct(StringComparer.OrdinalIgnoreCase)],
+            AllowedServiceTools = [.. policy.AllowedServiceTools.Distinct(StringComparer.Ordinal)],
             SupportedSchemaVersions = policy.SupportedSchemaVersions,
             EvaluationRequiredForActivation = policy.RequireEvaluationBeforeActivation,
             PublicationSupported = !string.IsNullOrWhiteSpace(_databaseConfig.Value.ConnectionString),

@@ -18,6 +18,9 @@ public static class AdministrationRoutes
     /// <summary>Gets the request header that carries the antiforgery request token on mutations.</summary>
     public const string AntiforgeryHeaderName = "X-XSRF-TOKEN";
 
+    /// <summary>Gets the form field that carries the antiforgery request token on sign-out.</summary>
+    public const string AntiforgeryFormFieldName = "__RequestVerificationToken";
+
     /// <summary>Gets the browser navigation route that starts administrator sign-in.</summary>
     public const string Login = "/admin/login";
 

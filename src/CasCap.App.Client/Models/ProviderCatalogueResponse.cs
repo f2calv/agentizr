@@ -6,6 +6,14 @@ public sealed record ProviderCatalogueResponse
     /// <summary>Gets the configured provider registrations, ordered by name.</summary>
     public required IReadOnlyList<ProviderRegistrationResponse> Providers { get; init; }
 
+    /// <summary>Gets the provider type names definitions may use.</summary>
+    /// <example>["AzureOpenAI", "Ollama", "OpenAI"]</example>
+    public required IReadOnlyList<string> SupportedProviderTypes { get; init; }
+
+    /// <summary>Gets the reasoning effort names a provider may request.</summary>
+    /// <example>["Low", "Medium", "High"]</example>
+    public required IReadOnlyList<string> ReasoningEfforts { get; init; }
+
     /// <summary>Gets the provider endpoint authorities definitions may use.</summary>
     /// <example>["https://example.com"]</example>
     public required IReadOnlyList<string> AllowedProviderAuthorities { get; init; }

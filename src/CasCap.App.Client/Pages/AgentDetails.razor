@@ -1,0 +1,147 @@
+@page "/apps/{AppId}/agents/{AgentName}"
+@inherits CancellableComponentBase
+
+<PageTitle>@AgentName · @AppId · agentizr</PageTitle>
+
+<MudBreadcrumbs Items="Breadcrumbs" />
+<MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+    <MudText Typo="Typo.h4" HtmlTag="h1">@AgentName</MudText>
+    @if (ActiveVersion is { } activeVersion)
+    {
+        <MudChip T="string" Color="Color.Success" Icon="@Icons.Material.Filled.CheckCircle">Active @activeVersion</MudChip>
+    }
+    else if (_history?.IsSuccess == true)
+    {
+        <MudChip T="string" Icon="@Icons.Material.Filled.PauseCircle">Inactive</MudChip>
+    }
+    <MudSpacer />
+    @if (SelectedVersion is { } baseVersion)
+    {
+        <MudButton Href="@EditPath(baseVersion)" Variant="Variant.Filled" Color="Color.Primary" Disabled="!CanChange">
+            New version from @baseVersion
+        </MudButton>
+    }
+    @if (ActiveVersion is not null)
+    {
+        <MudButton OnClick="DeactivateAsync" Variant="Variant.Outlined" Color="Color.Error" Disabled="!CanChange">Deactivate</MudButton>
+    }
+    <MudButton OnClick="ReloadAsync" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Refresh" Disabled="_busy">Refresh</MudButton>
+</MudStack>
+
+@if (_catalogue is { PublicationSupported: false })
+{
+    <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+        This host reads definitions from configuration, so publishing and activation are unavailable.
+    </MudAlert>
+}
+
+@if (_history is null)
+{
+    <MudProgressLinear Indeterminate="true" Class="mt-4" aria-label="Loading definitions" />
+}
+else if (!_history.IsSuccess)
+{
+    <PageState Status="_history.Status" Errors="_history.Errors" OnRetry="ReloadAsync" />
+}
+else if (_history.Value is not { Count: > 0 } history)
+{
+    <MudAlert Severity="Severity.Info" Class="mt-4">This agent has no published versions.</MudAlert>
+}
+else
+{
+    <MudGrid Class="mt-2">
+        <MudItem xs="12" md="5">
+            <MudText Typo="Typo.h5" HtmlTag="h2" GutterBottom="true">Versions</MudText>
+            <MudSimpleTable Dense="true" Hover="true">
+                <thead>
+                    <tr>
+                        <th>Version</th>
+                        <th>Published</th>
+                        <th><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in history)
+                    {
+                        <tr @key="item.DefinitionVersion" class="@(item.DefinitionVersion == SelectedVersion ? "selected-version" : null)">
+                            <td>
+                                <MudLink Href="@VersionPath(item.DefinitionVersion)">@item.DefinitionVersion</MudLink>
+                                @if (item.IsActive)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Success">Active</MudChip>
+                                }
+                                <div class="text-secondary">@item.ChangeReason</div>
+                            </td>
+                            <td>@Formats.DateTime(item.PublishedAtUtc)<div>@item.PublishedBy</div></td>
+                            <td>
+                                @if (!item.IsActive)
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="!CanChange"
+                                               OnClick="() => ActivateAsync(item.DefinitionVersion)">
+                                        @(ActiveVersion is null ? "Activate" : "Make active")
+                                    </MudButton>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        </MudItem>
+        <MudItem xs="12" md="7">
+            <MudText Typo="Typo.h5" HtmlTag="h2" GutterBottom="true">Version @SelectedVersion</MudText>
+            @if (_selected is null)
+            {
+                <MudProgressLinear Indeterminate="true" aria-label="Loading version" />
+            }
+            else if (!_selected.IsSuccess)
+            {
+                <PageState Status="_selected.Status" Errors="_selected.Errors" OnRetry="LoadSelectedAsync" />
+            }
+            else
+            {
+                var definition = _selected.Value!.Definition;
+                <MudSimpleTable Dense="true">
+                    <tbody>
+                        <tr><th scope="row">Display name</th><td>@DefinitionJson.GetText(definition, "agent", "name")</td></tr>
+                        <tr><th scope="row">Description</th><td>@DefinitionJson.GetText(definition, "agent", "description")</td></tr>
+                        <tr><th scope="row">Default prompt</th><td>@DefinitionJson.GetText(definition, "agent", "prompt")</td></tr>
+                        <tr><th scope="row">Provider registration</th><td>@DefinitionJson.GetText(definition, "agent", "provider")</td></tr>
+                        <tr><th scope="row">Embedded provider</th><td>@DefinitionJson.GetText(definition, "provider", "type"), @(DefinitionJson.GetText(definition, "provider", "endpoint") ?? "provider default endpoint")</td></tr>
+                        <tr><th scope="row">Model</th><td>@DefinitionJson.GetText(definition, "provider", "modelName")</td></tr>
+                        <tr><th scope="row">Reasoning effort</th><td>@(DefinitionJson.GetText(definition, "provider", "reasoningEffort") ?? "—")</td></tr>
+                        <tr><th scope="row">Publication reason</th><td>@_selected.Value.ChangeReason</td></tr>
+                    </tbody>
+                </MudSimpleTable>
+                <MudText Typo="Typo.h6" HtmlTag="h3" Class="mt-4">Instructions</MudText>
+                <pre class="definition-text">@DefinitionJson.GetText(definition, "agent", "instructions")</pre>
+                <MudText Typo="Typo.h6" HtmlTag="h3" Class="mt-4">Tools and delegation</MudText>
+                <pre class="definition-text">@DefinitionJson.GetToolsJson(definition)</pre>
+            }
+        </MudItem>
+    </MudGrid>
+
+    <MudText Typo="Typo.h5" HtmlTag="h2" Class="mt-6" GutterBottom="true">Activation history</MudText>
+    @if (_activations is { IsSuccess: true, Value: { Count: > 0 } activations })
+    {
+        <MudSimpleTable Dense="true">
+            <thead>
+                <tr><th>When</th><th>Change</th><th>By</th><th>Reason</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var activation in activations)
+                {
+                    <tr @key="(activation.DefinitionVersion, activation.ActivatedAtUtc)">
+                        <td>@Formats.DateTime(activation.ActivatedAtUtc)</td>
+                        <td>@(activation.IsDeactivation ? $"Deactivated {activation.DefinitionVersion}" : $"Activated {activation.DefinitionVersion}")</td>
+                        <td>@activation.ActivatedBy</td>
+                        <td>@activation.ChangeReason</td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+    else
+    {
+        <MudText Typo="Typo.body2">No activation changes have been recorded.</MudText>
+    }
+}

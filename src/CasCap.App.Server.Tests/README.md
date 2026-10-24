@@ -14,8 +14,8 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 
 | Class | Method count | Test-case count | Description |
 | --- | ---: | ---: | --- |
-| `EndpointSmokeTests` | 4 | 5 | Verifies status and health endpoints, disabled MCP, all 19 named runtime controller actions and inferred API response metadata |
-| `AdministrationApiTests` | 4 | 4 | Verifies open-Development app, agent and provider discovery, guarded activation conflicts, required antiforgery tokens and redirect-free rejection of unknown apps |
+| `EndpointSmokeTests` | 5 | 9 | Verifies status and health endpoints, the frontend shell without capturing API routes, disabled MCP, all 19 named runtime controller actions and inferred API response metadata |
+| `AdministrationApiTests` | 7 | 8 | Verifies open-Development app, agent and provider discovery, guarded activation conflicts, enum names, editor drafts that keep unedited fields, required antiforgery tokens and redirect-free rejection of unknown apps |
 | `AdministrationSignInTests` | 5 | 12 | With sign-in enabled, verifies 401/403 per-app assignment, assigned-app listing, session description, administrator audit identity, logout antiforgery and local-only return URLs |
 | `AdministrationReplicaTests` | 1 | 1 | Against real PostgreSQL: an antiforgery token issued by one host replica is accepted by another through the shared Data Protection key ring |
 | `AgentizrMcpEndpointTests` | 3 | 3 | Verifies MCP discovery of only the read-only status tool, its structured result, and `Origin` rejection |
@@ -42,7 +42,7 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | `ConfigurationProviderCredentialStoreTests` | 2 | 5 | Verifies the runtime's Entra credential is offered only to a tenant's opted-in providers |
 | `SessionCompactionConfigTests` | 3 | 6 | Verifies per-provider compaction resolution (tenant override, runtime entry, defaults) and startup validation |
 | `LiveAgentRuntimeSmokeTests` | 1 | 1 | Opt-in authenticated run, streaming, session inspection and cleanup against a complete live runtime |
-| **Total** | **124** | **177** | Source-declared cases, not an execution result |
+| **Total** | **128** | **185** | Source-declared cases, not an execution result |
 
 Counts expand every `[InlineData]` row; this project uses no `MemberData` or `ClassData` providers.
 
@@ -56,7 +56,7 @@ evaluation tests.
 
 | Category | Test-case count | Purpose |
 | --- | ---: | --- |
-| `Integration` | 99 | ASP.NET Core host protocols, startup security, PostgreSQL persistence and Redis payload caching |
+| `Integration` | 107 | ASP.NET Core host protocols, startup security, PostgreSQL persistence and Redis payload caching |
 | `Agent Runtime` | 45 | Runtime orchestration, tools, metrics, evaluation, persistence, caching, locking and compaction |
 | `Tenant Isolation` | 32 | Cross-tenant state, JWT permissions, caller mappings, administrator assignment, MCP and provider credentials and identity isolation |
 | `PostgreSQL` | 25 | Definitions, durable state, run history and shared Data Protection keys against the Compose tests-profile database |

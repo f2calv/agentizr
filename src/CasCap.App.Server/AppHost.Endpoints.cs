@@ -9,6 +9,8 @@ public static partial class AppHost
         if (tenantAuthenticationEnabled || administrationEnabled)
             app.UseAuthentication();
         app.UseAuthorization();
+        // Validates Razor component endpoints only; administration controllers use their own antiforgery filter.
+        app.UseAntiforgery();
 
         app.MapGet("/status", () => Results.Ok(new
         {

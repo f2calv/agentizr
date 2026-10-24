@@ -1,0 +1,131 @@
+@page "/apps/{AppId}/agents/{AgentName}/edit"
+@page "/apps/{AppId}/new-agent"
+@inherits CancellableComponentBase
+
+<PageTitle>@Heading · @AppId · agentizr</PageTitle>
+
+<MudBreadcrumbs Items="Breadcrumbs" />
+<MudText Typo="Typo.h4" HtmlTag="h1">@Heading</MudText>
+<MudText Typo="Typo.body2" Class="mb-4">
+    Publishing creates an inactive, immutable version. It changes nothing for callers until you activate it
+    from the agent page.
+</MudText>
+
+@if (_loadStatus is null)
+{
+    <MudProgressLinear Indeterminate="true" aria-label="Loading editor" />
+}
+else if (_loadStatus != ApiStatus.Success || _form is null || _editContext is null)
+{
+    <PageState Status="_loadStatus.Value" Errors="_loadErrors" OnRetry="ReloadAsync" />
+}
+else
+{
+    <EditForm EditContext="_editContext" OnValidSubmit="PublishAsync">
+        <DataAnnotationsValidator />
+        <NavigationLock ConfirmExternalNavigation="_dirty" OnBeforeInternalNavigation="ConfirmLeaveAsync" />
+        @if (_catalogue is { PublicationSupported: false })
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-4">This host reads definitions from configuration, so publishing is unavailable.</MudAlert>
+        }
+        <MudGrid>
+            @if (IsNew)
+            {
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_form.AgentName" For="() => _form.AgentName" Label="Agent name"
+                                  HelperText="Stable key used in routes, storage and delegation. It cannot be renamed." />
+                </MudItem>
+            }
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_form.DefinitionVersion" For="() => _form.DefinitionVersion" Label="New version"
+                              HelperText="Immutable and unique for this agent, for example 2026-10-24.1" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_form.DisplayName" For="() => _form.DisplayName" Label="Display name" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_form.Description" For="() => _form.Description" Label="Description" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_form.Prompt" For="() => _form.Prompt" Label="Default prompt" Lines="2" />
+            </MudItem>
+            <MudItem xs="12">
+                @* TODO: Replace this plain multi-line field with a Blazor Markdown authoring component (editing with a
+                   rendered preview) so instructions can be written and reviewed as Markdown. Optionally validate the
+                   Markdown against a schema, for example required headings checked on a parsed document (Markdig) or
+                   a JSON Schema over extracted front matter; no instructions schema exists yet, so decide its shape
+                   first. Deferred because v1 publishes instructions as plain text and MudBlazor has no Markdown
+                   editor, so this needs a third-party component or JavaScript interop. Server validation stays
+                   authoritative either way. *@
+                <MudTextField @bind-Value="_form.Instructions" For="() => _form.Instructions" Label="Instructions"
+                              Lines="14" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudSelect T="string" Value="_form.ProviderName" ValueChanged="ProviderChanged" For="() => _form.ProviderName"
+                           Label="Provider registration" HelperText="Supplies credentials at run time">
+                    @foreach (var name in ProviderNames)
+                    {
+                        <MudSelectItem T="string" Value="name" @key="name">@name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudSelect T="string" @bind-Value="_form.ProviderType" For="() => _form.ProviderType" Label="Provider type">
+                    @foreach (var type in _catalogue!.SupportedProviderTypes)
+                    {
+                        <MudSelectItem T="string" Value="type" @key="type">@type</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudTextField @bind-Value="_form.ModelName" For="() => _form.ModelName" Label="Model" />
+            </MudItem>
+            <MudItem xs="12" md="8">
+                <MudTextField @bind-Value="_form.Endpoint" For="() => _form.Endpoint" Label="Endpoint"
+                              HelperText="@EndpointHelp" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudSelect T="string" @bind-Value="_form.ReasoningEffort" Label="Reasoning effort" Clearable="true">
+                    @foreach (var effort in _catalogue!.ReasoningEfforts)
+                    {
+                        <MudSelectItem T="string" Value="effort" @key="effort">@effort</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12">
+                <MudExpansionPanels>
+                    <MudExpansionPanel Text="Advanced: tools and delegation (JSON)">
+                        <MudText Typo="Typo.body2" Class="mb-2">
+                            Tool sources are copied from the base version. Never put credentials here; remote MCP
+                            endpoints reference a named credential held by the server.
+                        </MudText>
+                        <MudTextField @bind-Value="_form.ToolsJson" For="() => _form.ToolsJson" Label="Tools" Lines="10"
+                                      Variant="Variant.Outlined" />
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_form.ChangeReason" For="() => _form.ChangeReason" Label="Publication reason"
+                              HelperText="Recorded with the version" />
+            </MudItem>
+        </MudGrid>
+
+        @if (_serverErrors is { Count: > 0 })
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">
+                @foreach (var error in _serverErrors)
+                {
+                    <div>@error</div>
+                }
+            </MudAlert>
+        }
+
+        <MudStack Row="true" Class="mt-4">
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                       Disabled="_publishing || _catalogue!.PublicationSupported == false">
+                @(_publishing ? "Publishing…" : "Publish inactive version")
+            </MudButton>
+            <MudButton Href="@CancelPath" Variant="Variant.Text">Cancel</MudButton>
+        </MudStack>
+    </EditForm>
+}

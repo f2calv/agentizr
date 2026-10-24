@@ -26,6 +26,21 @@ public sealed class EndpointSmokeTests(AgentizrWebApplicationFactory factory)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    [Theory]
+    [InlineData("/", HttpStatusCode.OK, true)]
+    [InlineData("/apps/default", HttpStatusCode.OK, true)]
+    [InlineData("/admin/api/unknown", HttpStatusCode.NotFound, false)]
+    [InlineData("/api/v1/unknown", HttpStatusCode.NotFound, false)]
+    public async Task FrontendShell_DoesNotCaptureApiRoutes(string path, HttpStatusCode expectedStatus, bool expectHtml)
+    {
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync(path, CancellationToken.None);
+
+        Assert.Equal(expectedStatus, response.StatusCode);
+        Assert.Equal(expectHtml, response.Content.Headers.ContentType?.MediaType == "text/html");
+    }
+
     [Fact]
     public async Task McpEndpoint_IsAbsentByDefault()
     {
@@ -34,7 +49,11 @@ public sealed class EndpointSmokeTests(AgentizrWebApplicationFactory factory)
 
         using var response = await client.SendAsync(request, CancellationToken.None);
 
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        // The frontend's static-asset file fallback is GET-only, so an unmatched POST answers 405 rather than 404.
+        Assert.Contains(response.StatusCode, new[] { HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed });
+        Assert.DoesNotContain(
+            factory.Services.GetRequiredService<IEnumerable<EndpointDataSource>>().SelectMany(source => source.Endpoints).OfType<RouteEndpoint>(),
+            endpoint => endpoint.RoutePattern.RawText?.TrimStart('/').StartsWith("mcp", StringComparison.Ordinal) == true);
     }
 
     [Fact]

@@ -1,0 +1,172 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+
+namespace CasCap.Client.Services;
+
+/// <summary>Calls the same-origin administration API and maps every HTTP outcome to a typed result.</summary>
+/// <remarks>Mutations carry the session's antiforgery token. Nothing here retries a mutation after an unknown outcome.</remarks>
+public sealed class AdministrationApiClient(HttpClient httpClient, AdministrationSessionState sessionState)
+{
+    /// <summary>Loads the session description and caches it, including its antiforgery token.</summary>
+    public async Task<ApiResult<AdministrationSessionResponse>> GetSessionAsync(CancellationToken cancellationToken)
+    {
+        var result = await SendAsync<AdministrationSessionResponse>(
+            new HttpRequestMessage(HttpMethod.Get, AdministrationRoutes.Session),
+            cancellationToken);
+        if (result.IsSuccess)
+            sessionState.Current = result.Value;
+        return result;
+    }
+
+    /// <summary>Lists the apps the administrator may manage.</summary>
+    public Task<ApiResult<IReadOnlyList<AppSummaryResponse>>> GetAppsAsync(CancellationToken cancellationToken) =>
+        GetAsync<IReadOnlyList<AppSummaryResponse>>(AdministrationRoutes.Apps, cancellationToken);
+
+    /// <summary>Gets one page of an app's agents.</summary>
+    public Task<ApiResult<AgentSummaryPageResponse>> GetAgentsAsync(
+        string appId,
+        string? search,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var query = $"?page={page}&pageSize={pageSize}"
+            + (string.IsNullOrWhiteSpace(search) ? string.Empty : $"&search={Uri.EscapeDataString(search)}");
+        return GetAsync<AgentSummaryPageResponse>(
+            AdministrationRoutes.Format(AdministrationRoutes.Agents, appId) + query,
+            cancellationToken);
+    }
+
+    /// <summary>Gets the app's provider registrations and definition policy.</summary>
+    public Task<ApiResult<ProviderCatalogueResponse>> GetProvidersAsync(string appId, CancellationToken cancellationToken) =>
+        GetAsync<ProviderCatalogueResponse>(AdministrationRoutes.Format(AdministrationRoutes.Providers, appId), cancellationToken);
+
+    /// <summary>Gets an agent's newest-first published versions.</summary>
+    public Task<ApiResult<IReadOnlyList<AgentDefinitionHistoryItemResponse>>> GetHistoryAsync(
+        string appId,
+        string agentName,
+        CancellationToken cancellationToken) =>
+        GetAsync<IReadOnlyList<AgentDefinitionHistoryItemResponse>>(
+            AdministrationRoutes.Format(AdministrationRoutes.Definitions, appId, agentName),
+            cancellationToken);
+
+    /// <summary>Gets an agent's newest-first activation, rollback and deactivation audit.</summary>
+    public Task<ApiResult<IReadOnlyList<AgentDefinitionActivationResponse>>> GetActivationsAsync(
+        string appId,
+        string agentName,
+        CancellationToken cancellationToken) =>
+        GetAsync<IReadOnlyList<AgentDefinitionActivationResponse>>(
+            AdministrationRoutes.Format(AdministrationRoutes.DefinitionActivations, appId, agentName),
+            cancellationToken);
+
+    /// <summary>Gets one immutable version.</summary>
+    public Task<ApiResult<AgentDefinitionSnapshotResponse>> GetVersionAsync(
+        string appId,
+        string agentName,
+        string definitionVersion,
+        CancellationToken cancellationToken) =>
+        GetAsync<AgentDefinitionSnapshotResponse>(
+            AdministrationRoutes.Format(AdministrationRoutes.DefinitionVersion, appId, agentName, definitionVersion),
+            cancellationToken);
+
+    /// <summary>Publishes a new inactive version.</summary>
+    public Task<ApiResult<AgentDefinitionSnapshotResponse>> PublishAsync(
+        string appId,
+        string agentName,
+        PublishAgentDefinitionRequest request,
+        CancellationToken cancellationToken) =>
+        SendMutationAsync<AgentDefinitionSnapshotResponse>(
+            HttpMethod.Post,
+            AdministrationRoutes.Format(AdministrationRoutes.Definitions, appId, agentName),
+            request,
+            cancellationToken);
+
+    /// <summary>Activates or rolls back to a version if the observed active version is still current.</summary>
+    public Task<ApiResult<bool>> ActivateAsync(
+        string appId,
+        string agentName,
+        string definitionVersion,
+        AdministrationActivationRequest request,
+        CancellationToken cancellationToken) =>
+        SendMutationAsync<bool>(
+            HttpMethod.Put,
+            AdministrationRoutes.Format(AdministrationRoutes.DefinitionActivation, appId, agentName, definitionVersion),
+            request,
+            cancellationToken);
+
+    /// <summary>Deactivates the active version if it is still the observed version.</summary>
+    public Task<ApiResult<bool>> DeactivateAsync(
+        string appId,
+        string agentName,
+        AdministrationDeactivationRequest request,
+        CancellationToken cancellationToken) =>
+        SendMutationAsync<bool>(
+            HttpMethod.Post,
+            AdministrationRoutes.Format(AdministrationRoutes.DefinitionDeactivation, appId, agentName),
+            request,
+            cancellationToken);
+
+    private Task<ApiResult<T>> GetAsync<T>(string path, CancellationToken cancellationToken) =>
+        SendAsync<T>(new HttpRequestMessage(HttpMethod.Get, path), cancellationToken);
+
+    private async Task<ApiResult<T>> SendMutationAsync<T>(
+        HttpMethod method,
+        string path,
+        object body,
+        CancellationToken cancellationToken)
+    {
+        if (sessionState.Current is null && !(await GetSessionAsync(cancellationToken)).IsSuccess)
+            return new ApiResult<T>(ApiStatus.Unavailable, Errors: ["The administration session could not be loaded."]);
+        var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body, options: JsonSerializerOptions.Web) };
+        request.Headers.Add(AdministrationRoutes.AntiforgeryHeaderName, sessionState.Current!.AntiforgeryToken);
+        return await SendAsync<T>(request, cancellationToken);
+    }
+
+    private async Task<ApiResult<T>> SendAsync<T>(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        using (request)
+        {
+            try
+            {
+                using var response = await httpClient.SendAsync(request, cancellationToken);
+                return response.StatusCode switch
+                {
+                    HttpStatusCode.OK or HttpStatusCode.Created => new ApiResult<T>(
+                        ApiStatus.Success,
+                        await response.Content.ReadFromJsonAsync<T>(JsonSerializerOptions.Web, cancellationToken)),
+                    HttpStatusCode.NoContent => new ApiResult<T>(ApiStatus.Success, typeof(T) == typeof(bool) ? (T)(object)true : default),
+                    HttpStatusCode.BadRequest => new ApiResult<T>(ApiStatus.ValidationFailed, Errors: await ReadProblemAsync(response, cancellationToken)),
+                    HttpStatusCode.Unauthorized => new ApiResult<T>(ApiStatus.Unauthorized),
+                    HttpStatusCode.Forbidden => new ApiResult<T>(ApiStatus.Forbidden),
+                    HttpStatusCode.NotFound => new ApiResult<T>(ApiStatus.NotFound),
+                    HttpStatusCode.Conflict => new ApiResult<T>(ApiStatus.Conflict),
+                    HttpStatusCode.NotImplemented or HttpStatusCode.BadGateway or HttpStatusCode.ServiceUnavailable
+                        or HttpStatusCode.GatewayTimeout => new ApiResult<T>(ApiStatus.Unavailable),
+                    _ => new ApiResult<T>(ApiStatus.Failed),
+                };
+            }
+            catch (HttpRequestException)
+            {
+                return new ApiResult<T>(ApiStatus.Unavailable);
+            }
+        }
+    }
+
+    private static async Task<IReadOnlyList<string>> ReadProblemAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var problem = await response.Content.ReadFromJsonAsync<ProblemPayload>(JsonSerializerOptions.Web, cancellationToken);
+            return problem?.Errors?.SelectMany(error => error.Value).ToArray() is { Length: > 0 } errors
+                ? errors
+                : [problem?.Title ?? "The request was rejected."];
+        }
+        catch (JsonException)
+        {
+            return ["The request was rejected."];
+        }
+    }
+
+    private sealed record ProblemPayload(string? Title, Dictionary<string, string[]>? Errors);
+}

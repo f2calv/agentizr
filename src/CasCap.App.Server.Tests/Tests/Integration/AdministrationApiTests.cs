@@ -103,6 +103,60 @@ public sealed class AdministrationApiTests(AgentDefinitionAdministrationWebAppli
     }
 
     [Fact]
+    public async Task EditorDraft_PublishesACopyThatKeepsUneditedFields()
+    {
+        using var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await AdministrationTestClient.PrepareAsync(client);
+        const string agentName = "drafted";
+        var original = AgentDefinitionTestData.CreatePublishRequest("v1") with
+        {
+            Definition = JsonSerializer.SerializeToElement(new
+            {
+                agent = AgentDefinitionTestData.CreateAgent(
+                    agentName,
+                    tools: [new ToolSource { Endpoint = "https://mcp.example.com/mcp", IncludeTools = ["get_status"] }]),
+                provider = AgentDefinitionTestData.CreateProvider(),
+            }, JsonSerializerOptions.Web),
+        };
+        using var _ = await client.PostAsJsonAsync(
+            AdministrationRoutes.Format(AdministrationRoutes.Definitions, AppId, agentName), original, cancellationToken);
+        var source = await client.GetFromJsonAsync<AgentDefinitionSnapshotResponse>(
+            AdministrationRoutes.Format(AdministrationRoutes.DefinitionVersion, AppId, agentName, "v1"), cancellationToken);
+
+        var draft = DefinitionDraft.FromDefinition(source!.Definition);
+        var form = draft.ToForm(agentName);
+        form.Instructions = "Edited instructions.";
+        Assert.True(draft.TryCreatePayload(form, out var payload, out var error), error);
+        using var published = await client.PostAsJsonAsync(
+            AdministrationRoutes.Format(AdministrationRoutes.Definitions, AppId, agentName),
+            new PublishAgentDefinitionRequest { DefinitionVersion = "v2", SchemaVersion = 1, Definition = payload, ChangeReason = "edit" },
+            cancellationToken);
+        var copy = await published.Content.ReadFromJsonAsync<AgentDefinitionSnapshotResponse>(cancellationToken);
+
+        Assert.Equal(HttpStatusCode.Created, published.StatusCode);
+        var agent = copy!.Definition.GetProperty("agent");
+        Assert.Equal("Edited instructions.", agent.GetProperty("instructions").GetString());
+        Assert.Equal(
+            source.Definition.GetProperty("agent").GetProperty("tools").GetRawText(),
+            agent.GetProperty("tools").GetRawText());
+        Assert.Equal(form.ModelName, copy.Definition.GetProperty("provider").GetProperty("modelName").GetString());
+    }
+
+    [Theory]
+    [InlineData("{}", "Tools must be a JSON array.")]
+    [InlineData("[", "Tools must be a JSON array:")]
+    public void EditorDraft_RejectsToolsThatAreNotAJsonArray(string toolsJson, string expectedError)
+    {
+        var draft = DefinitionDraft.Empty();
+        var form = draft.ToForm("new-agent");
+        form.ToolsJson = toolsJson;
+
+        Assert.False(draft.TryCreatePayload(form, out _, out var error));
+        Assert.StartsWith(expectedError, error, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Mutation_RequiresAntiforgeryToken()
     {
         using var client = factory.CreateClient();

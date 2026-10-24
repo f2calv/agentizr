@@ -51,6 +51,8 @@ dotnet run --project src\CasCap.App.Server\CasCap.App.Server.csproj --configurat
 ```
 
 The tracked defaults start an empty host: `/status` identifies it and `/healthz` reports host health.
+In Development, `/` opens the [administration frontend](docs/administration-frontend.md) without
+sign-in.
 Before running an agent, add the [Development configuration](src/CasCap.App.Server/README.md#configuration-examples)
 and start its model provider. A health response does not verify provider, database or Redis readiness.
 Outside Development, PostgreSQL and JWT tenancy are mandatory; Redis is an optional cache.
@@ -93,7 +95,8 @@ and `OpenAI`; there is no dedicated Azure AI Foundry provider implementation.
 
 | Component | Purpose | Delivery |
 | --- | --- | --- |
-| [CasCap.App.Server](src/CasCap.App.Server/README.md) | Execution, sessions, definition administration and optional status MCP endpoint | ASP.NET Core application |
+| [CasCap.App.Server](src/CasCap.App.Server/README.md) | Execution, sessions, definition administration, the administration frontend host and optional status MCP endpoint | ASP.NET Core application |
+| [CasCap.App.Client](src/CasCap.App.Client/README.md) | Browser administration frontend and its API contracts | Blazor WebAssembly client served by the server |
 | [CasCap.AgentRuntime.Client](src/CasCap.AgentRuntime.Client/README.md) | Typed execution and administration clients | Packable .NET 10 library |
 | [CasCap.AgentRuntime.Contracts](src/CasCap.AgentRuntime.Contracts/README.md) | Version 1 wire DTOs | Packable .NET 10 library |
 | [CasCap.AgentRuntime.Execution](src/CasCap.AgentRuntime.Execution/README.md) | Model clients, tools, delegation and history reduction | Internal project |
@@ -231,6 +234,8 @@ application chart. It is enabled by default and can be disabled with `dashboards
 
 ## Documentation
 
+- [Administration Frontend](docs/administration-frontend.md): how the browser client, the host and
+  the administration API fit together, sign-in, and publish versus activate.
 - [High Availability](docs/high-availability.md): session ownership, definition freshness, failure
   semantics and the prerequisites for a multi-replica rollout.
 - [Session Compaction](docs/session-compaction.md): per-provider compaction settings, and the
