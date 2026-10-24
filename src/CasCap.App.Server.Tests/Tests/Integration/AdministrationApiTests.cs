@@ -46,6 +46,7 @@ public sealed class AdministrationApiTests(AgentDefinitionAdministrationWebAppli
         using var client = factory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
         const string agentName = "guarded";
+        var session = await AdministrationTestClient.PrepareAsync(client);
 
         using var published = await client.PostAsJsonAsync(
             AdministrationRoutes.Format(AdministrationRoutes.Definitions, AppId, agentName),
@@ -59,6 +60,8 @@ public sealed class AdministrationApiTests(AgentDefinitionAdministrationWebAppli
             AdministrationRoutes.Format(AdministrationRoutes.DefinitionActivations, AppId, agentName),
             cancellationToken);
 
+        Assert.False(session.SignInRequired);
+        Assert.False(session.IsAuthenticated);
         Assert.Equal(HttpStatusCode.Created, published.StatusCode);
         Assert.Equal(
             AdministrationRoutes.Format(AdministrationRoutes.DefinitionVersion, AppId, agentName, "v1"),
@@ -69,6 +72,19 @@ public sealed class AdministrationApiTests(AgentDefinitionAdministrationWebAppli
         Assert.Equal(HttpStatusCode.NoContent, deactivated.StatusCode);
         Assert.Equal([true, false], activations!.Select(activation => activation.IsDeactivation));
         Assert.All(activations!, activation => Assert.Equal("development", activation.ActivatedBy));
+    }
+
+    [Fact]
+    public async Task Mutation_RequiresAntiforgeryToken()
+    {
+        using var client = factory.CreateClient();
+
+        using var response = await client.PostAsJsonAsync(
+            AdministrationRoutes.Format(AdministrationRoutes.Definitions, AppId, "unprotected"),
+            AgentDefinitionTestData.CreatePublishRequest("v1"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]

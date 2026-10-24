@@ -4,7 +4,7 @@ using Microsoft.Extensions.Configuration;
 namespace CasCap.IntegrationTests;
 
 /// <summary>Runs the real host with an in-memory immutable definition authority.</summary>
-public sealed class AgentDefinitionAdministrationWebApplicationFactory : AgentizrWebApplicationFactory
+public class AgentDefinitionAdministrationWebApplicationFactory : AgentizrWebApplicationFactory
 {
     /// <inheritdoc/>
     protected override void ConfigureWebHost(IWebHostBuilder builder)

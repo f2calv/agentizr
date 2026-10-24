@@ -2,6 +2,7 @@ using CasCap.AgentRuntime.Contracts.V1;
 using CasCap.Client.Constants;
 using CasCap.Client.Models;
 using CasCap.Constants;
+using CasCap.Filters;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +14,7 @@ namespace CasCap.Controllers;
 [ApiController]
 [Tags("Administration")]
 [Authorize(Policy = AdministrationPolicies.AppAdministrator)]
+[ValidateAdministrationAntiforgery]
 [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
 public sealed class AdministrationDefinitionsController(
     AgentDefinitionApiService definitionApiSvc,

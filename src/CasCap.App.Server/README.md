@@ -47,6 +47,8 @@ agent's reachable active delegation graph; delegated agents do not receive anoth
 | `PUT /api/v1/agents/{agentName}/definitions/{definitionVersion}/activate` | Activates or rolls back to a version, optionally gated by an evaluation |
 | `POST /api/v1/agents/{agentName}/definitions/active/deactivate` | Deactivates the active version with an audited reason; refused while another active agent delegates to it |
 | `GET /api/v1/agents/{agentName}/definitions/activations` | Gets activation and rollback audit history |
+| `GET /admin/api/session` | Describes the administrator session and issues an antiforgery token |
+| `GET /admin/login`, `POST /admin/logout` | Browser navigations that start OpenID Connect sign-in or end the session |
 | `GET /admin/api/apps` | Lists the apps the administrator may manage, with caller applications and agent counts |
 | `GET /admin/api/apps/{appId}/agents` | Pages the app's agents, including inactive and never-activated agents |
 | `GET /admin/api/apps/{appId}/providers` | Gets secret-free provider registrations and the definition policy |
@@ -131,6 +133,17 @@ and definition publication rejects embedded API keys.
 (`oid` by default), who may read, publish and activate its definitions. An app is the tenant
 boundary shared by `TenantAuthenticationConfig.TenantCallers` and `AgentRuntimeConfig.Tenants`.
 Assignments are configuration-only; machine callers and their scopes never grant administration.
+
+When enabled, administrators sign in with an OpenID Connect authorization-code flow with PKCE
+against a dedicated web registration (`Authority`, `ClientId` and a secret-supplied `ClientSecret`),
+and the host issues its own Secure, HttpOnly `agentizr-admin` cookie. Identity tokens are not saved
+and never reach the browser. Register the exact HTTPS `CallbackPath` (`/signin-oidc`) and
+`SignedOutCallbackPath` (`/signout-callback-oidc`) redirect URIs. Behind a TLS-terminating proxy, set
+`ASPNETCORE_FORWARDEDHEADERS_ENABLED=true` so the callbacks keep their HTTPS scheme. Administration
+mutations and sign-out require the antiforgery token from `/admin/api/session`, sent in the
+`X-XSRF-TOKEN` header or the sign-out form. With PostgreSQL configured, the Data Protection key ring
+that protects cookies and antiforgery tokens is shared through the `data_protection_keys` table, so
+any replica accepts them; the keys are not yet encrypted at rest.
 
 `AgentDefinitionPolicyConfig` limits publication to supported schema versions and explicit provider,
 remote MCP and in-process service-tool allowlists. Version 1 requires inline instructions, rejects
@@ -265,6 +278,14 @@ and credentials:
       "Authority": "https://identity.example.com/",
       "Audience": "api://example-runtime",
       "TenantCallers": {
+        "example-tenant": ["00000000-0000-0000-0000-000000000000"]
+      }
+    },
+    "AdministrationConfig": {
+      "Enabled": true,
+      "Authority": "https://identity.example.com/",
+      "ClientId": "00000000-0000-0000-0000-000000000000",
+      "AppAdministrators": {
         "example-tenant": ["00000000-0000-0000-0000-000000000000"]
       }
     },

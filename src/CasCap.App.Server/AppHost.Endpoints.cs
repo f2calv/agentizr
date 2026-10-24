@@ -3,10 +3,10 @@ namespace CasCap;
 /// <summary>Maps the HTTP endpoint baseline.</summary>
 public static partial class AppHost
 {
-    private static void MapEndpoints(WebApplication app, bool tenantAuthenticationEnabled)
+    private static void MapEndpoints(WebApplication app, bool tenantAuthenticationEnabled, bool administrationEnabled)
     {
         app.UseExceptionHandler();
-        if (tenantAuthenticationEnabled)
+        if (tenantAuthenticationEnabled || administrationEnabled)
             app.UseAuthentication();
         app.UseAuthorization();
 

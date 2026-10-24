@@ -1,13 +1,17 @@
 using CasCap.Entities;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace CasCap;
 
-/// <summary>PostgreSQL authority for Agent Runtime definitions, state and debugging history.</summary>
+/// <summary>PostgreSQL authority for Agent Runtime definitions, state, debugging history and shared Data Protection keys.</summary>
 public sealed class AgentRuntimeDbContext(
-    DbContextOptions<AgentRuntimeDbContext> options) : DbContext(options)
+    DbContextOptions<AgentRuntimeDbContext> options) : DbContext(options), IDataProtectionKeyContext
 {
     private const string Schema = "agent_runtime";
+
+    /// <inheritdoc/>
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     /// <summary>Gets immutable definition snapshots.</summary>
     public DbSet<AgentDefinitionSnapshotEntity> AgentDefinitionSnapshots => Set<AgentDefinitionSnapshotEntity>();
@@ -31,6 +35,15 @@ public sealed class AgentRuntimeDbContext(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         var schema = Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite" ? null : Schema;
+
+        modelBuilder.Entity<DataProtectionKey>(entity =>
+        {
+            entity.ToTable("data_protection_keys", schema);
+            entity.HasKey(key => key.Id).HasName("pk_data_protection_keys");
+            entity.Property(key => key.Id).HasColumnName("id");
+            entity.Property(key => key.FriendlyName).HasColumnName("friendly_name");
+            entity.Property(key => key.Xml).HasColumnName("xml");
+        });
 
         modelBuilder.Entity<AgentStateEntity>(entity =>
         {

@@ -14,8 +14,9 @@ provider SDKs or server configuration. The host enforces every permission and va
 
 | Type | Purpose |
 | --- | --- |
-| [`AdministrationRoutes`](Constants/AdministrationRoutes.cs) | Administration API route templates and an escaping path formatter |
+| [`AdministrationRoutes`](Constants/AdministrationRoutes.cs) | Administration API, sign-in and sign-out routes, the antiforgery header and an escaping path formatter |
 | [`ProviderCredentialSources`](Constants/ProviderCredentialSources.cs) | Wire values describing provider authentication without exposing credentials |
+| [`AdministrationSessionResponse`](Models/AdministrationSessionResponse.cs) | Sign-in state, display name and the antiforgery request token |
 | [`AppSummaryResponse`](Models/AppSummaryResponse.cs) | One app: the tenant boundary, its caller applications and agent count |
 | [`AgentSummaryPageResponse`](Models/AgentSummaryPageResponse.cs) | One page of agent summaries |
 | [`ProviderCatalogueResponse`](Models/ProviderCatalogueResponse.cs) | Secret-free provider registrations and the definition policy |

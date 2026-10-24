@@ -52,7 +52,11 @@ public static partial class AppHost
             builder.Services.AddScoped<ITenantContext>(services => new AdministrationTenantContext(
                 services.GetRequiredService<IHttpContextAccessor>(),
                 services.GetRequiredService<ConfiguredTenantContext>()));
-            builder.Services.AddScoped<IActorContext, ConfiguredActorContext>();
+            // A signed-in administrator is still audited by identity when machine authentication is disabled.
+            builder.Services.AddScoped<IActorContext>(services =>
+                services.GetRequiredService<IHttpContextAccessor>().HttpContext?.User.Identity?.IsAuthenticated is true
+                    ? new AuthenticatedActorContext(services.GetRequiredService<IHttpContextAccessor>())
+                    : new ConfiguredActorContext());
         }
 
         if (postgresEnabled)

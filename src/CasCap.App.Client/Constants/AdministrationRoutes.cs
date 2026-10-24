@@ -15,6 +15,18 @@ public static class AdministrationRoutes
     /// <summary>Gets the administration API prefix, separate from the machine runtime API.</summary>
     public const string Prefix = "/admin/api";
 
+    /// <summary>Gets the request header that carries the antiforgery request token on mutations.</summary>
+    public const string AntiforgeryHeaderName = "X-XSRF-TOKEN";
+
+    /// <summary>Gets the browser navigation route that starts administrator sign-in.</summary>
+    public const string Login = "/admin/login";
+
+    /// <summary>Gets the form-post route that ends the administrator session.</summary>
+    public const string Logout = "/admin/logout";
+
+    /// <summary>Gets the route describing the current administrator session and its antiforgery token.</summary>
+    public const string Session = Prefix + "/session";
+
     /// <summary>Gets the route listing the apps the administrator may manage.</summary>
     public const string Apps = Prefix + "/apps";
 

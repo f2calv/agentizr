@@ -60,7 +60,11 @@ public sealed class TenantSecurityStartupTests
             .SelectMany(source => source.Endpoints)
             .OfType<RouteEndpoint>()
             .Where(endpoint => endpoint.Metadata.GetMetadata<ControllerActionDescriptor>() is not null)
-            .ToLookup(endpoint => AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata));
+            .ToArray();
+        var sessionEndpoints = endpoints
+            .Where(endpoint => endpoint.Metadata.GetMetadata<ControllerActionDescriptor>()!.ControllerName == "AdministrationSession")
+            .ToArray();
+        var protectedEndpoints = endpoints.Except(sessionEndpoints).ToArray();
         var expectedDefinitionPolicies = new Dictionary<string, string>
         {
             ["PublishAgentDefinitionV1"] = AgentRuntimePolicies.DefinitionPublish,
@@ -73,9 +77,12 @@ public sealed class TenantSecurityStartupTests
             ["DeactivateAgentDefinitionV1"] = AgentRuntimePolicies.DefinitionActivate,
         };
 
-        Assert.Equal(19, endpoints[false].Count());
-        Assert.Equal(11, endpoints[true].Count());
-        Assert.All(endpoints.SelectMany(group => group), endpoint =>
+        Assert.Equal(19, protectedEndpoints.Count(endpoint => !AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
+        Assert.Equal(11, protectedEndpoints.Count(endpoint => AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
+        // Session description, sign-in and sign-out must be reachable before an administrator signs in.
+        Assert.Equal(3, sessionEndpoints.Length);
+        Assert.All(sessionEndpoints, endpoint => Assert.Empty(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()));
+        Assert.All(protectedEndpoints, endpoint =>
         {
             var name = endpoint.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName;
             Assert.NotNull(name);

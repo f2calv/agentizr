@@ -31,8 +31,6 @@ public static class ServiceCollectionExtensions
             services.GetRequiredService<AgentDefinitionAdministrationService>()));
         services.AddAuthorization(options =>
         {
-            options.AddPolicy(AdministrationPolicies.AppAdministrator, policy =>
-                policy.AddRequirements(new AppAdministratorRequirement()));
             options.AddPolicy(AgentRuntimePolicies.Execute, policy =>
             {
                 policy.RequireAuthenticatedUser();
@@ -60,6 +58,14 @@ public static class ServiceCollectionExtensions
                 policy.RequireAssertion(context => AgentRuntimeAuthorization.HasActorIdentifier(context.User));
             });
         });
+        services.AddOptions<AuthorizationOptions>().Configure<IOptions<AdministrationConfig>>((options, administrationConfig) =>
+            options.AddPolicy(AdministrationPolicies.AppAdministrator, policy =>
+            {
+                // Only the administration cookie counts; machine bearer tokens never grant administration.
+                if (administrationConfig.Value.Enabled)
+                    policy.AddAuthenticationSchemes(AdministrationAuthenticationSchemes.Cookie);
+                policy.AddRequirements(new AppAdministratorRequirement());
+            }));
         return services;
     }
 }

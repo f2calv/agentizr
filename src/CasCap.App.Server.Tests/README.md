@@ -15,7 +15,9 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | Class | Method count | Test-case count | Description |
 | --- | ---: | ---: | --- |
 | `EndpointSmokeTests` | 4 | 5 | Verifies status and health endpoints, disabled MCP, all 19 named runtime controller actions and inferred API response metadata |
-| `AdministrationApiTests` | 3 | 3 | Verifies open-Development app, agent and provider discovery, guarded activation conflicts and redirect-free rejection of unknown apps |
+| `AdministrationApiTests` | 4 | 4 | Verifies open-Development app, agent and provider discovery, guarded activation conflicts, required antiforgery tokens and redirect-free rejection of unknown apps |
+| `AdministrationSignInTests` | 5 | 12 | With sign-in enabled, verifies 401/403 per-app assignment, assigned-app listing, session description, administrator audit identity, logout antiforgery and local-only return URLs |
+| `AdministrationReplicaTests` | 1 | 1 | Against real PostgreSQL: an antiforgery token issued by one host replica is accepted by another through the shared Data Protection key ring |
 | `AgentizrMcpEndpointTests` | 3 | 3 | Verifies MCP discovery of only the read-only status tool, its structured result, and `Origin` rejection |
 | `AgentRuntimeProtocolTests` | 9 | 12 | Verifies typed-client execution, streaming, DTO/JSON validation problems, session controls and instruction disclosure |
 | `AgentDefinitionAdministrationProtocolTests` | 13 | 23 | Verifies publication Location, evaluation/activation, rollback, deactivation, audit attribution, policy/credential rejection, conflicts and bounded query binding |
@@ -40,7 +42,7 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | `ConfigurationProviderCredentialStoreTests` | 2 | 5 | Verifies the runtime's Entra credential is offered only to a tenant's opted-in providers |
 | `SessionCompactionConfigTests` | 3 | 6 | Verifies per-provider compaction resolution (tenant override, runtime entry, defaults) and startup validation |
 | `LiveAgentRuntimeSmokeTests` | 1 | 1 | Opt-in authenticated run, streaming, session inspection and cleanup against a complete live runtime |
-| **Total** | **117** | **163** | Source-declared cases, not an execution result |
+| **Total** | **124** | **177** | Source-declared cases, not an execution result |
 
 Counts expand every `[InlineData]` row; this project uses no `MemberData` or `ClassData` providers.
 
@@ -54,10 +56,10 @@ evaluation tests.
 
 | Category | Test-case count | Purpose |
 | --- | ---: | --- |
-| `Integration` | 85 | ASP.NET Core host protocols, startup security, PostgreSQL persistence and Redis payload caching |
+| `Integration` | 99 | ASP.NET Core host protocols, startup security, PostgreSQL persistence and Redis payload caching |
 | `Agent Runtime` | 45 | Runtime orchestration, tools, metrics, evaluation, persistence, caching, locking and compaction |
 | `Tenant Isolation` | 32 | Cross-tenant state, JWT permissions, caller mappings, administrator assignment, MCP and provider credentials and identity isolation |
-| `PostgreSQL` | 24 | Definitions, durable state and run history against the Compose tests-profile database |
+| `PostgreSQL` | 25 | Definitions, durable state, run history and shared Data Protection keys against the Compose tests-profile database |
 | `Redis` | 8 | Revision-qualified state caching against the Compose tests-profile Redis service; also tagged `Integration` and `PostgreSQL` |
 | `Local Agent Runtime` | 1 | Explicitly enabled smoke test against a complete running runtime |
 
@@ -114,6 +116,10 @@ Tests/
 ├── ScriptedEvaluationAgentFactory.cs
 ├── Integration/
 │   ├── AdministrationApiTests.cs
+│   ├── AdministrationReplicaTests.cs
+│   ├── AdministrationSignInTests.cs
+│   ├── AdministrationSignInWebApplicationFactory.cs
+│   ├── AdministrationTestClient.cs
 │   ├── AgentizrMcpEndpointTests.cs
 │   ├── AgentizrWebApplicationFactory.cs
 │   ├── AgentDefinitionAdministrationProtocolTests.cs
