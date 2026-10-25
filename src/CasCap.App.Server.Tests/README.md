@@ -32,7 +32,7 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | `AgentSessionConflictTests` | 1 | 8 | Verifies all session mutation routes return HTTP 409 on overlap, including streaming before headers |
 | `PostgresAgentStateTests` | 8 | 8 | Durable state/cache recovery, isolation, revisions, connection-loss fencing, two-host contention and real-operation HA metric privacy/balance |
 | `AgentRunHistoryTests` | 4 | 7 | Durable messages/tools, redaction/binary exclusion, success/failure/cancellation, interruption recovery, opt-in and archive preservation after reset |
-| `AdministrationAccessTests` | 5 | 13 | Verifies configuration-only administrator assignment, open-Development conditions and route-selected administration tenancy |
+| `AdministrationAccessTests` | 5 | 14 | Verifies configuration-only administrator assignment, that an assignment alone never creates an app, open-Development conditions and route-selected administration tenancy |
 | `AdministrationSetupServiceTests` | 3 | 5 | Verifies setup pages report setting status without values, encode request input and detect ignored forwarded HTTPS |
 | `AuthenticatedTenantContextTests` | 4 | 4 | Verifies caller-derived tenant identity, missing/unmapped caller rejection, and opaque Redis keys |
 | `AgentRuntimeAuthorizationTests` | 4 | 6 | Verifies delegated scopes, application roles, and caller-to-tenant mapping validation |
@@ -44,7 +44,7 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | `SessionCompactionConfigTests` | 3 | 6 | Verifies per-provider compaction resolution (tenant override, runtime entry, defaults) and startup validation |
 | `LiveAgentRuntimeSmokeTests` | 1 | 1 | Opt-in authenticated run, streaming, session inspection and cleanup against a complete live runtime |
 | `RuntimeLoggingTests` (Debug only) | 1 | 1 | Real PostgreSQL publications change the Serilog pipeline and forwarded logs without losing a process-cache sentinel; category overrides remain intact |
-| **Total** | **133** | **196** | Source-declared cases, not an execution result |
+| **Total** | **133** | **197** | Source-declared cases, not an execution result |
 
 Release contains the 128 methods / 185 cases above excluding the explicitly Debug-only logging
 soak. Debug contains 129 methods / 186 cases. Run the new case with:
@@ -72,7 +72,7 @@ evaluation tests.
 | --- | ---: | --- |
 | `Integration` | 113 | ASP.NET Core host protocols, startup security, PostgreSQL persistence and Redis payload caching |
 | `Agent Runtime` | 45 | Runtime orchestration, tools, metrics, evaluation, persistence, caching, locking and compaction |
-| `Tenant Isolation` | 37 | Cross-tenant state, JWT permissions, caller mappings, administrator assignment, MCP and provider credentials and identity isolation |
+| `Tenant Isolation` | 38 | Cross-tenant state, JWT permissions, caller mappings, administrator assignment, MCP and provider credentials and identity isolation |
 | `PostgreSQL` | 25 | Definitions, durable state, run history and shared Data Protection keys against the Compose tests-profile database |
 | `Redis` | 8 | Revision-qualified state caching against the Compose tests-profile Redis service; also tagged `Integration` and `PostgreSQL` |
 | `Local Agent Runtime` | 1 | Explicitly enabled smoke test against a complete running runtime |

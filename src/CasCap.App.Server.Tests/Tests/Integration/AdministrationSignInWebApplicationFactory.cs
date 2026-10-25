@@ -32,6 +32,8 @@ public sealed class AdministrationSignInWebApplicationFactory : AgentDefinitionA
             ["CasCap__AdministrationConfig__ClientSecret"] = "test-client-secret",
             ["CasCap__AdministrationConfig__AppAdministrators__default__0"] = DefaultAppAdministrator,
             ["CasCap__AdministrationConfig__AppAdministrators__other__0"] = OtherAppAdministrator,
+            // An assignment alone does not create an app; the runtime must define it.
+            ["CasCap__AgentRuntimeConfig__Tenants__other__TimeZoneId"] = "UTC",
         };
         var previous = startupEnvironment.Keys.ToDictionary(key => key, Environment.GetEnvironmentVariable, StringComparer.Ordinal);
         foreach (var (key, value) in startupEnvironment)

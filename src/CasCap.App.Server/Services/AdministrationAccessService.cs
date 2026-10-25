@@ -30,6 +30,10 @@ internal sealed class AdministrationAccessService(
         [.. GetKnownApps().Where(appId => CanAdminister(principal, appId)).Order(StringComparer.Ordinal)];
 
     /// <summary>Returns whether the principal may manage the app, which must also be known to the server.</summary>
+    /// <remarks>
+    /// An app is known only when the runtime defines it, through caller mappings or tenant configuration. An
+    /// administrator assignment alone, such as a retired or misspelled app, never creates one.
+    /// </remarks>
     public bool CanAdminister(ClaimsPrincipal principal, string appId)
     {
         if (string.IsNullOrWhiteSpace(appId) || !GetKnownApps().Contains(appId))
@@ -55,7 +59,6 @@ internal sealed class AdministrationAccessService(
     {
         var apps = new HashSet<string>(runtimeConfig.Value.Tenants.Keys, StringComparer.Ordinal);
         apps.UnionWith(tenantAuthenticationConfig.Value.TenantCallers.Keys);
-        apps.UnionWith(administrationConfig.Value.AppAdministrators.Keys);
         if (!tenantAuthenticationConfig.Value.Enabled)
             apps.Add(runtimeConfig.Value.DefaultTenantId);
         return apps;

@@ -139,7 +139,7 @@ and definition publication rejects embedded API keys.
 `AppAdministrators` maps each app to the user identifiers, read from `AdministratorClaimType`
 (`oid` by default), who may read, publish and activate its definitions. An app is the tenant
 boundary shared by `TenantAuthenticationConfig.TenantCallers` and `AgentRuntimeConfig.Tenants`.
-Assignments are configuration-only; machine callers and their scopes never grant administration.
+Assignments are configuration-only; machine callers and their scopes never grant administration. An assignment alone never creates an app: an app the runtime no longer defines, such as one whose caller mapping was removed or disabled, is ignored.
 
 When enabled, administrators sign in with an OpenID Connect authorization-code flow with PKCE
 against a dedicated web registration (`Authority`, `ClientId` and a secret-supplied `ClientSecret`),

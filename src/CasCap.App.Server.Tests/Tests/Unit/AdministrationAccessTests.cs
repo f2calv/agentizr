@@ -20,6 +20,7 @@ public sealed class AdministrationAccessTests
     [InlineData("app-a", AdministratorId, true)]
     [InlineData("app-b", AdministratorId, false)]
     [InlineData("unknown-app", AdministratorId, false)]
+    [InlineData("retired-app", AdministratorId, false)]
     [InlineData("app-a", "00000000-0000-0000-0000-000000000002", false)]
     [InlineData("app-a", null, false)]
     public void CanAdminister_RequiresAnAssignmentForAKnownApp(string appId, string? administratorId, bool expected)
@@ -34,6 +35,7 @@ public sealed class AdministrationAccessTests
     {
         var accessSvc = CreateAccessService(administrationEnabled: true, tenantAuthenticationEnabled: true, Environments.Production);
 
+        // retired-app is assigned but undefined by the runtime, so it must not appear.
         Assert.Equal(["app-a"], accessSvc.GetAdministeredApps(CreateAdministrator(AdministratorId)));
         Assert.Empty(accessSvc.GetAdministeredApps(new ClaimsPrincipal(new ClaimsIdentity())));
     }
@@ -91,12 +93,20 @@ public sealed class AdministrationAccessTests
             Options.Create(new AdministrationConfig
             {
                 Enabled = administrationEnabled,
-                AppAdministrators = new Dictionary<string, string[]> { ["app-a"] = [AdministratorId] },
+                AppAdministrators = new Dictionary<string, string[]>
+                {
+                    ["app-a"] = [AdministratorId],
+                    ["retired-app"] = [AdministratorId],
+                },
             }),
             Options.Create(new TenantAuthenticationConfig
             {
                 Enabled = tenantAuthenticationEnabled,
-                TenantCallers = new Dictionary<string, string[]> { ["app-b"] = ["caller-b"] },
+                TenantCallers = new Dictionary<string, string[]>
+                {
+                    ["app-a"] = ["caller-a"],
+                    ["app-b"] = ["caller-b"],
+                },
             }),
             Options.Create(new AgentRuntimeConfig()),
             new TestHostEnvironment(environmentName));
