@@ -39,7 +39,7 @@ Provide bootstrap settings through the existing deployment configuration/Key Vau
 `Enabled` defaults to false. The application name is a required durable scope identifier, not a tenant
 identifier. The environment is the host's actual .NET environment name, including any custom name.
 The contract identifier is `logging`, version 1. The PostgreSQL target may be standalone or the
-existing application database; the independently migrated `runtime_configuration` schema owns
+existing application database; the independently migrated `cascap_config` schema owns
 only configuration records. Supplying the same connection does not merge contexts or migrations.
 
 Optional `RefreshIntervalMs` defaults to 5000, with supported values from 100 to 3600000.
@@ -74,13 +74,13 @@ connection. Both journal and head must commit together.
 
 ```sql
 BEGIN;
-INSERT INTO runtime_configuration.revisions
+INSERT INTO cascap_config.revisions
     (application, environment, contract_id, revision, contract_version, payload,
      recorded_at_utc, actor, reason)
 VALUES
     ('example-application', 'example-environment', 'logging', 1, 1,
      '{"MinimumLevel":"Information"}'::jsonb, now(), 'example-operator', 'Initial logging baseline');
-INSERT INTO runtime_configuration.heads (application, environment, contract_id, revision)
+INSERT INTO cascap_config.heads (application, environment, contract_id, revision)
 VALUES ('example-application', 'example-environment', 'logging', 1);
 COMMIT;
 ```
@@ -103,21 +103,21 @@ DECLARE
     current_revision bigint;
 BEGIN
     SELECT revision INTO current_revision
-    FROM runtime_configuration.heads
+    FROM cascap_config.heads
     WHERE application = 'example-application'
       AND environment = 'example-environment' AND contract_id = 'logging'
     FOR UPDATE;
     IF NOT FOUND OR current_revision <> 1 THEN
         RAISE EXCEPTION 'Configuration revision conflict';
     END IF;
-    INSERT INTO runtime_configuration.revisions
+    INSERT INTO cascap_config.revisions
         (application, environment, contract_id, revision, contract_version, payload,
          recorded_at_utc, actor, reason, expires_at_utc)
     VALUES
         ('example-application', 'example-environment', 'logging', 2, 1,
          '{"MinimumLevel":"Debug"}'::jsonb, now(), 'example-operator',
          'Temporary logging soak', now() + interval '15 minutes');
-    UPDATE runtime_configuration.heads SET revision = 2
+    UPDATE cascap_config.heads SET revision = 2
     WHERE application = 'example-application'
       AND environment = 'example-environment' AND contract_id = 'logging';
 END;
