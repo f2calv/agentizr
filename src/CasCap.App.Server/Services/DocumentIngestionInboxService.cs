@@ -20,10 +20,7 @@ internal sealed class DocumentIngestionInboxService(
             notification.Event.Deleted.ToString());
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        if (db.Database.IsNpgsql())
-            await db.Database.ExecuteSqlInterpolatedAsync(
-                $"SELECT pg_advisory_xact_lock(hashtextextended({"agent_runtime:document_ingestion:admission"}, 0))",
-                cancellationToken);
+        await DocumentIngestionTransactions.LockAsync(db, cancellationToken);
         var receipt = await db.DocumentIngestionJobs.SingleOrDefaultAsync(job => job.Id == receiptId, cancellationToken);
         if (receipt is not null)
         {
@@ -62,8 +59,13 @@ internal sealed class DocumentIngestionInboxService(
             document.Status = status;
             document.UpdatedAtUtc = timeProvider.GetUtcNow();
             await db.DocumentIngestionJobs
-                .Where(job => job.DocumentId == documentId && job.Status == DocumentIngestionStates.Queued)
-                .ExecuteUpdateAsync(update => update.SetProperty(job => job.Status, DocumentIngestionStates.Ignored),
+                .Where(job => job.DocumentId == documentId
+                    && (job.Status == DocumentIngestionStates.Queued
+                        || job.Status == DocumentIngestionStates.Processing
+                        || job.Status == DocumentIngestionStates.RetryPending))
+                .ExecuteUpdateAsync(update => update.SetProperty(job => job.Status, DocumentIngestionStates.Ignored)
+                    .SetProperty(job => job.ClaimId, (Guid?)null)
+                    .SetProperty(job => job.NextAttemptAtUtc, (DateTimeOffset?)null),
                     cancellationToken);
         }
         db.DocumentIngestionJobs.Add(new DocumentIngestionJobEntity

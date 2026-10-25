@@ -27,6 +27,21 @@ The API/frontend/MCP surfaces below belong only to `agentizr`. `ingestion` expos
 probes and runs a serial elected notification receiver; it requires PostgreSQL, shared Redis
 distributed locking, provisioned Azure queues and explicit source mappings. It is a Debug
 source-reference PoC: `Queued` is durable admission, not searchable PDF content.
+The same elected feature now supports durable job processing behind an off-by-default gate.
+Under `CasCap:DocumentIngestionConfig`, `ProcessingEnabled` defaults to `false` and
+`ProcessingTimeoutSeconds` defaults to `300` (range 30-900). Enabling processing without a real
+[`IDocumentProcessor`](Abstractions/IDocumentProcessor.cs) registration fails startup; no PDF
+processor is supplied yet, so keep the gate off.
+
+[`DocumentIngestionJobService`](Services/DocumentIngestionJobService.cs) persists claims,
+attempt counts and retry times. Processing is serial, limited to three attempts, with a 30-second
+retry delay and expired-claim recovery. Cancellation/leadership loss leaves unfinished work
+recoverable; deleted/superseded revisions and expired/replaced claims cannot record completion.
+`Completed` means the registered processor finished, not that a document is searchable.
+Apply the additive processing migration externally before rolling out this code; do not enable
+processing during a mixed-version ingestion rollout. PDF extraction, chunks, embeddings and
+generation activation are still future work.
+
 Release explicitly rejects ingestion until the required shared APIs are published.
 `migrate` is a finite external schema job with no HTTP listener or background ingestion; the existing
 `--migrate` argument also selects it.

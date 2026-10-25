@@ -31,6 +31,15 @@ public sealed class DocumentIngestionConfigTests
     public void InvalidVisibility(int seconds) =>
         Assert.NotEmpty(Validate(DocumentIngestionTestData.Config with { VisibilitySeconds = seconds }));
 
+    [Theory]
+    [InlineData(29, false)]
+    [InlineData(30, true)]
+    [InlineData(300, true)]
+    [InlineData(900, true)]
+    [InlineData(901, false)]
+    public void ProcessingDeadline(int seconds, bool valid) =>
+        Assert.Equal(valid, Validate(DocumentIngestionTestData.Config with { ProcessingTimeoutSeconds = seconds }).Count == 0);
+
     private static List<ValidationResult> Validate(DocumentIngestionConfig config)
     {
         var results = new List<ValidationResult>();

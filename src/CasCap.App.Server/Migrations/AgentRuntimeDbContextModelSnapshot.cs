@@ -335,6 +335,20 @@ namespace CasCap.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("accepted_at_utc");
 
+                    b.Property<int>("AttemptCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("attempt_count");
+
+                    b.Property<DateTimeOffset?>("ClaimExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("claim_expires_at_utc");
+
+                    b.Property<Guid?>("ClaimId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("claim_id");
+
                     b.Property<string>("CollectionId")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -352,6 +366,19 @@ namespace CasCap.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("fingerprint");
+
+                    b.Property<DateTimeOffset?>("FinishedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("finished_at_utc");
+
+                    b.Property<string>("LastFailureCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("last_failure_code");
+
+                    b.Property<DateTimeOffset?>("NextAttemptAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at_utc");
 
                     b.Property<string>("Sequencer")
                         .IsRequired()
@@ -373,6 +400,12 @@ namespace CasCap.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_document_ingestion_jobs");
+
+                    b.HasIndex("Status", "ClaimExpiresAtUtc")
+                        .HasDatabaseName("ix_document_ingestion_jobs_status_claim_expiry");
+
+                    b.HasIndex("Status", "NextAttemptAtUtc")
+                        .HasDatabaseName("ix_document_ingestion_jobs_status_next_attempt");
 
                     b.HasIndex("TenantId", "CollectionId", "DocumentId")
                         .HasDatabaseName("ix_document_ingestion_jobs_tenant_collection_document");

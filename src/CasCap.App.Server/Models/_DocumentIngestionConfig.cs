@@ -29,6 +29,14 @@ public sealed record DocumentIngestionConfig : IAppConfig, IValidatableObject
     [Range(30, 600)]
     public int VisibilitySeconds { get; init; } = 60;
 
+    /// <summary>Gets whether durable processing is enabled; requires a real registered document processor.</summary>
+    public bool ProcessingEnabled { get; init; }
+
+    /// <summary>Gets the attempt deadline in seconds, used by <see cref="DocumentIngestionJobService"/>
+    /// and <see cref="DocumentIngestionProcessingService"/>.</summary>
+    [Range(30, 900)]
+    public int ProcessingTimeoutSeconds { get; init; } = 300;
+
     /// <summary>Gets explicit container-to-tenant/collection mappings.</summary>
     public List<DocumentSourceConfig> Sources { get; init; } = [];
 

@@ -65,18 +65,19 @@ test definitions do not drift into application-specific `AIConfig` setup.
 `ScriptedEvaluationAgentFactory` replaces the model provider with a scripted chat client for
 evaluation tests.
 
-## Document Admission PoC
+## Document Ingestion PoC
 
-These additional role/admission tests are separate from the runtime baseline inventory above.
+These additional role/ingestion tests are separate from the runtime baseline inventory above.
 
 | Class | Methods | Cases | Scope |
 | --- | ---: | ---: | --- |
 | `FeatureConfigTests` | 3 | 11 | Default, normalization, duplicate, unknown, empty and incompatible finite-role selections; Debug and Release |
-| `DocumentIngestionConfigTests` | 4 | 8 | Synthetic source/queue configuration, distinct canonical HTTPS endpoints and visibility limits |
+| `DocumentIngestionConfigTests` | 5 | 13 | Synthetic source/queue configuration, canonical HTTPS endpoints, visibility and exact processing deadline boundaries |
 | `DocumentIngestionAdmissionTests` | 9 | 20 | Commit-before-ack, infrastructure/argument failures, cancellation, malformed envelopes, source isolation and sequencer normalization |
-| `DocumentIngestionInboxTests` | 5 | 5 | SQLite relational receipt deduplication, reused IDs, stale events, tombstones and tenant separation |
-| `DocumentIngestionLeadershipTests` | 1 | 1 | Validated DI provider with a fake runner: no receive before ownership, owner-token cancellation on loss |
-| **Role/admission subtotal** | **22** | **45** | All but the role-parser class are Debug-only |
+| `DocumentIngestionInboxTests` | 16 | 19 | SQLite admission, disabled/missing processors, terminal outcomes, exact retry delay/attempt limit, expired and replaced claims, supersession, cancellation, deadline cleanup and unknown faults |
+| `DocumentIngestionLeadershipTests` | 2 | 3 | Fake-runner ownership, cancellation on loss and processing resolution only inside ownership when enabled |
+| `DocumentIngestionCompositionTests` | 1 | 3 | Real ingestion registration with validated DI and options: disabled, enabled/missing processor, enabled/registered processor; no transport starts |
+| **Role/ingestion subtotal** | **36** | **69** | All but the role-parser class are Debug-only |
 
 Run the focused credential-free selection from the repository root:
 
@@ -86,16 +87,18 @@ dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter
 
 The database/DI fixtures are under `Integration/` and use synthetic, test-owned setup rather than
 the live-service `TestBase`; no Azure, PostgreSQL or Redis connection is made.
-`Roles` covers the 11 parser cases; `Ingestion` covers the remaining 34, including six also tagged
-`Integration`. Neither a fake ownership callback nor SQLite validates actual Redlock renewal,
+`Roles` covers the 11 parser cases; `Ingestion` covers the remaining 58, including 25 also tagged
+`Integration`. The processing tests use a manual clock/timer, not retry-duration sleeps.
+Neither a fake ownership callback nor SQLite validates actual Redlock renewal,
 PostgreSQL advisory-lock concurrency, Azure queue encoding/leases/poison delivery, migration process
 exit or worker-only/combined host routes.
 
-Observed targeted Debug run: **54 passed, zero failed/skipped**: the 45 cases above plus the nine
+Observed targeted Debug run: **78 passed, zero failed/skipped**: the 69 cases above plus the nine
 existing `EndpointSmokeTests` cases preserving the default API/frontend contract. This is not a
 full-suite or live-provider result. See
 [ADR 0001](../../docs/adr-0001-centralized-document-rag.md#poc-limits-and-deliberately-deferred-polishing)
-for the remaining acceptance gates.
+for the remaining acceptance gates. No real processor, live-provider race test or blob-to-answer
+flow is claimed.
 
 ## Trait Categories
 

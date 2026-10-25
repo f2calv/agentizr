@@ -69,6 +69,25 @@ public sealed class AgentRuntimeDbContext(
             entity.Property(item => item.Sequencer).HasColumnName("sequencer").HasMaxLength(128);
             entity.Property(item => item.Status).HasColumnName("status").HasMaxLength(30);
             entity.Property(item => item.AcceptedAtUtc).HasColumnName("accepted_at_utc");
+            entity.Property(item => item.AttemptCount).HasColumnName("attempt_count").HasDefaultValue(0);
+            entity.Property(item => item.ClaimId).HasColumnName("claim_id");
+            entity.Property(item => item.ClaimExpiresAtUtc).HasColumnName("claim_expires_at_utc");
+            entity.Property(item => item.NextAttemptAtUtc).HasColumnName("next_attempt_at_utc");
+            entity.Property(item => item.FinishedAtUtc).HasColumnName("finished_at_utc");
+            entity.Property(item => item.LastFailureCode).HasColumnName("last_failure_code").HasMaxLength(40);
+            if (Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite")
+            {
+                entity.Property(item => item.ClaimExpiresAtUtc).HasConversion(
+                    value => value!.Value.UtcTicks, value => new DateTimeOffset(value, TimeSpan.Zero));
+                entity.Property(item => item.NextAttemptAtUtc).HasConversion(
+                    value => value!.Value.UtcTicks, value => new DateTimeOffset(value, TimeSpan.Zero));
+                entity.Property(item => item.FinishedAtUtc).HasConversion(
+                    value => value!.Value.UtcTicks, value => new DateTimeOffset(value, TimeSpan.Zero));
+            }
+            entity.HasIndex(item => new { item.Status, item.NextAttemptAtUtc })
+                .HasDatabaseName("ix_document_ingestion_jobs_status_next_attempt");
+            entity.HasIndex(item => new { item.Status, item.ClaimExpiresAtUtc })
+                .HasDatabaseName("ix_document_ingestion_jobs_status_claim_expiry");
             entity.HasOne<KnowledgeDocumentEntity>().WithMany()
                 .HasForeignKey(item => new { item.TenantId, item.CollectionId, item.DocumentId })
                 .HasPrincipalKey(item => new { item.TenantId, item.CollectionId, item.Id })

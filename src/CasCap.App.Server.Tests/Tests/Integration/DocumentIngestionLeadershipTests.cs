@@ -1,5 +1,6 @@
 #if DEBUG
 using CasCap.Common.Abstractions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -40,6 +41,49 @@ public sealed class DocumentIngestionLeadershipTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ProcessingIsNotResolvedBeforeOwnershipOrWhenDisabled(bool enabled)
+    {
+        var config = Options.Create(DocumentIngestionTestData.Config with { ProcessingEnabled = enabled });
+        var queue = new CancellingQueue { CancelOnReceive = !enabled };
+        var runner = new CapturingRunner();
+        var resolutions = 0;
+        var services = new ServiceCollection();
+        services.AddSingleton<IDocumentIngestionEventQueue>(queue);
+        services.AddSingleton<IDocumentIngestionInbox, UnusedInbox>();
+        services.AddSingleton(config);
+        services.AddSingleton<ILogger<DocumentIngestionAdmissionService>>(NullLogger<DocumentIngestionAdmissionService>.Instance);
+        services.AddScoped<DocumentIngestionAdmissionService>();
+        services.AddScoped(_ =>
+        {
+            resolutions++;
+            return new DocumentIngestionProcessingService(NullLogger<DocumentIngestionProcessingService>.Instance,
+                config, TimeProvider.System, new DocumentIngestionJobService(config, TimeProvider.System, new UnusedFactory()), []);
+        });
+        await using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+        var feature = new DocumentIngestionFeature(config,
+            TimeProvider.System, runner, provider.GetRequiredService<IServiceScopeFactory>());
+        using var host = new CancellationTokenSource();
+        var run = feature.ExecuteAsync(host.Token);
+        Assert.Equal(0, queue.Receives);
+        Assert.Equal(0, resolutions);
+        using var ownership = new CancellationTokenSource();
+        queue.Owner = ownership;
+        if (enabled)
+        {
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => runner.Callback!(ownership.Token));
+            Assert.Contains("real registered document processor", exception.Message, StringComparison.Ordinal);
+        }
+        else
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => runner.Callback!(ownership.Token));
+        Assert.Equal(1, queue.Receives);
+        Assert.Equal(enabled ? 1 : 0, resolutions);
+        await host.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+    }
+
     private sealed class CapturingRunner : ILeadershipRunner
     {
         public Func<CancellationToken, Task>? Callback { get; private set; }
@@ -71,6 +115,33 @@ public sealed class DocumentIngestionLeadershipTests
             throw new NotSupportedException();
         public Task QuarantineAsync(IngestionQueueMessage message, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+    }
+
+    private sealed class CancellingQueue : IDocumentIngestionEventQueue
+    {
+        public bool CancelOnReceive { get; init; }
+        public CancellationTokenSource Owner { get; set; } = null!;
+        public int Receives { get; private set; }
+        public async Task<IngestionQueueMessage?> ReceiveAsync(CancellationToken cancellationToken)
+        {
+            Receives++;
+            if (CancelOnReceive)
+                await Owner.CancelAsync();
+            return null;
+        }
+        public Task<IngestionQueueMessage> RenewAsync(IngestionQueueMessage message, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+        public Task AcknowledgeAsync(IngestionQueueMessage message, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+        public Task ReleaseAsync(IngestionQueueMessage message, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+        public Task QuarantineAsync(IngestionQueueMessage message, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+    }
+
+    private sealed class UnusedFactory : IDbContextFactory<AgentRuntimeDbContext>
+    {
+        public AgentRuntimeDbContext CreateDbContext() => throw new NotSupportedException();
     }
 
     private sealed class UnusedInbox : IDocumentIngestionInbox

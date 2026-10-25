@@ -1,6 +1,6 @@
 # ADR 0001: Centralize Multi-Application Document RAG In Agentizr
 
-**Status:** Proposed; a local Debug admission foundation is implemented, not deployed.
+**Status:** Proposed; Debug admission is deployed with ingestion disabled; gated job processing is local-only.
 **Date:** 2026-10-25.
 **Scope:** Blazor document management, Azure Blob/Event Grid ingestion and tenant-isolated RAG.
 **Canonical record:** This document. Related issues are historical context or implementation tracking,
@@ -328,8 +328,8 @@ incompatible selections fail explicitly.
 | Selection | Dependencies and surfaces | Lifecycle |
 | --- | --- | --- |
 | `agentizr` (default) | Existing runtime/admin/frontend/MCP gates; PostgreSQL required outside Development, Redis optional | API daemon; does not consume document notifications |
-| `ingestion` | PostgreSQL, shared Redis election and Azure queues; only `/status` and `/healthz`, no business API/frontend/MCP registration | Elected admission daemon; standby keeps serving probes |
-| `agentizr,ingestion` | Union of both roles, with shared persistence/caching registration | API and elected admission together |
+| `ingestion` | PostgreSQL, shared Redis election and Azure queues; only `/status` and `/healthz`, no business API/frontend/MCP registration | Elected serial admission and gated processing daemon; standby keeps serving probes |
+| `agentizr,ingestion` | Union of both roles, with shared persistence/caching registration | API and elected ingestion together |
 | `migrate` | PostgreSQL and migrator only; no API/ingestion registration or HTTP listener | Finite external schema job; cannot combine with daemon roles |
 
 The existing `--migrate` invocation selects migration-only behavior. The same application artifact
@@ -344,11 +344,11 @@ replicas, never a pod-specific name. `CachingConfig.RemoteCache.IsEnabled`,
 `RemoteCacheConnectionString` and `DistributedLockingEnabled` are required; use the shared
 `CachingConfig.Redlock` timing/topology contract and a suitable non-failover-managed lock authority.
 Leadership loss cancels receive, database work, acknowledgement and idle waits through the ownership
-token. Only the owner's callback starts admission. This is coordination, not exactly-once execution
+token, including processing attempts. Only the owner's callback starts ingestion. This is coordination, not exactly-once execution
 or downstream fencing.
 
 The [inbox](../src/CasCap.App.Server/Services/DocumentIngestionInboxService.cs) uses a PostgreSQL
-transaction-scoped advisory lock to serialize all admissions in this PoC, plus deterministic event
+transaction-scoped advisory lock to serialize all admissions, claims and outcomes in this PoC, plus deterministic event
 receipts and tenant/collection-qualified document identity. This deliberately favors simplicity over
 parallel throughput. Per-blob hexadecimal sequencers reject stale notifications; deleted immutable
 blob names cannot be resurrected. New versions require new opaque blob names. Receipt conflicts are
@@ -356,10 +356,38 @@ quarantined rather than silently reassigned. Treat source mapping/leadership-res
 controlled migrations with queue drain/replay, not mutable agent settings.
 
 `knowledge_documents` records the latest admitted source state.
-`document_ingestion_jobs` currently combines event receipts and processing intents. `Queued` means
-durably awaiting a future processor, **not extracted, embedded or searchable**; `Deleted` is a
-tombstone and `Ignored` records stale/superseded work. No PDF bytes are downloaded in this slice.
-Schema changes remain externally applied before rollout.
+`document_ingestion_jobs` combines event receipts and processing intents. `Queued` means durably
+awaiting a processor, **not extracted, embedded or searchable**; `Deleted` is a tombstone and
+`Ignored` records stale/superseded work.
+
+The local
+[job lifecycle](../src/CasCap.App.Server/Services/DocumentIngestionJobService.cs) claims one current
+source revision transactionally, with a unique attempt ID, persisted attempt count and deadline.
+PostgreSQL supplies deadline time after acquiring the same admission lock; SQLite tests use an
+injected clock. `Processing` transitions to `Completed`, `RetryPending` or `Failed`. Three attempts
+are allowed, including abandoned claims. Known retryable failures wait a persisted 30 seconds.
+An enabled polling owner moves expired attempts to a retry due 30 seconds after recovery, or to
+terminal failure at the attempt limit; there is no exact failover-time promise. Unknown faults
+escape to host supervision rather than being silently classified as transient.
+
+[Processing orchestration](../src/CasCap.App.Server/Services/DocumentIngestionProcessingService.cs)
+is explicitly gated by `ProcessingEnabled=false`. Startup rejects enabling it without a real
+[`IDocumentProcessor`](../src/CasCap.App.Server/Abstractions/IDocumentProcessor.cs); no production
+processor or no-op substitute is registered yet. `ProcessingTimeoutSeconds=300` (range 30-900)
+cancels cooperative attempts. Shutdown/ownership loss aborts rather than drains the active attempt,
+awaits cleanup and leaves its claim for recovery, without recording a cancellation as success or
+permanent failure. An uncooperative processor can exceed the local cancellation budget; it is
+never detached. The database still rejects completion after the durable deadline.
+
+Completion/retry requires the current unexpired claim and latest nondeleted source revision under
+the admission lock. Delete/newer-create admission revokes active and retry claims. This protects
+job bookkeeping, **not external effects or a future generation activation**: a real processor must
+stage idempotent outputs and fence the active-generation transaction independently.
+`Completed` is processor completion, not searchability; document state remains admission-only.
+No PDF bytes are downloaded in this slice.
+The additive processing migration must be externally applied before rollout. Keep processing off
+until all ingestion replicas use this contract, the real processor is wired and provider-backed
+race tests pass; the existing admission-only deployment does not include this local lifecycle.
 
 ### PoC Limits And Deliberately Deferred Polishing
 
@@ -370,11 +398,12 @@ a generalized scheduler or provider framework. The following are not delivered g
 | --- | --- |
 | Provider-backed delivery/race tests | SQLite tests prove state transitions, not PostgreSQL advisory locks or cross-pod election. Prove those against isolated providers before a multi-pod ingestion rollout |
 | Full role-composition acceptance | Parsing, fake-runner ownership and existing API tests are local checks; worker-only/combined HTTP surfaces and migration process exit still need isolated host acceptance before deployment |
-| Bounded retry and progress readiness | Azure SDK retries are the only in-process transport retry. Exhausted transport/database failures propagate to host supervision; unacknowledged messages return after visibility expiry. Validate restart behavior and add bounded retries/progress health before unattended operation |
+| Transport recovery and progress readiness | Job attempts now have a persisted bounded retry policy, but transport retries remain Azure SDK-owned. Exhausted transport/database failures propagate to host supervision; unacknowledged messages return after visibility expiry. Validate restart behavior and add queue-age/progress health before unattended operation |
 | Long admissions and poison lifecycle | One short admission runs at a time, without a lease-renew loop; expiry can redeliver safely through inbox deduplication. Poison enqueue precedes source acknowledgement, so duplicates are possible. Add renewal, retention/replay tooling and limits when latency or poison volume warrants them |
 | Reconciliation | Events before subscription, expired deliveries and unfinalized uploads are not discovered automatically. Stage/replay test events explicitly; add container reconciliation before relying on loss recovery |
 | Actual PDF validation and indexing | Envelope/source/extension checks do not validate content or rights. Add bounded download, ETag verification, PDF validation/extraction, chunking, embedding profiles and pgvector before claiming RAG |
-| Durable job execution and activation | No processor claims, retry schedule, extraction fencing or active-generation switch yet. Add these before processing jobs; election alone cannot stop a stale worker activating results |
+| Real processing and generation activation | Claims/retries/completion are implemented behind a disabled gate and exercised with test processors. No PDF processor, idempotent output staging or fenced active-generation switch exists. Add these before enabling processing; claim identity alone cannot fence external effects |
+| Scheduling throughput and deadlines | One serial loop alternates admission with one bounded attempt, so long processing delays further admissions. A single transaction lock and bulk expiry recovery favor simplicity over scale. Split supervised admission/processing loops, bound recovery batches and measure fairness/progress if corpus size or admission latency warrants it |
 | Management and cleanup | Upload/status/download/replace/delete UI/API, quotas, purge/backup retention and source/index cleanup remain future steps before broader use |
 | Optional providers and onboarding | Add AI Search parity, a Redis transport/bridge or bootstrap wizard only after the initial manual pgvector path is proven |
 
@@ -386,7 +415,7 @@ updates. Record the definition version and selected corpus generation for reprod
 rolling back a definition does not automatically roll back the corpus.
 
 Evaluate the framework's
-[`TextSearchProvider`](https://learn.microsoft.com/en-us/agent-framework/agents/rag#using-textsearchprovider)
+[`TextSearchProvider`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.agents.ai.textsearchprovider)
 as the adapter for both before-invocation and model-invoked search. Use on-demand search initially
 for mixed control/chat agents; require before-invocation retrieval for reference-only tutoring or
 manual-answering agents when evaluation shows the model skips necessary searches. Agents without
@@ -398,6 +427,12 @@ the existing [executor](../src/CasCap.App.Server/Services/CommonAgentExecutor.cs
 [evaluation factory](../src/CasCap.App.Server/Services/EvaluationAgentFactory.cs).
 Validate the API against the pinned framework version rather than assuming current documentation
 matches the installed package.
+
+Local XML API inspection confirms Agentizr's pinned `Microsoft.Agents.AI` 1.26.0 already exposes
+`TextSearchProvider`, a cancellation-aware search delegate, `SourceName`/`SourceLink`/`Text`
+results and both search behaviors. Agentizr's future tenant-authorized retrieval service supplies
+that delegate; the framework does not own tenant authorization or the durable ingestion pipeline.
+No framework retrieval hook is wired by the current job-lifecycle slice.
 
 Retrieved passages are untrusted evidence, never instructions or permission to execute tools.
 Require source attribution for grounded claims and abstention/clear qualification when no source
@@ -415,8 +450,10 @@ document that separate retention exposure.
   responsibility for the document UI, PDF security, event/inbox handling, ingestion workers,
   quotas, storage growth and relevance quality.
 - Extension installation requires an extension-capable PostgreSQL image and a privileged external
-  migration path. Verify both against the actual target before rollout; current deployed extension
-  availability was not checked. Runtime database roles should not gain schema privileges.
+  management path. Read-only follow-up verified successful declarative activation, an installed
+  `vector` extension in `public`, and the expected result from a vector-distance calculation.
+  Provider/package compatibility and application retrieval behavior remain separate gates;
+  runtime database roles should not gain schema privileges.
 - PostgreSQL loss/unavailability prevents durable acceptance and knowledge search. Report the
   failure explicitly; a reference-required agent must not silently answer as though grounded.
   An optional retrieval agent may continue only with an explicit unavailable-context indication.
@@ -441,8 +478,9 @@ document that separate retention exposure.
   enables reindexing, but re-embedding depends on model availability and may not reproduce identical
   vectors. Restore validation must cover both stores and pending jobs, not just vector row counts.
 - Azure resource provisioning stays in a separate infrastructure workstream, before live ingestion
-  validation. Application foundations can progress independently. Verify the reported existing Azure AI Search service and its supported features
-  there; no live deployment or Event Grid subscription readiness was verified for this ADR.
+  validation. Application foundations can progress independently. The sanitized Phase 0 status
+  below records verified storage/Search provisioning separately from the still-unverified
+  ingestion transport and application deployment.
 - Defer agent/application bootstrap automation until manual onboarding is proven. Later choose a
   bootstrap skill or setup wizard that requests IaC-managed provisioning of containers, event
   bindings and permissions. Ordinary agent creation must not silently create resources or grant
@@ -450,8 +488,9 @@ document that separate retention exposure.
 
 ## Validation And Delivery
 
-The admission-only local slice is tracked separately below. All broader RAG acceptance items remain
-unchecked. Numerical quality targets are proposed gates, not measured results.
+The admission-only local slice and infrastructure prerequisites are tracked separately below.
+Completed prerequisites do not establish broader RAG acceptance. Numerical quality targets are
+proposed gates, not measured results.
 
 ### Local Admission Foundation
 
@@ -473,12 +512,29 @@ unchecked. Numerical quality targets are proposed gates, not measured results.
 
 The separate IaC workstream owns the following handoff; deployment is not performed by this ADR:
 
-- [ ] Verify existing Azure AI Search inventory/capabilities rather than assume deployed state.
-  Provision private source containers for the two initial consumers, and separate delivery
-  dead-letter storage, with explicit tenant/collection bindings and retention/versioning policy.
+- [x] Verify the optional Azure AI Search inventory/capabilities. The infrastructure workstream
+  verified Free-tier provisioning, authenticated service-statistics access, an empty index/document
+  inventory and the configured Search role assignments. Free has a 50 MiB storage limit and no
+  outbound managed identity; this does not select Search as the backend or prove indexing.
+- [x] Provision dedicated Standard GPv2 Hot/LRS storage in the durable-data subscription through
+  the existing storage module. Live settings disable anonymous Blob access and shared-key
+  authentication, require HTTPS/TLS 1.2, and preserve the existing runtime principal's inherited
+  Blob access. An unauthenticated Blob request returned HTTP 401; the post-apply Terraform plan
+  reported no changes using the applied deployment metadata.
+- [x] Provision private source containers for the two initial consumers and separate delivery
+  dead-letter Blob storage. The local infrastructure apply created three private containers;
+  live IDs/endpoints match the outputs, unauthenticated container requests return HTTP 401,
+  and a follow-up Terraform plan reports no changes.
+- [x] Provision distinct ingestion and application-poison queues. Both exist and their live ARM
+  IDs and credential-free endpoints match the infrastructure outputs. This does not establish
+  producer TTL, runtime access or event delivery.
+- [ ] Complete approved tenant/collection bindings and producer retention configuration before
+  enabling ingestion. The account does not enable Blob/container soft delete or Blob versioning,
+  and Azure reports no automatic lifecycle policy.
 - [ ] Provision storage Event Grid system-topic subscriptions for final writes/deletes, container
-  filters, Azure Storage Queue, retry/TTL/dead-letter settings, and least-privilege managed/workload
-  identity access. Verify network/firewall compatibility for delivery and worker access (R10).
+  filters, queue destinations, retry/TTL/dead-letter settings, and least-privilege Entra access.
+  Configure Event Grid's managed identity separately from the worker's existing identity path.
+  Verify network/firewall compatibility for delivery and worker access (R10).
 - [ ] Supply account/container/queue identifiers and authentication configuration through private
   operator configuration; retain no real infrastructure coordinates in this public ADR.
 - [ ] Upload one or two authorized test PDFs per initial application container; verify blob
@@ -488,6 +544,45 @@ The separate IaC workstream owns the following handoff; deployment is not perfor
   staged PDF or queued event does not yet prove document ingestion, indexing or agent answers.
 
 #### Exact IaC Handoff
+
+**Readiness on 2026-10-25: partial; not ready to enable live ingestion.** Account provisioning,
+private source/dead-letter containers, ingestion/poison queues and optional Search verification
+are complete. Resource IDs and credential-free container/queue URIs are verified in private
+infrastructure outputs. Event Grid subscriptions, scoped queue permissions, approved source
+mappings and observed delivery encoding remain outstanding. Do not guess delivered-event topics
+or enable the receiver merely because its storage endpoints now exist.
+
+The account's public HTTPS endpoint is reachable, not anonymously readable and not a private
+endpoint. The existing application service principal has inherited Blob read/write/delete access;
+it is not a managed identity. This verifies the role assignment, not authenticated access from the
+intended worker pods, and does not grant queue permissions. Keep actual identity/bootstrap values
+in private operator configuration.
+
+**Agreed Phase 0 policy; producer configuration still pending:** Blob soft delete is verified
+false, container soft delete and Blob versioning are unconfigured, and no storage lifecycle
+policy exists. Keep source PDFs and delivery dead-letter blobs until explicit operator deletion,
+with no automatic lifecycle expiry. Deleted/overwritten originals cannot be recovered through
+these disabled features; keep an independently authorized original where recovery is required.
+Use non-expiring ingestion and poison messages with operator-controlled cleanup/replay, and a
+configurable Event Grid retry budget of 24 hours / 30 attempts before delivery dead-lettering.
+Event Grid retry lifetime and successfully queued message lifetime are separate controls.
+
+Message TTL must be explicit at each producer, including Event Grid delivery, poison sending and
+operator replay; it is not a queue-wide resource setting. The current
+[poison-send adapter](../src/CasCap.App.Server/Services/AzureDocumentIngestionQueue.cs) omits TTL,
+so its default seven-day expiry does not yet meet the agreed policy. Implement and verify that
+application-side setting before declaring retention ready. See
+[Event Grid queue delivery lifetime](https://learn.microsoft.com/en-us/azure/event-grid/delivery-properties#configure-time-to-live-on-outgoing-events-to-azure-storage-queues)
+and [Storage Queue message TTL](https://learn.microsoft.com/en-us/rest/api/storageservices/put-message#uri-parameters).
+
+The locally tested storage-module enhancement accepts variable-driven container, queue and table
+name collections with empty defaults, private containers and name-keyed resource-ID outputs.
+Container and queue creation has been verified live using local module files; tables are empty,
+so their live lifecycle is not yet proven. Module publication and the caller's immutable release
+pin remain pending. Identity grants stay caller-owned. Adding a source container alone is not
+ingestion onboarding: its event binding and approved tenant/collection mapping must also exist.
+Resource names are selected privately; trusted mappings, leadership identity and the replay
+procedure remain handover inputs, not inferred application metadata.
 
 Supply these values privately to
 [`DocumentIngestionConfig`](../src/CasCap.App.Server/Models/_DocumentIngestionConfig.cs), under
@@ -503,15 +598,18 @@ Supply these values privately to
 | `Sources:0:TenantId`, `Sources:0:CollectionId` | Operator-approved application tenant and tenant-local collection; never derived from caller/event metadata |
 | `LeadershipResource` | Operator-chosen stable installation-qualified Redis election identity, shared by all ingestion replicas |
 | `PollIntervalMs`, `VisibilitySeconds` | Defaults 2000 ms / 60 s; supported ranges 100-60000 ms / 30-600 s. Confirm visibility exceeds measured short-admission latency |
+| `ProcessingEnabled`, `ProcessingTimeoutSeconds` | Application-owned, not IaC readiness signals: default `false` / 300 s (30-900 s). Keep processing disabled until a real processor and output fencing are delivered |
 
 The infrastructure owner should update the Phase 0 checkboxes with sanitized observed outcomes:
 
 - Confirm Event Grid delivery schema (single event or singleton array), `BlobCreated`/`BlobDeleted`
   filters, final-write API behavior, exact source-container filters and no derived-output recursion.
-- Provision both queues. Configure Event Grid destination authorization and the Agentizr identity
+- Both queues now exist. Configure Event Grid destination authorization and the Agentizr identity
   separately: least-privilege queue receive/update/delete on the source queue, send on poison, and
   source blob read for the later processor. Application upload/delete permissions are a separate
   forthcoming UI/API requirement. Runtime does not create containers, queues or subscriptions.
+  Verify message-update permission for the adapter's lease release/renewal methods: the built-in
+  `Storage Queue Data Message Processor` role alone does not include message-write permission.
 - Supply the existing Azure identity/bootstrap configuration privately; verify DNS, firewall,
   workload-identity/RBAC propagation and access from intended pods without broad account keys.
 - Distinguish the application poison **queue** from Event Grid delivery dead-letter **Blob storage**.
@@ -522,19 +620,50 @@ The infrastructure owner should update the Phase 0 checkboxes with sanitized obs
 - Confirm the optional Search service's capability/identity/network readiness independently;
   provisioning it does not select a backend or prove vectorization. pgvector remains first.
 
+The application workstream can continue local admission development while this handoff is
+incomplete. Before a live admission run, apply the additive application migration externally,
+supply shared Redis with distributed locking and the agreed leadership resource, use a compatible
+Debug build until the shared Release APIs are published, and explicitly select `ingestion` or
+`agentizr,ingestion`. The default API role does not consume notifications. Pgvector activation is
+not required for admission-only persistence, but remains a prerequisite for vector processing and
+retrieval. Read-only follow-up has now verified the extension rollout and a vector operation;
+this does not prove full RAG processing.
+
 ### Phase 1: Accept The Decision And Prove Compatibility
 
 - [ ] Accept or amend this ADR; keep acceptance separate from implementation progress.
 - [ ] Select the multilingual embedding profile, PDF/tokenizer libraries, upload/download limits,
   rights/retention policy, quotas and target hardware before processing document contents (R3, R7).
-- [ ] Verify extension/image availability, pgvector/provider/package compatibility and framework
-  search/history APIs using the repository's pinned dependencies (R6).
+- PDF library candidates: [PdfPig](https://github.com/UglyToad/PdfPig) (NuGet package `PdfPig`,
+  namespace `UglyToad.PdfPig`) provides page/text/layout extraction. Use its reading-order tools,
+  not raw `page.Text`; scanned/image-only pages still need a separate OCR decision.
+  [Microsoft.Extensions.DataIngestion](https://learn.microsoft.com/en-us/dotnet/ai/conceptual/data-ingestion)
+  offers tokenizer-backed header/section/semantic-aware chunkers. Its NuGet installation guidance
+  currently uses `--prerelease`, so evaluate/pin compatibility and approve prerelease use before
+  adopting it; `Microsoft.ML.Tokenizers` is an alternative for a smaller page-aware splitter.
+  The [MarkItDown reader](https://www.nuget.org/packages/Microsoft.Extensions.DataIngestion.MarkItDown/)
+  wraps an external executable or MCP service, not a managed-only PDF parser. Prefer reusing
+  extraction/tokenization libraries without adding that deployment dependency for the PDF-only PoC.
+  No extraction/chunking dependency is added by the durable job-lifecycle work.
+- [x] Verify the live extension prerequisite: the database controller reports successful activation,
+  the extension is installed in the expected schema, and a read-only vector operation succeeds.
+- [ ] Verify pgvector/provider/package compatibility and framework search/history APIs using the
+  repository's pinned dependencies (R6).
 - [ ] Build an authorized evaluation set of at least 40 questions, at least 20 per initial use case,
   including German inflections/umlauts, device identifiers, edition/CEFR filtering and unanswerable
   questions. Use synthetic or appropriately licensed CI documents (R4, R8).
 
 ### Phase 2: Deliver Central Upload, Storage And Search
 
+- [x] Implement the local gated durable lifecycle: serial claim, three attempts, persisted 30-second
+  retry, deadline recovery and revision/claim-checked completion. Focused credential-free run:
+  78 cases passed, zero failed/skipped (69 role/ingestion plus nine existing endpoint smoke cases).
+  SQLite/manual-clock and fake-runner tests do not establish PostgreSQL races or live failover.
+  The full Debug solution builds without warnings/errors; the current EF model has no pending
+  changes. The scaffolded additive processing migration and offline SQL were reviewed but not
+  applied. No lifecycle commit or deployment is included in this validation.
+- [ ] Wire the real PDF processor and prove conditional downloads, idempotent staged output and
+  fenced generation activation against isolated PostgreSQL before enabling processing.
 - [ ] Prove authenticated upload/status/search/source/delete through versioned HTTP and typed-client
   surfaces against isolated PostgreSQL with pgvector, not an in-memory substitute (R1-R4).
 - [ ] Deliver Blazor document management through the existing administration API/client: app-scoped
@@ -605,5 +734,11 @@ The infrastructure owner should update the Phase 0 checkboxes with sanitized obs
 The links beside each claim are the evidence. Historical discussion is not current implementation.
 Official documentation was consulted on 2026-10-25; exact version compatibility remains a Phase 1
 gate. This ADR is saved locally. The SmartHaus ownership-handoff closure is verified. The local
-admission foundation is implemented and partially validated as listed above; live infrastructure,
-full document processing/retrieval and deployment remain unverified.
+admission foundation is deployed with ingestion disabled; its external migration and basic API
+rollout checks succeeded. Gated job processing is implemented and locally validated, not deployed.
+The infrastructure
+workstream supplied the sanitized account/Search observations recorded in Phase 0; private
+resource coordinates and deployment artifacts remain outside this public record. Ingestion
+transport, worker access and full document processing/retrieval remain
+unverified. A read-only follow-up verified pgvector activation and a vector operation; it did not
+mutate the database or establish application compatibility.

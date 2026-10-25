@@ -2,7 +2,7 @@ using CasCap.Constants;
 
 namespace CasCap.Services;
 
-/// <summary>Runs serial document admission only while the shared leadership runner owns the ingestion lease.</summary>
+/// <summary>Runs serial admission and gated processing only inside the shared ingestion leadership lifetime.</summary>
 internal sealed class DocumentIngestionFeature(
     IOptions<DocumentIngestionConfig> config,
     TimeProvider timeProvider,
@@ -24,7 +24,11 @@ internal sealed class DocumentIngestionFeature(
             await using var scope = serviceScopeFactory.CreateAsyncScope();
             var received = await scope.ServiceProvider.GetRequiredService<DocumentIngestionAdmissionService>()
                 .ReceiveAsync(ownershipToken);
-            if (!received)
+            ownershipToken.ThrowIfCancellationRequested();
+            var processed = config.Value.ProcessingEnabled
+                && await scope.ServiceProvider.GetRequiredService<DocumentIngestionProcessingService>()
+                    .ProcessOneAsync(ownershipToken);
+            if (!received && !processed)
                 await Task.Delay(TimeSpan.FromMilliseconds(config.Value.PollIntervalMs), timeProvider, ownershipToken);
         }
         ownershipToken.ThrowIfCancellationRequested();

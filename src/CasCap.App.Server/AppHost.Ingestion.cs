@@ -6,7 +6,7 @@ namespace CasCap;
 /// <summary>Registers the elected ingestion role independently from runtime endpoints.</summary>
 public static partial class AppHost
 {
-    private static void AddIngestion(WebApplicationBuilder builder, bool runtimeEnabled)
+    internal static void AddIngestion(WebApplicationBuilder builder, bool runtimeEnabled)
     {
 #if DEBUG
         var database = builder.Configuration.GetSection(DatabaseConfig.ConfigurationSectionName).Get<DatabaseConfig>();
@@ -21,10 +21,15 @@ public static partial class AppHost
         builder.Services.AddHealthChecks();
         builder.Services.AddOptionsWithValidateOnStart<DocumentIngestionConfig>()
             .BindConfiguration(DocumentIngestionConfig.ConfigurationSectionName)
-            .ValidateDataAnnotations();
+            .ValidateDataAnnotations()
+            .Validate<IServiceProviderIsService>((options, services) =>
+                !options.ProcessingEnabled || services.IsService(typeof(IDocumentProcessor)),
+                "Document processing requires a real registered document processor.");
         builder.Services.AddSingleton<IDocumentIngestionEventQueue, AzureDocumentIngestionQueue>();
         builder.Services.AddScoped<IDocumentIngestionInbox, DocumentIngestionInboxService>();
         builder.Services.AddScoped<DocumentIngestionAdmissionService>();
+        builder.Services.AddScoped<DocumentIngestionJobService>();
+        builder.Services.AddScoped<DocumentIngestionProcessingService>();
         builder.Services.AddSingleton<IBgFeature, DocumentIngestionFeature>();
         builder.Services.AddFeatureFlagService(new HashSet<string>([FeatureNames.Ingestion], StringComparer.OrdinalIgnoreCase));
 #else

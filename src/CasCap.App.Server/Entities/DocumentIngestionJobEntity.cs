@@ -21,9 +21,27 @@ public sealed class DocumentIngestionJobEntity
     /// <summary>Gets or sets the event's normalized ordering token.</summary>
     public required string Sequencer { get; set; }
 
-    /// <summary>Gets or sets queued, deleted or ignored admission status.</summary>
+    /// <summary>Gets or sets durable admission or processing status.</summary>
     public required string Status { get; set; }
 
     /// <summary>Gets or sets the durable acceptance time.</summary>
     public DateTimeOffset AcceptedAtUtc { get; set; }
+
+    /// <summary>Gets or sets the number of claimed attempts, including abandoned work.</summary>
+    public int AttemptCount { get; set; }
+
+    /// <summary>Gets or sets the current attempt identity.</summary>
+    public Guid? ClaimId { get; set; }
+
+    /// <summary>Gets or sets the current attempt's database-enforced deadline.</summary>
+    public DateTimeOffset? ClaimExpiresAtUtc { get; set; }
+
+    /// <summary>Gets or sets the earliest allowed retry time.</summary>
+    public DateTimeOffset? NextAttemptAtUtc { get; set; }
+
+    /// <summary>Gets or sets the terminal processing time, excluding ignored admission receipts.</summary>
+    public DateTimeOffset? FinishedAtUtc { get; set; }
+
+    /// <summary>Gets or sets a bounded content-free failure code, never an exception message.</summary>
+    public string? LastFailureCode { get; set; }
 }
