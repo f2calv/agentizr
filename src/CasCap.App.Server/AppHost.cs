@@ -27,7 +27,19 @@ public static partial class AppHost
             var (appConfig, applicationMetadata) = builder.InitializeConfiguration(entryAssembly);
 
             // Logging
+#if DEBUG
+            var runtimeLoggingSwitch = AddRuntimeLogging(builder);
+            var logger = SerilogWebApplicationBuilderExtensions.InitializeSerilog(builder,
+                configureLogger: configuration =>
+                {
+                    if (runtimeLoggingSwitch is not null)
+                        configuration.MinimumLevel.ControlledBy(runtimeLoggingSwitch);
+                });
+#else
+            if (builder.Configuration.GetValue<bool>("CasCap:RuntimeConfigurationConfig:Enabled"))
+                throw new InvalidOperationException("The runtime configuration soak requires a Debug build with local source references.");
             var logger = SerilogWebApplicationBuilderExtensions.InitializeSerilog(builder);
+#endif
 
             // Infrastructure
             builder.Services.AddSingleton(TimeProvider.System);

@@ -33,6 +33,8 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)'=='Release'">
+    <!-- TODO: Promote the soak to Release when its Common packages are published; keep Release on real package versions until then. -->
+    <Compile Remove="AppHost.RuntimeConfiguration.cs;RuntimeConfiguration\**\*.cs" />
     <PackageReference Include="CasCap.Api.Azure.Auth" />
     <PackageReference Include="CasCap.Common.Caching" />
     <PackageReference Include="CasCap.Common.Configuration" />
@@ -40,6 +42,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)'!='Release'">
+    <ProjectReference Include="..\..\..\CasCap.Common\src\CasCap.Common.Configuration.PostgreSql\CasCap.Common.Configuration.PostgreSql.csproj" />
     <ProjectReference Include="..\..\..\CasCap.Api.Azure\src\CasCap.Api.Azure.Auth\CasCap.Api.Azure.Auth.csproj" />
     <ProjectReference Include="..\..\..\CasCap.Common\src\CasCap.Common.Caching\CasCap.Common.Caching.csproj" />
     <ProjectReference Include="..\..\..\CasCap.Common\src\CasCap.Common.Configuration\CasCap.Common.Configuration.csproj" />

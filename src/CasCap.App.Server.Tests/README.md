@@ -42,7 +42,20 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | `ConfigurationProviderCredentialStoreTests` | 2 | 5 | Verifies the runtime's Entra credential is offered only to a tenant's opted-in providers |
 | `SessionCompactionConfigTests` | 3 | 6 | Verifies per-provider compaction resolution (tenant override, runtime entry, defaults) and startup validation |
 | `LiveAgentRuntimeSmokeTests` | 1 | 1 | Opt-in authenticated run, streaming, session inspection and cleanup against a complete live runtime |
+| `RuntimeLoggingTests` (Debug only) | 1 | 1 | Real PostgreSQL publications change the Serilog pipeline and forwarded logs without losing a process-cache sentinel; category overrides remain intact |
 | **Total** | **128** | **185** | Source-declared cases, not an execution result |
+
+Release contains the 128 methods / 185 cases above excluding the explicitly Debug-only logging
+soak. Debug contains 129 methods / 186 cases. Run the new case with:
+
+```powershell
+dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class CasCap.Tests.Integration.RuntimeLoggingTests
+```
+
+Observed targeted Debug results: the logging soak case passed against real PostgreSQL, and all
+nine existing endpoint smoke cases passed with runtime configuration disabled. This does not claim
+a complete Debug or Release suite run. The default Release CI path does not execute this provisional
+Debug-only application case; the reusable providers' acceptance suite is wired into their own CI.
 
 Counts expand every `[InlineData]` row; this project uses no `MemberData` or `ClassData` providers.
 
@@ -62,6 +75,8 @@ evaluation tests.
 | `PostgreSQL` | 25 | Definitions, durable state, run history and shared Data Protection keys against the Compose tests-profile database |
 | `Redis` | 8 | Revision-qualified state caching against the Compose tests-profile Redis service; also tagged `Integration` and `PostgreSQL` |
 | `Local Agent Runtime` | 1 | Explicitly enabled smoke test against a complete running runtime |
+
+Debug adds one case to each of `Integration` and `PostgreSQL` for the runtime logging soak.
 
 ## Skipped Tests
 

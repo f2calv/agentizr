@@ -93,6 +93,12 @@ PostgreSQL or Redis.
 
 ## Configuration
 
+The opt-in [runtime logging soak](../../docs/runtime-configuration-soak.md) uses typed PostgreSQL
+configuration and the standard options monitor without restarting the host. It is currently limited
+to Debug/local-source builds; normal Release builds remain unchanged and reject attempts to enable
+the unpublished feature. The root deployment script already selects Debug and its sibling project
+references. No configuration store is contacted unless the soak is explicitly enabled.
+
 `AppConfig` provides safe defaults for the telemetry meter prefix and service name. Set `AppConfig__OtlpExporterEndpoint` to enable OTLP export; leaving it unset disables the shared telemetry registration.
 
 `AgentRuntimeConfig` binds from `CasCap:AgentRuntimeConfig`. Definitions are grouped under `Tenants`,
