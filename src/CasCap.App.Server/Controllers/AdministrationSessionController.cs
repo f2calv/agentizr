@@ -20,14 +20,19 @@ public sealed class AdministrationSessionController(AdministrationSessionService
         TypedResults.Ok(await sessionSvc.GetSessionAsync(HttpContext));
 
     /// <summary>Starts OpenID Connect sign-in, returning to a local path afterwards.</summary>
+    /// <remarks>Explains the problem instead when the host cannot build an HTTPS callback for this request.</remarks>
     [HttpGet(AdministrationRoutes.Login, Name = "AdministrationLogin")]
     [ApiExplorerSettings(IgnoreApi = true)]
-    public Results<ChallengeHttpResult, RedirectHttpResult> Login([FromQuery] string? returnUrl = null) =>
-        sessionSvc.SignInRequired
-            ? TypedResults.Challenge(
+    public Results<ChallengeHttpResult, RedirectHttpResult, ContentHttpResult> Login([FromQuery] string? returnUrl = null)
+    {
+        if (!sessionSvc.SignInRequired)
+            return TypedResults.LocalRedirect(AdministrationSessionService.GetLocalReturnUrl(returnUrl));
+        return sessionSvc.GetSignInSetupProblemPage(Request) is { } problemPage
+            ? TypedResults.Content(problemPage, "text/html; charset=utf-8", statusCode: StatusCodes.Status503ServiceUnavailable)
+            : TypedResults.Challenge(
                 new AuthenticationProperties { RedirectUri = AdministrationSessionService.GetLocalReturnUrl(returnUrl) },
-                [AdministrationAuthenticationSchemes.OpenIdConnect])
-            : TypedResults.LocalRedirect(AdministrationSessionService.GetLocalReturnUrl(returnUrl));
+                [AdministrationAuthenticationSchemes.OpenIdConnect]);
+    }
 
     /// <summary>Ends the administrator session after validating the posted antiforgery token.</summary>
     [HttpPost(AdministrationRoutes.Logout, Name = "AdministrationLogout")]

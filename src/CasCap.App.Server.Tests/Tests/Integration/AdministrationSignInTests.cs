@@ -75,6 +75,22 @@ public sealed class AdministrationSignInTests(AdministrationSignInWebApplication
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Login_ExplainsIgnoredForwardedHttps()
+    {
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        using var request = new HttpRequestMessage(HttpMethod.Get, AdministrationRoutes.Login);
+        request.Headers.Add("X-Forwarded-Proto", "https");
+
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("ASPNETCORE_FORWARDEDHEADERS_ENABLED=true", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("test-client-secret", body, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("/apps/default", "/apps/default")]
     [InlineData("https://example.com/", "/")]

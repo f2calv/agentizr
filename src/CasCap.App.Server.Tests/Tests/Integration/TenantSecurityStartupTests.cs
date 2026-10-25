@@ -50,6 +50,34 @@ public sealed class TenantSecurityStartupTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Theory]
+    [InlineData("GET", "/", true)]
+    [InlineData("GET", "/apps/test", true)]
+    [InlineData("GET", "/api/v1/unknown", false)]
+    [InlineData("GET", "/admin/api/unknown", false)]
+    [InlineData("POST", "/", false)]
+    public async Task FrontendWithoutAdministration_ExplainsTheConfigurationGap(string method, string path, bool expectPage)
+    {
+        using var factory = CreateAuthenticatedFactory("Development");
+        using var client = factory.CreateClient();
+
+        using var response = await client.SendAsync(new HttpRequestMessage(new HttpMethod(method), path), TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(expectPage, response.Content.Headers.ContentType?.MediaType == "text/html");
+        if (expectPage)
+        {
+            Assert.Contains("CasCap:AdministrationConfig:Enabled", body, StringComparison.Ordinal);
+            Assert.Contains("TenantAuthenticationConfig is also disabled", body, StringComparison.Ordinal);
+            Assert.Contains("https://localhost/signin-oidc", body, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Empty(body);
+        }
+    }
+
     [Fact]
     public void DevelopmentWithTenantAuthentication_ControllerPoliciesRemainSeparated()
     {

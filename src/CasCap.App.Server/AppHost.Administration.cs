@@ -30,7 +30,8 @@ public static partial class AppHost
         });
         builder.Services.AddScoped(services => new AdministrationSessionService(
             services.GetRequiredService<IOptions<AdministrationConfig>>(),
-            services.GetRequiredService<Microsoft.AspNetCore.Antiforgery.IAntiforgery>()));
+            services.GetRequiredService<Microsoft.AspNetCore.Antiforgery.IAntiforgery>(),
+            services.GetRequiredService<AdministrationSetupService>()));
 
         var administrationConfig = builder.Configuration
             .GetSection(AdministrationConfig.ConfigurationSectionName)

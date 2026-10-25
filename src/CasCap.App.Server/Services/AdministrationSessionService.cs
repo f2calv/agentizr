@@ -10,16 +10,27 @@ public sealed class AdministrationSessionService
 {
     private readonly IOptions<AdministrationConfig> _administrationConfig;
     private readonly IAntiforgery _antiforgery;
+    private readonly AdministrationSetupService _setupSvc;
 
     /// <summary>Creates the session service.</summary>
-    internal AdministrationSessionService(IOptions<AdministrationConfig> administrationConfig, IAntiforgery antiforgery)
+    internal AdministrationSessionService(
+        IOptions<AdministrationConfig> administrationConfig,
+        IAntiforgery antiforgery,
+        AdministrationSetupService setupSvc)
     {
         _administrationConfig = administrationConfig;
         _antiforgery = antiforgery;
+        _setupSvc = setupSvc;
     }
 
     /// <summary>Gets whether the host requires administrator sign-in.</summary>
     public bool SignInRequired => _administrationConfig.Value.Enabled;
+
+    /// <summary>
+    /// Gets an HTML explanation when sign-in cannot succeed from this request, or <see langword="null" /> when it can start.
+    /// </summary>
+    public string? GetSignInSetupProblemPage(HttpRequest request) =>
+        AdministrationSetupService.IsForwardedSchemeIgnored(request) ? _setupSvc.RenderSignInUnavailablePage(request) : null;
 
     /// <summary>Describes the session and issues an antiforgery token bound to the signed-in administrator.</summary>
     public async Task<AdministrationSessionResponse> GetSessionAsync(HttpContext httpContext)

@@ -16,12 +16,12 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | --- | ---: | ---: | --- |
 | `EndpointSmokeTests` | 5 | 9 | Verifies status and health endpoints, the frontend shell without capturing API routes, disabled MCP, all 19 named runtime controller actions and inferred API response metadata |
 | `AdministrationApiTests` | 7 | 8 | Verifies open-Development app, agent and provider discovery, guarded activation conflicts, enum names, editor drafts that keep unedited fields, required antiforgery tokens and redirect-free rejection of unknown apps |
-| `AdministrationSignInTests` | 5 | 12 | With sign-in enabled, verifies 401/403 per-app assignment, assigned-app listing, session description, administrator audit identity, logout antiforgery and local-only return URLs |
+| `AdministrationSignInTests` | 6 | 13 | With sign-in enabled, verifies 401/403 per-app assignment, assigned-app listing, session description, administrator audit identity, logout antiforgery, local-only return URLs and the setup page for ignored forwarded HTTPS |
 | `AdministrationReplicaTests` | 1 | 1 | Against real PostgreSQL: an antiforgery token issued by one host replica is accepted by another through the shared Data Protection key ring |
 | `AgentizrMcpEndpointTests` | 3 | 3 | Verifies MCP discovery of only the read-only status tool, its structured result, and `Origin` rejection |
 | `AgentRuntimeProtocolTests` | 9 | 12 | Verifies typed-client execution, streaming, DTO/JSON validation problems, session controls and instruction disclosure |
 | `AgentDefinitionAdministrationProtocolTests` | 13 | 23 | Verifies publication Location, evaluation/activation, rollback, deactivation, audit attribution, policy/credential rejection, conflicts and bounded query binding |
-| `TenantSecurityStartupTests` | 7 | 7 | Verifies anonymous rejection, policy separation on all runtime and administration controller actions, required JWT/PostgreSQL and optional Redis in Production |
+| `TenantSecurityStartupTests` | 8 | 12 | Verifies anonymous rejection, policy separation on all runtime and administration controller actions, the setup page shown instead of an unusable frontend, required JWT/PostgreSQL and optional Redis in Production |
 | `AgentExecutionCoordinatorTests` | 3 | 3 | Verifies definition, credential, override, session, bypass, and executor orchestration |
 | `AgentRuntimeBuiltInToolsTests` | 3 | 5 | Verifies root runtime tools, reachable delegation metadata, tenant-local time formatting and opt-out |
 | `AgentRuntimeMetricsTests` | 5 | 5 | Verifies execution and bounded HA dimensions, ownership balance, duration and conflict outcomes |
@@ -33,6 +33,7 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | `PostgresAgentStateTests` | 8 | 8 | Durable state/cache recovery, isolation, revisions, connection-loss fencing, two-host contention and real-operation HA metric privacy/balance |
 | `AgentRunHistoryTests` | 4 | 7 | Durable messages/tools, redaction/binary exclusion, success/failure/cancellation, interruption recovery, opt-in and archive preservation after reset |
 | `AdministrationAccessTests` | 5 | 13 | Verifies configuration-only administrator assignment, open-Development conditions and route-selected administration tenancy |
+| `AdministrationSetupServiceTests` | 3 | 5 | Verifies setup pages report setting status without values, encode request input and detect ignored forwarded HTTPS |
 | `AuthenticatedTenantContextTests` | 4 | 4 | Verifies caller-derived tenant identity, missing/unmapped caller rejection, and opaque Redis keys |
 | `AgentRuntimeAuthorizationTests` | 4 | 6 | Verifies delegated scopes, application roles, and caller-to-tenant mapping validation |
 | `PostgresAgentDefinitionStoreTests` | 5 | 5 | Verifies immutable publication, active-version changes, duplicate rejection, history, tenant isolation, paged agent discovery and stale active-version conflicts |
@@ -43,7 +44,7 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | `SessionCompactionConfigTests` | 3 | 6 | Verifies per-provider compaction resolution (tenant override, runtime entry, defaults) and startup validation |
 | `LiveAgentRuntimeSmokeTests` | 1 | 1 | Opt-in authenticated run, streaming, session inspection and cleanup against a complete live runtime |
 | `RuntimeLoggingTests` (Debug only) | 1 | 1 | Real PostgreSQL publications change the Serilog pipeline and forwarded logs without losing a process-cache sentinel; category overrides remain intact |
-| **Total** | **128** | **185** | Source-declared cases, not an execution result |
+| **Total** | **133** | **196** | Source-declared cases, not an execution result |
 
 Release contains the 128 methods / 185 cases above excluding the explicitly Debug-only logging
 soak. Debug contains 129 methods / 186 cases. Run the new case with:
@@ -69,9 +70,9 @@ evaluation tests.
 
 | Category | Test-case count | Purpose |
 | --- | ---: | --- |
-| `Integration` | 107 | ASP.NET Core host protocols, startup security, PostgreSQL persistence and Redis payload caching |
+| `Integration` | 113 | ASP.NET Core host protocols, startup security, PostgreSQL persistence and Redis payload caching |
 | `Agent Runtime` | 45 | Runtime orchestration, tools, metrics, evaluation, persistence, caching, locking and compaction |
-| `Tenant Isolation` | 32 | Cross-tenant state, JWT permissions, caller mappings, administrator assignment, MCP and provider credentials and identity isolation |
+| `Tenant Isolation` | 37 | Cross-tenant state, JWT permissions, caller mappings, administrator assignment, MCP and provider credentials and identity isolation |
 | `PostgreSQL` | 25 | Definitions, durable state, run history and shared Data Protection keys against the Compose tests-profile database |
 | `Redis` | 8 | Revision-qualified state caching against the Compose tests-profile Redis service; also tagged `Integration` and `PostgreSQL` |
 | `Local Agent Runtime` | 1 | Explicitly enabled smoke test against a complete running runtime |
@@ -160,6 +161,7 @@ Tests/
 │   └── LocalAgentRuntimeTestEnvironment.cs
 └── Unit/
     ├── AdministrationAccessTests.cs
+    ├── AdministrationSetupServiceTests.cs
     ├── AgentDefinitionEvaluatorTests.cs
     ├── AgentRuntimeAuthorizationTests.cs
     ├── AgentRuntimeBuiltInToolsTests.cs

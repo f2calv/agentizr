@@ -77,3 +77,16 @@ the configuration-only Development store is read-only. Browse to the host's root
 
 To test sign-in locally, enable `AdministrationConfig` with a development web registration and run
 the host over HTTPS, because the session cookie is always `Secure`.
+
+## When the Frontend Is Not Served
+
+The host serves the frontend only where administrators can use it: with `AdministrationConfig`
+enabled, or in Development with both tenant authentication and administration disabled. Elsewhere,
+browsing to a page such as `/` returns a setup page instead. It explains the gap, lists each
+`CasCap:AdministrationConfig` setting as set or missing without showing any value, and gives the
+redirect URIs to register for the requested host. Unknown `/api`, `/admin/api` and `/mcp` paths, and
+requests other than GET, still return a plain 404.
+
+When sign-in is enabled but a TLS-terminating proxy's forwarded HTTPS is not being applied,
+`/admin/login` returns a setup page naming `ASPNETCORE_FORWARDEDHEADERS_ENABLED` rather than sending
+the identity provider an `http://` callback it would reject.
