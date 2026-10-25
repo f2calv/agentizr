@@ -90,3 +90,10 @@ requests other than GET, still return a plain 404.
 When sign-in is enabled but a TLS-terminating proxy's forwarded HTTPS is not being applied,
 `/admin/login` returns a setup page naming `ASPNETCORE_FORWARDEDHEADERS_ENABLED` rather than sending
 the identity provider an `http://` callback it would reject.
+
+## Proposed Document Management
+
+[ADR 0001](adr-0001-centralized-document-rag.md) proposes app-scoped PDF upload, document management
+and ingestion status in this frontend, backed by private Azure Blob Storage and background RAG
+processing. These controls are not implemented; the frontend currently manages agent definitions,
+not document collections.

@@ -172,3 +172,10 @@ without it, only the explicitly single-process Development adapters are availabl
 
 See [high availability](high-availability.md) for ownership, connection-pooling constraints, cutover
 from Redis-only state, interrupted turns and external side-effect limitations.
+
+## Proposed Document Retrieval
+
+[ADR 0001: Centralized document RAG](adr-0001-centralized-document-rag.md) proposes tenant-scoped
+Blazor document management, private Azure Blob originals and Event Grid/queue-triggered ingestion,
+with PostgreSQL/pgvector first and Azure AI Search as an optional target. It is a proposed design,
+not a supported storage capability; the tables and runtime behavior above remain the current implementation.
