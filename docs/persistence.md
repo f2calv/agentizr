@@ -119,22 +119,23 @@ before adding more users or treating this archive as production storage.
 
 ## Local Development And Tests
 
-One root Compose file owns the reusable services. The default starts development PostgreSQL on
-`localhost:15432` and Redis on `localhost:16379`, with separate named volumes. The IDE runs the app:
+The root [Compose definition](../docker-compose.yml) owns reusable PostgreSQL and Redis services,
+their standard local endpoints and storage. The IDE runs the app:
 
 Compose loads public localhost credentials from `.env.example`, then optional gitignored `.env`
 overrides. Copy `.env.example` to `.env` for local customization; never use these credentials for
 deployment. Existing PostgreSQL volumes retain their original password: changing an env file does
 not rotate a database role. Test connections live in the test project's `appsettings.Test.json`,
-copied to its output directory. Keep its localhost credentials aligned with the tests-profile
+copied to its output directory and loaded optionally through the shared Test configuration chain.
+Keep its localhost credentials aligned with the Compose
 service when overriding `.env`. No password is required for the offline EF design-time fallback;
 commands that connect must supply `CasCap__DatabaseConfig__ConnectionString` from local configuration.
 
 ```powershell
 docker compose up -d --wait postgres redis
 $env:ASPNETCORE_ENVIRONMENT = 'Development'
-$env:CasCap__DatabaseConfig__ConnectionString = 'Host=localhost;Port=15432;Database=agentizr;Username=postgres;Password=local-development'
-$env:CasCap__CachingConfig__RemoteCacheConnectionString = 'localhost:16379,abortConnect=false'
+$env:CasCap__DatabaseConfig__ConnectionString = 'Host=localhost;Database=agentizr;Username=postgres;Password=local-development'
+$env:CasCap__CachingConfig__RemoteCacheConnectionString = 'localhost:6379,abortConnect=false'
 $env:CasCap__AgentRuntimeConfig__ConversationHistoryEnabled = 'true'
 dotnet run --project src\CasCap.App.Server --configuration Release --no-launch-profile -- --migrate
 dotnet run --project src\CasCap.App.Server --configuration Release --no-launch-profile
@@ -145,19 +146,19 @@ the anonymous local setup. With PostgreSQL configured, publish/activate definiti
 control-plane API; the configuration-only bootstrap adapter is not the definition authority.
 Redis is optional; omit its connection setting to exercise database-only operation.
 
-For integration tests, use the separate profile:
+For integration tests, reuse those services:
 
 ```powershell
-docker compose --profile tests up -d --wait postgres-tests redis-tests
+docker compose up -d --wait postgres redis
 dotnet test --project src\CasCap.App.Server.Tests --configuration Release --filter-class '*PostgresAgentStateTests' --filter-class '*AgentRunHistoryTests'
-docker compose --profile tests stop postgres-tests redis-tests
+docker compose stop postgres redis
 ```
 
-The PostgreSQL fixture connects only to the local test port `15433`, creates a random per-fixture
-database, migrates it, and drops only that generated database at teardown. Redis tests use port
-`16380` and random tenant-qualified keys, never `FLUSHDB`. Tests do not automatically start or stop
+The PostgreSQL fixture creates a random per-fixture database, migrates it, and drops only that
+generated database at teardown. Redis tests use random tenant-qualified keys, never `FLUSHDB`.
+Tests do not automatically start or stop
 containers. No per-run ad hoc containers are needed. If tests are killed before teardown, their
-generated `agentizr_test_*` databases may remain in the test service for manual inspection/cleanup.
+generated `agentizr_test_*` databases may remain for manual inspection/cleanup.
 
 Stopping keeps service data for inspection. Do not use `docker compose down --volumes` casually:
 it also removes the development/provider volumes in this Compose project.

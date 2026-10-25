@@ -4,8 +4,8 @@ using Npgsql;
 
 namespace CasCap.Tests.Integration;
 
-/// <summary>Creates an isolated test database on the Compose tests-profile PostgreSQL service.</summary>
-/// <remarks>Start postgres-tests first. Only the generated database is removed; development data is never used.</remarks>
+/// <summary>Creates an isolated test database on the local Compose PostgreSQL service.</summary>
+/// <remarks>Start postgres first. Only the generated database is removed; development data is never used.</remarks>
 public sealed class PostgreSqlFixture : IAsyncLifetime
 {
     private readonly string _databaseName = $"agentizr_test_{Guid.NewGuid():N}";

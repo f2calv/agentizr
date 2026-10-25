@@ -1,3 +1,4 @@
+using CasCap.Common.Extensions;
 using Microsoft.Extensions.Configuration;
 
 namespace CasCap.Tests.Integration;
@@ -5,15 +6,17 @@ namespace CasCap.Tests.Integration;
 /// <summary>Loads public localhost-only test connections from the test project's configuration.</summary>
 internal static class PersistenceTestSettings
 {
-    private static readonly IConfigurationRoot _configuration = new ConfigurationBuilder()
-        .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.Test.json"), optional: false)
-        .Build();
+    /// <summary>Gets the local server connection used to create an isolated PostgreSQL database.</summary>
+    public static string PostgreSql => GetConnectionString(nameof(PostgreSql));
 
-    /// <summary>Gets the isolated Compose test server's PostgreSQL connection.</summary>
-    public static string PostgreSql => _configuration.GetConnectionString(nameof(PostgreSql))
-        ?? throw new InvalidOperationException("The PostgreSql test connection is required.");
+    /// <summary>Gets the local server connection used with per-run Redis keys.</summary>
+    public static string Redis => GetConnectionString(nameof(Redis));
 
-    /// <summary>Gets the isolated Compose test server's Redis connection.</summary>
-    public static string Redis => _configuration.GetConnectionString(nameof(Redis))
-        ?? throw new InvalidOperationException("The Redis test connection is required.");
+    private static string GetConnectionString(string name)
+    {
+        using var configuration = new ConfigurationManager();
+        configuration.AddStandardConfiguration("Test", typeof(PersistenceTestSettings).Assembly);
+        return configuration.GetConnectionString(name)
+            ?? throw new InvalidOperationException($"The {name} test connection is required.");
+    }
 }

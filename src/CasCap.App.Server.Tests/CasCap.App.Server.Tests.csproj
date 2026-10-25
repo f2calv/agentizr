@@ -9,7 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Update="appsettings.Test.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="appsettings.Test.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('appsettings.Test.json')" />
+    <None Update="appsettings.Tests.Local.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('appsettings.Tests.Local.json')" />
   </ItemGroup>
 
   <ItemGroup>

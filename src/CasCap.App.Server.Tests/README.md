@@ -93,16 +93,19 @@ skip without their services: start the Compose tests profile or exclude both cat
 From the repository root:
 
 ```powershell
-docker compose --profile tests up -d --wait postgres-tests redis-tests
+docker compose up -d --wait postgres redis
 dotnet test --project src\CasCap.App.Server.Tests --configuration Release --filter-trait 'Category=PostgreSQL'
-docker compose --profile tests stop postgres-tests redis-tests
+docker compose stop postgres redis
 ```
 
 Fixtures create/drop only their own random test databases and use tenant-qualified Redis keys.
-Localhost connection settings come from `appsettings.Test.json`; Compose credentials are loaded
+Localhost connection settings use the shared `Test`-environment loader with optional
+`appsettings.Test.json`, test-local overrides, user secrets and final environment-variable overrides.
+Compose credentials are loaded
 from `.env.example` and optional gitignored `.env`, not embedded in test fixtures.
 They never start ad hoc containers, touch the development database or flush Redis. See
-[persistence setup](../../docs/persistence.md#local-development-and-tests) for ports, volumes and cleanup.
+[Compose definition](../../docker-compose.yml) and
+[persistence setup](../../docs/persistence.md#local-development-and-tests) for startup and cleanup.
 
 ## Live Agent Runtime Smoke Test
 

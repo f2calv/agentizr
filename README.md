@@ -58,7 +58,7 @@ and start its model provider. A health response does not verify provider, databa
 Outside Development, PostgreSQL and JWT tenancy are mandatory; Redis is an optional cache.
 
 For local persistence debugging and integration-test infrastructure, use the
-[Compose storage/test profiles](docs/persistence.md#local-development-and-tests). They do not
+[Compose dependencies](docker-compose.yml) and [persistence setup](docs/persistence.md#local-development-and-tests). They do not
 require a GPU or model downloads.
 
 ### Local AI Provider Profiles
@@ -78,12 +78,12 @@ docker compose --profile ollama up
 docker compose --profile all up
 ```
 
-The single Agent Runtime is exposed at <http://localhost:5090>. Run
-`llamacpp` or `ollama` to select a provider through the existing agent route.
-llama.cpp is exposed at <http://localhost:11434>; Ollama uses <http://localhost:11435>. On small
+See the [Compose header](docker-compose.yml) for endpoints and startup behavior. Run
+`llamacpp` or `ollama` to select a provider through the existing agent route. The runtime waits
+for the selected model provider; Ollama also completes model initialization first. On small
 GPUs, run only one provider profile at a time. Debug project references require adjacent
 `CasCap.Common` and `CasCap.Api.Azure` checkouts; Compose mounts them read-only and builds in its
-container-local workspace. Model and NuGet caches use named volumes.
+container-local workspace.
 
 Agent definitions currently select one provider. Runtime overrides may change model and instructions,
 but the run API does not accept an arbitrary provider selector. Switching providers for one logical
