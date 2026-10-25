@@ -1,0 +1,11 @@
+namespace CasCap.Constants;
+
+/// <summary>Versioned preparation identifiers; future tokenizer implementations require a distinct profile.</summary>
+internal static class DocumentPreparationFormats
+{
+    /// <summary>Page-local windows over reading-order text with Unicode scalar-safe boundaries.</summary>
+    public const string PageLocalV1 = nameof(PageLocalV1);
+
+    /// <summary>The explicitly packaged tokenizer encoding; not a universal model tokenizer.</summary>
+    public const string Cl100kBase = "cl100k_base";
+}

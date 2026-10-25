@@ -82,7 +82,7 @@ These additional role/ingestion tests are separate from the runtime baseline inv
 Run the focused credential-free selection from the repository root:
 
 ```powershell
-dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class '*FeatureConfigTests' --filter-class '*DocumentIngestion*Tests'
+dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class '*FeatureConfigTests' '*DocumentIngestion*'
 ```
 
 The database/DI fixtures are under `Integration/` and use synthetic, test-owned setup rather than
@@ -100,6 +100,48 @@ full-suite or live-provider result. See
 for the remaining acceptance gates. No real processor, live-provider race test or blob-to-answer
 flow is claimed.
 
+### Offline PDF Preparation
+
+These additional Debug-only cases use generated synthetic PDFs and the packaged tokenizer
+vocabulary; they need no network, credentials, live documents or external services.
+
+| Class | Methods | Cases | Scope |
+| --- | ---: | ---: | --- |
+| `DocumentChunkingTests` | 5 | 15 | Actual token limits and overlap, exact German/emoji/CJK coverage, scalar boundaries, advancing windows, per-call profile identity/JSON and cancellation |
+| `DocumentPreparationConfigTests` | 3 | 6 | Default resource limits, invalid caps and nested chunking validation |
+| `PdfDocumentPreparationTests` | 15 | 21 | Generated PDF extraction/page attribution, independent per-call settings, exact byte/page/text/chunk thresholds, malformed/encrypted/no-text rejection, borrowed/current-position/nonseekable streams, bounded reads, cancellation and propagated I/O failures |
+| **Preparation subtotal** | **23** | **42** | Local preparation only, not an ingestion processor or persisted search generation |
+
+Run just this group from the repository root:
+
+```powershell
+dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-trait 'Category=PdfPreparation'
+```
+
+Observed targeted Debug run: **42 passed, zero failed/skipped**. These cases do not establish
+hostile-PDF process isolation, OCR, layout quality on real documents, embedding-model compatibility
+or live Blob-to-answer behavior.
+
+The combined preparation, role/ingestion and endpoint regression selection also passed:
+**120 passed, zero failed/skipped**. The full Debug solution built with zero warnings/errors.
+Neither check ran the complete application test suite.
+
+### Conditional Blob Downloads
+
+`DocumentBlobDownloadTests` adds **5 methods / 21 Debug-only cases**, tagged `BlobDownload`.
+They verify delegation to `CasCap.Api.Azure.Storage`, source/tenant/collection revalidation,
+canonical URLs, exactly-once name decoding, required ETags, cancellation and failure propagation.
+The shared library is exercised with an SDK-client test double; the library's separate tests
+verify actual SDK HTTP requests through an offline handler. Neither suite accesses live storage.
+
+```powershell
+dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class '*DocumentBlobDownloadTests' '*DocumentIngestionCompositionTests'
+```
+
+Observed focused result: **24 passed, zero failed/skipped**, including the three existing ingestion
+composition cases. The full Debug solution builds with zero warnings/errors. No live identity,
+conditional Blob access, durable output or generation activation is established by these checks.
+
 ## Trait Categories
 
 | Category | Test-case count | Purpose |
@@ -112,8 +154,8 @@ flow is claimed.
 | `Local Agent Runtime` | 1 | Explicitly enabled smoke test against a complete running runtime |
 
 The category inventory above covers the runtime baseline. Debug adds one case to each of
-`Integration` and `PostgreSQL` for the runtime logging soak; role/admission categories and counts
-are listed separately above.
+`Integration` and `PostgreSQL` for the runtime logging soak; role/ingestion, PDF preparation and
+Blob download categories and counts are listed separately above.
 
 ## Skipped Tests
 

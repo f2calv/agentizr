@@ -1,6 +1,6 @@
 # ADR 0001: Centralize Multi-Application Document RAG In Agentizr
 
-**Status:** Proposed; Debug admission is deployed with ingestion disabled; gated job processing is local-only.
+**Status:** Proposed; Debug admission is deployed with ingestion disabled; job processing and PDF preparation are local-only.
 **Date:** 2026-10-25.
 **Scope:** Blazor document management, Azure Blob/Event Grid ingestion and tenant-isolated RAG.
 **Canonical record:** This document. Related issues are historical context or implementation tracking,
@@ -182,6 +182,13 @@ normalization and preprocessing/query-document conventions. Chunker/tokenizer ve
 recorded with each generation. Equal dimensions alone do not make two models compatible.
 Keep chat and embedding model selection independent; query and stored vectors must use the same
 compatible profile. Validate dimension/index compatibility before accepting a generation.
+
+Chunk size is constrained by the embedding model's tokenizer/input limit and evaluated against
+retrieval quality and the answering model's context budget, not by GPU location alone. Different
+answering models need not imply different indexes. The local preparation API accepts per-call
+token/overlap settings and captures an immutable preparation profile; a changed profile requires a
+new generation rather than mixing old and new chunks. Its current `cl100k_base` tokenizer is a PoC
+choice, not a compatibility claim for an unspecified local or hosted embedding model.
 
 Evaluate `IEmbeddingGenerator` and the
 [Microsoft vector-data abstractions](https://learn.microsoft.com/en-us/semantic-kernel/concepts/vector-store-connectors/).
@@ -401,7 +408,8 @@ a generalized scheduler or provider framework. The following are not delivered g
 | Transport recovery and progress readiness | Job attempts now have a persisted bounded retry policy, but transport retries remain Azure SDK-owned. Exhausted transport/database failures propagate to host supervision; unacknowledged messages return after visibility expiry. Validate restart behavior and add queue-age/progress health before unattended operation |
 | Long admissions and poison lifecycle | One short admission runs at a time, without a lease-renew loop; expiry can redeliver safely through inbox deduplication. Poison enqueue precedes source acknowledgement, so duplicates are possible. Add renewal, retention/replay tooling and limits when latency or poison volume warrants them |
 | Reconciliation | Events before subscription, expired deliveries and unfinalized uploads are not discovered automatically. Stage/replay test events explicitly; add container reconciliation before relying on loss recovery |
-| Actual PDF validation and indexing | Envelope/source/extension checks do not validate content or rights. Add bounded download, ETag verification, PDF validation/extraction, chunking, embedding profiles and pgvector before claiming RAG |
+| Source validation and indexing | Offline PDF preparation and a shared-library conditional download adapter exist; envelope/source/extension checks still do not validate a live Blob or its rights. Connect them to the processor, prove live ETag/identity behavior, then add embedding profiles and pgvector before claiming RAG |
+| PDF isolation, OCR and layout quality | Synchronous parsing/extraction cannot be interrupted mid-call; byte/page/text/chunk caps are not a hard CPU/memory sandbox. Isolate untrusted parsing before accepting hostile uploads. No-text pages are reported, not distinguished as blank versus scanned; add OCR/review and section/vocabulary-aware splitting when corpus evaluation demonstrates a need |
 | Real processing and generation activation | Claims/retries/completion are implemented behind a disabled gate and exercised with test processors. No PDF processor, idempotent output staging or fenced active-generation switch exists. Add these before enabling processing; claim identity alone cannot fence external effects |
 | Scheduling throughput and deadlines | One serial loop alternates admission with one bounded attempt, so long processing delays further admissions. A single transaction lock and bulk expiry recovery favor simplicity over scale. Split supervised admission/processing loops, bound recovery batches and measure fairness/progress if corpus size or admission latency warrants it |
 | Management and cleanup | Upload/status/download/replace/delete UI/API, quotas, purge/backup retention and source/index cleanup remain future steps before broader use |
@@ -543,6 +551,10 @@ The separate IaC workstream owns the following handoff; deployment is not perfor
 - [ ] Record delivery/dead-letter recovery evidence independently of application processing. A
   staged PDF or queued event does not yet prove document ingestion, indexing or agent answers.
 
+The operator reports both source accounts online and one example PDF staged for each initial
+consumer. This session has not read those documents or independently verified Blob persistence,
+Event Grid delivery or worker access; the end-to-end staging gate remains open.
+
 #### Exact IaC Handoff
 
 **Readiness on 2026-10-25: partial; not ready to enable live ingestion.** Account provisioning,
@@ -632,19 +644,21 @@ this does not prove full RAG processing.
 ### Phase 1: Accept The Decision And Prove Compatibility
 
 - [ ] Accept or amend this ADR; keep acceptance separate from implementation progress.
-- [ ] Select the multilingual embedding profile, PDF/tokenizer libraries, upload/download limits,
-  rights/retention policy, quotas and target hardware before processing document contents (R3, R7).
-- PDF library candidates: [PdfPig](https://github.com/UglyToad/PdfPig) (NuGet package `PdfPig`,
-  namespace `UglyToad.PdfPig`) provides page/text/layout extraction. Use its reading-order tools,
-  not raw `page.Text`; scanned/image-only pages still need a separate OCR decision.
+- [x] Select stable managed libraries and bounded offline preparation defaults: `PdfPig` 0.1.16,
+  `Microsoft.ML.Tokenizers` 2.0.1 and its `Data.Cl100kBase` 2.0.1 vocabulary package. These are
+  Debug-only dependencies; tokenization runs offline without downloading model data.
+  [PDF preparation](../src/CasCap.App.Server/Services/PdfDocumentPreparationService.cs) uses
+  PdfPig's content-order extraction, not raw `page.Text`.
+- [ ] Select the multilingual embedding profile, live upload/download policy, rights/retention,
+  quotas and target hardware before processing real document contents (R3, R7).
+- Alternatives considered:
   [Microsoft.Extensions.DataIngestion](https://learn.microsoft.com/en-us/dotnet/ai/conceptual/data-ingestion)
   offers tokenizer-backed header/section/semantic-aware chunkers. Its NuGet installation guidance
   currently uses `--prerelease`, so evaluate/pin compatibility and approve prerelease use before
-  adopting it; `Microsoft.ML.Tokenizers` is an alternative for a smaller page-aware splitter.
+  adopting it; the PoC instead uses a smaller page-local splitter with `Microsoft.ML.Tokenizers`.
   The [MarkItDown reader](https://www.nuget.org/packages/Microsoft.Extensions.DataIngestion.MarkItDown/)
   wraps an external executable or MCP service, not a managed-only PDF parser. Prefer reusing
   extraction/tokenization libraries without adding that deployment dependency for the PDF-only PoC.
-  No extraction/chunking dependency is added by the durable job-lifecycle work.
 - [x] Verify the live extension prerequisite: the database controller reports successful activation,
   the extension is installed in the expected schema, and a read-only vector operation succeeds.
 - [ ] Verify pgvector/provider/package compatibility and framework search/history APIs using the
@@ -661,9 +675,33 @@ this does not prove full RAG processing.
   SQLite/manual-clock and fake-runner tests do not establish PostgreSQL races or live failover.
   The full Debug solution builds without warnings/errors; the current EF model has no pending
   changes. The scaffolded additive processing migration and offline SQL were reviewed but not
-  applied. No lifecycle commit or deployment is included in this validation.
+  applied. The lifecycle is committed locally, not deployed.
+- [x] Implement offline PDF preparation using synthetic documents: 25 MiB source cap, 200 pages,
+  two million extracted UTF-16 characters and 5,000 chunks; defaults are 512 actual tokens with
+  at most 64-token overlap. Startup limits and per-call chunk settings are validated.
+  [Chunking](../src/CasCap.App.Server/Services/DocumentChunkingService.cs) preserves page numbers,
+  exact extracted-text offsets and Unicode scalar boundaries; the captured profile includes
+  algorithm, encoding, library versions and token budgets. Oversized, malformed, encrypted and
+  wholly no-text inputs have explicit outcomes, with no partial chunks on rejection; mixed
+  documents report pages without text. All 42 focused offline cases passed, including exact
+  resource thresholds, Unicode coverage, cancellation and nonseekable streams.
+  This is local preparation only: no source download, persisted chunks, embedding or activation.
+  The combined preparation/ingestion/role/endpoint regression run passed all 120 cases with zero
+  failures/skips; the full Debug solution built with zero warnings/errors.
 - [ ] Wire the real PDF processor and prove conditional downloads, idempotent staged output and
   fenced generation activation against isolated PostgreSQL before enabling processing.
+- [x] Add a Debug-only [Blob download adapter](../src/CasCap.App.Server/Services/DocumentBlobDownloadService.cs)
+  using `CasCap.Api.Azure.Storage`, not an application-owned replacement. The shared library now
+  accepts an existing container client without provisioning and offers ETag-conditional streaming
+  reads. Agentizr rechecks the claim's tenant/collection/container binding and canonical location,
+  decodes the name once, rejects relative path segments and uses its existing runtime identity.
+  Azure 404/412 and transient errors
+  propagate, including failures during later range reads; the future processor must classify these
+  and discard partial output. Its 64 KiB SDK buffer is not a total download limit; consume through
+  bounded preparation. The adapter/DI tests passed all 24 offline cases, and the shared library's
+  12 SDK HTTP-pipeline cases passed on .NET 10, including a mid-read revision change and read
+  cancellation. No live download, worker
+  hookup, persisted output, migration or deployment is claimed. Shared APIs remain unpublished.
 - [ ] Prove authenticated upload/status/search/source/delete through versioned HTTP and typed-client
   surfaces against isolated PostgreSQL with pgvector, not an in-memory substitute (R1-R4).
 - [ ] Deliver Blazor document management through the existing administration API/client: app-scoped

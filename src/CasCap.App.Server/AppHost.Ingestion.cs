@@ -25,6 +25,12 @@ public static partial class AppHost
             .Validate<IServiceProviderIsService>((options, services) =>
                 !options.ProcessingEnabled || services.IsService(typeof(IDocumentProcessor)),
                 "Document processing requires a real registered document processor.");
+        builder.Services.AddOptionsWithValidateOnStart<DocumentPreparationConfig>()
+            .BindConfiguration(DocumentPreparationConfig.ConfigurationSectionName)
+            .ValidateDataAnnotations();
+        builder.Services.AddSingleton<DocumentChunkingService>();
+        builder.Services.AddScoped<PdfDocumentPreparationService>();
+        builder.Services.AddSingleton<DocumentBlobDownloadService>();
         builder.Services.AddSingleton<IDocumentIngestionEventQueue, AzureDocumentIngestionQueue>();
         builder.Services.AddScoped<IDocumentIngestionInbox, DocumentIngestionInboxService>();
         builder.Services.AddScoped<DocumentIngestionAdmissionService>();

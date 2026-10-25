@@ -39,8 +39,9 @@ retry delay and expired-claim recovery. Cancellation/leadership loss leaves unfi
 recoverable; deleted/superseded revisions and expired/replaced claims cannot record completion.
 `Completed` means the registered processor finished, not that a document is searchable.
 Apply the additive processing migration externally before rolling out this code; do not enable
-processing during a mixed-version ingestion rollout. PDF extraction, chunks, embeddings and
-generation activation are still future work.
+processing during a mixed-version ingestion rollout. Offline PDF preparation and a conditional
+source-read adapter exist separately; the real processor, durable chunks, embeddings and generation
+activation remain future work.
 
 Release explicitly rejects ingestion until the required shared APIs are published.
 `migrate` is a finite external schema job with no HTTP listener or background ingestion; the existing
@@ -60,6 +61,51 @@ owned for one execution, and sub-agent tools recursively use the same definition
 stores with stateless delegated sessions. Every depth-zero run also receives runtime-owned
 `get_current_datetime_state`, `get_agents`, and `get_providers` tools. Metadata covers only the root
 agent's reachable active delegation graph; delegated agents do not receive another copy.
+
+## Offline PDF Preparation
+
+The Debug-only [`PdfDocumentPreparationService`](Services/PdfDocumentPreparationService.cs)
+uses PdfPig 0.1.16 and Microsoft.ML.Tokenizers 2.0.1 with the packaged `cl100k_base` vocabulary.
+It accepts a borrowed readable stream from its current position, leaves it open and returns explicit
+preparation/rejection outcomes. It does not download Blobs, register an ingestion processor or make
+documents searchable.
+
+[`DocumentPreparationConfig`](Models/_DocumentPreparationConfig.cs) defaults to 25 MiB,
+200 pages, two million extracted UTF-16 characters and 5,000 chunks. Limits reject the whole result
+rather than publishing partial chunks. Encrypted/malformed PDFs and wholly no-text inputs are
+rejected; mixed documents report pages without extracted text. No-text does not distinguish scanned
+pages from blanks, and no OCR is performed.
+
+Default chunking is 512 actual tokens with at most 64-token overlap. A caller can pass explicit
+`DocumentChunkingConfig` settings for independently tuned collections without changing the defaults.
+Chunks are page-local, retain source-text offsets and have global zero-based ordinals. The returned
+[`DocumentPreparationProfile`](Models/DocumentPreparationProfile.cs) captures algorithm, encoding,
+library versions and token budgets with a deterministic ID for later generation persistence.
+Changing the profile will require reprocessing, not mixing chunks from incompatible profiles.
+
+The current tokenizer is not automatically compatible with every embedding model. Validate its
+encoding and budget against the selected embedding model, then evaluate retrieval and the answering
+model's context budget; GPU placement alone does not determine chunk size.
+Cancellation is checked around synchronous parsing/extraction, not inside it. Resource caps are
+not a hard CPU/memory sandbox; see the
+[deferred isolation/OCR gates](../../docs/adr-0001-centralized-document-rag.md#poc-limits-and-deliberately-deferred-polishing).
+
+### Conditional Blob Sources
+
+[`DocumentBlobDownloadService`](Services/DocumentBlobDownloadService.cs) is registered for the
+Debug ingestion role. It revalidates each claim against the configured tenant/collection/container
+binding before opening a canonical credential-free HTTPS PDF location. Blob names are decoded once
+and passed to `CasCap.Api.Azure.Storage`'s `OpenBlobReadAsync` with the admitted ETag.
+The library uses conditional range reads, not a whole-file download or a container-creating
+constructor; authentication uses the existing explicitly configured runtime identity.
+
+Missing ETags, unassigned sources or relative path segments in decoded names fail explicitly.
+Azure 404/412, permissions and transient
+failures propagate during opening or reading; the future processor must classify outcomes and
+discard partial data. The caller owns the stream and supplies read cancellation and preparation
+limits. This adapter is not yet connected to a durable document processor and does not mark jobs
+complete, stage output or activate generations. No Azure access was performed for its offline tests.
+Its new shared APIs remain unpublished, so keep this path on Debug project references.
 
 ## Public Surface
 
@@ -270,6 +316,30 @@ EF migrations are applied externally and create schema only. The model deliberat
 `HasData` payload.
 
 ## Configuration Examples
+
+For offline Debug preparation, defaults require no settings. This optional merge fragment shows
+all preparation settings and a smaller token budget; it neither enables ingestion nor selects an
+embedding model:
+
+```json
+{
+  "CasCap": {
+    "DocumentPreparationConfig": {
+      "MaximumPdfBytes": 26214400,
+      "MaximumPages": 200,
+      "MaximumExtractedCharacters": 2000000,
+      "MaximumChunks": 5000,
+      "Chunking": {
+        "MaximumTokensPerChunk": 256,
+        "OverlapTokens": 32
+      }
+    }
+  }
+}
+```
+
+Chunk budgets must be 8-8192 tokens, with nonnegative overlap strictly below the budget.
+Settings are validated at ingestion startup; per-call overrides are validated on preparation.
 
 For Development, add this synthetic bootstrap to the gitignored `appsettings.Local.Development.json`
 at the repository root. The example assumes a local Ollama server with `example-model` already
