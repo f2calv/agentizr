@@ -1,4 +1,5 @@
 using CasCap.Common.Extensions;
+using CasCap.Constants;
 using CasCap.Extensions;
 using Serilog;
 using System.Reflection;
@@ -18,17 +19,26 @@ public static partial class AppHost
 
         try
         {
-            var migrateOnly = args.Contains("--migrate", StringComparer.Ordinal);
+            var migrateArgument = args.Contains("--migrate", StringComparer.Ordinal);
+            var configurationArgs = args.Where(arg => arg != "--migrate").ToArray();
 
             // Host builder
-            var builder = WebApplication.CreateBuilder(args);
+            var builder = WebApplication.CreateBuilder(configurationArgs);
 
             // Configuration
             var (appConfig, applicationMetadata) = builder.InitializeConfiguration(entryAssembly);
+            builder.Configuration.AddCommandLine(configurationArgs);
+            var selected = builder.Configuration.GetSection(FeatureConfig.ConfigurationSectionName)
+                .Get<FeatureConfig>() ?? new FeatureConfig();
+            if (migrateArgument)
+                selected = selected with { EnabledFeatures = FeatureNames.Migrate };
+            var features = selected.GetEnabledFeatures();
+            var migrateOnly = features.Contains(FeatureNames.Migrate);
+            var runtimeEnabled = features.Contains(FeatureNames.Agentizr);
 
             // Logging
 #if DEBUG
-            var runtimeLoggingSwitch = AddRuntimeLogging(builder);
+            var runtimeLoggingSwitch = runtimeEnabled ? AddRuntimeLogging(builder) : null;
             var logger = SerilogWebApplicationBuilderExtensions.InitializeSerilog(builder,
                 configureLogger: configuration =>
                 {
@@ -36,7 +46,7 @@ public static partial class AppHost
                         configuration.MinimumLevel.ControlledBy(runtimeLoggingSwitch);
                 });
 #else
-            if (builder.Configuration.GetValue<bool>("CasCap:RuntimeConfigurationConfig:Enabled"))
+            if (runtimeEnabled && builder.Configuration.GetValue<bool>("CasCap:RuntimeConfigurationConfig:Enabled"))
                 throw new InvalidOperationException("The runtime configuration soak requires a Debug build with local source references.");
             var logger = SerilogWebApplicationBuilderExtensions.InitializeSerilog(builder);
 #endif
@@ -48,16 +58,20 @@ public static partial class AppHost
             builder.InitializeOpenTelemetry(appConfig, applicationMetadata);
 
             // Web API registration
-            var tenantAuthenticationEnabled = AddWebApi(builder);
-
-            // Feature registration
-            AddFeatures(builder, tenantAuthenticationEnabled);
-            var administrationEnabled = AddAdministration(builder);
-            AddFrontend(builder);
-            var mcpEnabled = AddMcp(builder, migrateOnly);
+            var tenantAuthenticationEnabled = runtimeEnabled && AddWebApi(builder);
+            if (runtimeEnabled)
+                AddFeatures(builder, tenantAuthenticationEnabled);
+            else
+                AddDatabase(builder, required: true);
+            var administrationEnabled = runtimeEnabled && AddAdministration(builder);
+            if (runtimeEnabled)
+                AddFrontend(builder);
+            var mcpEnabled = runtimeEnabled && AddMcp(builder, migrateOnly);
+            if (features.Contains(FeatureNames.Ingestion))
+                AddIngestion(builder, runtimeEnabled);
 
             // Build
-            var app = builder.Build();
+            await using var app = builder.Build();
 
             if (logger.IsEnabled(LogLevel.Information))
                 logger.LogInformation("{ClassName} starting", nameof(AppHost));
@@ -72,9 +86,17 @@ public static partial class AppHost
             else
             {
                 // Endpoint mapping
-                MapEndpoints(app, tenantAuthenticationEnabled, administrationEnabled);
-                MapMcp(app, mcpEnabled);
-                MapFrontend(app, administrationEnabled);
+                if (runtimeEnabled)
+                {
+                    MapEndpoints(app, tenantAuthenticationEnabled, administrationEnabled);
+                    MapMcp(app, mcpEnabled);
+                    MapFrontend(app, administrationEnabled);
+                }
+                else
+                {
+                    app.MapGet("/status", () => Results.Ok(new { Service = "agentizr", Role = FeatureNames.Ingestion }));
+                    app.MapHealthChecks("/healthz");
+                }
 
                 // Run
                 await app.RunAsync();

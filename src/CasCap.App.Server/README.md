@@ -12,7 +12,28 @@ Tracked settings define no agents.
 
 The runtime resolves a versioned definition and provider credential for the authenticated tenant,
 then applies session overrides and coordinates execution and persistence. In non-Development
-deployments, PostgreSQL owns definitions and runtime state across replicas; Redis is an optional cache.
+deployments, PostgreSQL owns definitions and runtime state across replicas; Redis is an optional
+cache for API-only operation.
+
+## Runtime Roles
+
+[`FeatureConfig`](Models/_FeatureConfig.cs) selects startup responsibilities through
+`CasCap:FeatureConfig:EnabledFeatures` (environment variable
+`CasCap__FeatureConfig__EnabledFeatures`). The default is `agentizr`; supported selections are
+`agentizr`, `ingestion`, `agentizr,ingestion` and `migrate`. Names are case-insensitive and duplicates
+collapse; empty/unknown selections and a migration combined with a daemon fail.
+
+The API/frontend/MCP surfaces below belong only to `agentizr`. `ingestion` exposes status/health
+probes and runs a serial elected notification receiver; it requires PostgreSQL, shared Redis
+distributed locking, provisioned Azure queues and explicit source mappings. It is a Debug
+source-reference PoC: `Queued` is durable admission, not searchable PDF content.
+Release explicitly rejects ingestion until the required shared APIs are published.
+`migrate` is a finite external schema job with no HTTP listener or background ingestion; the existing
+`--migrate` argument also selects it.
+
+All roles use the same host/artifact. See
+[ADR 0001](../../docs/adr-0001-centralized-document-rag.md#d4b-modular-roles-and-elected-ownership)
+for the role matrix, exact IaC configuration and deliberately deferred processing/UI work.
 
 The v1 execution response projects execution diagnostics into a stable wire surface: actual provider
 model, finish reason, timing, token usage, tool calls, session summary, tool-produced attachments,

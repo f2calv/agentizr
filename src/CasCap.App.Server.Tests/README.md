@@ -44,10 +44,9 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | `SessionCompactionConfigTests` | 3 | 6 | Verifies per-provider compaction resolution (tenant override, runtime entry, defaults) and startup validation |
 | `LiveAgentRuntimeSmokeTests` | 1 | 1 | Opt-in authenticated run, streaming, session inspection and cleanup against a complete live runtime |
 | `RuntimeLoggingTests` (Debug only) | 1 | 1 | Real PostgreSQL publications change the Serilog pipeline and forwarded logs without losing a process-cache sentinel; category overrides remain intact |
-| **Total** | **133** | **197** | Source-declared cases, not an execution result |
+| **Runtime baseline subtotal** | **133** | **197** | Source-declared runtime inventory; role/ingestion additions are listed separately below |
 
-Release contains the 128 methods / 185 cases above excluding the explicitly Debug-only logging
-soak. Debug contains 129 methods / 186 cases. Run the new case with:
+The runtime logging soak is Debug-only. Run that case with:
 
 ```powershell
 dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class CasCap.Tests.Integration.RuntimeLoggingTests
@@ -66,6 +65,38 @@ test definitions do not drift into application-specific `AIConfig` setup.
 `ScriptedEvaluationAgentFactory` replaces the model provider with a scripted chat client for
 evaluation tests.
 
+## Document Admission PoC
+
+These additional role/admission tests are separate from the runtime baseline inventory above.
+
+| Class | Methods | Cases | Scope |
+| --- | ---: | ---: | --- |
+| `FeatureConfigTests` | 3 | 11 | Default, normalization, duplicate, unknown, empty and incompatible finite-role selections; Debug and Release |
+| `DocumentIngestionConfigTests` | 4 | 8 | Synthetic source/queue configuration, distinct canonical HTTPS endpoints and visibility limits |
+| `DocumentIngestionAdmissionTests` | 9 | 20 | Commit-before-ack, infrastructure/argument failures, cancellation, malformed envelopes, source isolation and sequencer normalization |
+| `DocumentIngestionInboxTests` | 5 | 5 | SQLite relational receipt deduplication, reused IDs, stale events, tombstones and tenant separation |
+| `DocumentIngestionLeadershipTests` | 1 | 1 | Validated DI provider with a fake runner: no receive before ownership, owner-token cancellation on loss |
+| **Role/admission subtotal** | **22** | **45** | All but the role-parser class are Debug-only |
+
+Run the focused credential-free selection from the repository root:
+
+```powershell
+dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class '*FeatureConfigTests' --filter-class '*DocumentIngestion*Tests'
+```
+
+The database/DI fixtures are under `Integration/` and use synthetic, test-owned setup rather than
+the live-service `TestBase`; no Azure, PostgreSQL or Redis connection is made.
+`Roles` covers the 11 parser cases; `Ingestion` covers the remaining 34, including six also tagged
+`Integration`. Neither a fake ownership callback nor SQLite validates actual Redlock renewal,
+PostgreSQL advisory-lock concurrency, Azure queue encoding/leases/poison delivery, migration process
+exit or worker-only/combined host routes.
+
+Observed targeted Debug run: **54 passed, zero failed/skipped**: the 45 cases above plus the nine
+existing `EndpointSmokeTests` cases preserving the default API/frontend contract. This is not a
+full-suite or live-provider result. See
+[ADR 0001](../../docs/adr-0001-centralized-document-rag.md#poc-limits-and-deliberately-deferred-polishing)
+for the remaining acceptance gates.
+
 ## Trait Categories
 
 | Category | Test-case count | Purpose |
@@ -77,7 +108,9 @@ evaluation tests.
 | `Redis` | 8 | Revision-qualified state caching against the Compose tests-profile Redis service; also tagged `Integration` and `PostgreSQL` |
 | `Local Agent Runtime` | 1 | Explicitly enabled smoke test against a complete running runtime |
 
-Debug adds one case to each of `Integration` and `PostgreSQL` for the runtime logging soak.
+The category inventory above covers the runtime baseline. Debug adds one case to each of
+`Integration` and `PostgreSQL` for the runtime logging soak; role/admission categories and counts
+are listed separately above.
 
 ## Skipped Tests
 
@@ -132,6 +165,7 @@ only when testing a local runtime with authentication disabled.
 ```text
 Tests/
 ├── AgentDefinitionTestData.cs
+├── DocumentIngestionTestData.cs
 ├── ScriptedEvaluationAgentFactory.cs
 ├── Integration/
 │   ├── AdministrationApiTests.cs
@@ -146,6 +180,8 @@ Tests/
 │   ├── AgentRuntimeProtocolTests.cs
 │   ├── AgentSessionConflictTests.cs
 │   ├── EndpointSmokeTests.cs
+│   ├── DocumentIngestionInboxTests.cs
+│   ├── DocumentIngestionLeadershipTests.cs
 │   ├── HostIntegrationCollection.cs
 │   ├── McpAgentizrWebApplicationFactory.cs
 │   ├── PostgreSqlFixture.cs
@@ -173,6 +209,9 @@ Tests/
     ├── ConfigurationMcpCredentialStoreTests.cs
     ├── ConfigurationProviderCredentialStoreTests.cs
     ├── CommonAgentExecutorTests.cs
+    ├── DocumentIngestionAdmissionTests.cs
+    ├── DocumentIngestionConfigTests.cs
+    ├── FeatureConfigTests.cs
     ├── InMemoryDistributedCache.cs
     ├── PostgresAgentDefinitionStoreTests.cs
     ├── SessionCompactionConfigTests.cs

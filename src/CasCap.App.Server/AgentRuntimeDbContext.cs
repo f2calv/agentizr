@@ -10,6 +10,12 @@ public sealed class AgentRuntimeDbContext(
 {
     private const string Schema = "agent_runtime";
 
+    /// <summary>Gets latest tenant-qualified source document admission state.</summary>
+    public DbSet<KnowledgeDocumentEntity> KnowledgeDocuments => Set<KnowledgeDocumentEntity>();
+
+    /// <summary>Gets durable event receipts and queued document-processing intents.</summary>
+    public DbSet<DocumentIngestionJobEntity> DocumentIngestionJobs => Set<DocumentIngestionJobEntity>();
+
     /// <inheritdoc/>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -35,6 +41,43 @@ public sealed class AgentRuntimeDbContext(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         var schema = Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite" ? null : Schema;
+
+        modelBuilder.Entity<KnowledgeDocumentEntity>(entity =>
+        {
+            entity.ToTable("knowledge_documents", schema);
+            entity.HasKey(item => item.Id).HasName("pk_knowledge_documents");
+            entity.Property(item => item.Id).HasColumnName("id").HasMaxLength(64);
+            entity.Property(item => item.TenantId).HasColumnName("tenant_id").HasMaxLength(200);
+            entity.Property(item => item.CollectionId).HasColumnName("collection_id").HasMaxLength(200);
+            entity.Property(item => item.BlobUri).HasColumnName("blob_uri").HasMaxLength(4_000);
+            entity.Property(item => item.Sequencer).HasColumnName("sequencer").HasMaxLength(128);
+            entity.Property(item => item.ETag).HasColumnName("etag").HasMaxLength(200);
+            entity.Property(item => item.Status).HasColumnName("status").HasMaxLength(30);
+            entity.Property(item => item.UpdatedAtUtc).HasColumnName("updated_at_utc");
+            entity.HasAlternateKey(item => new { item.TenantId, item.CollectionId, item.Id })
+                .HasName("ak_knowledge_documents_tenant_collection_id");
+        });
+        modelBuilder.Entity<DocumentIngestionJobEntity>(entity =>
+        {
+            entity.ToTable("document_ingestion_jobs", schema);
+            entity.HasKey(item => item.Id).HasName("pk_document_ingestion_jobs");
+            entity.Property(item => item.Id).HasColumnName("id").HasMaxLength(64);
+            entity.Property(item => item.Fingerprint).HasColumnName("fingerprint").HasMaxLength(64);
+            entity.Property(item => item.DocumentId).HasColumnName("document_id").HasMaxLength(64);
+            entity.Property(item => item.TenantId).HasColumnName("tenant_id").HasMaxLength(200);
+            entity.Property(item => item.CollectionId).HasColumnName("collection_id").HasMaxLength(200);
+            entity.Property(item => item.Sequencer).HasColumnName("sequencer").HasMaxLength(128);
+            entity.Property(item => item.Status).HasColumnName("status").HasMaxLength(30);
+            entity.Property(item => item.AcceptedAtUtc).HasColumnName("accepted_at_utc");
+            entity.HasOne<KnowledgeDocumentEntity>().WithMany()
+                .HasForeignKey(item => new { item.TenantId, item.CollectionId, item.DocumentId })
+                .HasPrincipalKey(item => new { item.TenantId, item.CollectionId, item.Id })
+                .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_document_ingestion_jobs_document");
+            entity.HasIndex(item => new { item.TenantId, item.CollectionId, item.Status })
+                .HasDatabaseName("ix_document_ingestion_jobs_tenant_collection_status");
+            entity.HasIndex(item => new { item.TenantId, item.CollectionId, item.DocumentId })
+                .HasDatabaseName("ix_document_ingestion_jobs_tenant_collection_document");
+        });
 
         modelBuilder.Entity<DataProtectionKey>(entity =>
         {

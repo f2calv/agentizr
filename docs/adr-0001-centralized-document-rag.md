@@ -1,6 +1,6 @@
 # ADR 0001: Centralize Multi-Application Document RAG In Agentizr
 
-**Status:** Proposed; not yet accepted or implemented.
+**Status:** Proposed; a local Debug admission foundation is implemented, not deployed.
 **Date:** 2026-10-25.
 **Scope:** Blazor document management, Azure Blob/Event Grid ingestion and tenant-isolated RAG.
 **Canonical record:** This document. Related issues are historical context or implementation tracking,
@@ -51,10 +51,12 @@ Issue #73 was closed at the user's request after this proposal was drafted; PR #
   is not a wired document-RAG capability.
 - The existing [Blazor administration frontend](administration-frontend.md) manages agent
   definitions, not documents. Document management below is proposed functionality.
-- [CasCap.Api.Azure.EventGrid](https://github.com/f2calv/CasCap.Api.Azure/blob/main/src/CasCap.Api.Azure.EventGrid/README.md)
-  currently wraps dependencies only: it has no public service, configuration or registration API.
-  Reuse and extend this shared library for Event Grid integration rather than assuming a subscriber
-  already exists.
+- The adjacent `CasCap.Api.Azure.EventGrid` checkout now has a reusable `BlobStorageEventReader`
+  and normalized `BlobStorageEvent` model. These local APIs are not yet published packages.
+  There is still no shared subscriber or provisioning API; Agentizr owns queue admission.
+- [Role selection](../src/CasCap.App.Server/Models/_FeatureConfig.cs) and
+  [host composition](../src/CasCap.App.Server/AppHost.cs) now separate API, ingestion and migration
+  responsibilities. This is one application host, not three independently built services.
 
 ## Goals And Constraints
 
@@ -280,8 +282,9 @@ counting and document-name logging must not be carried into this design.
 
 ### D4a: Queue Transport Is Replaceable Without Weakening Delivery
 
-Define a narrow application-owned queue receiver interface (illustrative name:
-`IDocumentIngestionEventQueue`) with bounded receive, opaque receipt/lease, lease renewal,
+Use the application-owned
+[`IDocumentIngestionEventQueue`](../src/CasCap.App.Server/Abstractions/IDocumentIngestionEventQueue.cs)
+with bounded receive, opaque receipt/lease, lease renewal,
 acknowledgement, delayed retry/release and durable poison disposition. Expose cancellation and
 recognized failure states; keep Azure/Redis SDK message types out of the ingestion use case.
 Select adapters at composition time, not through model input.
@@ -294,8 +297,11 @@ with reusable envelope validation/mapping as required. Reuse/extend the shared A
 for queue transport, but its current
 [AzQueueStorageBase](https://github.com/f2calv/CasCap.Api.Azure/blob/main/src/CasCap.Api.Azure.Storage/Services/Base/AzQueueStorageBase.cs)
 deletes received messages before the caller commits application work and logs malformed bodies.
-It cannot directly implement durable inbox admission; add an explicit receive/acknowledge path
-without copying that behavior into Agentizr.
+It cannot directly implement durable inbox admission. The local
+[Azure adapter](../src/CasCap.App.Server/Services/AzureDocumentIngestionQueue.cs) therefore uses SDK
+receive/update/delete operations explicitly, via the shared storage dependency. A reusable leased
+consumer can move into that library when another consumer needs the same contract; do not change
+the existing destructive helper's behavior implicitly.
 
 A future in-cluster Redis adapter must pass the same delivery contract. A destructive list pop
 alone is insufficient; use a recoverable processing-list pattern or streams/consumer groups with
@@ -312,6 +318,65 @@ Bound queue polling batches, active jobs, extraction memory and embedding concur
 On shutdown stop receiving, finish or release uncommitted admissions, then drain processing to a
 deadline; leave unfinished PostgreSQL jobs recoverable through lease expiry. Supervise receiver and
 worker failures explicitly instead of silently stopping processing while the API remains healthy.
+
+### D4b: Modular Roles And Elected Ownership
+
+The startup-only setting `CasCap:FeatureConfig:EnabledFeatures` selects comma-separated roles.
+Names are case-insensitive, whitespace is trimmed and duplicates collapse. Empty, unknown and
+incompatible selections fail explicitly.
+
+| Selection | Dependencies and surfaces | Lifecycle |
+| --- | --- | --- |
+| `agentizr` (default) | Existing runtime/admin/frontend/MCP gates; PostgreSQL required outside Development, Redis optional | API daemon; does not consume document notifications |
+| `ingestion` | PostgreSQL, shared Redis election and Azure queues; only `/status` and `/healthz`, no business API/frontend/MCP registration | Elected admission daemon; standby keeps serving probes |
+| `agentizr,ingestion` | Union of both roles, with shared persistence/caching registration | API and elected admission together |
+| `migrate` | PostgreSQL and migrator only; no API/ingestion registration or HTTP listener | Finite external schema job; cannot combine with daemon roles |
+
+The existing `--migrate` invocation selects migration-only behavior. The same application artifact
+serves every role; no separate entrypoint, Dockerfile or worker image is introduced.
+The ingestion PoC currently requires Debug sibling-project references. Release explicitly rejects
+that selection until the new shared APIs are published and its package path is validated.
+
+The [ingestion feature](../src/CasCap.App.Server/Services/DocumentIngestionFeature.cs) delegates lease
+acquisition, loss, awaited cleanup and reacquisition to the shared `ILeadershipRunner`, not a custom
+Redlock loop. Use a stable installation-qualified `LeadershipResource` identical on all ingestion
+replicas, never a pod-specific name. `CachingConfig.RemoteCache.IsEnabled`,
+`RemoteCacheConnectionString` and `DistributedLockingEnabled` are required; use the shared
+`CachingConfig.Redlock` timing/topology contract and a suitable non-failover-managed lock authority.
+Leadership loss cancels receive, database work, acknowledgement and idle waits through the ownership
+token. Only the owner's callback starts admission. This is coordination, not exactly-once execution
+or downstream fencing.
+
+The [inbox](../src/CasCap.App.Server/Services/DocumentIngestionInboxService.cs) uses a PostgreSQL
+transaction-scoped advisory lock to serialize all admissions in this PoC, plus deterministic event
+receipts and tenant/collection-qualified document identity. This deliberately favors simplicity over
+parallel throughput. Per-blob hexadecimal sequencers reject stale notifications; deleted immutable
+blob names cannot be resurrected. New versions require new opaque blob names. Receipt conflicts are
+quarantined rather than silently reassigned. Treat source mapping/leadership-resource changes as
+controlled migrations with queue drain/replay, not mutable agent settings.
+
+`knowledge_documents` records the latest admitted source state.
+`document_ingestion_jobs` currently combines event receipts and processing intents. `Queued` means
+durably awaiting a future processor, **not extracted, embedded or searchable**; `Deleted` is a
+tombstone and `Ignored` records stale/superseded work. No PDF bytes are downloaded in this slice.
+Schema changes remain externally applied before rollout.
+
+### PoC Limits And Deliberately Deferred Polishing
+
+This may remain a hobby PoC. Keep the first implementation serial and explicit rather than adding
+a generalized scheduler or provider framework. The following are not delivered guarantees:
+
+| Deferred work | Current compromise and revisit trigger |
+| --- | --- |
+| Provider-backed delivery/race tests | SQLite tests prove state transitions, not PostgreSQL advisory locks or cross-pod election. Prove those against isolated providers before a multi-pod ingestion rollout |
+| Full role-composition acceptance | Parsing, fake-runner ownership and existing API tests are local checks; worker-only/combined HTTP surfaces and migration process exit still need isolated host acceptance before deployment |
+| Bounded retry and progress readiness | Azure SDK retries are the only in-process transport retry. Exhausted transport/database failures propagate to host supervision; unacknowledged messages return after visibility expiry. Validate restart behavior and add bounded retries/progress health before unattended operation |
+| Long admissions and poison lifecycle | One short admission runs at a time, without a lease-renew loop; expiry can redeliver safely through inbox deduplication. Poison enqueue precedes source acknowledgement, so duplicates are possible. Add renewal, retention/replay tooling and limits when latency or poison volume warrants them |
+| Reconciliation | Events before subscription, expired deliveries and unfinalized uploads are not discovered automatically. Stage/replay test events explicitly; add container reconciliation before relying on loss recovery |
+| Actual PDF validation and indexing | Envelope/source/extension checks do not validate content or rights. Add bounded download, ETag verification, PDF validation/extraction, chunking, embedding profiles and pgvector before claiming RAG |
+| Durable job execution and activation | No processor claims, retry schedule, extraction fencing or active-generation switch yet. Add these before processing jobs; election alone cannot stop a stale worker activating results |
+| Management and cleanup | Upload/status/download/replace/delete UI/API, quotas, purge/backup retention and source/index cleanup remain future steps before broader use |
+| Optional providers and onboarding | Add AI Search parity, a Redis transport/bridge or bootstrap wizard only after the initial manual pgvector path is proven |
 
 ### D5: Retrieval Is An Opt-In Runtime Capability
 
@@ -355,7 +420,9 @@ document that separate retention exposure.
 - PostgreSQL loss/unavailability prevents durable acceptance and knowledge search. Report the
   failure explicitly; a reference-required agent must not silently answer as though grounded.
   An optional retrieval agent may continue only with an explicit unavailable-context indication.
-- Redis remains optional and unnecessary for the first release. Any later result cache must include
+- Redis remains optional for API-only deployments, but is required for ingestion leadership.
+  Its loss prevents elected admission; it does not erase PostgreSQL receipts/jobs or Blob originals.
+  Any later result cache must include
   tenant, authorized collection set, generation/profile and filters, and revalidate revocation
   before serving. Clearing Redis must not change committed knowledge or its availability.
 - Embeddings and extracted text are sensitive derivatives. Keep document names, queries, excerpts,
@@ -373,8 +440,8 @@ document that separate retention exposure.
 - Back up source bytes and PostgreSQL metadata coherently. Retained generation/profile metadata
   enables reindexing, but re-embedding depends on model availability and may not reproduce identical
   vectors. Restore validation must cover both stores and pending jobs, not just vector row counts.
-- Azure resource provisioning stays in a separate infrastructure workstream, before application
-  implementation. Verify the reported existing Azure AI Search service and its supported features
+- Azure resource provisioning stays in a separate infrastructure workstream, before live ingestion
+  validation. Application foundations can progress independently. Verify the reported existing Azure AI Search service and its supported features
   there; no live deployment or Event Grid subscription readiness was verified for this ADR.
 - Defer agent/application bootstrap automation until manual onboarding is proven. Later choose a
   bootstrap skill or setup wizard that requests IaC-managed provisioning of containers, event
@@ -383,8 +450,24 @@ document that separate retention exposure.
 
 ## Validation And Delivery
 
-Delivery items below are planned and unchecked; no ingestion, model benchmark, database test or rollout
-was executed while writing this ADR. Numerical targets are proposed acceptance gates, not results.
+The admission-only local slice is tracked separately below. All broader RAG acceptance items remain
+unchecked. Numerical quality targets are proposed gates, not measured results.
+
+### Local Admission Foundation
+
+- [x] Implement role parsing, elected serial admission, trusted source validation, commit-before-ack
+  and relational duplicate/stale/delete/tenant tests. Focused credential-free execution is recorded
+  in the [test README](../src/CasCap.App.Server.Tests/README.md#document-admission-poc).
+- [x] Scaffold the additive
+  [DocumentIngestionAdmission migration](../src/CasCap.App.Server/Migrations/20261025123301_DocumentIngestionAdmission.cs)
+  for source state and event/job receipts. Rebuilt EF tooling reports no pending model changes;
+  reviewed offline SQL adds only the two tables, their constraints/indexes and migration history.
+  It does not install pgvector or store chunks/vectors. External application is still required.
+- [x] Build the Agentizr Debug solution and the shared Event Grid project for .NET 8/9/10 with
+  zero warnings/errors. This validates local source references, not the Release package path,
+  container build or deployment.
+- [ ] Prove the actual Azure adapter's encoding, lease/poison behavior and end-to-end delivery.
+- [ ] Prove PostgreSQL concurrency, real Redis leadership loss and worker/combined host behavior.
 
 ### Phase 0: Provision Infrastructure And Stage Source Documents First
 
@@ -404,11 +487,46 @@ The separate IaC workstream owns the following handoff; deployment is not perfor
 - [ ] Record delivery/dead-letter recovery evidence independently of application processing. A
   staged PDF or queued event does not yet prove document ingestion, indexing or agent answers.
 
+#### Exact IaC Handoff
+
+Supply these values privately to
+[`DocumentIngestionConfig`](../src/CasCap.App.Server/Models/_DocumentIngestionConfig.cs), under
+`CasCap:DocumentIngestionConfig` (environment variables use `__` between path segments):
+
+| Field | Handoff contract |
+| --- | --- |
+| `QueueUri` | Existing queue's credential-free HTTPS URI; one queue path segment, no SAS query |
+| `PoisonQueueUri` | Different existing private queue; worker sends invalid/unassigned envelopes here before deleting source delivery |
+| `QueueBase64Encoded` | Explicitly confirm actual Event Grid delivery encoding; default `false` means raw JSON, `true` selects SDK Base64 decoding |
+| `Sources:0:Topic` (and subsequent entries) | Exact storage resource topic from a delivered Event Grid-schema event, not a display name |
+| `Sources:0:ContainerUri` | Canonical credential-free HTTPS container URI, not an individual blob/directory; each container maps exactly once |
+| `Sources:0:TenantId`, `Sources:0:CollectionId` | Operator-approved application tenant and tenant-local collection; never derived from caller/event metadata |
+| `LeadershipResource` | Operator-chosen stable installation-qualified Redis election identity, shared by all ingestion replicas |
+| `PollIntervalMs`, `VisibilitySeconds` | Defaults 2000 ms / 60 s; supported ranges 100-60000 ms / 30-600 s. Confirm visibility exceeds measured short-admission latency |
+
+The infrastructure owner should update the Phase 0 checkboxes with sanitized observed outcomes:
+
+- Confirm Event Grid delivery schema (single event or singleton array), `BlobCreated`/`BlobDeleted`
+  filters, final-write API behavior, exact source-container filters and no derived-output recursion.
+- Provision both queues. Configure Event Grid destination authorization and the Agentizr identity
+  separately: least-privilege queue receive/update/delete on the source queue, send on poison, and
+  source blob read for the later processor. Application upload/delete permissions are a separate
+  forthcoming UI/API requirement. Runtime does not create containers, queues or subscriptions.
+- Supply the existing Azure identity/bootstrap configuration privately; verify DNS, firewall,
+  workload-identity/RBAC propagation and access from intended pods without broad account keys.
+- Distinguish the application poison **queue** from Event Grid delivery dead-letter **Blob storage**.
+  Confirm queue TTL, delivery retry/dead-letter retention, permissions, operator replay and expiry.
+  An encoding mismatch currently fails the receiver; confirm encoding before enabling it.
+- Stage authorized PDFs and capture safe evidence that create/delete notifications reach the queue.
+  Do not copy PDFs, event bodies, real resource IDs or deployment endpoints into this public ADR.
+- Confirm the optional Search service's capability/identity/network readiness independently;
+  provisioning it does not select a backend or prove vectorization. pgvector remains first.
+
 ### Phase 1: Accept The Decision And Prove Compatibility
 
 - [ ] Accept or amend this ADR; keep acceptance separate from implementation progress.
 - [ ] Select the multilingual embedding profile, PDF/tokenizer libraries, upload/download limits,
-  rights/retention policy, quotas and target hardware before implementing durable ingestion (R3, R7).
+  rights/retention policy, quotas and target hardware before processing document contents (R3, R7).
 - [ ] Verify extension/image availability, pgvector/provider/package compatibility and framework
   search/history APIs using the repository's pinned dependencies (R6).
 - [ ] Build an authorized evaluation set of at least 40 questions, at least 20 per initial use case,
@@ -486,5 +604,6 @@ The separate IaC workstream owns the following handoff; deployment is not perfor
 
 The links beside each claim are the evidence. Historical discussion is not current implementation.
 Official documentation was consulted on 2026-10-25; exact version compatibility remains a Phase 1
-gate. This ADR is saved locally. The SmartHaus ownership-handoff closure is verified; infrastructure,
-application implementation, document ingestion and deployment remain unverified.
+gate. This ADR is saved locally. The SmartHaus ownership-handoff closure is verified. The local
+admission foundation is implemented and partially validated as listed above; live infrastructure,
+full document processing/retrieval and deployment remain unverified.

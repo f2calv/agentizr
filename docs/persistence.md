@@ -173,9 +173,20 @@ without it, only the explicitly single-process Development adapters are availabl
 See [high availability](high-availability.md) for ownership, connection-pooling constraints, cutover
 from Redis-only state, interrupted turns and external side-effect limitations.
 
-## Proposed Document Retrieval
+## Document Admission And Proposed Retrieval
 
 [ADR 0001: Centralized document RAG](adr-0001-centralized-document-rag.md) proposes tenant-scoped
 Blazor document management, private Azure Blob originals and Event Grid/queue-triggered ingestion,
-with PostgreSQL/pgvector first and Azure AI Search as an optional target. It is a proposed design,
-not a supported storage capability; the tables and runtime behavior above remain the current implementation.
+with PostgreSQL/pgvector first and Azure AI Search as an optional target. The Debug ingestion role
+now admits validated source events into `knowledge_documents` and `document_ingestion_jobs`, committing
+the receipt/job before queue acknowledgement. These are metadata and processing intents, not vectors.
+Apply the additive `DocumentIngestionAdmission` migration externally before enabling the worker.
+No migration is run by API or ingestion pods.
+
+Select `CasCap:FeatureConfig:EnabledFeatures=migrate` (or the existing `--migrate`) for the finite
+schema job; it cannot combine with `agentizr` or `ingestion`. API-only remains the default and keeps
+Redis optional. Ingestion requires PostgreSQL plus shared Redis leadership; losing Redis pauses
+ownership rather than changing durable authority. See the ADR's
+[role contract](adr-0001-centralized-document-rag.md#d4b-modular-roles-and-elected-ownership) and
+[IaC handoff](adr-0001-centralized-document-rag.md#exact-iac-handoff) for configuration and PoC limits.
+PDF extraction, pgvector, document UI/API and agent retrieval are not implemented yet.

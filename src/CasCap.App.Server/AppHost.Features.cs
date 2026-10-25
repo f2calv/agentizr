@@ -1,6 +1,5 @@
 using CasCap.Common.Extensions;
 using CasCap.Common.Models;
-using Microsoft.EntityFrameworkCore;
 
 namespace CasCap;
 
@@ -28,15 +27,7 @@ public static partial class AppHost
         if (redisEnabled)
             builder.Services.AddCasCapCaching(builder.Configuration);
 
-        var databaseConfig = builder.Configuration
-            .GetSection(DatabaseConfig.ConfigurationSectionName)
-            .Get<DatabaseConfig>() ?? new DatabaseConfig();
-        builder.Services.AddOptionsWithValidateOnStart<DatabaseConfig>()
-            .BindConfiguration(DatabaseConfig.ConfigurationSectionName)
-            .ValidateDataAnnotations();
-        var postgresEnabled = !string.IsNullOrWhiteSpace(databaseConfig.ConnectionString);
-        if (!postgresEnabled && !builder.Environment.IsDevelopment())
-            throw new InvalidOperationException("PostgreSQL Agent Runtime definitions are required outside Development.");
+        var postgresEnabled = AddDatabase(builder, !builder.Environment.IsDevelopment());
 
         if (tenantAuthenticationEnabled)
         {
@@ -61,17 +52,6 @@ public static partial class AppHost
 
         if (postgresEnabled)
         {
-            // No Kerberos in this deployment; GSS probing loads libgssapi, which chiseled images lack.
-            var connectionStringBuilder = new Npgsql.NpgsqlConnectionStringBuilder(databaseConfig.ConnectionString)
-            {
-                GssEncryptionMode = Npgsql.GssEncryptionMode.Disable,
-            };
-            if (!string.IsNullOrWhiteSpace(databaseConfig.DatabaseName))
-                connectionStringBuilder.Database = databaseConfig.DatabaseName;
-            var connectionString = connectionStringBuilder.ConnectionString;
-            builder.Services.AddDbContextFactory<AgentRuntimeDbContext>(options =>
-                options.UseNpgsql(connectionString));
-            builder.Services.AddScoped<AgentRuntimeDatabaseMigrator>();
             builder.Services.AddScoped<PostgresAgentDefinitionStore>();
             if (redisEnabled)
             {
