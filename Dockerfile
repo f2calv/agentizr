@@ -60,6 +60,8 @@ dotnet publish "$PROJECT" \
     -p:BuildWorkflow="$GITHUB_WORKFLOW" \
     -p:BuildRunId="$GITHUB_RUN_ID" \
     -p:BuildRunNumber="$GITHUB_RUN_NUMBER"
+# The administration frontend cannot start without the framework script.
+test -f /app/publish/wwwroot/_framework/blazor.web.js
 ln -s "$WORKLOAD.dll" /app/publish/entrypoint.dll
 EOF
 
