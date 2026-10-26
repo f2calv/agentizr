@@ -559,8 +559,14 @@ The separate IaC workstream owns the following handoff; deployment is not perfor
   UTF-8, with the correct storage-account topic, source subject/URL and `PutBlob`/`DeleteBlob` API.
   All had non-expiring queue retention (expiration year 9999) and dequeue count zero. Synthetic
   blobs and temporary operator permissions were removed; the four test messages remain queued.
-- [ ] Prove forced dead-letter recovery and operator replay. Provisioned destinations and successful
-  delivery do not prove recovery, document ingestion, indexing or agent answers.
+- [x] Prove isolated dead-letter recovery and operator replay. On 2026-10-26 a deleted temporary
+  destination forced `NotFound`; a one-attempt test subscription dead-lettered the synthetic event
+  with `MaxDeliveryAttemptsExceeded`, observed after 394 seconds. The source ETag/content length
+  were preserved. Replay into the restored isolated queue retained the original event ID and
+  core fields, used single-object Base64 UTF-8 with explicit TTL `-1`, and was verified by peeking
+  (expiration year 9999, dequeue count zero). Temporary resources/grants were removed and absence
+  verified; the four live routes and existing ingestion messages were untouched. This does not
+  prove application admission, deduplication, poison handling, document ingestion or agent answers.
 
 The operator reports both source accounts online and one example PDF staged for each initial
 consumer. This session has not read those PDFs or independently verified their persistence or
@@ -576,7 +582,9 @@ infrastructure outputs. The Event Grid system topic, account-scoped delivery rol
 runtime queue grants and four source subscriptions are deployed. Synthetic create/delete delivery
 and non-expiring Event Grid messages are verified, with no-change Terraform convergence.
 Configure `QueueBase64Encoded = true` for the observed single-object, Base64 UTF-8 envelopes.
-Approved source mappings, runtime access, poison-send TTL and recovery/replay remain outstanding.
+Isolated dead-letter capture and non-expiring replay are also verified; live retry policy was not
+shortened for that test. Approved source mappings, runtime access, poison-send TTL and application
+admission remain outstanding.
 Do not enable the receiver merely because its transport is now operational.
 
 The account's public HTTPS endpoint is reachable, not anonymously readable and not a private
@@ -632,8 +640,8 @@ The infrastructure owner should update the Phase 0 checkboxes with sanitized obs
 
 - Single-object EventGridSchema delivery, `BlobCreated`/`BlobDeleted`, `PutBlob`/`DeleteBlob` and
   exact source-container topics/subjects are verified with synthetic blobs. Other configured
-  final-write APIs and forced recovery remain untested; output/dead-letter containers are excluded
-  by the source-prefix configuration.
+  final-write APIs remain untested. Isolated dead-letter capture/replay is verified with a shortened
+  test-only retry budget; output/dead-letter containers are excluded by the live source prefixes.
 - Both queues now exist. Configure Event Grid destination authorization and the Agentizr identity
   separately: least-privilege queue receive/update/delete on the source queue, send on poison, and
   source blob read for the later processor. Application upload/delete permissions are a separate
