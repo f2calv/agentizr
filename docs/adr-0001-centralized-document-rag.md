@@ -581,7 +581,8 @@ are complete. Resource IDs and credential-free container/queue URIs are verified
 infrastructure outputs. The Event Grid system topic, account-scoped delivery roles, narrowly scoped
 runtime queue grants and four source subscriptions are deployed. Synthetic create/delete delivery
 and non-expiring Event Grid messages are verified, with no-change Terraform convergence.
-Configure `QueueBase64Encoded = true` for the observed single-object, Base64 UTF-8 envelopes.
+Configure `QueueBase64Encoded = true` for the observed single-object, Base64 UTF-8 envelopes
+(`CasCap__DocumentIngestionConfig__QueueBase64Encoded=true` for environment configuration).
 Isolated dead-letter capture and non-expiring replay are also verified; live retry policy was not
 shortened for that test. Approved source mappings, runtime access, poison-send TTL and application
 admission remain outstanding.
@@ -607,6 +608,17 @@ Message TTL must be explicit at each producer, including Event Grid delivery, po
 operator replay; it is not a queue-wide resource setting. The current
 [poison-send adapter](../src/CasCap.App.Server/Services/AzureDocumentIngestionQueue.cs) omits TTL,
 so its default seven-day expiry does not yet meet the agreed policy. Implement and verify that
+**Payload boundary:** Event Grid and the queues carry notification metadata and a blob reference,
+not PDF bytes. Base64 applies to the notification JSON only. The credential-free blob URL is not
+a SAS token or an access grant; the later processor must fetch content separately using its
+authorized Azure identity and enforce the source-version contract. A deletion notification
+identifies removed content; it cannot restore the deleted PDF.
+
+The four synthetic notifications left queued by the Phase 2 test reference test blobs that were
+subsequently deleted. They are transport evidence, not staged PDF work. Before enabling admission,
+explicitly disposition those test artifacts using their recorded synthetic identities; never clear
+the queue indiscriminately. Phase 3 replay used only an isolated queue, which was removed afterward.
+
 application-side setting before declaring retention ready. See
 [Event Grid queue delivery lifetime](https://learn.microsoft.com/en-us/azure/event-grid/delivery-properties#configure-time-to-live-on-outgoing-events-to-azure-storage-queues)
 and [Storage Queue message TTL](https://learn.microsoft.com/en-us/rest/api/storageservices/put-message#uri-parameters).
@@ -617,8 +629,16 @@ Container and queue creation has been verified live using local module files; ta
 so their live lifecycle is not yet proven. Module publication and the caller's immutable release
 pin remain pending. Identity grants stay caller-owned. Adding a source container alone is not
 ingestion onboarding: its event binding and approved tenant/collection mapping must also exist.
-Resource names are selected privately; trusted mappings, leadership identity and the replay
-procedure remain handover inputs, not inferred application metadata.
+Resource names are selected privately; trusted mappings and the installation-qualified leadership
+identity remain operator-supplied inputs, not inferred application metadata.
+
+**Verified manual replay contract:** Repair the destination first and check whether the event
+was already admitted. Replay each original event separately, preserving its event ID, storage
+topic, subject, source version and core payload fields; remove dead-letter diagnostics rather
+than enqueueing the entire dead-letter batch. Encode once as Base64 UTF-8 and explicitly use
+TTL `-1`. Verify queue delivery or a durable admission receipt before operator-approved archival
+or removal of the dead-letter original. This is a proven operator procedure, not an implemented
+automatic application replay feature or proof of application deduplication.
 
 Supply these values privately to
 [`DocumentIngestionConfig`](../src/CasCap.App.Server/Models/_DocumentIngestionConfig.cs), under
@@ -651,8 +671,9 @@ The infrastructure owner should update the Phase 0 checkboxes with sanitized obs
 - Supply the existing Azure identity/bootstrap configuration privately; verify DNS, firewall,
   workload-identity/RBAC propagation and access from intended pods without broad account keys.
 - Distinguish the application poison **queue** from Event Grid delivery dead-letter **Blob storage**.
-  Confirm queue TTL, delivery retry/dead-letter retention, permissions, operator replay and expiry.
-  An encoding mismatch currently fails the receiver; confirm encoding before enabling it.
+  Event Grid non-expiring delivery and isolated operator replay are verified. Application poison
+  TTL, runtime permissions and operational replay ownership still require handoff. An encoding
+  mismatch fails the receiver; configure the verified Base64 setting before enabling it.
 - Stage authorized PDFs and capture safe evidence that create/delete notifications reach the queue.
   Do not copy PDFs, event bodies, real resource IDs or deployment endpoints into this public ADR.
 - Confirm the optional Search service's capability/identity/network readiness independently;
