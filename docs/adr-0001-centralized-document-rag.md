@@ -539,35 +539,51 @@ The separate IaC workstream owns the following handoff; deployment is not perfor
 - [ ] Complete approved tenant/collection bindings and producer retention configuration before
   enabling ingestion. The account does not enable Blob/container soft delete or Blob versioning,
   and Azure reports no automatic lifecycle policy.
-- [ ] Provision storage Event Grid system-topic subscriptions for final writes/deletes, container
+- [x] Provision storage Event Grid system-topic subscriptions for final writes/deletes, container
   filters, queue destinations, retry/TTL/dead-letter settings, and least-privilege Entra access.
   Configure Event Grid's managed identity separately from the worker's existing identity path.
-  Verify network/firewall compatibility for delivery and worker access (R10).
+  On 2026-10-26 the approved Terraform apply provisioned all four subscriptions and a follow-up
+  plan reported no changes. Controlled probes isolated destination-authorization failures to
+  delivery-role scope; Event Grid's sender and dead-letter writer now use dedicated-account scope.
+  The worker's queue grants remain narrowly scoped. Synthetic create/delete events from both
+  sources reached the ingestion queue, proving the Event Grid network/delivery path (R10).
+- [ ] Verify the worker identity, DNS/network access and queue lease/poison behavior from the
+  intended runtime; successful Event Grid delivery does not prove pod or application access.
 - [ ] Supply account/container/queue identifiers and authentication configuration through private
   operator configuration; retain no real infrastructure coordinates in this public ADR.
 - [ ] Upload one or two authorized test PDFs per initial application container; verify blob
   persistence and Event Grid queue delivery. Keep messages until Agentizr is ready, using explicit
   retention, reconciliation or replay if the implementation starts after their expiry.
-- [ ] Record delivery/dead-letter recovery evidence independently of application processing. A
-  staged PDF or queued event does not yet prove document ingestion, indexing or agent answers.
+- [x] Record synthetic delivery independently of application processing. Four notifications were
+  inspected without dequeueing: each was a single EventGridSchema JSON object encoded as Base64
+  UTF-8, with the correct storage-account topic, source subject/URL and `PutBlob`/`DeleteBlob` API.
+  All had non-expiring queue retention (expiration year 9999) and dequeue count zero. Synthetic
+  blobs and temporary operator permissions were removed; the four test messages remain queued.
+- [ ] Prove forced dead-letter recovery and operator replay. Provisioned destinations and successful
+  delivery do not prove recovery, document ingestion, indexing or agent answers.
 
 The operator reports both source accounts online and one example PDF staged for each initial
-consumer. This session has not read those documents or independently verified Blob persistence,
-Event Grid delivery or worker access; the end-to-end staging gate remains open.
+consumer. This session has not read those PDFs or independently verified their persistence or
+worker access. Transport was proven with synthetic text blobs instead; the PDF/application
+end-to-end staging gate remains open.
 
 #### Exact IaC Handoff
 
-**Readiness on 2026-10-25: partial; not ready to enable live ingestion.** Account provisioning,
+**Readiness on 2026-10-26: partial; not ready to enable live ingestion.** Account provisioning,
 private source/dead-letter containers, ingestion/poison queues and optional Search verification
 are complete. Resource IDs and credential-free container/queue URIs are verified in private
-infrastructure outputs. Event Grid subscriptions, scoped queue permissions, approved source
-mappings and observed delivery encoding remain outstanding. Do not guess delivered-event topics
-or enable the receiver merely because its storage endpoints now exist.
+infrastructure outputs. The Event Grid system topic, account-scoped delivery roles, narrowly scoped
+runtime queue grants and four source subscriptions are deployed. Synthetic create/delete delivery
+and non-expiring Event Grid messages are verified, with no-change Terraform convergence.
+Configure `QueueBase64Encoded = true` for the observed single-object, Base64 UTF-8 envelopes.
+Approved source mappings, runtime access, poison-send TTL and recovery/replay remain outstanding.
+Do not enable the receiver merely because its transport is now operational.
 
 The account's public HTTPS endpoint is reachable, not anonymously readable and not a private
 endpoint. The existing application service principal has inherited Blob read/write/delete access;
 it is not a managed identity. This verifies the role assignment, not authenticated access from the
-intended worker pods, and does not grant queue permissions. Keep actual identity/bootstrap values
+intended worker pods. Separate ingestion-queue message read/write/delete and poison-send grants
+now exist, but access from the worker has not been verified. Keep actual identity/bootstrap values
 in private operator configuration.
 
 **Agreed Phase 0 policy; producer configuration still pending:** Blob soft delete is verified
@@ -604,7 +620,7 @@ Supply these values privately to
 | --- | --- |
 | `QueueUri` | Existing queue's credential-free HTTPS URI; one queue path segment, no SAS query |
 | `PoisonQueueUri` | Different existing private queue; worker sends invalid/unassigned envelopes here before deleting source delivery |
-| `QueueBase64Encoded` | Explicitly confirm actual Event Grid delivery encoding; default `false` means raw JSON, `true` selects SDK Base64 decoding |
+| `QueueBase64Encoded` | Set `true` for the live transport verified on 2026-10-26: Base64 UTF-8, one EventGridSchema object per message. The code default `false` means raw JSON and does not match this deployment |
 | `Sources:0:Topic` (and subsequent entries) | Exact storage resource topic from a delivered Event Grid-schema event, not a display name |
 | `Sources:0:ContainerUri` | Canonical credential-free HTTPS container URI, not an individual blob/directory; each container maps exactly once |
 | `Sources:0:TenantId`, `Sources:0:CollectionId` | Operator-approved application tenant and tenant-local collection; never derived from caller/event metadata |
@@ -614,8 +630,10 @@ Supply these values privately to
 
 The infrastructure owner should update the Phase 0 checkboxes with sanitized observed outcomes:
 
-- Confirm Event Grid delivery schema (single event or singleton array), `BlobCreated`/`BlobDeleted`
-  filters, final-write API behavior, exact source-container filters and no derived-output recursion.
+- Single-object EventGridSchema delivery, `BlobCreated`/`BlobDeleted`, `PutBlob`/`DeleteBlob` and
+  exact source-container topics/subjects are verified with synthetic blobs. Other configured
+  final-write APIs and forced recovery remain untested; output/dead-letter containers are excluded
+  by the source-prefix configuration.
 - Both queues now exist. Configure Event Grid destination authorization and the Agentizr identity
   separately: least-privilege queue receive/update/delete on the source queue, send on poison, and
   source blob read for the later processor. Application upload/delete permissions are a separate
