@@ -1,6 +1,7 @@
 # ADR 0001: Centralize Multi-Application Document RAG In Agentizr
 
 **Status:** Proposed; Debug admission is deployed with ingestion disabled; prepared-generation processing is local-only.
+The built-in preparation-agent foundation is committed but undeployed.
 **Date:** 2026-10-25.
 **Scope:** Blazor document management, Azure Blob/Event Grid ingestion and tenant-isolated RAG.
 **Canonical record:** This document. Related issues are historical context or implementation tracking,
@@ -285,7 +286,8 @@ contract. Reuse the tenant-qualified
 [AgentDefinition](../src/CasCap.App.Server/Models/AgentDefinition.cs) model rather than introducing
 a privileged global agent that can read every application's documents. Template installation
 must not silently activate chargeable processing or overwrite an administrator's selected version.
-This capability is proposed, not implemented by the current benchmark.
+The opt-in template/runtime foundation is implemented locally, independently of the frozen
+benchmark. It is not installed or activated on startup and is not yet a durable ingestion adapter.
 
 The agent owns the versioned reconciliation instructions: consume the authorized original page
 and optionally its managed extraction draft, return faithful Markdown with separate change and
@@ -316,8 +318,40 @@ structured-output enforcement and replay/cost controls through the actual agent 
 replacing the experimental transport; configuring an
 [AgentConfig](../src/CasCap.AgentRuntime.Execution/Models/_AgentConfig.cs) alone does not establish
 those capabilities. Complete the fixed PDF-only/hybrid comparison independently first, preserving
-its frozen prompt and request evidence. Production implementation follows quality acceptance;
+its frozen prompt and request evidence. Production processing remains gated on quality acceptance;
 the benchmark is not silently converted into a new agent execution path.
+
+Implementation boundary:
+
+- [x] Ship the [preparation template](../src/CasCap.App.Server/Constants/DocumentPreparationAgentTemplate.cs)
+  through the authorized provider catalogue and new-agent editor. It has no provider registration,
+  endpoint or model selected; publication and activation remain explicit tenant-local operations.
+- [x] Add an opt-in [Responses adapter](../src/CasCap.AgentRuntime.Execution/Extensions/AgentExtensions.Responses.cs)
+  using the existing SDK and actual framework agent. Requests attach raw PDF bytes and use
+  `store=false`, `background=false`, an explicit strict JSON schema and an 8192-output-token ceiling
+  for the shipped template. Smaller caller ceilings remain valid; larger ones cannot raise it.
+  The SDK's automatic retries are disabled. The installed Responses API is experimental and
+  isolated behind the opt-in flag; existing definitions keep Chat Completions.
+- [x] Make the template tool-free and stateless: omit runtime discovery/time context, session
+  overrides, conversation persistence and its own content-bearing run history. The runtime checks
+  authoritative Responses completion status and valid JSON without stripping source `<think>`
+  markup from structured transcription. The generic adapter does not supply `strict=true` or a
+  completed chat finish reason automatically, so both behaviors are handled explicitly.
+- [x] Reject stateless session mutations/overrides with HTTP 409; session reads and permitted
+  instruction disclosure report effective definition policy without loading overrides or history.
+- [x] Validate the local foundation with 62 focused synthetic/offline tests (25 execution-library
+  and 37 host/template/editor cases) and clean Release host/frontend builds. These checks do not
+  contact a provider, install/activate definitions, prove document fidelity or enable ingestion.
+- [ ] Bind the durable worker to an approved immutable tenant-local definition and model revision,
+  with source/page validation, request/token/time budgets, durable paid-request intent/receipts,
+  ambiguous-outcome recovery and immutable candidate provenance. SDK non-retry is not durable
+  replay protection; the existing retryable PDF processor must not call this path until these
+  controls exist. The template schema alone is not local page-contract or fidelity validation.
+- [ ] Complete semantic-quality acceptance before enabling paid preparation or replacing the
+  current PDF processor. Embeddings and searchable activation remain separate later gates.
+
+Complete the runtime rollout before publishing/activating definitions that use the new profile
+fields; older runtime replicas cannot be relied on to enforce them.
 
 #### Two Content-Based Chunking Profiles
 
@@ -811,6 +845,7 @@ The separate IaC workstream owns the following handoff; deployment is not perfor
   over to verified alternative-subscription services. Provisioning does not change application
   configuration or prove each consumer's access. Keep unavailable model bindings blocked rather
   than silently substituting models; verify each actual consumer before declaring cutover complete.
+  Resume from the [application cutover session handover](#application-cutover-session-handover-2026-10-27).
 - [x] Prepare shared mirrored-service configuration and review the alternative-subscription plan.
   The reviewed plan is additive, retains the working Document Intelligence account and existing
   transport, keeps Search Free and OpenAI deployments consumption-based, and adds no metric alerts.
@@ -1071,12 +1106,55 @@ page 7. All six contain no HTML tags or escaped ordinary `.`, `!`, `(` or `)` pu
 These structural checks, lexical differences and seven model-reported uncertainty items are
 review aids, not proof of complete text, correct associations or A1 compliance. Independent
 source review is pending; neither candidate is approved for production preparation or indexing.
-Other applications' endpoint cutover, built-in preparation-agent implementation and the blocked
-infrastructure model deployment remain separate unfinished work.
+Applications using local models do not need this endpoint cutover and remain unchanged.
+The built-in preparation-agent foundation is implemented locally; durable worker integration and
+the blocked infrastructure model deployment remain separate unfinished work.
 
 See the [benchmark configuration and validation](../src/CasCap.App.Server.Tests/README.md#openai-pdf-only-and-hybrid-benchmark).
 The original access failure is bypassed for this trial, not diagnosed or repaired on the original
 subscription. Completed inference is not evidence that hybrid extraction improves quality.
+
+#### Application Cutover Session Handover (2026-10-27)
+
+**Committed source:** The preparation-agent foundation and definition-authoring improvements are
+saved in separate local commits. They build on the prepared-generation (`2d136e4`) and frozen
+benchmark (`1b080ae`) milestones. The new commits have not been pushed or released by this milestone.
+
+| Local commit | Completed capability | Source evidence |
+| --- | --- | --- |
+| `e371628` | Bounded strict Responses execution, stateless session policy and an unconfigured preparation template | [Responses adapter](../src/CasCap.AgentRuntime.Execution/Extensions/AgentExtensions.Responses.cs), [session controls](../src/CasCap.App.Server/Services/AgentSessionControlService.cs), [template](../src/CasCap.App.Server/Constants/DocumentPreparationAgentTemplate.cs) |
+| `c0a2e7f` | Unused-version suggestions, confirmed optional activation, selected-version actions and preparation-template authoring | [Definition editor](../src/CasCap.App.Client/Pages/DefinitionEditor.razor.cs), [agent details](../src/CasCap.App.Client/Pages/AgentDetails.razor.cs), [administration walkthrough](administration-frontend.md#publish-versus-activate) |
+
+**Deployed versus committed:** The earlier Debug frontend rollout verified the version-suggestion,
+optional-activation and selected-version-action improvements through readiness, served assets and
+the downloaded client assembly. It retained runtime-only role selection: deploying that UI did not
+enable the document-ingestion listener or change definitions. The newly committed preparation
+runtime/template foundation, including its editor integration, is not deployed or activated.
+Complete its runtime rollout before publishing or activating definitions that use the new fields.
+
+**Endpoint scope:** Only the Azure-hosted definition required the subscription/endpoint switch;
+definitions using local models remain unchanged. Preserve provider registrations, model selection
+and rollback snapshots. Agentizr's configured PostgreSQL
+[definition store](../src/CasCap.App.Server/Services/PostgresAgentDefinitionStore.cs) remains authoritative;
+never edit historical JSONB to perform cutover. Use the existing authenticated browser
+[publication and activation workflow](administration-frontend.md#publish-versus-activate), which
+guards the observed active version. The machine
+[activation request](../src/CasCap.AgentRuntime.Contracts/V1/ActivateAgentDefinitionRequest.cs) does
+not expose that guard; an ignored JSON property or a preceding GET is not an atomic substitute.
+This commit milestone does not re-verify the live endpoint selection or functional provider access.
+
+**Validation:** The completed foundation passed 62 focused synthetic/offline tests and clean
+Release host/frontend builds, as recorded in the
+[implementation boundary](#built-in-document-preparation-agent). Repository lint and public-content
+scans passed for both feature commits. No new application tests, provider calls, definition
+activations, deployments or infrastructure changes were performed while batching these commits.
+Hybrid remains the owner's preferred candidate, not semantic acceptance.
+
+**Next gate:** Bind the durable worker to an approved immutable tenant-local definition and model
+revision, with paid-request intent/receipts, ambiguous-outcome recovery and source/page validation.
+Complete the remaining [worker and quality gates](#built-in-document-preparation-agent) before
+enabling paid preparation or indexing. Production ingestion remains disabled; rollout and chargeable
+checks require separate authorization.
 
 #### Event Delivery And Storage Handoff
 
