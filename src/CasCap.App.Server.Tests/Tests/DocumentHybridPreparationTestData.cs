@@ -2,6 +2,7 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using CasCap.Constants;
+using Microsoft.Extensions.AI;
 using System.Text.Json;
 
 namespace CasCap.Tests;
@@ -31,6 +32,77 @@ internal static class DocumentHybridPreparationTestData
 
     public static DocumentBlobDownloadService Downloader(Func<Stream> source, DocumentIngestionConfig config) =>
         new(Options.Create(config), _ => new TestStorage(new SourceContainer(source)));
+
+    public static DocumentPreparationRequestIdentity LayoutIdentity(DocumentIngestionClaim claim, byte[] pdf)
+    {
+        var source = DocumentPreparationIdentity.Hash(pdf);
+        var plan = DocumentPreparationIdentity.Hash(claim.PreparationPlanJson ?? string.Empty);
+        return new(source, plan, DocumentPreparationIdentity.Digest(source, plan, AzDocumentLayoutClient.ApiVersion,
+            AzDocumentLayoutClient.ModelId, "markdown", "utf16CodeUnit", "1"), DocumentPreparationOperations.DocumentIntelligence, 0);
+    }
+
+    internal sealed class Provider : IDocumentPreparationProvider
+    {
+        public int Submissions { get; private set; }
+        public int Polls { get; private set; }
+        public int ModelCalls { get; private set; }
+        public bool FailSubmission { get; set; }
+        public bool FailModel { get; set; }
+        public bool FailVerification { get; set; }
+        public string? Text { get; set; }
+        public Func<AgentStructuredResponse, AgentStructuredResponse>? ResponseChange { get; set; }
+        public Action? BeforeResponse { get; set; }
+
+        public Task VerifyModelAsync(DocumentPreparationPlan plan, CancellationToken cancellationToken) =>
+            FailVerification ? Task.FromException(new InvalidDataException("Synthetic model revision mismatch.")) : Task.CompletedTask;
+
+        public Task<Uri> SubmitLayoutAsync(DocumentPreparationPlan plan, byte[] pdf, int[] pages, CancellationToken cancellationToken)
+        {
+            Submissions++;
+            return FailSubmission ? Task.FromException<Uri>(new HttpRequestException("Synthetic unknown submission."))
+                : Task.FromResult(new Uri("https://layout.example.com/operation"));
+        }
+
+        public Task<DocumentLayoutPollResult> PollLayoutAsync(DocumentPreparationPlan plan, Uri operation, int[] pages, CancellationToken cancellationToken)
+        {
+            Polls++;
+            return Task.FromResult(new DocumentLayoutPollResult
+            {
+                Status = "Succeeded",
+                Markdown = "Managed draft",
+                Pages = pages.ToDictionary(page => page, _ => "Managed draft"),
+            });
+        }
+
+        public async Task ExecutePageAsync(DocumentPreparationPageRequest request,
+            Func<AgentStructuredResponse, CancellationToken, ValueTask> observer, CancellationToken cancellationToken)
+        {
+            ModelCalls++;
+            if (FailModel)
+                throw new HttpRequestException("Synthetic unknown model submission.");
+            var response = new AgentStructuredResponse
+            {
+                Text = Text ?? JsonSerializer.Serialize(new
+                {
+                    page = request.PageNumber,
+                    markdown = "Keep <think>source text</think>.",
+                    changes = Array.Empty<string>(),
+                    uncertainties = Array.Empty<string>(),
+                }),
+                ModelId = "synthetic-model",
+                ResponseId = "resp_synthetic",
+                IsComplete = true,
+                Usage = new UsageDetails { InputTokenCount = 10, OutputTokenCount = 5, TotalTokenCount = 15 },
+            };
+            BeforeResponse?.Invoke();
+            await observer(ResponseChange?.Invoke(response) ?? response, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            using var pdf = UglyToad.PdfPig.PdfDocument.Open(request.Pdf);
+            Assert.Equal(1, pdf.NumberOfPages);
+            Assert.InRange(request.PageNumber, 1, 2);
+            Assert.Equal("Managed draft", request.Draft);
+        }
+    }
 
     private static AgentDefinition Definition => new()
     {

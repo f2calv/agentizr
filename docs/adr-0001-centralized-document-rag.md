@@ -384,9 +384,14 @@ Implementation boundary:
   with immutable worker-local tenancy, a page-specific strict schema, output ceilings and request
   deadlines. Validate exact fields/page/model/completion and native counters locally. Retain
   candidates as `ReviewRequired`, without chunks, embeddings or searchable activation.
-- [ ] Verify PostgreSQL JSONB/locking/races, worker-identity access and a separately authorized
-  bounded real-document run before enabling the hybrid. Offline SQLite/fake-transport checks do
-  not establish these properties or semantic fidelity.
+- [x] Verify isolated PostgreSQL JSONB/locking/races and real ingestion-only startup with Redis.
+  The [provider acceptance tests](../src/CasCap.App.Server.Tests/Tests/Integration/PostgresDocumentPreparationIntegrationTests.cs)
+  and [two-host startup/handover test](../src/CasCap.App.Server.Tests/Tests/Integration/DocumentIngestionHostIntegrationTests.cs)
+  pass 22 Debug cases alongside all 53 offline hybrid regressions. These use synthetic provider
+  boundaries and disposable local databases, not deployment identities or real documents.
+- [ ] Verify deployed worker-identity access and a separately authorized bounded real-document run
+  before enabling the hybrid. Local provider acceptance does not establish Azure access, lease-loss
+  behavior under network faults, semantic fidelity or invoice reconciliation.
 - [ ] Deliver an authorized operator reconciliation action. Until then, ambiguous jobs stay blocked;
   late receipts remain accounting evidence but do not automatically unblock work. Any paid replay
   requires separate authorization and a new explicit generation, not clearing an intent.
@@ -1361,18 +1366,32 @@ this does not prove full RAG processing.
   preparation definition without installing or activating it. EF reports no model drift; the additive
   [hybrid-operation migration](../src/CasCap.App.Server/Migrations/20261027125842_DocumentHybridPreparationOperations.cs)
   and offline SQL add the nullable admission plan, operation ledger and constraints, without seeds
-  or destructive upgrade operations. The migration has not been applied; application rollback
-  should retain the expanded schema because its `Down` removes receipt and plan history.
-  Full ingestion-only startup still needs isolated Redis acceptance: its existing cache registration
-  connects eagerly, so the pure DI fixture uses already-registered runtime infrastructure instead.
-  This is local implementation evidence, not a provider-backed rollout or fidelity acceptance.
+  or destructive upgrade operations. The migration has been applied only to disposable local
+  provider-test databases, not a deployment database; application rollback should retain the expanded
+  schema because its `Down` removes receipt and plan history. The pure DI fixture uses already-registered
+  runtime infrastructure because cache registration connects eagerly; separate real startup acceptance
+  is recorded below. This is local implementation evidence, not rollout or fidelity acceptance.
+- [x] Complete isolated PostgreSQL/Redis preparation acceptance: 21 PostgreSQL cases and one
+  two-host ingestion-only case pass, together with all 53 offline hybrid regressions (**75 passed,
+  zero failures/skips**). Fresh migrations and actual JSONB round-trips preserve pinned plans and exact
+  native token counters. Eight competing claim/reservation callers produce one owner/new intent;
+  transaction-lock cancellation releases the waiter, conflicting receipts stay write-once, composite
+  ownership constraints reject cross-tenant rows and database time controls deadlines despite a
+  year-skewed application clock. Expired unknown submissions stay blocked after late receipts;
+  deleted/superseded claims cannot finish. The real worker resumes polling/received layout receipts
+  and reuses model responses without another submission, retaining review-only candidates with no
+  chunks/search activation. Real ingestion-only hosts resolve the complete worker/provider graph,
+  expose only status/health routes, contend through shared Redis and hand over on graceful shutdown.
+  Azure queue delivery is substituted, processing remains disabled and all paid-provider calls are
+  synthetic. These checks do not prove deployed Blob/model authorization, partition/renewal-loss
+  behavior, prepared-generation storage races, document quality or production rollout readiness.
 - [x] Implement the local gated durable lifecycle: serial claim, three attempts, persisted 30-second
   retry, deadline recovery and revision/claim-checked completion. Focused credential-free run:
   78 cases passed, zero failed/skipped (69 role/ingestion plus nine existing endpoint smoke cases).
   SQLite/manual-clock and fake-runner tests do not establish PostgreSQL races or live failover.
   The full Debug solution builds without warnings/errors; the current EF model has no pending
   changes. The scaffolded additive processing migration and offline SQL were reviewed but not
-  applied. The lifecycle is committed locally, not deployed.
+  applied outside disposable provider-test databases. The lifecycle is committed locally, not deployed.
 - [x] Implement offline PDF preparation using synthetic documents: 25 MiB source cap, 200 pages,
   two million extracted UTF-16 characters and 5,000 chunks; defaults are 512 actual tokens with
   at most 64-token overlap. Startup limits and per-call chunk settings are validated.
@@ -1392,7 +1411,8 @@ this does not prove full RAG processing.
   retry deduplication, separate profiles, original-byte hashes and source failures during reading.
   The full Debug solution builds with zero warnings/errors. EF reports no model drift; the additive
   preparation migration, designer/snapshot and offline SQL were reviewed: two new tables, no source
-  data rewrites or seed payloads. It is not applied or deployed. A schema downgrade drops prepared
+  data rewrites or seed payloads. It is applied only in disposable provider-test databases, not deployed.
+  A schema downgrade drops prepared
   output; roll back application code while retaining the additive schema instead.
 - [ ] Prove conditional downloads from the intended pods and preparation persistence/races against
   isolated PostgreSQL before enabling processing. Add independently fenced searchable activation with embeddings.

@@ -1,7 +1,7 @@
 # CasCap.App.Server.Tests
 
 Unit, in-memory protocol, PostgreSQL/Redis integration and opt-in live-runtime tests for
-`CasCap.App.Server`. Most cases are credential-free; PostgreSQL and Redis cases require the Compose tests profile and the
+`CasCap.App.Server`. Most cases are credential-free; PostgreSQL and Redis cases require the local Compose services and the
 live cases require explicitly configured deployment credentials.
 
 ## Purpose
@@ -165,7 +165,8 @@ dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter
 
 All 36 cases passed within the 178-case combined run. The full Debug solution builds cleanly;
 offline EF checks report no pending model changes and the additive preparation migration SQL was
-reviewed. No migration was applied. SQLite does not prove PostgreSQL locks/races, live identity,
+reviewed. No deployment migration was applied; the provider acceptance below applies the full chain
+only to disposable local databases. SQLite alone does not prove PostgreSQL locks/races, live identity,
 JSONB storage, embeddings, searchable activation or cleanup/retention behavior.
 
 ### Durable Hybrid Preparation
@@ -192,6 +193,34 @@ The shared Azure layout transport has its own fake-handler suite. Markdown passt
 pricing estimates, preview UI and operator reconciliation are not
 implemented by this selection.
 
+### PostgreSQL And Redis Preparation Acceptance
+
+These Debug-only cases use the real local providers, not SQLite or a fake leadership runner.
+They are tagged `PreparationProviders`, `Integration` and `PostgreSQL`; the host case also has `Redis`.
+
+| Class | Methods | Cases | Scope |
+| --- | ---: | ---: | --- |
+| [`PostgresDocumentPreparationIntegrationTests`](Tests/Integration/PostgresDocumentPreparationIntegrationTests.cs) | 10 | 21 | Fresh migrations, JSONB plans/results/native usage, eight-way claims/reservations, cancellable advisory-lock contention, immutable competing receipts, database-time deadlines, composite ownership constraints, stale/deleted/superseded claim fences, ambiguous-intent blocking and actual worker receipt resume without resubmission |
+| [`DocumentIngestionHostIntegrationTests`](Tests/Integration/DocumentIngestionHostIntegrationTests.cs) | 1 | 1 | Two real ingestion-only hosts, health/status-only endpoints, complete worker/provider resolution, shared Redis contention, cancellation and graceful handover; only Azure queue delivery is substituted and processing stays disabled |
+| **Provider subtotal** | **11** | **22** | Local provider acceptance, not Azure access, real-document fidelity, renewal-loss safety or deployment acceptance |
+
+Use the [local persistence services](#persistence-test-services). Verify that the final
+`ConnectionStrings:PostgreSql` and `ConnectionStrings:Redis` overrides target only the approved
+local services before running; the fixture creates/drops its own random databases. Disable Key Vault
+bootstrap through its actual sentinel, not the derived read-only `IsKeyVaultEnabled` property:
+
+```powershell
+$env:AppConfig__KeyVaultName = 'skip'
+dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-trait 'Category=PreparationProviders' 'Category=HybridPreparation'
+```
+
+The combined selection passes **75 cases**, zero failed/skipped: 22 provider-backed cases and the
+53 existing offline hybrid regressions. Provider requests are synthetic, so no Azure calls or paid
+operations occur. Polling receipts resume without another submission, received layout/model JSONB
+receipts are reused, unknown submissions stay blocked despite late receipts, and successful candidates
+remain `ReviewRequired` without chunks or searchable activation. Native token counts round-trip exactly;
+these checks neither estimate currency nor reconcile an invoice.
+
 Agentizr owns the [preparation definition](../CasCap.App.Server/Constants/DocumentPreparationAgentTemplate.cs);
 tests consume that contract rather than a second prompt or inference client. Its admin-catalogue
 template is unconfigured: select a tenant-authorized Azure OpenAI provider/model and explicitly
@@ -213,14 +242,16 @@ acceptance and protected preview UI remain separate gates in
 | `Agent Runtime` | 54 | Runtime orchestration, tools, metrics, evaluation, persistence, caching, locking and compaction |
 | `Document Preparation` | 3 | Secret-free preparation template, editor constraint preservation and stateless runtime execution |
 | `HybridPreparation` | 53 Debug-only | Bounded worker/runtime, paid receipts/recovery, profile authorization and fake read-only model metadata; 29 cases also tagged `Integration` |
+| `PreparationProviders` | 22 Debug-only | Real isolated PostgreSQL ledger/recovery and two-host Redis startup/handover; all also `Integration` and `PostgreSQL`, one also `Redis` |
 | `Tenant Isolation` | 38 | Cross-tenant state, JWT permissions, caller mappings, administrator assignment, MCP and provider credentials and identity isolation |
-| `PostgreSQL` | 25 | Definitions, durable state, run history and shared Data Protection keys against the Compose tests-profile database |
-| `Redis` | 8 | Revision-qualified state caching against the Compose tests-profile Redis service; also tagged `Integration` and `PostgreSQL` |
+| `PostgreSQL` | 25 | Definitions, durable state, run history and shared Data Protection keys against local Compose PostgreSQL |
+| `Redis` | 8 | Revision-qualified state caching against local Compose Redis; also tagged `Integration` and `PostgreSQL` |
 | `Local Agent Runtime` | 1 | Explicitly enabled smoke test against a complete running runtime |
 
 The category inventory above covers the runtime baseline. Debug adds one case to each of
 `Integration` and `PostgreSQL` for the runtime logging soak; role/ingestion, PDF preparation and
-Blob download/prepared-document and hybrid categories and counts are listed separately above.
+Blob download/prepared-document, hybrid and provider-acceptance categories and counts are listed
+separately above.
 
 ## Skipped Tests
 
@@ -230,7 +261,7 @@ Blob download/prepared-document and hybrid categories and counts are listed sepa
 | Once enabled, missing/invalid live base address, agent name or requested certificate-auth settings | 1 (same case) |
 
 These are conditional skips, not observed outcomes. PostgreSQL/Redis cases do not automatically
-skip without their services: start the Compose tests profile or exclude both categories.
+skip without their services: start the local Compose services or exclude both categories.
 
 ## Persistence Test Services
 
@@ -295,6 +326,7 @@ Tests/
 │   ├── EndpointSmokeTests.cs
 │   ├── DocumentIngestionInboxTests.cs
 │   ├── DocumentIngestionLeadershipTests.cs
+│   ├── DocumentIngestionHostIntegrationTests.cs
 │   ├── DocumentHybridPreparationTests.cs
 │   ├── DocumentPreparationPersistenceTests.cs
 │   ├── DocumentPreparationProviderTests.cs
@@ -302,6 +334,7 @@ Tests/
 │   ├── McpAgentizrWebApplicationFactory.cs
 │   ├── PostgreSqlFixture.cs
 │   ├── PostgresAgentDefinitionStoreIntegrationTests.cs
+│   ├── PostgresDocumentPreparationIntegrationTests.cs
 │   ├── AgentRunHistoryTests.cs
 │   ├── PostgresAgentStateTests.cs
 │   ├── RedisStateFixture.cs
