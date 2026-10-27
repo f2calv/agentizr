@@ -8,7 +8,7 @@ using UglyToad.PdfPig.Writer;
 namespace CasCap.Tests;
 
 /// <summary>Runs opt-in, non-replayed PDF-only/hybrid Responses probes; no production extraction or agent execution is registered.</summary>
-// TODO: Extract the accepted transport into the shared Azure library when a production preparation adapter is approved; retain benchmark budgets and prompts here.
+// TODO: Retire this frozen raw transport after the runtime-backed worker passes quality and replay acceptance; preserve benchmark request identities until then.
 internal sealed class OpenAIDocumentQualityClient(HttpClient httpClient, OpenAIDocumentQualityClient.Settings settings)
 {
     /// <summary>Identifies the frozen reconciliation instructions independently from the model.</summary>

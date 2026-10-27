@@ -1,4 +1,5 @@
 using CasCap.Common.Extensions;
+using CasCap.Exceptions;
 
 namespace CasCap.Services;
 
@@ -23,6 +24,8 @@ public sealed class AgentSessionControlService(
         var definition = await definitionStore.GetAsync(agentName, cancellationToken);
         if (definition is null)
             return new AgentSessionStatus();
+        if (definition.Agent.Stateless)
+            return new AgentSessionStatus { AgentExists = true, SessionEnabled = false };
 
         var overrides = await overrideStore.GetAsync(agentName, definition.Version, sessionId, cancellationToken);
         var stateJson = await sessionStore.GetAsync(agentName, definition.Version, sessionId, cancellationToken);
@@ -185,9 +188,11 @@ public sealed class AgentSessionControlService(
         string sessionId,
         CancellationToken cancellationToken)
     {
-        var definition = await ResolveDefinitionAsync(agentName, sessionId, cancellationToken);
-        return definition is null
-            ? null
+        var definition = await ResolveDefinitionAsync(agentName, sessionId, cancellationToken, allowStateless: true);
+        if (definition is null)
+            return null;
+        return definition.Agent.Stateless
+            ? new AgentOverrideState { SessionEnabled = false }
             : await overrideStore.GetAsync(agentName, definition.Version, sessionId, cancellationToken);
     }
 
@@ -225,7 +230,9 @@ public sealed class AgentSessionControlService(
         if (definition is null)
             return null;
 
-        var overrides = await overrideStore.GetAsync(agentName, definition.Version, sessionId, cancellationToken);
+        var overrides = definition.Agent.Stateless
+            ? new AgentOverrideState { SessionEnabled = false }
+            : await overrideStore.GetAsync(agentName, definition.Version, sessionId, cancellationToken);
         if (!string.IsNullOrWhiteSpace(overrides.Instructions))
             return new AgentInstructionsView(definition.Version, true, overrides.Instructions);
 
@@ -238,10 +245,14 @@ public sealed class AgentSessionControlService(
     private async ValueTask<AgentDefinition?> ResolveDefinitionAsync(
         string agentName,
         string sessionId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool allowStateless = false)
     {
         ValidateIdentifiers(agentName, sessionId);
-        return await definitionStore.GetAsync(agentName, cancellationToken);
+        var definition = await definitionStore.GetAsync(agentName, cancellationToken);
+        if (!allowStateless && definition?.Agent.Stateless is true)
+            throw new StatelessAgentSessionException();
+        return definition;
     }
 
     private static void ValidateIdentifiers(string agentName, string sessionId)

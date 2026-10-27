@@ -22,7 +22,8 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | `AgentRuntimeProtocolTests` | 9 | 12 | Verifies typed-client execution, streaming, DTO/JSON validation problems, session controls and instruction disclosure |
 | `AgentDefinitionAdministrationProtocolTests` | 13 | 23 | Verifies publication Location, evaluation/activation, rollback, deactivation, audit attribution, policy/credential rejection, conflicts and bounded query binding |
 | `TenantSecurityStartupTests` | 8 | 12 | Verifies anonymous rejection, policy separation on all runtime and administration controller actions, the setup page shown instead of an unusable frontend, required JWT/PostgreSQL and optional Redis in Production |
-| `AgentExecutionCoordinatorTests` | 3 | 3 | Verifies definition, credential, override, session, bypass, and executor orchestration |
+| `AgentExecutionCoordinatorTests` | 7 | 12 | Verifies execution/session orchestration, stateless isolation and effective read policy, all six rejected session mutations and the actual HTTP 409 problem response |
+| `DocumentPreparationAgentTemplateTests` | 3 | 3 | Pins the frozen prompt, bounded secret-free template, editor preservation and actual runtime execution without discovery tools, time context, overrides, persisted sessions or content history |
 | `AgentRuntimeBuiltInToolsTests` | 3 | 5 | Verifies root runtime tools, reachable delegation metadata, tenant-local time formatting and opt-out |
 | `AgentRuntimeMetricsTests` | 5 | 5 | Verifies execution and bounded HA dimensions, ownership balance, duration and conflict outcomes |
 | `CommonAgentExecutorTests` | 7 | 7 | Verifies tool composition/discovery, unreachable-source fallback and per-round-trip history projection without binary content |
@@ -44,7 +45,7 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | `SessionCompactionConfigTests` | 3 | 6 | Verifies per-provider compaction resolution (tenant override, runtime entry, defaults) and startup validation |
 | `LiveAgentRuntimeSmokeTests` | 1 | 1 | Opt-in authenticated run, streaming, session inspection and cleanup against a complete live runtime |
 | `RuntimeLoggingTests` (Debug only) | 1 | 1 | Real PostgreSQL publications change the Serilog pipeline and forwarded logs without losing a process-cache sentinel; category overrides remain intact |
-| **Runtime baseline subtotal** | **133** | **197** | Source-declared runtime inventory; role/ingestion additions are listed separately below |
+| **Runtime baseline subtotal** | **140** | **209** | Excludes Debug-only logging; role/ingestion additions are listed separately below |
 
 The runtime logging soak is Debug-only. Run that case with:
 
@@ -541,7 +542,8 @@ not part of this test. See the
 | Category | Test-case count | Purpose |
 | --- | ---: | --- |
 | `Integration` | 113 | ASP.NET Core host protocols, startup security, PostgreSQL persistence and Redis payload caching |
-| `Agent Runtime` | 45 | Runtime orchestration, tools, metrics, evaluation, persistence, caching, locking and compaction |
+| `Agent Runtime` | 54 | Runtime orchestration, tools, metrics, evaluation, persistence, caching, locking and compaction |
+| `Document Preparation` | 3 | Secret-free preparation template, editor constraint preservation and stateless runtime execution |
 | `Tenant Isolation` | 38 | Cross-tenant state, JWT permissions, caller mappings, administrator assignment, MCP and provider credentials and identity isolation |
 | `PostgreSQL` | 25 | Definitions, durable state, run history and shared Data Protection keys against the Compose tests-profile database |
 | `Redis` | 8 | Revision-qualified state caching against the Compose tests-profile Redis service; also tagged `Integration` and `PostgreSQL` |
@@ -673,6 +675,7 @@ Tests/
     ├── ConfigurationMcpCredentialStoreTests.cs
     ├── ConfigurationProviderCredentialStoreTests.cs
     ├── CommonAgentExecutorTests.cs
+    ├── DocumentPreparationAgentTemplateTests.cs
     ├── DocumentIngestionAdmissionTests.cs
     ├── DocumentIngestionConfigTests.cs
     ├── DocumentIntelligenceBenchmarkReviewTests.cs

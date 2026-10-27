@@ -35,7 +35,7 @@ internal sealed class CommonAgentExecutor(
         var compaction = GetSessionCompaction(context.Definition);
         var runScope = new AgentRunScope
         {
-            OnActivity = context.HistorySink,
+            OnActivity = context.Definition.Agent.Stateless ? null : context.HistorySink,
             MaximumToolInvocations = runtimeConfig.Value.MaximumToolInvocationsPerRun,
             OnCompaction = stats =>
             {
@@ -83,6 +83,11 @@ internal sealed class CommonAgentExecutor(
         CancellationToken cancellationToken)
     {
         var logger = loggerFactory.CreateLogger<CommonAgentExecutor>();
+        if (definition.Agent.Stateless)
+        {
+            overrides = new AgentOverrideState { SessionEnabled = false };
+            sessionStateJson = null;
+        }
         var toolLeases = new List<IAsyncDisposable>();
         var tools = await BuildToolsAsync(
             definition,
@@ -106,8 +111,8 @@ internal sealed class CommonAgentExecutor(
             configureChatClient: builder => builder.Use(inner =>
                 new AgentHistoryChatClient(inner, definition.Agent.Name, runScope)),
             tokenCredential: credentialStore.GetTokenCredential(definition.Agent.Provider),
-            loggerFactory: loggerFactory,
-            sessionCompaction: GetSessionCompaction(definition));
+            loggerFactory: definition.Agent.Stateless ? null : loggerFactory,
+            sessionCompaction: definition.Agent.Stateless ? null : GetSessionCompaction(definition));
         var chatOptions = AgentExtensions.BuildChatOptions(definition.Agent, instructions);
         if (!string.IsNullOrWhiteSpace(overrides.ModelName))
             chatOptions.ModelId = overrides.ModelName;
@@ -126,7 +131,7 @@ internal sealed class CommonAgentExecutor(
         try
         {
             var message = AgentExtensions.BuildChatMessage(request.Input, request.BinaryContent, request.MimeType);
-            if (builtInTools.CreateCurrentTimeContext() is { } currentTime)
+            if (definition.Agent.IncludeRuntimeContext && builtInTools.CreateCurrentTimeContext() is { } currentTime)
                 message.Contents.Add(new TextContent(currentTime));
 
             if (runScope.Depth > 0 && runScope.OnActivity is { } sink)
@@ -149,7 +154,7 @@ internal sealed class CommonAgentExecutor(
                 scope: runScope);
 
             string? updatedSessionStateJson = null;
-            if (result.Session is not null)
+            if (!definition.Agent.Stateless && result.Session is not null)
             {
                 var serialized = await agent.SerializeSessionAsync(result.Session, JsonSerializerOptions.Web).AsTask();
                 updatedSessionStateJson = serialized.GetRawText();
@@ -183,11 +188,12 @@ internal sealed class CommonAgentExecutor(
         var tools = new List<AITool>();
         var logger = loggerFactory.CreateLogger<CommonAgentExecutor>();
 
-        AddUniqueTools(
-            tools,
-            await builtInTools.CreateAsync(definition, cancellationToken),
-            "runtime built-ins",
-            logger);
+        if (definition.Agent.IncludeRuntimeContext)
+            AddUniqueTools(
+                tools,
+                await builtInTools.CreateAsync(definition, cancellationToken),
+                "runtime built-ins",
+                logger);
 
         foreach (var source in definition.Agent.Tools)
         {

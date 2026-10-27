@@ -35,6 +35,7 @@ Selections and searches live in the URL, so a refresh or shared link reopens the
 | [`AppSummaryResponse`](Models/AppSummaryResponse.cs) | One app: the tenant boundary, its caller applications and agent count |
 | [`AgentSummaryPageResponse`](Models/AgentSummaryPageResponse.cs) | One page of agent summaries |
 | [`ProviderCatalogueResponse`](Models/ProviderCatalogueResponse.cs) | Secret-free provider registrations, supported types and the definition policy |
+| [`BuiltInDefinitionTemplateResponse`](Models/BuiltInDefinitionTemplateResponse.cs) | Secret-free editable starting definition; discovery does not install or activate it |
 | [`AdministrationActivationRequest`](Models/AdministrationActivationRequest.cs) | Activation or rollback guarded by the observed active version |
 | [`AdministrationDeactivationRequest`](Models/AdministrationDeactivationRequest.cs) | Deactivation guarded by the observed active version |
 | [`AdministrationApiClient`](Services/AdministrationApiClient.cs) | Typed calls that map every HTTP outcome to an `ApiResult<T>` and send the antiforgery token on mutations |

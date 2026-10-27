@@ -3,7 +3,7 @@ using System.Globalization;
 
 namespace CasCap.Services;
 
-/// <summary>Creates tenant-scoped tools supplied by the runtime to every agent run, including delegated sub-agents.</summary>
+/// <summary>Creates tenant-scoped discovery tools for definitions that include runtime context.</summary>
 internal sealed class AgentRuntimeBuiltInTools(
     ILogger<AgentRuntimeBuiltInTools> logger,
     IOptions<AgentRuntimeConfig> runtimeConfig,

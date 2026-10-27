@@ -62,9 +62,18 @@ diagnostic disclosure on the authenticated request.
 
 Tool composition is tenant-scoped: service tools resolve from request DI, remote MCP connections are
 owned for one execution, and sub-agent tools recursively use the same definition and credential
-stores with stateless delegated sessions. Every depth-zero run also receives runtime-owned
+stores with stateless delegated sessions. By default, every depth-zero run also receives runtime-owned
 `get_current_datetime_state`, `get_agents`, and `get_providers` tools. Metadata covers only the root
 agent's reachable active delegation graph; delegated agents do not receive another copy.
+
+The [document-preparation template](Constants/DocumentPreparationAgentTemplate.cs) is available
+through administration without automatic installation or activation. Its opt-in Responses profile
+is bounded, tool-free and stateless; the existing PDF processor does not invoke it. Durable
+definition/model pinning, paid-request receipts, source/page validation and quality acceptance remain
+prerequisites in [ADR 0001](../../docs/adr-0001-centralized-document-rag.md#built-in-document-preparation-agent).
+For stateless definitions, session mutations and override updates return HTTP 409. Session status,
+override reads and permitted instruction disclosure report the effective definition policy without
+loading stored conversation state or overrides.
 
 ## Offline PDF Preparation
 

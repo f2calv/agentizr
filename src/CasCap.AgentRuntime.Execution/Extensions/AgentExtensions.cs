@@ -138,6 +138,8 @@ public static partial class AgentExtensions
     {
         var agentLogger = loggerFactory?.CreateLogger(nameof(AgentExtensions)) ?? NullLogger.Instance;
         var suppliedHttpClient = httpClient;
+        if (agentConfig.JsonOutput is not null && !provider.UseResponsesApi)
+            throw new NotSupportedException("Strict JSON output currently requires the Responses API.");
 
         httpClient ??= new HttpClient
         {
@@ -146,7 +148,9 @@ public static partial class AgentExtensions
         };
 
         ChatClientBuilder chatClientBuilder;
-        if (provider.Type == AgentType.Ollama)
+        if (provider.UseResponsesApi)
+            chatClientBuilder = CreateResponsesChatClient(provider, agentConfig, httpClient, tokenCredential);
+        else if (provider.Type == AgentType.Ollama)
         {
             // Validate explicitly — an absent endpoint otherwise surfaces deep inside
             // HttpClient as "An invalid request URI was provided", which gives no clue
@@ -201,6 +205,8 @@ public static partial class AgentExtensions
             throw new NotSupportedException($"Agent type '{provider.Type}' is not supported!");
 
         chatClientBuilder.UseFunctionInvocation();
+        if (agentConfig.JsonOutput is not null)
+            chatClientBuilder.Use(inner => new JsonOutputChatClient(inner));
         if (loggerFactory is not null)
             chatClientBuilder.UseLogging(loggerFactory);
         if (otelSourceName is not null)
@@ -329,6 +335,8 @@ public static partial class AgentExtensions
                 .SelectMany(m => m.Contents.OfType<TextContent>())
                 .Select(tc =>
                 {
+                    if (agentConfig.JsonOutput is not null)
+                        return tc.Text;
                     var text = ReasoningMarkupFilter.Strip(tc.Text, out var removed);
                     reasoningMarkupRemoved += removed;
                     return text;
@@ -474,11 +482,14 @@ public static partial class AgentExtensions
             Instructions = !string.IsNullOrWhiteSpace(instructionsOverride)
                 ? WrapInstructions(instructionsOverride, aiConfig)
                 : resolvedInstructions,
+            MaxOutputTokens = agentConfig.MaximumOutputTokens,
+            ResponseFormat = agentConfig.JsonOutput is { } output
+                ? new ChatResponseFormatJson(output.Schema, output.Name)
+                : null,
         };
 
         if (provider?.ReasoningEffort is { } effort)
             opts.Reasoning = new ReasoningOptions { Effort = effort };
-
         return opts;
     }
 
@@ -493,7 +504,10 @@ public static partial class AgentExtensions
     {
         var contents = new List<AIContent> { new TextContent(prompt) };
         if (binaryContent is not null && !string.IsNullOrWhiteSpace(mimeType))
-            contents.Add(new DataContent(binaryContent, mimeType));
+            contents.Add(new DataContent(binaryContent, mimeType)
+            {
+                Name = string.Equals(mimeType, "application/pdf", StringComparison.OrdinalIgnoreCase) ? "page.pdf" : null,
+            });
 
         return new ChatMessage(ChatRole.User, contents);
     }

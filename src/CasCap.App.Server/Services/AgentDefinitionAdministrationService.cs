@@ -357,8 +357,24 @@ internal sealed class AgentDefinitionAdministrationService(
             return "Tool and prompt collections cannot be null.";
         if (payload.Agent.Prompts.Length > 0)
             return "Prompt sources are not supported in definition schema version 1.";
+        if (payload.Agent.JsonOutput is not null && !payload.Provider.UseResponsesApi)
+            return "Strict JSON output currently requires the Responses API.";
+        if (payload.Provider.UseResponsesApi && payload.Provider.Type is not (AgentType.AzureOpenAI or AgentType.OpenAI))
+            return "The Responses API requires an OpenAI or Azure OpenAI provider.";
+        if (payload.Provider.UseResponsesApi && payload.Provider.Type == AgentType.AzureOpenAI
+            && payload.Provider.Endpoint is { IsAbsoluteUri: true } responsesEndpoint
+            && (responsesEndpoint.Scheme != Uri.UriSchemeHttps || responsesEndpoint.AbsolutePath != "/"))
+            return "Azure OpenAI Responses requires an HTTPS root endpoint without an API path.";
 
         var validationResults = new List<ValidationResult>();
+        if (payload.Agent.JsonOutput is { } output)
+        {
+            if (!Validator.TryValidateObject(output, new ValidationContext(output), validationResults, validateAllProperties: true))
+                return validationResults[0].ErrorMessage ?? "JSON output configuration is invalid.";
+            if (output.Schema.ValueKind != JsonValueKind.Object)
+                return "JSON output schema must be an object.";
+        }
+        validationResults.Clear();
         if (!Validator.TryValidateObject(
             payload.Agent,
             new ValidationContext(payload.Agent),

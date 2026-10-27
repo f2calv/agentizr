@@ -3,6 +3,10 @@ namespace CasCap.Client.Models;
 /// <summary>Returns an app's provider registrations and the policy applied to published definitions.</summary>
 public sealed record ProviderCatalogueResponse
 {
+    /// <summary>Gets optional templates; reading these does not publish or activate anything.</summary>
+    /// <example>[]</example>
+    public IReadOnlyList<BuiltInDefinitionTemplateResponse> DefinitionTemplates { get; init; } = [];
+
     /// <summary>Gets the configured provider registrations, ordered by name.</summary>
     public required IReadOnlyList<ProviderRegistrationResponse> Providers { get; init; }
 

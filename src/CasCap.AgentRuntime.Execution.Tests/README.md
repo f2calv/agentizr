@@ -25,6 +25,7 @@ produce the inventory below; counts come from attributes and expanded `[InlineDa
 | `SessionCompactionConfigTests` | 1 | 6 | Compaction notification modes |
 | `ReasoningMarkupFilterTests` | 3 | 8 | Complete, orphaned-closing and unclosed `<think>` markup, clean text and reasoning-only answers |
 | `AgentExtensionsCreateAgentTests` | 10 | 13 | Provider validation for Ollama / Azure OpenAI / OpenAI endpoints and credentials, caller-supplied transport, unsupported provider types |
+| `ResponsesAgentTests` | 6 | 12 | Offline SDK/framework PDF attachment, explicit strict schema, output ceilings, non-storage, Entra audience, incomplete/malformed output, cancellation and no automatic paid-POST retries |
 | `ToolSourceValidationTests` | 2 | 2 | Remote MCP logical credential references are valid only with endpoint sources |
 | `ToolFilterTests` | 3 | 4 | Include-list filtering always rejects unresolved tool names, regardless of hosting environment |
 | `ToolFailureTests` | 5 | 8 | Throwing tools and MCP failures, awaited tool activity/results with safe exception metadata, and budget/activity-sink sharing with sub-agents |
@@ -37,7 +38,7 @@ produce the inventory below; counts come from attributes and expanded `[InlineDa
 | `AgentEvaluationReportTests` | 5 | 7 | Per-cell and cross-model summaries, speed ratios, session files, visible-thinking detection |
 | `LlamaCppIntegrationTests` | 4 | 4 | Opt-in real text, streaming, multimodal, and framework-session inference against local llama.cpp |
 | `SessionLatencyBenchmarkTests` | 2 | 2 | Opt-in time-to-first-token, total latency and input tokens by session size for llama.cpp and Azure OpenAI, uncompacted versus reduced history |
-| **Total** | **96** | **139** | Source-declared cases |
+| **Total** | **102** | **151** | Source-declared cases |
 
 ## Trait Categories
 
@@ -45,6 +46,7 @@ produce the inventory below; counts come from attributes and expanded `[InlineDa
 | --- | --- |
 | `Chat Reduction` | `ToolOutputStrippingChatReducerTests`, `SessionCompactionConfigTests` |
 | `Agent Creation` | `AgentExtensionsCreateAgentTests`, `ToolSourceValidationTests`, `ToolFilterTests` |
+| `Structured Generation` | `ResponsesAgentTests` |
 | `Tool Failures` | `ToolFailureTests` |
 | `Usage Reporting` | `AgentResponseUsageTests` |
 | `Reasoning Markup` | `ReasoningMarkupFilterTests` |

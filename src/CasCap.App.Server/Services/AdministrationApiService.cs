@@ -88,6 +88,7 @@ public sealed class AdministrationApiService
         var tenant = _runtimeConfig.Value.Tenants.GetValueOrDefault(appId);
         return new ProviderCatalogueResponse
         {
+            DefinitionTemplates = [CasCap.Constants.DocumentPreparationAgentTemplate.Create()],
             Providers = tenant is null
                 ? []
                 : [.. tenant.Providers

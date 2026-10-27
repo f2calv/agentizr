@@ -200,7 +200,8 @@ internal sealed class AgentDefinitionEvaluator(
                 dispositions[tool.Name] = classify(tool);
         }
 
-        Add(await builtInTools.CreateAsync(definition, cancellationToken), "runtime built-ins", _ => ToolDisposition.Delegation);
+        if (definition.Agent.IncludeRuntimeContext)
+            Add(await builtInTools.CreateAsync(definition, cancellationToken), "runtime built-ins", _ => ToolDisposition.Delegation);
         foreach (var source in definition.Agent.Tools)
         {
             if (source.Service is not null)

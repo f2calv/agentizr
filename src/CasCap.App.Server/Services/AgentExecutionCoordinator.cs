@@ -36,7 +36,9 @@ public sealed class AgentExecutionCoordinator(
                 return null;
             }
 
-            var overrides = await overrideStore.GetAsync(
+            var overrides = definition.Agent.Stateless
+                ? new AgentOverrideState { SessionEnabled = false }
+                : await overrideStore.GetAsync(
                 request.AgentName,
                 definition.Version,
                 request.SessionId,
@@ -49,7 +51,7 @@ public sealed class AgentExecutionCoordinator(
                 metrics.RecordHa(tenantContext.TenantId, "session.load", sessionStateJson is null ? "new" : "resumed");
             var apiKey = await credentialStore.GetApiKeyAsync(definition.Agent.Provider, cancellationToken);
             historySvc?.ExcludeSecret(apiKey);
-            if (historySvc is not null)
+            if (!definition.Agent.Stateless && historySvc is not null)
                 runId = await historySvc.StartAsync(
                     request, definition, overrides.ModelName ?? definition.Provider.ModelName, cancellationToken);
 

@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Diagnostics;
 
 namespace CasCap.Services;
 
-/// <summary>Maps session ownership conflicts to an explicit HTTP conflict response.</summary>
+/// <summary>Maps session ownership and definition-policy conflicts to explicit HTTP conflict responses.</summary>
 internal sealed class AgentSessionConflictHandler : IExceptionHandler
 {
     /// <inheritdoc/>
@@ -12,12 +12,12 @@ internal sealed class AgentSessionConflictHandler : IExceptionHandler
         Exception exception,
         CancellationToken cancellationToken)
     {
-        if (exception is not AgentSessionConflictException || httpContext.Response.HasStarted)
+        if (exception is not (AgentSessionConflictException or StatelessAgentSessionException) || httpContext.Response.HasStarted)
             return false;
 
         await Results.Problem(
             statusCode: StatusCodes.Status409Conflict,
-            title: "Session conflict",
+            title: exception is StatelessAgentSessionException ? "Session unavailable" : "Session conflict",
             detail: exception.Message).ExecuteAsync(httpContext);
         return true;
     }
