@@ -1,5 +1,6 @@
 using CasCap.Common.Extensions;
 using CasCap.Constants;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace CasCap;
 
@@ -31,6 +32,8 @@ public static partial class AppHost
         builder.Services.AddSingleton<DocumentChunkingService>();
         builder.Services.AddScoped<PdfDocumentPreparationService>();
         builder.Services.AddSingleton<DocumentBlobDownloadService>();
+        builder.Services.AddScoped<DocumentPreparationStoreService>();
+        builder.Services.TryAddScoped<IDocumentProcessor, PdfDocumentProcessor>();
         builder.Services.AddSingleton<IDocumentIngestionEventQueue, AzureDocumentIngestionQueue>();
         builder.Services.AddScoped<IDocumentIngestionInbox, DocumentIngestionInboxService>();
         builder.Services.AddScoped<DocumentIngestionAdmissionService>();

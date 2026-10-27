@@ -416,6 +416,142 @@ namespace CasCap.Migrations
                     b.ToTable("document_ingestion_jobs", "agent_runtime");
                 });
 
+            modelBuilder.Entity("CasCap.Entities.DocumentPreparationGenerationEntity", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("id");
+
+                    b.Property<int>("ChunkCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("chunk_count");
+
+                    b.Property<string>("CollectionId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("collection_id");
+
+                    b.Property<string>("DocumentId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("document_id");
+
+                    b.Property<string>("ETag")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("etag");
+
+                    b.Property<int>("PageCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("page_count");
+
+                    b.Property<string>("PagesWithoutTextJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("pages_without_text_json");
+
+                    b.Property<DateTimeOffset>("PreparedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("prepared_at_utc");
+
+                    b.Property<string>("ProfileId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("profile_id");
+
+                    b.Property<string>("ProfileJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("profile_json");
+
+                    b.Property<string>("Sequencer")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("sequencer");
+
+                    b.Property<string>("SourceSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("source_sha256");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_document_preparation_generations");
+
+                    b.HasAlternateKey("TenantId", "CollectionId", "Id")
+                        .HasName("ak_document_preparation_generations_tenant_collection_id");
+
+                    b.HasIndex("TenantId", "CollectionId", "DocumentId")
+                        .HasDatabaseName("ix_document_preparation_generations_document");
+
+                    b.ToTable("document_preparation_generations", "agent_runtime");
+                });
+
+            modelBuilder.Entity("CasCap.Entities.DocumentTextChunkEntity", b =>
+                {
+                    b.Property<string>("GenerationId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("generation_id");
+
+                    b.Property<int>("Ordinal")
+                        .HasColumnType("integer")
+                        .HasColumnName("ordinal");
+
+                    b.Property<string>("CollectionId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("collection_id");
+
+                    b.Property<int>("EndOffset")
+                        .HasColumnType("integer")
+                        .HasColumnName("end_offset");
+
+                    b.Property<int>("PageNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("page_number");
+
+                    b.Property<int>("StartOffset")
+                        .HasColumnType("integer")
+                        .HasColumnName("start_offset");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("text");
+
+                    b.Property<int>("TokenCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("token_count");
+
+                    b.HasKey("GenerationId", "Ordinal")
+                        .HasName("pk_document_text_chunks");
+
+                    b.HasIndex("TenantId", "CollectionId", "GenerationId")
+                        .HasDatabaseName("ix_document_text_chunks_tenant_collection_generation");
+
+                    b.ToTable("document_text_chunks", "agent_runtime");
+                });
+
             modelBuilder.Entity("CasCap.Entities.KnowledgeDocumentEntity", b =>
                 {
                     b.Property<string>("Id")
@@ -539,6 +675,28 @@ namespace CasCap.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_document_ingestion_jobs_document");
+                });
+
+            modelBuilder.Entity("CasCap.Entities.DocumentPreparationGenerationEntity", b =>
+                {
+                    b.HasOne("CasCap.Entities.KnowledgeDocumentEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CollectionId", "DocumentId")
+                        .HasPrincipalKey("TenantId", "CollectionId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_document_preparation_generations_document");
+                });
+
+            modelBuilder.Entity("CasCap.Entities.DocumentTextChunkEntity", b =>
+                {
+                    b.HasOne("CasCap.Entities.DocumentPreparationGenerationEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CollectionId", "GenerationId")
+                        .HasPrincipalKey("TenantId", "CollectionId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_document_text_chunks_generation");
                 });
 #pragma warning restore 612, 618
         }

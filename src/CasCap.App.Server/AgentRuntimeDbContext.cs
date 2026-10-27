@@ -16,6 +16,12 @@ public sealed class AgentRuntimeDbContext(
     /// <summary>Gets durable event receipts and queued document-processing intents.</summary>
     public DbSet<DocumentIngestionJobEntity> DocumentIngestionJobs => Set<DocumentIngestionJobEntity>();
 
+    /// <summary>Gets immutable, non-searchable preparation generations.</summary>
+    public DbSet<DocumentPreparationGenerationEntity> DocumentPreparationGenerations => Set<DocumentPreparationGenerationEntity>();
+
+    /// <summary>Gets page-attributed text belonging to prepared generations.</summary>
+    public DbSet<DocumentTextChunkEntity> DocumentTextChunks => Set<DocumentTextChunkEntity>();
+
     /// <inheritdoc/>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -96,6 +102,53 @@ public sealed class AgentRuntimeDbContext(
                 .HasDatabaseName("ix_document_ingestion_jobs_tenant_collection_status");
             entity.HasIndex(item => new { item.TenantId, item.CollectionId, item.DocumentId })
                 .HasDatabaseName("ix_document_ingestion_jobs_tenant_collection_document");
+        });
+
+        modelBuilder.Entity<DocumentPreparationGenerationEntity>(entity =>
+        {
+            entity.ToTable("document_preparation_generations", schema);
+            entity.HasKey(item => item.Id).HasName("pk_document_preparation_generations");
+            entity.Property(item => item.Id).HasColumnName("id").HasMaxLength(64);
+            entity.Property(item => item.TenantId).HasColumnName("tenant_id").HasMaxLength(200);
+            entity.Property(item => item.CollectionId).HasColumnName("collection_id").HasMaxLength(200);
+            entity.Property(item => item.DocumentId).HasColumnName("document_id").HasMaxLength(64);
+            entity.Property(item => item.Sequencer).HasColumnName("sequencer").HasMaxLength(128);
+            entity.Property(item => item.ETag).HasColumnName("etag").HasMaxLength(200);
+            entity.Property(item => item.SourceSha256).HasColumnName("source_sha256").HasMaxLength(64);
+            entity.Property(item => item.ProfileId).HasColumnName("profile_id").HasMaxLength(64);
+            entity.Property(item => item.ProfileJson).HasColumnName("profile_json").HasColumnType("jsonb");
+            entity.Property(item => item.PageCount).HasColumnName("page_count");
+            entity.Property(item => item.PagesWithoutTextJson).HasColumnName("pages_without_text_json").HasColumnType("jsonb");
+            entity.Property(item => item.ChunkCount).HasColumnName("chunk_count");
+            entity.Property(item => item.PreparedAtUtc).HasColumnName("prepared_at_utc");
+            entity.HasAlternateKey(item => new { item.TenantId, item.CollectionId, item.Id })
+                .HasName("ak_document_preparation_generations_tenant_collection_id");
+            entity.HasOne<KnowledgeDocumentEntity>().WithMany()
+                .HasForeignKey(item => new { item.TenantId, item.CollectionId, item.DocumentId })
+                .HasPrincipalKey(item => new { item.TenantId, item.CollectionId, item.Id })
+                .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_document_preparation_generations_document");
+            entity.HasIndex(item => new { item.TenantId, item.CollectionId, item.DocumentId })
+                .HasDatabaseName("ix_document_preparation_generations_document");
+        });
+        modelBuilder.Entity<DocumentTextChunkEntity>(entity =>
+        {
+            entity.ToTable("document_text_chunks", schema);
+            entity.HasKey(item => new { item.GenerationId, item.Ordinal }).HasName("pk_document_text_chunks");
+            entity.Property(item => item.GenerationId).HasColumnName("generation_id").HasMaxLength(64);
+            entity.Property(item => item.TenantId).HasColumnName("tenant_id").HasMaxLength(200);
+            entity.Property(item => item.CollectionId).HasColumnName("collection_id").HasMaxLength(200);
+            entity.Property(item => item.Ordinal).HasColumnName("ordinal");
+            entity.Property(item => item.PageNumber).HasColumnName("page_number");
+            entity.Property(item => item.StartOffset).HasColumnName("start_offset");
+            entity.Property(item => item.EndOffset).HasColumnName("end_offset");
+            entity.Property(item => item.TokenCount).HasColumnName("token_count");
+            entity.Property(item => item.Text).HasColumnName("text");
+            entity.HasOne<DocumentPreparationGenerationEntity>().WithMany()
+                .HasForeignKey(item => new { item.TenantId, item.CollectionId, item.GenerationId })
+                .HasPrincipalKey(item => new { item.TenantId, item.CollectionId, item.Id })
+                .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_document_text_chunks_generation");
+            entity.HasIndex(item => new { item.TenantId, item.CollectionId, item.GenerationId })
+                .HasDatabaseName("ix_document_text_chunks_tenant_collection_generation");
         });
 
         modelBuilder.Entity<DataProtectionKey>(entity =>

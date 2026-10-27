@@ -1,12 +1,7 @@
 #if DEBUG
 using System.Text;
-using System.Globalization;
 using UglyToad.PdfPig;
-using UglyToad.PdfPig.Content;
-using UglyToad.PdfPig.Core;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
-using UglyToad.PdfPig.Fonts.Standard14Fonts;
-using UglyToad.PdfPig.Writer;
 
 namespace CasCap.Tests.Unit;
 
@@ -201,18 +196,7 @@ public sealed class PdfDocumentPreparationTests
     private PdfDocumentPreparationService Create(DocumentPreparationConfig? config = null) =>
         new(Options.Create(config ?? new()), _chunker);
 
-    private static byte[] Pdf(params string[] pages)
-    {
-        using var builder = new PdfDocumentBuilder();
-        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
-        foreach (var text in pages)
-        {
-            var page = builder.AddPage(PageSize.A4);
-            if (text.Length > 0)
-                page.AddText(text, 10, new PdfPoint(25, 700), font);
-        }
-        return builder.Build();
-    }
+    private static byte[] Pdf(params string[] pages) => DocumentPreparationTestData.Pdf(pages);
 
     private static byte[] EncryptedPdf()
     {
@@ -225,20 +209,8 @@ public sealed class PdfDocumentPreparationTests
             "<< /Length 0 >>\nstream\n\nendstream",
             $"<< /Filter /Standard /V 1 /R 2 /Length 40 /O <{zeros}> /U <{zeros}> /P -4 >>",
         };
-        var content = new StringBuilder("%PDF-1.4\n");
-        var offsets = new List<int>();
-        for (var index = 0; index < objects.Length; index++)
-        {
-            offsets.Add(content.Length);
-            content.Append(CultureInfo.InvariantCulture, $"{index + 1} 0 obj\n{objects[index]}\nendobj\n");
-        }
-        var xref = content.Length;
-        content.Append("xref\n0 6\n0000000000 65535 f \n");
-        foreach (var offset in offsets)
-            content.Append(CultureInfo.InvariantCulture, $"{offset:D10} 00000 n \n");
-        content.Append(CultureInfo.InvariantCulture,
-            $"trailer\n<< /Size 6 /Root 1 0 R /Encrypt 5 0 R /ID [<00000000000000000000000000000000><00000000000000000000000000000000>] >>\nstartxref\n{xref}\n%%EOF\n");
-        return Encoding.ASCII.GetBytes(content.ToString());
+        return DocumentPreparationTestData.RawPdf(objects,
+            "/Encrypt 5 0 R /ID [<00000000000000000000000000000000><00000000000000000000000000000000>]");
     }
 
     private sealed class ObservedStream(byte[] bytes) : Stream

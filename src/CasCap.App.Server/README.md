@@ -30,18 +30,22 @@ source-reference PoC: `Queued` is durable admission, not searchable PDF content.
 The same elected feature now supports durable job processing behind an off-by-default gate.
 Under `CasCap:DocumentIngestionConfig`, `ProcessingEnabled` defaults to `false` and
 `ProcessingTimeoutSeconds` defaults to `300` (range 30-900). Enabling processing without a real
-[`IDocumentProcessor`](Abstractions/IDocumentProcessor.cs) registration fails startup; no PDF
-processor is supplied yet, so keep the gate off.
+[`IDocumentProcessor`](Abstractions/IDocumentProcessor.cs) registration fails startup.
+The Debug role now registers
+[`PdfDocumentProcessor`](Services/PdfDocumentProcessor.cs), which downloads, prepares and persists
+immutable chunks but does not embed or activate them. Keep the gate off until provider-backed and
+authenticated-source checks plus the infrastructure handoff pass.
 
 [`DocumentIngestionJobService`](Services/DocumentIngestionJobService.cs) persists claims,
 attempt counts and retry times. Processing is serial, limited to three attempts, with a 30-second
 retry delay and expired-claim recovery. Cancellation/leadership loss leaves unfinished work
 recoverable; deleted/superseded revisions and expired/replaced claims cannot record completion.
-`Completed` means the registered processor finished, not that a document is searchable.
-Apply the additive processing migration externally before rolling out this code; do not enable
-processing during a mixed-version ingestion rollout. Offline PDF preparation and a conditional
-source-read adapter exist separately; the real processor, durable chunks, embeddings and generation
-activation remain future work.
+`Completed` means preparation is durably staged, not that a document is searchable; document status
+still records admission, not a derived indexing state. `ClaimLost` records no outcome and leaves
+recovery/supersession to the existing lifecycle.
+Apply the processing and `20261026041415_DocumentPreparedGenerations` migrations externally before
+rolling out this code; do not enable processing during a mixed-version ingestion rollout.
+Embeddings and searchable generation activation remain future work.
 
 Release explicitly rejects ingestion until the required shared APIs are published.
 `migrate` is a finite external schema job with no HTTP listener or background ingestion; the existing
@@ -103,9 +107,30 @@ Missing ETags, unassigned sources or relative path segments in decoded names fai
 Azure 404/412, permissions and transient
 failures propagate during opening or reading; the future processor must classify outcomes and
 discard partial data. The caller owns the stream and supplies read cancellation and preparation
-limits. This adapter is not yet connected to a durable document processor and does not mark jobs
-complete, stage output or activate generations. No Azure access was performed for its offline tests.
+limits. The PDF processor consumes this stream before persisting complete preparation output.
+The adapter itself does not mark jobs complete or activate generations.
+No Azure access was performed for its offline tests.
 Its new shared APIs remain unpublished, so keep this path on Debug project references.
+
+### Durable Prepared Output
+
+[`DocumentPreparationStoreService`](Services/DocumentPreparationStoreService.cs) atomically stages
+generation metadata and every chunk. A deterministic source/profile identity deduplicates retries,
+including recovery after staging committed but job completion did not. Stored metadata includes the
+original PDF SHA-256, source revision/ETag, complete preparation profile, page count and no-text pages.
+Separate chunk rows retain text, page, ordinal, offsets and actual token count.
+
+The store and job completion share the exact tenant/collection/document/source/claim fence under
+the existing PostgreSQL transaction lock. The store rechecks the database deadline after saving,
+before commit. A stale claim returns `ClaimLost`; cancellation, deadline expiry during inserts and
+write failures roll back the batch. Tenant-qualified foreign keys protect generation ownership.
+No searchable pointer or vector is written, and changing a profile creates distinct output.
+
+The processor treats invalid source metadata, absent/changed Blobs and rejected PDFs as permanent
+failures. Source 408/429/5xx and read I/O failures use bounded retries; unknown permissions,
+database faults and cancellation propagate. Durable cause codes remain generic.
+Existing prepared text/history is retained after tombstones; authorized purge/retention and a
+searchable-generation lifecycle remain prerequisites for broader use.
 
 ## Public Surface
 

@@ -3,6 +3,7 @@ using CasCap.Common.Abstractions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace CasCap.Tests.Integration;
 
@@ -15,6 +16,7 @@ public sealed class DocumentIngestionCompositionTests
     [InlineData(false, false, true)]
     [InlineData(true, false, false)]
     [InlineData(true, true, true)]
+    [InlineData(true, false, true)]
     public void ProcessorGate(bool enabled, bool registered, bool valid)
     {
         var builder = WebApplication.CreateBuilder();
@@ -42,6 +44,8 @@ public sealed class DocumentIngestionCompositionTests
         if (registered)
             builder.Services.AddScoped<IDocumentProcessor, UnusedProcessor>();
         AppHost.AddIngestion(builder, runtimeEnabled: true);
+        if (!valid)
+            builder.Services.RemoveAll<IDocumentProcessor>();
         using var provider = builder.Services.BuildServiceProvider(new ServiceProviderOptions
         {
             ValidateOnBuild = true,
@@ -49,7 +53,12 @@ public sealed class DocumentIngestionCompositionTests
         });
         var options = provider.GetRequiredService<IOptions<DocumentIngestionConfig>>();
         if (valid)
+        {
             Assert.Equal(enabled, options.Value.ProcessingEnabled);
+            using var scope = provider.CreateScope();
+            Assert.IsType(registered ? typeof(UnusedProcessor) : typeof(PdfDocumentProcessor),
+                Assert.Single(scope.ServiceProvider.GetServices<IDocumentProcessor>()));
+        }
         else
         {
             var exception = Assert.Throws<OptionsValidationException>(() => options.Value);

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Core;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
@@ -42,7 +43,8 @@ internal sealed class PdfDocumentPreparationService(
                 return Rejected(PdfPreparationStatus.EncryptedPdf, profile);
             if (pdf.NumberOfPages > config.Value.MaximumPages)
                 return Rejected(PdfPreparationStatus.PageLimitExceeded, profile, pdf.NumberOfPages);
-            return Extract(pdf, profile, chunking, cancellationToken);
+            var sourceSha256 = Convert.ToHexString(SHA256.HashData(payload.GetBuffer().AsSpan(0, (int)payload.Length)));
+            return Extract(pdf, profile, chunking, sourceSha256, cancellationToken);
         }
         catch (PdfDocumentEncryptedException)
         {
@@ -74,6 +76,7 @@ internal sealed class PdfDocumentPreparationService(
         PdfDocument pdf,
         DocumentPreparationProfile profile,
         DocumentChunkingConfig chunking,
+        string sourceSha256,
         CancellationToken cancellationToken
     )
     {
@@ -105,6 +108,7 @@ internal sealed class PdfDocumentPreparationService(
         {
             Status = chunks.Count == 0 ? PdfPreparationStatus.NoExtractableText : PdfPreparationStatus.Prepared,
             Profile = profile,
+            SourceSha256 = sourceSha256,
             PageCount = pdf.NumberOfPages,
             PagesWithoutText = pagesWithoutText.ToArray(),
             Chunks = chunks.ToArray(),

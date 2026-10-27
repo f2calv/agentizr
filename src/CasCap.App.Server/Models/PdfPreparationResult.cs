@@ -9,6 +9,9 @@ internal sealed record PdfPreparationResult
     /// <summary>Gets the captured extraction and chunking profile, including token-budget settings.</summary>
     public required DocumentPreparationProfile Profile { get; init; }
 
+    /// <summary>Gets the SHA-256 digest of the bounded original bytes when extraction reached them.</summary>
+    public string? SourceSha256 { get; init; }
+
     /// <summary>Gets the PDF page count when parsing reached it.</summary>
     public int PageCount { get; init; }
 

@@ -61,6 +61,8 @@ internal sealed class DocumentIngestionJobService(
         CancellationToken cancellationToken
     )
     {
+        if (outcome == DocumentProcessingOutcome.ClaimLost)
+            return false;
         var failureCode = outcome switch
         {
             DocumentProcessingOutcome.Completed => null,
@@ -72,13 +74,7 @@ internal sealed class DocumentIngestionJobService(
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await DocumentIngestionTransactions.LockAsync(db, cancellationToken);
         var now = await DocumentIngestionTransactions.GetUtcNowAsync(db, timeProvider, cancellationToken);
-        var job = await db.DocumentIngestionJobs.SingleOrDefaultAsync(job => job.Id == claim.JobId
-            && job.ClaimId == claim.ClaimId && job.TenantId == claim.TenantId && job.CollectionId == claim.CollectionId
-            && job.Status == DocumentIngestionStates.Processing && job.ClaimExpiresAtUtc > now
-            && db.KnowledgeDocuments.Any(document => document.Id == job.DocumentId
-                && document.TenantId == job.TenantId && document.CollectionId == job.CollectionId
-                && document.Sequencer == job.Sequencer && document.Status != DocumentIngestionStates.Deleted),
-            cancellationToken);
+        var job = await DocumentIngestionTransactions.CurrentClaim(db, claim, now).SingleOrDefaultAsync(cancellationToken);
         if (job is null)
         {
             await transaction.CommitAsync(cancellationToken);
