@@ -51,6 +51,38 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
             AdministrationRoutes.Format(AdministrationRoutes.Definitions, appId, agentName),
             cancellationToken);
 
+    /// <summary>Suggests an unused version, checking snapshots outside the bounded history window too.</summary>
+    /// <remarks>A concurrent publication can still claim the suggestion; publication returns a conflict in that case.</remarks>
+    public async Task<ApiResult<string>> GetSuggestedVersionAsync(
+        string appId,
+        string agentName,
+        CancellationToken cancellationToken)
+    {
+        var history = await GetHistoryAsync(appId, agentName, cancellationToken);
+        if (!history.IsSuccess)
+            return new ApiResult<string>(history.Status, Errors: history.Errors);
+        var existingVersions = history.Value!.Select(item => item.DefinitionVersion).ToHashSet(StringComparer.Ordinal);
+        while (true)
+        {
+            var version = DefinitionDraft.SuggestVersion(existingVersions);
+            var snapshot = await GetVersionAsync(appId, agentName, version, cancellationToken);
+            if (snapshot.Status == ApiStatus.NotFound)
+                return new ApiResult<string>(ApiStatus.Success, version);
+            if (!snapshot.IsSuccess)
+                return new ApiResult<string>(snapshot.Status, Errors: snapshot.Errors);
+            existingVersions.Add(version);
+        }
+    }
+
+    /// <summary>Gets the authoritative active version, or a not-found outcome when the agent is inactive.</summary>
+    public Task<ApiResult<AgentDefinitionSnapshotResponse>> GetActiveAsync(
+        string appId,
+        string agentName,
+        CancellationToken cancellationToken) =>
+        GetAsync<AgentDefinitionSnapshotResponse>(
+            AdministrationRoutes.Format(AdministrationRoutes.ActiveDefinition, appId, agentName),
+            cancellationToken);
+
     /// <summary>Gets an agent's newest-first activation, rollback and deactivation audit.</summary>
     public Task<ApiResult<IReadOnlyList<AgentDefinitionActivationResponse>>> GetActivationsAsync(
         string appId,

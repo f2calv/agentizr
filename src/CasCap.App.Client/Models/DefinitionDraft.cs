@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -32,6 +33,17 @@ public sealed class DefinitionDraft
     /// <summary>Starts an empty draft for a new agent.</summary>
     public static DefinitionDraft Empty() => new(new JsonObject { ["enabled"] = true }, []);
 
+    /// <summary>Suggests the first unused UTC date-and-revision version for this agent.</summary>
+    public static string SuggestVersion(IEnumerable<string> existingVersions, TimeProvider? timeProvider = null)
+    {
+        var existing = existingVersions.ToHashSet(StringComparer.Ordinal);
+        var prefix = (timeProvider ?? TimeProvider.System).GetUtcNow().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var revision = 1;
+        while (existing.Contains($"{prefix}.{revision.ToString(CultureInfo.InvariantCulture)}"))
+            revision++;
+        return $"{prefix}.{revision.ToString(CultureInfo.InvariantCulture)}";
+    }
+
     /// <summary>Copies the draft into form fields for the given agent.</summary>
     public DefinitionForm ToForm(string agentName) => new()
     {
@@ -45,6 +57,7 @@ public sealed class DefinitionDraft
         Endpoint = Text(_provider, "endpoint"),
         ModelName = Text(_provider, "modelName") ?? string.Empty,
         ReasoningEffort = Text(_provider, "reasoningEffort"),
+        UseResponsesApi = _provider["useResponsesApi"]?.GetValue<bool>() ?? false,
         ToolsJson = _agent["tools"]?.ToJsonString(IndentedOptions) ?? "[]",
     };
 
@@ -86,6 +99,7 @@ public sealed class DefinitionDraft
         provider["endpoint"] = string.IsNullOrWhiteSpace(form.Endpoint) ? null : form.Endpoint.Trim();
         provider["modelName"] = form.ModelName.Trim();
         provider["reasoningEffort"] = string.IsNullOrWhiteSpace(form.ReasoningEffort) ? null : form.ReasoningEffort;
+        provider["useResponsesApi"] = form.UseResponsesApi;
 
         payload = JsonSerializer.SerializeToElement(new JsonObject { ["agent"] = agent, ["provider"] = provider });
         error = null;

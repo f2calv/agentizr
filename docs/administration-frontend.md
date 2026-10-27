@@ -63,10 +63,47 @@ Publishing and activation stay separate, as they are in the machine API:
 3. **Deactivate** removes the active pointer, again with a reason, and is refused while another
    active agent delegates to it.
 
+When copying a version, **New version** is prepopulated with today's UTC date and the first unused
+revision, such as `2030-01-02.1`. The suggestion checks snapshots outside the bounded history list
+and remains editable. A concurrent publication can still claim it; the server rejects duplicates
+without changing the existing version.
+
+The editor's **Make this definition active after publishing** checkbox is off by default. Selecting
+it changes the submit action to **Publish and activate** and requests confirmation before either
+operation. The confirmation includes an activation reason and optional evaluation scenarios,
+required when the app's policy demands evaluation. Canceling publishes nothing. Publication still
+appends an inactive snapshot first, followed by a separate guarded activation request. If activation
+is rejected, the snapshot stays published and can be activated from the agent page; an unknown
+activation outcome requires refreshing that page before retrying, not republishing.
+
+The agent page distinguishes the agent's active version from the selected snapshot. Selecting an
+inactive version exposes **Activate {version}** in the toolbar; selecting the active version exposes
+**Deactivate {version}** instead. Version history retains its per-version activation buttons.
+The active pointer is loaded separately, so a version outside the displayed history window is not
+mistaken for an inactive agent.
+
 Activation and deactivation send the active version the page displayed. If another administrator
 changed it first, the server answers 409 and the page refreshes instead of overwriting their
 decision. Replicas may keep serving the previous version for the short active-definition cache
 window described in [high availability](high-availability.md).
+Publish-and-activate uses the active version observed when the editor loaded; it does not silently
+replace a newer administrator decision.
+
+## Built-In Document Preparation Template
+
+On **New agent**, select **Use document-preparation (PdfReconciliationV1)** to start from the
+shipped faithful-transcription definition. Replacing an edited draft requires confirmation.
+Choose an authorized credential registration, an Azure OpenAI HTTPS root endpoint (or an OpenAI
+Responses endpoint), and a PDF-capable model. The template does not select deployment coordinates
+or credentials. **Use Responses API** is selected; strict structured output requires that API.
+
+The template's retained definition fields disable runtime discovery/time context, session overrides,
+conversation persistence and its own run history, and cap output at 8192 tokens. The editor preserves
+those fields when publishing and cloning versions. Activation stays unchecked after choosing a
+template. Installing or activating the definition does not enable ingestion or start a paid request.
+Complete the runtime rollout before publishing/activating definitions with these new fields.
+The durable worker binding and quality gates remain pending in
+[ADR 0001](adr-0001-centralized-document-rag.md#built-in-document-preparation-agent).
 
 ## Running Locally
 

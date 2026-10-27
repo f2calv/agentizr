@@ -30,6 +30,10 @@ public partial class ChangeReasonDialog : ComponentBase
     [Parameter]
     public Color ConfirmColor { get; set; } = Color.Primary;
 
+    /// <summary>Gets or sets the initial audit reason, which the administrator may edit before confirming.</summary>
+    [Parameter]
+    public string? InitialReason { get; set; }
+
     /// <summary>Gets or sets whether the administrator may supply fixture scenarios that must pass first.</summary>
     [Parameter]
     public bool ShowEvaluation { get; set; }
@@ -37,6 +41,9 @@ public partial class ChangeReasonDialog : ComponentBase
     /// <summary>Gets or sets whether the server policy refuses activation without a passing evaluation.</summary>
     [Parameter]
     public bool EvaluationRequired { get; set; }
+
+    /// <inheritdoc/>
+    protected override void OnInitialized() => _reason = InitialReason;
 
     private void Cancel() => MudDialog.Cancel();
 

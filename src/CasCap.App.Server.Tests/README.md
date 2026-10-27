@@ -16,6 +16,8 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | --- | ---: | ---: | --- |
 | `EndpointSmokeTests` | 5 | 9 | Verifies status and health endpoints, the frontend shell without capturing API routes, disabled MCP, all 19 named runtime controller actions and inferred API response metadata |
 | `AdministrationApiTests` | 7 | 8 | Verifies open-Development app, agent and provider discovery, guarded activation conflicts, enum names, editor drafts that keep unedited fields, required antiforgery tokens and redirect-free rejection of unknown apps |
+| `AdministrationDefinitionUiTests` | 5 | 9 | Static component rendering against synthetic HTTP responses verifies template discovery without mutations, selected-version actions, active pointers outside history, suggested versions and opt-in activation; typed-client checks cover hidden version collisions and lookup errors |
+| `DefinitionVersionSuggestionTests` | 2 | 7 | Verifies unused UTC date-and-revision suggestions, occupied revisions, gaps, custom identifiers and culture independence |
 | `AdministrationSignInTests` | 6 | 13 | With sign-in enabled, verifies 401/403 per-app assignment, assigned-app listing, session description, administrator audit identity, logout antiforgery, local-only return URLs and the setup page for ignored forwarded HTTPS |
 | `AdministrationReplicaTests` | 1 | 1 | Against real PostgreSQL: an antiforgery token issued by one host replica is accepted by another through the shared Data Protection key ring |
 | `AgentizrMcpEndpointTests` | 3 | 3 | Verifies MCP discovery of only the read-only status tool, its structured result, and `Origin` rejection |
@@ -45,7 +47,7 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | `SessionCompactionConfigTests` | 3 | 6 | Verifies per-provider compaction resolution (tenant override, runtime entry, defaults) and startup validation |
 | `LiveAgentRuntimeSmokeTests` | 1 | 1 | Opt-in authenticated run, streaming, session inspection and cleanup against a complete live runtime |
 | `RuntimeLoggingTests` (Debug only) | 1 | 1 | Real PostgreSQL publications change the Serilog pipeline and forwarded logs without losing a process-cache sentinel; category overrides remain intact |
-| **Runtime baseline subtotal** | **140** | **209** | Excludes Debug-only logging; role/ingestion additions are listed separately below |
+| **Runtime baseline subtotal** | **147** | **225** | Excludes Debug-only logging; role/ingestion additions are listed separately below |
 
 The runtime logging soak is Debug-only. Run that case with:
 
@@ -541,7 +543,8 @@ not part of this test. See the
 
 | Category | Test-case count | Purpose |
 | --- | ---: | --- |
-| `Integration` | 113 | ASP.NET Core host protocols, startup security, PostgreSQL persistence and Redis payload caching |
+| `Integration` | 122 | ASP.NET Core host protocols, synthetic definition-page rendering, startup security, PostgreSQL persistence and Redis payload caching |
+| `Generation` | 7 | Credential-free definition-version suggestions with a fixed clock |
 | `Agent Runtime` | 54 | Runtime orchestration, tools, metrics, evaluation, persistence, caching, locking and compaction |
 | `Document Preparation` | 3 | Secret-free preparation template, editor constraint preservation and stateless runtime execution |
 | `Tenant Isolation` | 38 | Cross-tenant state, JWT permissions, caller mappings, administrator assignment, MCP and provider credentials and identity isolation |
@@ -630,6 +633,7 @@ Tests/
 ├── ScriptedEvaluationAgentFactory.cs
 ├── Integration/
 │   ├── AdministrationApiTests.cs
+│   ├── AdministrationDefinitionUiTests.cs
 │   ├── AdministrationReplicaTests.cs
 │   ├── AdministrationSignInTests.cs
 │   ├── AdministrationSignInWebApplicationFactory.cs
@@ -664,6 +668,7 @@ Tests/
 └── Unit/
     ├── AdministrationAccessTests.cs
     ├── AdministrationSetupServiceTests.cs
+    ├── DefinitionVersionSuggestionTests.cs
     ├── AgentDefinitionEvaluatorTests.cs
     ├── AgentRuntimeAuthorizationTests.cs
     ├── AgentRuntimeBuiltInToolsTests.cs

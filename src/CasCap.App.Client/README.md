@@ -20,10 +20,20 @@ the API fit together.
 | `/apps/{appId}` | Paged, searchable agents, including inactive and never-activated ones |
 | `/apps/{appId}/providers` | Provider registrations and the definition policy, read-only |
 | `/apps/{appId}/agents/{agentName}` | Versions, the selected snapshot, activation audit, activate, roll back and deactivate |
-| `/apps/{appId}/agents/{agentName}/edit?from={version}` | Copy a version, edit it and publish a new inactive version |
-| `/apps/{appId}/new-agent` | Create an agent by publishing its first inactive version |
+| `/apps/{appId}/agents/{agentName}/edit?from={version}` | Copy a version, edit it and publish, with optional guarded activation |
+| `/apps/{appId}/new-agent` | Create an agent by publishing its first version, optionally activating it |
 
 Selections and searches live in the URL, so a refresh or shared link reopens the same view.
+The editor suggests an unused UTC date-and-revision version. Activation after publication is
+unchecked by default and requires confirmation; publication and activation remain separate API
+operations. The agent page offers activation for the selected inactive version and deactivation
+only when the selected version is active.
+
+New-agent creation offers a server-supplied document-preparation template. It leaves provider
+coordinates unconfigured and activation unchecked, preserves its structured-output/stateless
+settings, and confirms replacement of an edited draft. The editor exposes the Responses API switch.
+See the [template walkthrough](../../docs/administration-frontend.md#built-in-document-preparation-template)
+for provider requirements and the still-pending durable-worker integration.
 
 ## Public Surface
 
