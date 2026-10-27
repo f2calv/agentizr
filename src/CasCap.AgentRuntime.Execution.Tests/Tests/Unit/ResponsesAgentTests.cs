@@ -74,13 +74,20 @@ public sealed class ResponsesAgentTests
         using var httpClient = new HttpClient(handler);
         var provider = Provider(AgentType.OpenAI);
         var config = Config();
-        var (client, _, instructions) = AgentExtensions.CreateAgent(provider, config, httpClient);
+        AgentStructuredResponse? receipt = null;
+        var (client, _, instructions) = AgentExtensions.CreateAgent(provider, config, httpClient,
+            onStructuredResponse: (response, _) =>
+            {
+                receipt = response;
+                return ValueTask.CompletedTask;
+            });
         using (client)
         {
             await Assert.ThrowsAsync<System.ClientModel.ClientResultException>(() =>
                 client.GetResponseAsync([AgentExtensions.BuildChatMessage("page")],
                     AgentExtensions.BuildChatOptions(config, instructions, provider), TestContext.Current.CancellationToken));
             Assert.Equal(1, handler.Attempts);
+            Assert.Null(receipt);
         }
     }
 
@@ -93,13 +100,24 @@ public sealed class ResponsesAgentTests
         using var httpClient = new HttpClient(handler);
         var provider = Provider(AgentType.OpenAI);
         var config = Config();
-        var (client, _, instructions) = AgentExtensions.CreateAgent(provider, config, httpClient);
+        AgentStructuredResponse? receipt = null;
+        var (client, _, instructions) = AgentExtensions.CreateAgent(provider, config, httpClient,
+            onStructuredResponse: (response, _) =>
+            {
+                receipt = response;
+                return ValueTask.CompletedTask;
+            });
         using (client)
         {
             await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 client.GetResponseAsync([AgentExtensions.BuildChatMessage("page")],
                     AgentExtensions.BuildChatOptions(config, instructions, provider), TestContext.Current.CancellationToken));
             Assert.Equal(1, handler.Attempts);
+            Assert.NotNull(receipt);
+            Assert.Equal(output, receipt.Text);
+            Assert.Equal(status == "completed", receipt.IsComplete);
+            Assert.Equal(15, receipt.Usage?.TotalTokenCount);
+            Assert.Equal("resp_synthetic", receipt.ResponseId);
         }
     }
 

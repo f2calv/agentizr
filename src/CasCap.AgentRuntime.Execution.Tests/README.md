@@ -25,13 +25,13 @@ produce the inventory below; counts come from attributes and expanded `[InlineDa
 | `SessionCompactionConfigTests` | 1 | 6 | Compaction notification modes |
 | `ReasoningMarkupFilterTests` | 3 | 8 | Complete, orphaned-closing and unclosed `<think>` markup, clean text and reasoning-only answers |
 | `AgentExtensionsCreateAgentTests` | 10 | 13 | Provider validation for Ollama / Azure OpenAI / OpenAI endpoints and credentials, caller-supplied transport, unsupported provider types |
-| `ResponsesAgentTests` | 6 | 12 | Offline SDK/framework PDF attachment, explicit strict schema, output ceilings, non-storage, Entra audience, incomplete/malformed output, cancellation and no automatic paid-POST retries |
+| `ResponsesAgentTests` | 6 | 12 | Offline SDK/framework PDF attachment, strict schema, output ceilings, non-storage, Entra audience, pre-validation response/usage receipts, incomplete/malformed output, cancellation and no automatic paid-POST retries |
 | `ToolSourceValidationTests` | 2 | 2 | Remote MCP logical credential references are valid only with endpoint sources |
 | `ToolFilterTests` | 3 | 4 | Include-list filtering always rejects unresolved tool names, regardless of hosting environment |
 | `ToolFailureTests` | 5 | 8 | Throwing tools and MCP failures, awaited tool activity/results with safe exception metadata, and budget/activity-sink sharing with sub-agents |
 | `AgentResponseUsageTests` | 6 | 6 | Framework usage aggregation across tool-call round-trips, `RunAnalysisAsync` usage/tool-call reporting and leaked reasoning-markup removal |
 | `AgentTelemetryTests` | 3 | 3 | Agent-level OpenTelemetry spans, sub-agent span nesting, sensitive-data opt-in |
-| `AgentRunScopeTests` | 9 | 11 | Depth nesting, callback inheritance, shared/thread-safe attachment collection, drain semantics, per-scope tool failures |
+| `AgentRunScopeTests` | 9 | 11 | Depth nesting, activity callback inheritance without inheriting the root structured-response observer, shared/thread-safe attachments, drain semantics and scoped tool failures |
 | `AgentTypeRegistryTests` | 11 | 11 | Registry lookup, ambiguous-name rejection, DI and assembly indexing, tool resolution via registry |
 | `AgentEvaluationGradingTests` | 7 | 18 | Number, phrase, anchored-pattern and combined answer checks, required/forbidden/side-effect grading, Wilson intervals |
 | `AgentEvaluationToolTests` | 10 | 16 | Tool classification and filtering, fixture and sandbox responses, variant descriptions and schemas, harness tool assembly and provider availability |

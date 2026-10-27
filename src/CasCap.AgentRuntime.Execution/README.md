@@ -55,6 +55,14 @@ responses. The adapter explicitly sets strict mode, checks the provider's author
 status and rejects malformed JSON. Structured source text bypasses the reasoning-markup filter.
 A caller can lower, but cannot raise, the configured Responses output ceiling.
 
+An optional awaited `CreateAgent` structured-response observer receives the explicit
+[`AgentStructuredResponse`](Models/AgentStructuredResponse.cs) text, completion, model/response
+identifiers and reported usage **before** JSON/completion validation. This lets a host persist paid
+receipts for malformed/incomplete responses without enabling conversation history. It is not a
+generic activity callback and is not inherited by delegated child scopes. Persistence, bounds,
+authorization and ambiguous-outcome recovery remain the host's responsibility; observer failures
+propagate rather than permitting silent continuation.
+
 The host honors `IncludeRuntimeContext=false` to omit its discovery tools and time context, and
 `Stateless=true` to bypass its own session overrides, conversation storage and content-bearing run
 history. Configured tools are separate: a tool-free definition must also leave `Tools` empty.

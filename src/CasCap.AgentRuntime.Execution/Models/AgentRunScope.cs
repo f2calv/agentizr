@@ -89,6 +89,9 @@ public sealed class AgentRunScope
     /// <summary>Invoked before/after tool work and for model messages; awaited so a host can persist partial activity.</summary>
     public Func<AgentRunActivity, CancellationToken, ValueTask>? OnActivity { get; init; }
 
+    /// <summary>Records a structured provider receipt before validation; independent of optional conversation history.</summary>
+    public Func<AgentStructuredResponse, CancellationToken, ValueTask>? OnStructuredResponse { get; init; }
+
     /// <summary>Attachments accumulated during this run, including those bubbled up from sub-agents.</summary>
     public IReadOnlyList<AgentRunAttachment> Attachments
     {

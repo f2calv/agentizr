@@ -120,6 +120,7 @@ public static partial class AgentExtensions
     /// Optional provider compaction policy. When set, the agent's chat history uses a
     /// <see cref="ToolOutputStrippingChatReducer"/>; when <see langword="null"/> history is not compacted.
     /// </param>
+    /// <param name="onStructuredResponse">Optional awaited receipt observer, invoked before structured-output validation.</param>
     /// <returns>A tuple of the built <see cref="IChatClient"/>, <see cref="AIAgent"/>, and the resolved system instructions.</returns>
     public static (IChatClient chatClient, AIAgent agent, string instructions) CreateAgent(
         ProviderConfig provider,
@@ -134,7 +135,8 @@ public static partial class AgentExtensions
         TokenCredential? tokenCredential = null,
         bool enableSensitiveTelemetryData = false,
         ILoggerFactory? loggerFactory = null,
-        SessionCompactionConfig? sessionCompaction = null)
+        SessionCompactionConfig? sessionCompaction = null,
+        Func<AgentStructuredResponse, CancellationToken, ValueTask>? onStructuredResponse = null)
     {
         var agentLogger = loggerFactory?.CreateLogger(nameof(AgentExtensions)) ?? NullLogger.Instance;
         var suppliedHttpClient = httpClient;
@@ -206,7 +208,7 @@ public static partial class AgentExtensions
 
         chatClientBuilder.UseFunctionInvocation();
         if (agentConfig.JsonOutput is not null)
-            chatClientBuilder.Use(inner => new JsonOutputChatClient(inner));
+            chatClientBuilder.Use(inner => new JsonOutputChatClient(inner, onStructuredResponse));
         if (loggerFactory is not null)
             chatClientBuilder.UseLogging(loggerFactory);
         if (otelSourceName is not null)
