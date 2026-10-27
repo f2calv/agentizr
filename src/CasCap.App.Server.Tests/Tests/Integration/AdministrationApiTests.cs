@@ -39,6 +39,11 @@ public sealed class AdministrationApiTests(AgentDefinitionAdministrationWebAppli
         Assert.Equal(ProviderCredentialSources.None, provider.CredentialSource);
         Assert.True(provider.IsEndpointAllowed);
         Assert.Contains("https://mcp.example.com", catalogue.AllowedMcpAuthorities);
+        var preparation = Assert.Single(catalogue.DefinitionTemplates);
+        Assert.Equal(CasCap.Constants.DocumentPreparationAgentTemplate.AgentName, preparation.AgentName);
+        Assert.Equal(CasCap.Constants.DocumentPreparationAgentTemplate.Version, preparation.TemplateVersion);
+        Assert.Equal(nameof(AgentType.AzureOpenAI),
+            preparation.Definition.GetProperty("provider").GetProperty("type").GetString());
     }
 
     [Fact]

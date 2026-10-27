@@ -71,12 +71,13 @@ Issue #73 was closed at the user's request after this proposal was drafted; PR #
 | R6 | Preserve recoverability, idempotency, embedding compatibility and tenant isolation across retries, crashes and multiple replicas |
 | R7 | Treat source documents, extracted text, queries and embeddings as sensitive; do not commit source material or export its contents through telemetry |
 | R8 | Prove quality using both initial consumer scenarios and the production storage provider before rollout |
-| R9 | Provide app-scoped upload, document listing, status, replacement, retry/reindex, protected download and deletion in the Blazor administration frontend |
+| R9 | Provide app-scoped document management with protected source/derived previews, page-by-page comparison, status, stage usage/cost visibility, replacement, retry/reindex, download and deletion |
 | R10 | Store original PDFs in private Azure Blob containers; use Event Grid and durable queue delivery to trigger recoverable Agentizr background processing |
 | R11 | Keep queue consumption transport-neutral and allow Azure AI Search as an optional index target without replacing the initial pgvector backend |
 | R12 | Use two versioned, content-selected chunking profiles: section-based references and entry-based vocabulary, sharing extraction contracts, token limits and provenance |
 | R13 | Initially generate level-restricted lesson responses with pre-delivery vocabulary/grammar validation and bounded repair; review retained conversations for missed violations without claiming an absolute CEFR guarantee |
-| R14 | Select local PdfPig or Azure Document Intelligence preparation per document through a trusted typed choice, retaining one downstream chunking/embedding/index lifecycle; defer OpenAI vision |
+| R14 | Select local PdfPig, Document Intelligence or the preferred managed-draft/preparation-agent hybrid through trusted versioned authorization and separate quality gates; keep embedding/index selection independent |
+| R15 | Admit Markdown through a separately validated UTF-8 passthrough path rather than implicitly converting it with PDF or paid extraction services |
 
 Initial collections hold application-wide reference material. Learner-private documents and
 within-tenant per-user ACLs are out of scope: reject such uploads until a separately designed ACL
@@ -119,6 +120,25 @@ processing progress and safe errors, retry/reindex, replace versions, download o
 documents. Show uploaded, queued, processing, searchable, failed and deletion/purge states distinctly;
 upload completion must never be presented as completed indexing. Surface stale-revision conflicts,
 unsupported files, size/quota rejection and unavailable dependencies explicitly.
+
+Provide a protected comparison view inspired by the experimental review panels: original PDF,
+available local extraction, managed draft and reconciled Markdown, with physical-page navigation,
+raw/rendered Markdown, provenance, changes and uncertainties. A view reads retained artifacts; it
+must not rerun paid preparation. Keep review-required and reconciliation-required candidates distinct
+from searchable generations. These are future document-management capabilities, not current UI.
+
+Authorize original and derived reads by tenant/collection and current document access. Sanitize
+rendered Markdown, disable active source HTML/scripts and arbitrary external resource loading, and
+never expose raw private Blob credentials. Treat previews as sensitive content rather than telemetry.
+
+Show per-stage native usage first: returned managed-analysis pages, reported input/output/total
+tokens and available cache/reasoning counters, including rejected responses and ambiguous attempts.
+Missing usage is **unknown**, not zero. Currency values require a qualified price snapshot with
+service/model/revision, region, effective date, unit, currency and rate; label them estimates unless
+reconciled to billing evidence. Token counts alone do not account for Blob, Event Grid, queue or
+other Azure charges. Preserve the basis and scope of any estimate and distinguish those charges
+from inference/preparation usage. The worker ledger captures native usage now; pricing and UI
+aggregation remain later work.
 
 Keep browser components thin: use
 [AdministrationApiClient](../src/CasCap.App.Client/Services/AdministrationApiClient.cs) and server-side
@@ -204,20 +224,21 @@ choice, not a compatibility claim for an unspecified local or hosted embedding m
 
 #### Selectable Document Preparation
 
-Expose two initial choices in the proposed Blazor upload flow and administration API:
+Expose the following proposed choices only after their respective quality and rollout gates:
 
 | Proposed typed value | UI label | Preparation work |
 | --- | --- | --- |
 | `LocalPdfPig` | Local PDF extraction | Local text extraction; structured-layout conversion remains subject to quality acceptance |
 | `AzureDocumentIntelligence` | Azure Document Intelligence | Managed `prebuilt-layout` analysis producing Markdown and structured page/layout evidence through the IaC handoff below |
+| `AzureHybrid` | Managed draft and preparation agent | Managed layout followed by the pinned tenant-local preparation agent on each physical PDF page; the owner's preferred candidate |
 
-This is a closed, validated preparation choice, not "local RAG versus cloud RAG": both methods
+This is a closed, validated preparation choice, not "local RAG versus cloud RAG": all methods
 produce the same Agentizr-owned structured-block/provenance contract and feed the same
 content-selected chunking, embedding and indexing pipeline. Embedding-model and index-target
 selection remain separate. Local extraction remains the explicit default; managed analysis is
 opt-in and must not be advertised as available before its application access and quality gates pass.
-Azure OpenAI vision is a distinct experimental preparation candidate, not another name for
-Document Intelligence and not an initial production upload choice.
+The hybrid is not another name for Document Intelligence. PDF-only OpenAI remains an experimental
+comparison path, not an implicitly enabled upload option.
 
 Persist the authorized selection with document-version/upload intent metadata before processing
 can be admitted. The worker resolves it from PostgreSQL, not from an untrusted Event Grid body,
@@ -236,23 +257,27 @@ in the IaC handoff; do not introduce browser credentials or a second provisionin
 Bound page counts, retries, timeouts and chargeable options, and show the selected method and
 processing failures in management status. If the chosen provider is unavailable or rejected,
 surface that outcome explicitly; never silently switch to a different method or cloud billing.
-This contract is proposed: the production selector, managed adapter and upload control are not
-implemented by the current preparation/preview work. A separate Debug-only managed benchmark has
-verified application-identity access and the pinned REST contract, not a production adapter.
-Local heuristic development is paused at `LayoutReviewV6` in favor of evaluating managed output;
-neither approach has passed complete semantic acceptance.
+The production selector and upload control remain proposed. The Debug worker has an explicitly
+authorized source-level hybrid binding, described below; it does not install definitions, opt old
+jobs into paid processing or establish production acceptance. The standalone benchmark clients,
+local layout heuristics and private-export test harnesses were retired on 2026-10-27 after the
+runtime integration was verified. Agentizr's built-in definition is the sole reconciliation
+prompt/schema authority; PdfPig remains a production parsing/page-copy dependency, not a second
+reconciliation engine. Existing private comparison artifacts remain historical evidence, not
+permission to replay their requests. Complete semantic acceptance remains outstanding.
 
 #### Experimental PDF-Only And Hybrid Reconciliation
 
-A Debug-only [comparison implementation](../src/CasCap.App.Server.Tests/Tests/Integration/LiveOpenAIDocumentQualityTests.cs)
-adds two experimental candidates: original PDF page alone, and original PDF page plus that page's
-saved Document Intelligence draft. The PDF is authoritative; draft mistakes must not anchor the
-result. The approved trial selects the existing `gpt-5.5` deployment, revision `2026-04-24`, for
+The historical Debug-only comparison produced two experimental candidates: original PDF page
+alone, and original PDF page plus that page's saved Document Intelligence draft. The PDF is
+authoritative; draft mistakes must not anchor the result. The approved trial selected the existing
+`gpt-5.5` deployment, revision `2026-04-24`, for
 physical vocabulary pages `6,7,12`: at most six generation requests, each capped at 8,192 output
 tokens including reasoning. Existing managed results are reused without new Document Intelligence
 analysis. This is a quality experiment, not a production provider or an accepted upload method.
 
-The [versioned prompt](../src/CasCap.App.Server.Tests/Tests/OpenAIDocumentQualityClient.cs) requires
+The contract now owned by the
+[built-in definition](../src/CasCap.App.Server/Constants/DocumentPreparationAgentTemplate.cs) requires
 faithful transcription without summarizing, translating, simplifying language or correcting the
 author's spelling. Prefer ordinary Markdown over HTML. Simple two-column pairs may become
 hyphenated list items when every source value, header and wrapped/multiple example remains
@@ -286,8 +311,8 @@ contract. Reuse the tenant-qualified
 [AgentDefinition](../src/CasCap.App.Server/Models/AgentDefinition.cs) model rather than introducing
 a privileged global agent that can read every application's documents. Template installation
 must not silently activate chargeable processing or overwrite an administrator's selected version.
-The opt-in template/runtime foundation is implemented locally, independently of the frozen
-benchmark. It is not installed or activated on startup and is not yet a durable ingestion adapter.
+The opt-in template/runtime foundation and Debug durable worker binding are implemented locally,
+through the actual framework runtime. Nothing installs, activates or enables paid processing on startup.
 
 The agent owns the versioned reconciliation instructions: consume the authorized original page
 and optionally its managed extraction draft, return faithful Markdown with separate change and
@@ -312,14 +337,14 @@ targets, overwrite originals or activate searchable content. Candidate preparati
 and embedding/index activation remain separate gates; neither a second model nor a clean schema
 proves fidelity.
 
-Reuse the accepted benchmark contract and a shared production transport rather than maintaining
-parallel prompts or clients per consuming application. Prove PDF attachment handling, strict
-structured-output enforcement and replay/cost controls through the actual agent runtime before
-replacing the experimental transport; configuring an
-[AgentConfig](../src/CasCap.AgentRuntime.Execution/Models/_AgentConfig.cs) alone does not establish
-those capabilities. Complete the fixed PDF-only/hybrid comparison independently first, preserving
-its frozen prompt and request evidence. Production processing remains gated on quality acceptance;
-the benchmark is not silently converted into a new agent execution path.
+Reuse the benchmark-informed contract and shared production transport rather than maintaining
+parallel prompts or clients per consuming application. PDF attachment handling, strict
+structured-output enforcement and replay/cost controls are covered through the actual runtime,
+not merely an [AgentConfig](../src/CasCap.AgentRuntime.Execution/Models/_AgentConfig.cs).
+The obsolete comparison transport and its tests have been removed; retained tests exercise the
+production template, worker/provider and reusable Azure transport. Preserve private historical
+request/response artifacts without rerunning the retired harness. Production processing remains
+gated on provider-backed checks and semantic-quality acceptance.
 
 Implementation boundary:
 
@@ -342,11 +367,29 @@ Implementation boundary:
 - [x] Validate the local foundation with 62 focused synthetic/offline tests (25 execution-library
   and 37 host/template/editor cases) and clean Release host/frontend builds. These checks do not
   contact a provider, install/activate definitions, prove document fidelity or enable ingestion.
-- [ ] Bind the durable worker to an approved immutable tenant-local definition and model revision,
-  with source/page validation, request/token/time budgets, durable paid-request intent/receipts,
-  ambiguous-outcome recovery and immutable candidate provenance. SDK non-retry is not durable
-  replay protection; the existing retryable PDF processor must not call this path until these
-  controls exist. The template schema alone is not local page-contract or fidelity validation.
+- [x] Add the Debug [hybrid worker](../src/CasCap.App.Server/Services/HybridDocumentProcessor.cs)
+  and [admission plan](../src/CasCap.App.Server/Services/DocumentPreparationPlanService.cs).
+  Pin the exact active tenant-local snapshot, explicit model/revision/resource binding and paid
+  budgets in the inbox transaction. Old/null plans retain local PDF processing. Before each new
+  paid stage, verify tenant credentials/current endpoint policy and read-only account/deployment
+  metadata; a model/endpoint mismatch authorizes no paid intent.
+- [x] Persist [single-submission intents and receipts](../src/CasCap.App.Server/Services/DocumentPreparationOperationStore.cs)
+  for managed analysis and each physical page. Resume managed receipts with GET only and reuse
+  captured model responses, including malformed/incomplete responses and their usage. An intent
+  without a receipt becomes `ReconciliationRequired`, never permission for another POST.
+  Bind logical identity to original bytes, physical page, draft, plan and copier version; retain
+  the first submitted derived-PDF digest separately because PDF writer metadata is nondeterministic.
+  Late bounded audit writes cannot complete an expired/deleted/superseded job.
+- [x] Execute the actual [runtime adapter](../src/CasCap.App.Server/Services/DocumentPreparationProvider.cs)
+  with immutable worker-local tenancy, a page-specific strict schema, output ceilings and request
+  deadlines. Validate exact fields/page/model/completion and native counters locally. Retain
+  candidates as `ReviewRequired`, without chunks, embeddings or searchable activation.
+- [ ] Verify PostgreSQL JSONB/locking/races, worker-identity access and a separately authorized
+  bounded real-document run before enabling the hybrid. Offline SQLite/fake-transport checks do
+  not establish these properties or semantic fidelity.
+- [ ] Deliver an authorized operator reconciliation action. Until then, ambiguous jobs stay blocked;
+  late receipts remain accounting evidence but do not automatically unblock work. Any paid replay
+  requires separate authorization and a new explicit generation, not clearing an intent.
 - [ ] Complete semantic-quality acceptance before enabling paid preparation or replacing the
   current PDF processor. Embeddings and searchable activation remain separate later gates.
 
@@ -560,6 +603,15 @@ The document-processing workflow is:
 
 The prototype's delete-before-reingest behavior, filename-derived identity, approximate token
 counting and document-name logging must not be carried into this design.
+
+#### Markdown Source Handling
+
+Current admission is PDF-only: a Markdown notification is quarantined rather than converted to
+Markdown again. Add Markdown support as an explicit upload/admission change, not by weakening PDF
+validation. Validate bounded UTF-8 text and permitted content, preserve original bytes/source hash,
+and pass normalized Markdown into structure-aware chunking with section/line anchors. Skip PdfPig,
+Document Intelligence and model conversion by default. Any optional paid enrichment is a separately
+authorized profile/generation; original and normalized content remain independently inspectable.
 
 ### D4a: Queue Transport Is Replaceable Without Weakening Delivery
 
@@ -798,7 +850,7 @@ proposed gates, not measured results.
 
 - [x] Implement role parsing, elected serial admission, trusted source validation, commit-before-ack
   and relational duplicate/stale/delete/tenant tests. Focused credential-free execution is recorded
-  in the [test README](../src/CasCap.App.Server.Tests/README.md#document-admission-poc).
+  in the [test README](../src/CasCap.App.Server.Tests/README.md#document-ingestion-poc).
 - [x] Scaffold the additive
   [DocumentIngestionAdmission migration](../src/CasCap.App.Server/Migrations/20261025123301_DocumentIngestionAdmission.cs)
   for source state and event/job receipts. Rebuilt EF tooling reports no pending model changes;
@@ -828,8 +880,9 @@ The separate IaC workstream owns the following handoff; deployment is not perfor
 - [x] Verify Document Intelligence data-plane access using the application's existing identity and
   compare the approved source-pinned pages in a bounded test-only benchmark. On 2026-10-26 two
   submissions analyzed exactly six physical pages and returned valid pinned-model Markdown/page
-  spans; private comparisons and resumable receipts were saved. See the
-  [benchmark contract and measured results](../src/CasCap.App.Server.Tests/README.md#charged-document-intelligence-benchmark).
+  spans; private comparisons and resumable receipts were saved. The measured results remain in
+  the [IaC handoff](#exact-iac-handoff);
+  the standalone harness has been retired in favor of the production worker.
 - [ ] Accept managed extraction semantics and implement the production preparation adapter before
   chunking or embedding. Benchmark contract success is not semantic-quality acceptance.
   The reported seasons passage is on physical PDF page 8, outside this six-page budget; it was not
@@ -937,7 +990,7 @@ then invoke `prebuilt-layout` with API version `2024-11-30` and
 Blob URL and assume Document Intelligence can retrieve it. See the
 [Layout model contract](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/prebuilt/layout?view=doc-intel-4.0.0).
 The infrastructure work verified control-plane provisioning/RBAC and anonymous rejection.
-The subsequent [application benchmark](../src/CasCap.App.Server.Tests/Tests/Integration/LiveDocumentIntelligenceQualityTests.cs)
+The subsequent application benchmark, now retired,
 verified authenticated analysis on two hash-identical cached PDFs with physical page selections
 `2,3,6` and `6,7,12`, producing 14,289 and 5,988 Markdown characters in approximately 13.2 and
 7.8 seconds including polling/export. It used no paid add-ons and saved private originals, full
@@ -949,8 +1002,9 @@ approved sample/rights/data-handling boundary, verify physical-page content anch
 the budget, bound pages/retries and select chargeable add-ons explicitly. Existing preparation-quality
 and ingestion activation gates remain unchanged.
 
-Benchmark source files and README sections linked in this handoff are local, unpublished
-application-workstream changes; the infrastructure handover does not publish that implementation.
+The benchmark implementation was local application-workstream code, not published by the
+infrastructure handover. Its obsolete source/README instructions were removed on 2026-10-27;
+private originals, comparisons and operation receipts remain evidence, not an executable runbook.
 
 #### OpenAI Access Handoff (2026-10-27)
 
@@ -1014,7 +1068,7 @@ The infrastructure/access owner should:
    support separately if needed; do not make that investigation a prerequisite for the parallel trial.
 4. Verify the provisioned account/deployment and a converged follow-up Terraform plan. Prove
    non-generative access with the application's identity and the documented v1 audience.
-   The existing `OpenAIDocumentAccess` test should return HTTP 200 without source submission.
+   A read-only `GET /openai/v1/models` should return HTTP 200 without source submission.
    Obtain test approval before execution. Model listing alone does not establish Responses
    inference permission.
 5. Return sanitized provisioning, model/revision, access and convergence evidence to this ADR;
@@ -1045,7 +1099,7 @@ successful resources and private error evidence; do not loop deployment requests
 substitute another model/geography or call the full mirror converged. Azure support clearance
 and a newly reviewed plan are required before completing that deployment.
 
-The approved [application-identity access test](../src/CasCap.App.Server.Tests/Tests/Integration/LiveOpenAIDocumentQualityTests.cs)
+The approved application-identity access test, subsequently retired,
 ran against the alternative OpenAI endpoint: exactly one test passed, zero failed and zero skipped,
 proving HTTP 200 for `GET /openai/v1/models`. The endpoint override and live gates existed only in
 the test process; production endpoint selection was not changed. No PDF, generation request or
@@ -1110,7 +1164,9 @@ Applications using local models do not need this endpoint cutover and remain unc
 The built-in preparation-agent foundation is implemented locally; durable worker integration and
 the blocked infrastructure model deployment remain separate unfinished work.
 
-See the [benchmark configuration and validation](../src/CasCap.App.Server.Tests/README.md#openai-pdf-only-and-hybrid-benchmark).
+Current runtime validation is documented under
+[durable hybrid preparation](../src/CasCap.App.Server.Tests/README.md#durable-hybrid-preparation);
+the historical benchmark's standalone configuration and executable tests have been removed.
 The original access failure is bypassed for this trial, not diagnosed or repaired on the original
 subscription. Completed inference is not evidence that hybrid extraction improves quality.
 
@@ -1150,11 +1206,11 @@ scans passed for both feature commits. No new application tests, provider calls,
 activations, deployments or infrastructure changes were performed while batching these commits.
 Hybrid remains the owner's preferred candidate, not semantic acceptance.
 
-**Next gate:** Bind the durable worker to an approved immutable tenant-local definition and model
-revision, with paid-request intent/receipts, ambiguous-outcome recovery and source/page validation.
-Complete the remaining [worker and quality gates](#built-in-document-preparation-agent) before
-enabling paid preparation or indexing. Production ingestion remains disabled; rollout and chargeable
-checks require separate authorization.
+**Subsequent local implementation:** The Debug hybrid worker now pins authorized plans and persists
+paid intents, receipts, review candidates and native usage. It has not been committed or deployed
+at this milestone. See the [worker boundary](#built-in-document-preparation-agent) for implemented
+controls and remaining provider-backed/operator gates. The preferred hybrid still requires semantic
+acceptance; ingestion, paid checks, migrations and rollout remain separately authorized operations.
 
 #### Event Delivery And Storage Handoff
 
@@ -1292,6 +1348,24 @@ this does not prove full RAG processing.
   definitions and the durable worker. Verify actual runtime PDF/structured-output behavior,
   tenant/job isolation, pinned-definition resume, bounded paid attempts, candidate artifacts and
   explicit quality/activation gates before enabling it.
+- [x] Implement the local Debug hybrid binding, immutable admission plans, native usage ledger,
+  no-replay recovery and review-only candidate persistence through the actual framework runtime.
+  The focused `HybridPreparation` selection passes 53 synthetic/offline cases with zero skips:
+  profile authorization, ARM endpoint/model binding, exact page contracts, tenant/claim fences,
+  cancellation-time receipts, expired intents and reuse without another paid submission.
+  After retiring 18 experimental harness/helper/test files and their unused layout fixtures, the
+  complete offline host selection passes 421 cases and the execution-library selection passes
+  145 cases, all without skips. The shared Azure layout transport passes 330 fake-handler cases
+  across .NET 8/9/10. Debug and Release solution builds pass without warnings/errors.
+  The real administration catalogue and template tests verify that Agentizr ships the Azure OpenAI
+  preparation definition without installing or activating it. EF reports no model drift; the additive
+  [hybrid-operation migration](../src/CasCap.App.Server/Migrations/20261027125842_DocumentHybridPreparationOperations.cs)
+  and offline SQL add the nullable admission plan, operation ledger and constraints, without seeds
+  or destructive upgrade operations. The migration has not been applied; application rollback
+  should retain the expanded schema because its `Down` removes receipt and plan history.
+  Full ingestion-only startup still needs isolated Redis acceptance: its existing cache registration
+  connects eagerly, so the pure DI fixture uses already-registered runtime infrastructure instead.
+  This is local implementation evidence, not a provider-backed rollout or fidelity acceptance.
 - [x] Implement the local gated durable lifecycle: serial claim, three attempts, persisted 30-second
   retry, deadline recovery and revision/claim-checked completion. Focused credential-free run:
   78 cases passed, zero failed/skipped (69 role/ingestion plus nine existing endpoint smoke cases).
@@ -1326,13 +1400,12 @@ this does not prove full RAG processing.
   provider, shared conditional Blob downloader and real preparation service. One PDF from each
   configured source was prepared and its page-local spans, complete coverage and token bounds
   verified; no originals were saved, no database/queue was touched and ingestion stayed disabled.
-  [Independent synthetic layout checks](../src/CasCap.App.Server.Tests/Tests/Unit/DocumentLayoutQualityTests.cs)
-  expose column-order, table-association and semantic-splitting limitations and cover manual/German
+  Independent synthetic layout checks exposed column-order, table-association and semantic-splitting
+  limitations and covered manual/German
   passages, including umlauts. Eight cases passed within 84 focused offline checks.
   Test-only spatial extraction disagrees with content order on both live documents; disagreement
   is not an accuracy score and no production extractor was changed.
-- [x] Add private, test-only
-  [structured layout candidates](../src/CasCap.App.Server.Tests/Tests/DocumentLayoutReview.cs)
+- [x] Explore private, test-only structured layout candidates
   alongside the unchanged baseline. Section candidates rebuild baseline rows and heading-bounded
   column bands with paragraph gaps, paired list markers and font-style evidence;
   entry-row candidates preserve horizontal associations but can interleave
@@ -1340,15 +1413,14 @@ this does not prove full RAG processing.
   discarded. Both views require exact nonblank source-word identity/count coverage and retain
   page/rectangle provenance. Synthetic checks and read-only live preparation passed; private
   originals and candidate Markdown/JSON persist only in operator-selected review storage.
-  These prototypes are not production chunking profiles or semantic acceptance. Small-cap
-  normalization, figure/table semantics and multi-line/cross-page entries remain unresolved.
-- [ ] Complete the separate
-  [live semantic acceptance case](../src/CasCap.App.Server.Tests/Tests/Integration/LiveDocumentQualityTests.cs)
-  using independently reviewed originals, exact Blob names, SHA-256/page-count pins, required
-  warning/vocabulary passages and reading-order anchors in private configuration. It is explicitly
-  skipped without semantic opt-in; preparation success is not quality acceptance. Compare the
-  baseline against a structure-aware/Markdown-producing alternative on the same pinned documents
-  before selecting it. Any changed extraction/chunking algorithm needs a new profile identity.
+  These prototypes were retired with their helper/unit/live tests on 2026-10-27; private exports
+  remain historical evidence, not production chunking profiles or semantic acceptance.
+- [ ] Complete semantic acceptance through the production preparation-agent path using independently
+  reviewed originals, exact Blob names, SHA-256/page-count pins, required warning/vocabulary passages
+  and reading-order anchors. Replace the retired prototype-specific live case with acceptance over
+  the actual worker/provider after isolated-provider checks and separate paid-run approval.
+  Preparation success is not quality acceptance. Any changed extraction/chunking algorithm needs
+  a new profile identity.
 - [ ] Implement the two content-selected chunking profiles over a shared structured-block contract.
   Prove heading/paragraph, warning/procedure, table-row/header and vocabulary/example associations,
   oversized-unit fallback, cross-page citations, Unicode/token bounds and distinct profile identity.
@@ -1371,13 +1443,16 @@ this does not prove full RAG processing.
   unpublished; durable staging is covered by the separate local processor slice above.
 - [ ] Prove authenticated upload/status/search/source/delete through versioned HTTP and typed-client
   surfaces against isolated PostgreSQL with pgvector, not an in-memory substitute (R1-R4).
-- [ ] Persist and validate the two preparation choices through upload intent, document versions,
+- [ ] Persist and validate the preparation choices through upload intent, document versions,
   durable jobs and immutable preparation identities. Prove source-default handling, unauthorized
   or unknown selections, no silent fallback, and new-generation behavior on method changes.
   Wire managed analysis only after the existing data-plane and quality gates pass (R14).
 - [ ] Deliver Blazor document management through the existing administration API/client: app-scoped
   upload/list/status/metadata/download/replace/retry/reindex/delete, antiforgery enforcement,
-  stale-revision conflicts and distinct accepted/processing/searchable/failure states (R9).
+  protected page/source/derived comparisons, sanitized raw/rendered Markdown, stage usage and
+  qualified cost estimates, stale-revision conflicts and distinct acceptance/review/search states (R9).
+- [ ] Add bounded UTF-8 Markdown passthrough with preserved originals and section/line provenance;
+  prove that normal Markdown upload invokes no PDF/managed/model conversion (R15).
 - [ ] Extend shared Azure Event Grid/storage helpers and prove the transport-neutral receive/lease/
   acknowledge contract. Exercise duplicate/unordered events, encoding, outage, poison handling,
   inbox-commit-before-acknowledge and reconciliation of pre-existing blobs (R6, R10, R11).
@@ -1447,14 +1522,14 @@ this does not prove full RAG processing.
   [PDF input through Responses](https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/responses);
   Document Intelligence offers [layout analysis](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/prebuilt/layout)
   with [Markdown output](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/concept/markdown-elements).
-  Document Intelligence is the selected initial managed preparation option alongside local PdfPig;
-  OpenAI vision remains deferred as a production adapter; its new PDF-only/hybrid benchmark is
-  blocked by the [data-plane access handoff](#openai-access-handoff-2026-10-27).
+  Hybrid is the preferred managed candidate; local PdfPig remains the default until explicit opt-in.
+  The [data-plane access handoff](#openai-access-handoff-2026-10-27) records the historical blocker
+  and subsequent authorized benchmark recovery, not an outstanding instruction to replay requests.
   The approved two-PDF/six-page Document Intelligence benchmark verified application access,
   page provenance and basic timing/structure, not complete fidelity or measured billing. Visual
-  acceptance, other pages and further submissions remain gated; the selector and production
-  integration are outstanding. Reviewed Markdown upload remains a possible later preparation input,
-  subject to original-source provenance, tenant ownership and separate level-policy approval.
+  acceptance, other pages and further submissions remain gated; the upload selector, production
+  rollout and [Markdown passthrough](#markdown-source-handling) are outstanding. Preparation never
+  substitutes for source rights, tenant authorization or separate teaching-language policy.
 - What ingestion/search quotas, retention windows and latency SLO fit measured corpus growth and
   target hardware? These must be resolved before production acceptance.
 - Does a consumer need user-private documents or licensed cross-application sharing? Design explicit
