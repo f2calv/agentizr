@@ -655,9 +655,10 @@ application-workstream changes; the infrastructure handover does not publish tha
 
 #### OpenAI Access Handoff (2026-10-27)
 
-The application workstream is paused for the separate infrastructure/access workstream.
-No resource-provider registration, RBAC, deployment, subscription, storage or queue settings were
-changed by this trial. Existing production ingestion remains disabled.
+The application generation workstream remains paused; the original diagnostic trial changed no
+resource-provider registration, RBAC, deployment, subscription, storage or queue settings.
+The separately approved alternative-subscription deployment and read-only access evidence are
+recorded below. Existing production ingestion remains disabled.
 
 | Evidence | Observed result |
 | --- | --- |
@@ -724,15 +725,35 @@ The infrastructure/access owner should:
    directory to bypass replay protection. Reconfirm the page/model/token budget before continuing
    the six-candidate comparison.
 
-**Infrastructure preparation evidence:** Shared configuration and a private saved plan are prepared,
-not applied. The alternative-subscription plan adds Speech, regional OpenAI accounts, standard
-deployments, Free Search and account-scoped runtime grants. It updates or destroys no existing
-resources and leaves the working
-Document Intelligence account unchanged. All new OpenAI deployments use `GlobalStandard`, local
-keys stay disabled, and no new metric alerts are planned. Mocked validation covers the shared
-module and alternative-subscription composition: 15 cases passed with the deployment's pinned
-provider, alongside Terraform formatting/validation and scoped repository lint checks.
-The original-subscription configuration passes
+**Infrastructure deployment evidence (2026-10-27): partial, not fully converged.** The separately
+approved saved plan was regenerated from committed source: 20 creates, five provenance-tag-only
+updates and no deletions or replacements. The first apply partially completed before ARM timeouts
+and connection resets. A newly inspected recovery plan completed further deployments at lower
+concurrency; the transport failure's root cause remains unproven. Speech, OpenAI and Free Search
+accounts and seven account-scoped runtime grants are verified. Seven of eight configured model
+deployments are live, with the approved revisions, `GlobalStandard` SKU and capacities, including
+`gpt-5.5` revision `2026-04-24`. Keys remain disabled and no new metric alerts were created.
+The working Document Intelligence, storage and event-transport settings remain unchanged apart
+from the reviewed provenance tags.
+
+Two timed-out creates completed remotely without entering state. After verifying their exact
+identities and model contracts, separately approved imports reconciled them without recreation.
+A fresh plan now contains only one create: `gpt-4.1-mini`, which Azure rejected with `715-123420`
+("unusual activity"; contact support). Existing resources have no pending changes. Preserve the
+successful resources and private error evidence; do not loop deployment requests, silently
+substitute another model/geography or call the full mirror converged. Azure support clearance
+and a newly reviewed plan are required before completing that deployment.
+
+The approved [application-identity access test](../src/CasCap.App.Server.Tests/Tests/Integration/LiveOpenAIDocumentQualityTests.cs)
+ran against the alternative OpenAI endpoint: exactly one test passed, zero failed and zero skipped,
+proving HTTP 200 for `GET /openai/v1/models`. The endpoint override and live gates existed only in
+the test process; production endpoint selection was not changed. No PDF, generation request or
+benchmark retry was submitted. Model listing does not prove Responses inference permission or
+extraction quality. Verified coordinates and deployed-model inventory remain in private operator
+artifacts; configured deployment-name outputs alone are not availability evidence.
+
+All 15 approved mocked Terraform cases passed with the deployment's pinned provider before the
+apply. The original-subscription configuration passes
 backend-free validation, but its live plan is blocked: subscription metadata reports `Enabled`
 while the existing backend key lookup returns `ReadOnlyDisabledSubscription`. Preserve the backend,
 account and original access-failure evidence; no original-subscription apply or authenticated
@@ -750,12 +771,14 @@ After renewal, verify actual backend and application data-plane access rather th
 subscription metadata. Explicit endpoint selection can direct new requests to the alternative
 subscription while the credit-backed one is unavailable; no automatic cutover has been implemented.
 
-**Next infrastructure boundary:** Committing the configuration is not apply approval. Before an
-apply, regenerate and review the private saved plan from the committed source, refreshing
-subscription/quota checks and deployment-provenance tags. Apply only that exact separately approved
-artifact, verify live resources and convergence, and obtain approval for the application's
-non-generative access test. Do not retry the rejected generation, enable ingestion, remove the
-spending limit or push changes merely because configuration has been committed.
+**Next infrastructure boundary:** Escalate the remaining model-deployment rejection to Azure
+support, then regenerate and review a private saved plan before any further apply. Recheck
+subscription/quota readiness and deployment provenance; do not reuse either partial-apply plan.
+Verify full convergence after the blocked deployment succeeds. The alternative `gpt-5.5` deployment
+and read-only access are verified, but replacing the saved rejected generation still requires
+explicit replay reconciliation and renewed sample/model/token-budget approval. Do not enable
+ingestion, remove the spending limit, change production routing or push changes merely because
+the infrastructure handover has been committed.
 
 See the [benchmark configuration and validation](../src/CasCap.App.Server.Tests/README.md#openai-pdf-only-and-hybrid-benchmark).
 This handoff is an access blocker, not evidence that hybrid extraction improves quality.
