@@ -524,6 +524,37 @@ The separate IaC workstream owns the following handoff; deployment is not perfor
   verified Free-tier provisioning, authenticated service-statistics access, an empty index/document
   inventory and the configured Search role assignments. Free has a 50 MiB storage limit and no
   outbound managed identity; this does not select Search as the backend or prove indexing.
+- [x] Provision optional Document Intelligence access for a bounded layout-to-Markdown evaluation.
+  On 2026-10-26 the approved infrastructure apply created a Standard S0 account in the pay-as-you-go
+  subscription and granted the existing application service principal account-scoped
+  `Cognitive Services User`. Key authentication is disabled; the custom-subdomain HTTPS endpoint
+  rejects anonymous requests with HTTP 401. Live provisioning, the role assignment and a no-change
+  follow-up Terraform plan are verified. That infrastructure apply did not submit documents or
+  enable ingestion.
+- [x] Verify Document Intelligence data-plane access using the application's existing identity and
+  compare the approved source-pinned pages in a bounded test-only benchmark. On 2026-10-26 two
+  submissions analyzed exactly six physical pages and returned valid pinned-model Markdown/page
+  spans; private comparisons and resumable receipts were saved. See the
+  [benchmark contract and measured results](../src/CasCap.App.Server.Tests/README.md#charged-document-intelligence-benchmark).
+- [ ] Accept managed extraction semantics and implement the production preparation adapter before
+  chunking or embedding. Benchmark contract success is not semantic-quality acceptance.
+  The reported seasons passage is on physical PDF page 8, outside this six-page budget; it was not
+  submitted or verified. Additional charged pages need separate approval.
+- [ ] Resolve the Azure OpenAI data-plane access blocker and then complete the separately approved
+  PDF-only/hybrid comparison. On 2026-10-27 the initial generation POST returned HTTP 400
+  `SubscriptionNotRegistered`; read-only model listing with the documented v1 audience returned
+  the same category despite control-plane provider registration being `Registered`.
+  The owner selected mirrored consumption-based AI services across both subscriptions; provisioning
+  and access verification remain with the separate infrastructure workstream. No OpenAI candidate was
+  generated. See the [OpenAI access handoff](#openai-access-handoff-2026-10-27).
+- [x] Prepare shared mirrored-service configuration and review the alternative-subscription plan.
+  The reviewed plan is additive, retains the working Document Intelligence account and existing
+  transport, keeps Search Free and OpenAI deployments consumption-based, and adds no metric alerts.
+  Fifteen mocked Terraform cases and static configuration checks passed; this is not live
+  provisioning or inference-access evidence.
+- [ ] Obtain separate apply approval, provision the missing counterparts and verify application
+  access and convergence. The original-subscription live plan is blocked by its backend reporting
+  `ReadOnlyDisabledSubscription`; do not move state or replace existing accounts to bypass it.
 - [x] Provision dedicated Standard GPv2 Hot/LRS storage in the durable-data subscription through
   the existing storage module. Live settings disable anonymous Blob access and shared-key
   authentication, require HTTPS/TLS 1.2, and preserve the existing runtime principal's inherited
@@ -569,15 +600,18 @@ The separate IaC workstream owns the following handoff; deployment is not perfor
   prove application admission, deduplication, poison handling, document ingestion or agent answers.
 
 The operator reports both source accounts online and one example PDF staged for each initial
-consumer. This session has not read those PDFs or independently verified their persistence or
-worker access. Transport was proven with synthetic text blobs instead; the PDF/application
-end-to-end staging gate remains open.
+consumer. The application workstream has now verified authenticated conditional reads and bounded
+preparation against both configured source containers using the local runtime certificate and
+standard Key Vault provider. It used synthetic ownership bindings only in the test process.
+This does not establish pod access, production ownership bindings, their PDF notification delivery
+or end-to-end database staging; those gates remain open.
 
 #### Exact IaC Handoff
 
-**Readiness on 2026-10-26: partial; not ready to enable live ingestion.** Account provisioning,
+**Readiness on 2026-10-27: partial; not ready to enable live ingestion.** Account provisioning,
 private source/dead-letter containers, ingestion/poison queues and optional Search verification
-are complete. Resource IDs and credential-free container/queue URIs are verified in private
+are complete, as is optional Document Intelligence account provisioning and scoped RBAC.
+Resource IDs and credential-free container/queue URIs are verified in private
 infrastructure outputs. The Event Grid system topic, account-scoped delivery roles, narrowly scoped
 runtime queue grants and four source subscriptions are deployed. Synthetic create/delete delivery
 and non-expiring Event Grid messages are verified, with no-change Terraform convergence.
@@ -587,6 +621,157 @@ Isolated dead-letter capture and non-expiring replay are also verified; live ret
 shortened for that test. Approved source mappings, runtime access, poison-send TTL and application
 admission remain outstanding.
 Do not enable the receiver merely because its transport is now operational.
+
+Verified source-container URLs and their storage-account topic are now present in private local
+application configuration. Production tenant/collection bindings are intentionally unset. Local
+read-only PDF tests do not authorize activating ingestion or replace the remaining queue/runtime
+handoff.
+
+**Document Intelligence handoff:** Standard S0 is provisioned for low-volume, page-billed managed
+extraction. The verified endpoint and resource ID remain in private infrastructure outputs and the
+operator handoff, not this public ADR. Reuse the existing application service principal and its
+credential bootstrap; no new managed identity, API key, OpenAI deployment or storage grant was
+created. The public HTTPS endpoint requires Entra authentication; it is not a private endpoint.
+For the proposed adapter, read the source through existing Blob permissions and upload PDF bytes,
+then invoke `prebuilt-layout` with API version `2024-11-30` and
+`outputContentFormat=markdown`, polling the asynchronous result. Do not pass a private credential-free
+Blob URL and assume Document Intelligence can retrieve it. See the
+[Layout model contract](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/prebuilt/layout?view=doc-intel-4.0.0).
+The infrastructure work verified control-plane provisioning/RBAC and anonymous rejection.
+The subsequent [application benchmark](../src/CasCap.App.Server.Tests/Tests/Integration/LiveDocumentIntelligenceQualityTests.cs)
+verified authenticated analysis on two hash-identical cached PDFs with physical page selections
+`2,3,6` and `6,7,12`, producing 14,289 and 5,988 Markdown characters in approximately 13.2 and
+7.8 seconds including polling/export. It used no paid add-ons and saved private originals, full
+Markdown/raw analysis, page comparisons and immutable request/operation receipts.
+Source/page manifests prevent automatic resubmission after an ambiguous POST; existing receipts
+resume polling. This is test-only access/contract evidence, not full Markdown fidelity, invoice
+measurement, a production adapter or chunk/embedding acceptance. Keep submission behind the
+approved sample/rights/data-handling boundary, verify physical-page content anchors before fixing
+the budget, bound pages/retries and select chargeable add-ons explicitly. Existing preparation-quality
+and ingestion activation gates remain unchanged.
+
+Benchmark source files and README sections linked in this handoff are local, unpublished
+application-workstream changes; the infrastructure handover does not publish that implementation.
+
+#### OpenAI Access Handoff (2026-10-27)
+
+The application workstream is paused for the separate infrastructure/access workstream.
+No resource-provider registration, RBAC, deployment, subscription, storage or queue settings were
+changed by this trial. Existing production ingestion remains disabled.
+
+| Evidence | Observed result |
+| --- | --- |
+| Selected existing model | `gpt-5.5`, revision `2026-04-24`; deployment provisioning state `Succeeded` |
+| First generation attempt | One `POST /openai/v1/responses`, physical page 6, PDF-only; HTTP 400 `SubscriptionNotRegistered`, with no model result or usage counters |
+| Provider error category | `CheckAccess` rejected the request, reporting that the subscription was not registered with `Microsoft.CognitiveServices` |
+| Independent control-plane check | `Microsoft.CognitiveServices` registration on the selected deployment's subscription was already `Registered` |
+| Read-only application check | `GET /openai/v1/models` also returned HTTP 400 `SubscriptionNotRegistered`; no generation was submitted by these checks |
+| Independent operator diagnostic | Non-generative model listing returned the same error; the operator token tenant matched the account subscription. This was an access diagnostic, not a benchmark identity fallback |
+| Authentication | Existing application certificate/Key Vault bootstrap and shared Entra bearer handler; no API-key, CLI-identity or model fallback |
+| Current audience | `https://ai.azure.com/.default`, matching the current [Responses v1 examples](https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/responses); the first POST used the inherited Cognitive Services audience, and the corrected-audience read-only checks still failed |
+| Recovery state | The copied-page provenance, immutable request manifest, HTTP status and raw rejected response remain in private session artifacts; no automatic generation retry occurred |
+| Alternative-subscription discovery | Read-only control-plane checks advertise `gpt-5.5` revision `2026-04-24` with `GlobalStandard`, available quota and provider registration `Registered`; these are not provisioning or data-plane access evidence |
+
+The five remaining planned generation requests were not attempted. No completed OpenAI response,
+candidate Markdown or usage measurement exists; no billing conclusion is inferred from this.
+Real subscription/account/deployment/identity coordinates stay in private configuration,
+infrastructure outputs and operator evidence, never this ADR.
+
+**Subscription fallback decision:** The owner requested Azure OpenAI in the alternative
+subscription and confirmed that the working Document Intelligence account must remain unchanged.
+The owner subsequently selected mirrored Speech, Azure OpenAI, Document Intelligence and Free
+Azure AI Search across both subscriptions, using shared service/model configuration and distinct
+accounts so applications can explicitly select where new requests are billed. Keep standard
+consumption-based services; do not introduce provisioned model throughput, paid Search capacity
+or other minimum commitments. Monitoring has separate pricing and is not implicitly duplicated.
+Infrastructure parity does not copy Search indexes/data, implement automatic failover or establish
+data-plane access. This is the requested configuration direction, not evidence of deployment.
+Further IaC belongs to the separate infrastructure session, using this ADR as the handoff.
+Prepare a parallel OpenAI account/deployment rather than moving or deleting existing resources.
+Preserve existing service resources, Blob Storage, Event Grid, queues, runtime identities and
+production ingestion settings; add the missing counterparts without replacing existing accounts.
+Preserve existing Terraform backend/state ownership and provider
+bindings. No IaC edits, state operations or infrastructure mutations were performed by the
+application workstream for this fallback.
+
+The infrastructure/access owner should:
+
+1. Confirm the alternative target through private configuration and recheck model revision,
+   regional/SKU availability and quota before planning. Discovery is not a capacity reservation
+   or proof that the subscription's data plane works. Keep the approved `gpt-5.5` revision; return
+   for a decision rather than silently substituting another model or processing geography.
+2. Prepare the smallest additive IaC changes for the selected mirrored service set, including the
+   parallel OpenAI account and deployment, reusing existing shared definitions without migrating other
+   services. Retain the current application identity and grant only account-scoped inference
+   access. Keep key authentication disabled. Review the exact saved plan and obtain separate
+   apply approval; this handoff does not authorize an apply, replacement, deletion, new identity,
+   API key, broader storage grant or production activation.
+3. Preserve the blocked account and its evidence. The registration disagreement remains unresolved;
+   moving the trial is a workaround, not a diagnosed root cause. Do not blindly re-register an
+   already-registered provider or broaden roles. Escalate conflicting backend state to Azure
+   support separately if needed; do not make that investigation a prerequisite for the parallel trial.
+4. Verify the provisioned account/deployment and a converged follow-up Terraform plan. Prove
+   non-generative access with the application's identity and the documented v1 audience.
+   The existing `OpenAIDocumentAccess` test should return HTTP 200 without source submission.
+   Obtain test approval before execution. Model listing alone does not establish Responses
+   inference permission.
+5. Return sanitized provisioning, model/revision, access and convergence evidence to this ADR;
+   supply the endpoint and deployment configuration privately for the application cutover.
+   Do not mark the blocker resolved from provider registration or provisioning alone.
+   Reconcile the saved HTTP-400
+   request explicitly and obtain approval before replacing that generation attempt. Preserve the
+   rejected attempt and the same fixed run directory; do not delete request state or create a fresh
+   directory to bypass replay protection. Reconfirm the page/model/token budget before continuing
+   the six-candidate comparison.
+
+**Infrastructure preparation evidence:** Shared configuration and a private saved plan are prepared,
+not applied. The alternative-subscription plan adds Speech, regional OpenAI accounts, standard
+deployments, Free Search and account-scoped runtime grants. It updates or destroys no existing
+resources and leaves the working
+Document Intelligence account unchanged. All new OpenAI deployments use `GlobalStandard`, local
+keys stay disabled, and no new metric alerts are planned. Mocked validation covers the shared
+module and alternative-subscription composition: 15 cases passed with the deployment's pinned
+provider, alongside Terraform formatting/validation and scoped repository lint checks.
+The original-subscription configuration passes
+backend-free validation, but its live plan is blocked: subscription metadata reports `Enabled`
+while the existing backend key lookup returns `ReadOnlyDisabledSubscription`. Preserve the backend,
+account and original access-failure evidence; no original-subscription apply or authenticated
+recovery is established.
+
+**Credit-renewal hypothesis:** Exhausting the monthly credit of a credit-backed subscription can
+disable its services when the spending limit is enabled. Microsoft documents automatic
+reactivation at the start of the next billing period in its
+[spending-limit guidance](https://learn.microsoft.com/en-us/azure/cost-management-billing/manage/spending-limit).
+This is a plausible explanation, not a verified billing diagnosis or a proven cause of the OpenAI
+registration disagreement. The credit balance and renewal date have not been verified; do not
+assume renewal is 1 November. A budget alert alone does not disable a subscription. Keep the
+spending limit enabled unless removing it and accepting overage charges is separately approved.
+After renewal, verify actual backend and application data-plane access rather than relying on
+subscription metadata. Explicit endpoint selection can direct new requests to the alternative
+subscription while the credit-backed one is unavailable; no automatic cutover has been implemented.
+
+**Next infrastructure boundary:** Committing the configuration is not apply approval. Before an
+apply, regenerate and review the private saved plan from the committed source, refreshing
+subscription/quota checks and deployment-provenance tags. Apply only that exact separately approved
+artifact, verify live resources and convergence, and obtain approval for the application's
+non-generative access test. Do not retry the rejected generation, enable ingestion, remove the
+spending limit or push changes merely because configuration has been committed.
+
+See the [benchmark configuration and validation](../src/CasCap.App.Server.Tests/README.md#openai-pdf-only-and-hybrid-benchmark).
+This handoff is an access blocker, not evidence that hybrid extraction improves quality.
+
+#### Event Delivery And Storage Handoff
+
+**Payload boundary:** Event Grid and the queues carry notification metadata and a blob reference,
+not PDF bytes. Base64 applies to the notification JSON only. The credential-free blob URL is not
+a SAS token or an access grant; the later processor must fetch content separately using its
+authorized Azure identity and enforce the source-version contract. A deletion notification
+identifies removed content; it cannot restore the deleted PDF.
+
+The four synthetic notifications left queued by the Phase 2 test reference test blobs that were
+subsequently deleted. They are transport evidence, not staged PDF work. Before enabling admission,
+explicitly disposition those test artifacts using their recorded synthetic identities; never clear
+the queue indiscriminately. Phase 3 replay used only an isolated queue, which was removed afterward.
 
 The account's public HTTPS endpoint is reachable, not anonymously readable and not a private
 endpoint. The existing application service principal has inherited Blob read/write/delete access;
@@ -608,17 +793,6 @@ Message TTL must be explicit at each producer, including Event Grid delivery, po
 operator replay; it is not a queue-wide resource setting. The current
 [poison-send adapter](../src/CasCap.App.Server/Services/AzureDocumentIngestionQueue.cs) omits TTL,
 so its default seven-day expiry does not yet meet the agreed policy. Implement and verify that
-**Payload boundary:** Event Grid and the queues carry notification metadata and a blob reference,
-not PDF bytes. Base64 applies to the notification JSON only. The credential-free blob URL is not
-a SAS token or an access grant; the later processor must fetch content separately using its
-authorized Azure identity and enforce the source-version contract. A deletion notification
-identifies removed content; it cannot restore the deleted PDF.
-
-The four synthetic notifications left queued by the Phase 2 test reference test blobs that were
-subsequently deleted. They are transport evidence, not staged PDF work. Before enabling admission,
-explicitly disposition those test artifacts using their recorded synthetic identities; never clear
-the queue indiscriminately. Phase 3 replay used only an isolated queue, which was removed afterward.
-
 application-side setting before declaring retention ready. See
 [Event Grid queue delivery lifetime](https://learn.microsoft.com/en-us/azure/event-grid/delivery-properties#configure-time-to-live-on-outgoing-events-to-azure-storage-queues)
 and [Storage Queue message TTL](https://learn.microsoft.com/en-us/rest/api/storageservices/put-message#uri-parameters).
@@ -654,7 +828,7 @@ Supply these values privately to
 | `Sources:0:TenantId`, `Sources:0:CollectionId` | Operator-approved application tenant and tenant-local collection; never derived from caller/event metadata |
 | `LeadershipResource` | Operator-chosen stable installation-qualified Redis election identity, shared by all ingestion replicas |
 | `PollIntervalMs`, `VisibilitySeconds` | Defaults 2000 ms / 60 s; supported ranges 100-60000 ms / 30-600 s. Confirm visibility exceeds measured short-admission latency |
-| `ProcessingEnabled`, `ProcessingTimeoutSeconds` | Application-owned, not IaC readiness signals: default `false` / 300 s (30-900 s). Keep processing disabled until a real processor and output fencing are delivered |
+| `ProcessingEnabled`, `ProcessingTimeoutSeconds` | Application-owned, not IaC readiness signals: default `false` / 300 s (30-900 s). Keep disabled until processing/preparation migrations, isolated provider checks and the identity/delivery handoff are complete |
 
 The infrastructure owner should update the Phase 0 checkboxes with sanitized observed outcomes:
 
