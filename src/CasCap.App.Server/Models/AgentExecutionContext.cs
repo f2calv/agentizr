@@ -20,4 +20,7 @@ public sealed record AgentExecutionContext
 
     /// <summary>Gets the optional durable activity sink; never includes provider configuration.</summary>
     public Func<AgentRunActivity, CancellationToken, ValueTask>? HistorySink { get; init; }
+
+    /// <summary>Gets an awaited structured-response receipt sink, separate from resumable state and debugging history.</summary>
+    public Func<AgentStructuredResponse, CancellationToken, ValueTask>? StructuredResponseSink { get; init; }
 }

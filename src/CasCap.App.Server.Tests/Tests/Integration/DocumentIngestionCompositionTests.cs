@@ -56,7 +56,7 @@ public sealed class DocumentIngestionCompositionTests
         {
             Assert.Equal(enabled, options.Value.ProcessingEnabled);
             using var scope = provider.CreateScope();
-            Assert.IsType(registered ? typeof(UnusedProcessor) : typeof(PdfDocumentProcessor),
+            Assert.IsType(registered ? typeof(UnusedProcessor) : typeof(DocumentPreparationProcessor),
                 Assert.Single(scope.ServiceProvider.GetServices<IDocumentProcessor>()));
         }
         else

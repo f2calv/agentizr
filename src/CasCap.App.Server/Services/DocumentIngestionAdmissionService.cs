@@ -66,6 +66,7 @@ internal sealed partial class DocumentIngestionAdmissionService(
             Event = notification,
             TenantId = source.TenantId,
             CollectionId = source.CollectionId,
+            AgentPreparation = source.AgentPreparation,
         };
     }
 

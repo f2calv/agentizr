@@ -1,7 +1,5 @@
 #if DEBUG
 using Azure;
-using Azure.Storage.Blobs;
-using Azure.Storage.Blobs.Models;
 using CasCap.Constants;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -317,7 +315,7 @@ public sealed class DocumentPreparationPersistenceTests : IAsyncLifetime
     }
 
     private PdfDocumentProcessor Processor(Func<Stream> openSource, DocumentPreparationConfig? config = null) => new(
-        new DocumentBlobDownloadService(Options.Create(Config), _ => new TestStorage(new SourceContainer(openSource))),
+        DocumentHybridPreparationTestData.Downloader(openSource, Config),
         new PdfDocumentPreparationService(Options.Create(config ?? new()), _chunker), Store());
 
     private async Task AssertCountsAsync(int generations, int chunks)
@@ -348,20 +346,6 @@ public sealed class DocumentPreparationPersistenceTests : IAsyncLifetime
             OnSaved?.Invoke();
             return ValueTask.FromResult(result);
         }
-    }
-
-    private sealed class TestStorage(BlobContainerClient client) : AzBlobStorageBase(client);
-
-    private sealed class SourceContainer(Func<Stream> openSource) : BlobContainerClient
-    {
-        public override string Name => "documents";
-        public override BlobClient GetBlobClient(string blobName) => new SourceBlob(openSource);
-    }
-
-    private sealed class SourceBlob(Func<Stream> openSource) : BlobClient
-    {
-        public override Task<Stream> OpenReadAsync(BlobOpenReadOptions options, CancellationToken cancellationToken = default) =>
-            Task.FromResult(openSource());
     }
 
     private sealed class InterruptedStream(byte[] bytes, int status) : MemoryStream(bytes)

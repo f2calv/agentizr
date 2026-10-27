@@ -78,6 +78,9 @@ internal sealed class DocumentIngestionInboxService(
             Sequencer = notification.Event.Sequencer,
             Status = status,
             AcceptedAtUtc = timeProvider.GetUtcNow(),
+            PreparationPlanJson = status == DocumentIngestionStates.Queued
+                ? await DocumentPreparationPlanService.PinAsync(db, notification, cancellationToken)
+                : null,
         });
         cancellationToken.ThrowIfCancellationRequested();
         await db.SaveChangesAsync(cancellationToken);

@@ -31,9 +31,11 @@ The same elected feature now supports durable job processing behind an off-by-de
 Under `CasCap:DocumentIngestionConfig`, `ProcessingEnabled` defaults to `false` and
 `ProcessingTimeoutSeconds` defaults to `300` (range 30-900). Enabling processing without a real
 [`IDocumentProcessor`](Abstractions/IDocumentProcessor.cs) registration fails startup.
-The Debug role now registers
-[`PdfDocumentProcessor`](Services/PdfDocumentProcessor.cs), which downloads, prepares and persists
-immutable chunks but does not embed or activate them. Keep the gate off until provider-backed and
+The Debug role registers
+[`DocumentPreparationProcessor`](Services/DocumentPreparationProcessor.cs). Jobs without an admitted
+hybrid plan use [`PdfDocumentProcessor`](Services/PdfDocumentProcessor.cs), which persists local
+immutable chunks. Explicit hybrid plans produce review-only candidates, not chunks or indexes.
+Neither path embeds or activates content. Keep the gate off until provider-backed and
 authenticated-source checks plus the infrastructure handoff pass.
 
 [`DocumentIngestionJobService`](Services/DocumentIngestionJobService.cs) persists claims,
@@ -68,9 +70,10 @@ agent's reachable active delegation graph; delegated agents do not receive anoth
 
 The [document-preparation template](Constants/DocumentPreparationAgentTemplate.cs) is available
 through administration without automatic installation or activation. Its opt-in Responses profile
-is bounded, tool-free and stateless; the existing PDF processor does not invoke it. Durable
-definition/model pinning, paid-request receipts, source/page validation and quality acceptance remain
-prerequisites in [ADR 0001](../../docs/adr-0001-centralized-document-rag.md#built-in-document-preparation-agent).
+is bounded, tool-free and stateless. The Debug hybrid worker invokes an explicitly approved
+tenant-local version; the local PDF processor remains unchanged. Provider-backed checks, quality
+acceptance and authorized rollout remain prerequisites in
+[ADR 0001](../../docs/adr-0001-centralized-document-rag.md#built-in-document-preparation-agent).
 For stateless definitions, session mutations and override updates return HTTP 409. Session status,
 override reads and permitted instruction disclosure report the effective definition policy without
 loading stored conversation state or overrides.
@@ -102,6 +105,52 @@ model's context budget; GPU placement alone does not determine chunk size.
 Cancellation is checked around synchronous parsing/extraction, not inside it. Resource caps are
 not a hard CPU/memory sandbox; see the
 [deferred isolation/OCR gates](../../docs/adr-0001-centralized-document-rag.md#poc-limits-and-deliberately-deferred-polishing).
+
+### Durable Hybrid Preparation
+
+Agentizr ships the [`document-preparation` definition template](Constants/DocumentPreparationAgentTemplate.cs)
+through the admin provider catalogue and new-agent editor. It is the authoritative shipped
+reconciliation prompt/schema, using Azure OpenAI Responses with bounded, stateless, tool-free
+execution. Select a tenant-authorized provider, endpoint and model, then explicitly publish and
+activate an immutable tenant-local version. The template supplies no deployment credentials or
+paid model defaults and never installs/activates itself.
+
+An optional [`DocumentSourceConfig.AgentPreparation`](Models/_DocumentIngestionConfig.cs) authorizes
+the managed-layout/preparation-agent path for new admissions. It has no paid defaults. Admission
+pins the exact active tenant-local snapshot, model/revision/resource binding and explicit limits
+inside the inbox transaction. Changing source configuration or the active definition does not
+retarget already-admitted jobs; old/null plans stay local.
+
+[`HybridDocumentProcessor`](Services/HybridDocumentProcessor.cs) conditionally downloads and bounds
+the original PDF, including scanned/blank pages. Before each new paid stage it checks current tenant
+provider/endpoint authorization and bounded read-only ARM account/deployment metadata. The runtime
+identity therefore needs metadata read access as well as approved data-plane access. A base model
+name in a Responses result alone is not model-revision proof.
+
+The [`operation store`](Services/DocumentPreparationOperationStore.cs) commits one intent before
+each layout POST or physical-page agent call. Managed receipts resume with GET only; recorded
+model responses are reused, including rejected/incomplete output and usage. Request timeouts stay
+inside the existing claim deadline. A missing receipt is ambiguous and blocks in
+`ReconciliationRequired`, never an automatic paid retry. Late five-second-bounded accounting writes
+cannot complete a stale claim. There is no operator replay/unblock API yet; retain the records and
+obtain explicit reconciliation/new-generation authorization rather than editing away intents.
+
+Logical page identity includes original bytes, physical page, plan, draft and copier version.
+The first submitted derived-PDF digest is retained separately: PDF writer metadata changes between
+copies, so fresh copied-byte hashes cannot identify safe replay. Candidates finish only as
+`ReviewRequired`; schema validity is not fidelity approval, chunk preparation or search activation.
+The runtime adapter uses worker-local tenancy and the actual framework executor, without HTTP
+tenant context, tools, sessions, overrides or generic content history.
+
+The ledger retains managed page units and reported model token/cache/reasoning counters when
+available. Missing counters remain unknown; no currency estimates or invoice totals are calculated.
+Document preview/comparison and cost presentation remain future administration UI work.
+Apply the additive hybrid-preparation migration externally before rollout. Do not mix old ingestion
+replicas with enabled hybrid bindings.
+
+Admission currently accepts only PDFs. Markdown notifications are quarantined; the planned
+[UTF-8 passthrough](../../docs/adr-0001-centralized-document-rag.md#markdown-source-handling) skips
+PDF/managed/model conversion rather than converting Markdown back to Markdown.
 
 ### Conditional Blob Sources
 
@@ -374,6 +423,33 @@ embedding model:
 
 Chunk budgets must be 8-8192 tokens, with nonnegative overlap strictly below the budget.
 Settings are validated at ingestion startup; per-call overrides are validated on preparation.
+
+The following is the optional `AgentPreparation` object on an **existing authorized source** in
+`DocumentIngestionConfig.Sources`, not a complete source mapping or enablement instruction:
+
+```json
+{
+  "AgentPreparation": {
+    "AgentName": "example-preparation",
+    "DefinitionVersion": "ExampleV1",
+    "Model": "example-model",
+    "ModelRevision": "example-revision",
+    "DeploymentResourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example/providers/Microsoft.CognitiveServices/accounts/example/deployments/example-deployment",
+    "ManagementEndpoint": "https://management.azure.com/",
+    "DocumentIntelligenceEndpoint": "https://layout.example.com/",
+    "MaximumPages": 6,
+    "MaximumOutputTokens": 8192,
+    "RequestTimeoutSeconds": 120
+  }
+}
+```
+
+Publish/activate the matching tool-free stateless template version separately, configure its tenant
+credential registration and allowed provider authority, and verify the exact deployed model revision.
+Limits require explicit values: pages 1-200, output tokens 1-8192 and request seconds 1-600.
+The agent's own output ceiling can only lower this budget. The hybrid also caps source/derived PDFs
+at 25 MiB and retains the configured overall character limit. This fragment changes no credentials,
+definitions, `ProcessingEnabled` gate or runtime-role selection.
 
 For Development, add this synthetic bootstrap to the gitignored `appsettings.Local.Development.json`
 at the repository root. The example assumes a local Ollama server with `example-model` already

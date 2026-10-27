@@ -22,6 +22,9 @@ public sealed class AgentRuntimeDbContext(
     /// <summary>Gets page-attributed text belonging to prepared generations.</summary>
     public DbSet<DocumentTextChunkEntity> DocumentTextChunks => Set<DocumentTextChunkEntity>();
 
+    /// <summary>Gets tenant-qualified paid preparation intents, receipts, usage and immutable candidate projections.</summary>
+    public DbSet<DocumentPreparationOperationEntity> DocumentPreparationOperations => Set<DocumentPreparationOperationEntity>();
+
     /// <inheritdoc/>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -81,6 +84,9 @@ public sealed class AgentRuntimeDbContext(
             entity.Property(item => item.NextAttemptAtUtc).HasColumnName("next_attempt_at_utc");
             entity.Property(item => item.FinishedAtUtc).HasColumnName("finished_at_utc");
             entity.Property(item => item.LastFailureCode).HasColumnName("last_failure_code").HasMaxLength(40);
+            entity.Property(item => item.PreparationPlanJson).HasColumnName("preparation_plan_json").HasColumnType("jsonb");
+            entity.HasAlternateKey(item => new { item.TenantId, item.CollectionId, item.DocumentId, item.Id })
+                .HasName("ak_document_ingestion_jobs_tenant_collection_document_id");
             if (Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite")
             {
                 entity.Property(item => item.ClaimExpiresAtUtc).HasConversion(
@@ -102,6 +108,39 @@ public sealed class AgentRuntimeDbContext(
                 .HasDatabaseName("ix_document_ingestion_jobs_tenant_collection_status");
             entity.HasIndex(item => new { item.TenantId, item.CollectionId, item.DocumentId })
                 .HasDatabaseName("ix_document_ingestion_jobs_tenant_collection_document");
+        });
+
+        modelBuilder.Entity<DocumentPreparationOperationEntity>(entity =>
+        {
+            entity.ToTable("document_preparation_operations", schema);
+            entity.HasKey(item => item.Id).HasName("pk_document_preparation_operations");
+            entity.Property(item => item.Id).HasColumnName("id").HasMaxLength(64);
+            entity.Property(item => item.JobId).HasColumnName("job_id").HasMaxLength(64);
+            entity.Property(item => item.TenantId).HasColumnName("tenant_id").HasMaxLength(200);
+            entity.Property(item => item.CollectionId).HasColumnName("collection_id").HasMaxLength(200);
+            entity.Property(item => item.DocumentId).HasColumnName("document_id").HasMaxLength(64);
+            entity.Property(item => item.SourceSha256).HasColumnName("source_sha256").HasMaxLength(64);
+            entity.Property(item => item.PlanSha256).HasColumnName("plan_sha256").HasMaxLength(64);
+            entity.Property(item => item.RequestSha256).HasColumnName("request_sha256").HasMaxLength(64);
+            entity.Property(item => item.DerivedPdfSha256).HasColumnName("derived_pdf_sha256").HasMaxLength(64);
+            entity.Property(item => item.Stage).HasColumnName("stage").HasMaxLength(40);
+            entity.Property(item => item.PageNumber).HasColumnName("page_number");
+            entity.Property(item => item.SubmissionClaimId).HasColumnName("submission_claim_id");
+            entity.Property(item => item.Status).HasColumnName("status").HasMaxLength(30);
+            entity.Property(item => item.OperationUri).HasColumnName("operation_uri").HasMaxLength(4_000);
+            entity.Property(item => item.ResultJson).HasColumnName("result_json").HasColumnType("jsonb");
+            entity.Property(item => item.ResultSha256).HasColumnName("result_sha256").HasMaxLength(64);
+            entity.Property(item => item.UsageJson).HasColumnName("usage_json").HasColumnType("jsonb");
+            entity.Property(item => item.CreatedAtUtc).HasColumnName("created_at_utc");
+            entity.Property(item => item.ReceivedAtUtc).HasColumnName("received_at_utc");
+            entity.HasOne<DocumentIngestionJobEntity>().WithMany()
+                .HasForeignKey(item => new { item.TenantId, item.CollectionId, item.DocumentId, item.JobId })
+                .HasPrincipalKey(item => new { item.TenantId, item.CollectionId, item.DocumentId, item.Id })
+                .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_document_preparation_operations_job");
+            entity.HasIndex(item => new { item.TenantId, item.CollectionId, item.DocumentId, item.JobId })
+                .HasDatabaseName("ix_document_preparation_operations_job");
+            entity.HasIndex(item => new { item.TenantId, item.CollectionId, item.JobId, item.Stage, item.PageNumber })
+                .IsUnique().HasDatabaseName("ux_document_preparation_operations_job_stage_page");
         });
 
         modelBuilder.Entity<DocumentPreparationGenerationEntity>(entity =>

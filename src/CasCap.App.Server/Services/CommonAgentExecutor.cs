@@ -36,6 +36,7 @@ internal sealed class CommonAgentExecutor(
         var runScope = new AgentRunScope
         {
             OnActivity = context.Definition.Agent.Stateless ? null : context.HistorySink,
+            OnStructuredResponse = context.StructuredResponseSink,
             MaximumToolInvocations = runtimeConfig.Value.MaximumToolInvocationsPerRun,
             OnCompaction = stats =>
             {
@@ -112,7 +113,8 @@ internal sealed class CommonAgentExecutor(
                 new AgentHistoryChatClient(inner, definition.Agent.Name, runScope)),
             tokenCredential: credentialStore.GetTokenCredential(definition.Agent.Provider),
             loggerFactory: definition.Agent.Stateless ? null : loggerFactory,
-            sessionCompaction: definition.Agent.Stateless ? null : GetSessionCompaction(definition));
+            sessionCompaction: definition.Agent.Stateless ? null : GetSessionCompaction(definition),
+            onStructuredResponse: runScope.OnStructuredResponse);
         var chatOptions = AgentExtensions.BuildChatOptions(definition.Agent, instructions);
         if (!string.IsNullOrWhiteSpace(overrides.ModelName))
             chatOptions.ModelId = overrides.ModelName;

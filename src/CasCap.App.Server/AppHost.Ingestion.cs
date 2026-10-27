@@ -18,7 +18,14 @@ public static partial class AppHost
             || string.IsNullOrWhiteSpace(caching.RemoteCacheConnectionString))
             throw new InvalidOperationException("Ingestion requires shared Redis with distributed locking enabled.");
         if (!runtimeEnabled)
+        {
             builder.Services.AddCasCapCaching(builder.Configuration);
+            builder.Services.AddOptionsWithValidateOnStart<AgentRuntimeConfig>()
+                .BindConfiguration(AgentRuntimeConfig.ConfigurationSectionName).ValidateDataAnnotations();
+            builder.Services.AddOptionsWithValidateOnStart<AgentDefinitionPolicyConfig>()
+                .BindConfiguration(AgentDefinitionPolicyConfig.ConfigurationSectionName).ValidateDataAnnotations();
+            builder.Services.AddOptions<ApiAuthConfig>().BindConfiguration(ApiAuthConfig.ConfigurationSectionName);
+        }
         builder.Services.AddHealthChecks();
         builder.Services.AddOptionsWithValidateOnStart<DocumentIngestionConfig>()
             .BindConfiguration(DocumentIngestionConfig.ConfigurationSectionName)
@@ -33,7 +40,16 @@ public static partial class AppHost
         builder.Services.AddScoped<PdfDocumentPreparationService>();
         builder.Services.AddSingleton<DocumentBlobDownloadService>();
         builder.Services.AddScoped<DocumentPreparationStoreService>();
-        builder.Services.TryAddScoped<IDocumentProcessor, PdfDocumentProcessor>();
+        builder.Services.AddScoped<DocumentPreparationOperationStore>();
+        builder.Services.AddScoped<DocumentPreparationModelVerifier>();
+        builder.Services.AddScoped<IDocumentPreparationProvider, DocumentPreparationProvider>();
+        builder.Services.AddScoped<HybridDocumentProcessor>();
+        builder.Services.AddScoped<PdfDocumentProcessor>();
+        builder.Services.TryAddScoped<IDocumentProcessor, DocumentPreparationProcessor>();
+        builder.Services.AddHttpClient(nameof(DocumentPreparationProvider))
+            .RemoveAllLoggers().ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+        builder.Services.AddHttpClient(nameof(DocumentPreparationModelVerifier))
+            .RemoveAllLoggers().ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         builder.Services.AddSingleton<IDocumentIngestionEventQueue, AzureDocumentIngestionQueue>();
         builder.Services.AddScoped<IDocumentIngestionInbox, DocumentIngestionInboxService>();
         builder.Services.AddScoped<DocumentIngestionAdmissionService>();

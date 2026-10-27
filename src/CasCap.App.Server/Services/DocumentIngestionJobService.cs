@@ -51,6 +51,7 @@ internal sealed class DocumentIngestionJobService(
             BlobUri = document.BlobUri,
             ETag = document.ETag,
             ExpiresAtUtc = job.ClaimExpiresAtUtc.Value,
+            PreparationPlanJson = job.PreparationPlanJson,
         };
     }
 
@@ -68,6 +69,8 @@ internal sealed class DocumentIngestionJobService(
             DocumentProcessingOutcome.Completed => null,
             DocumentProcessingOutcome.RetryableFailure => DocumentProcessingPolicy.RetryableFailure,
             DocumentProcessingOutcome.PermanentFailure => DocumentProcessingPolicy.PermanentFailure,
+            DocumentProcessingOutcome.ReconciliationRequired => DocumentIngestionStates.ReconciliationRequired,
+            DocumentProcessingOutcome.ReviewRequired => null,
             _ => throw new ArgumentOutOfRangeException(nameof(outcome)),
         };
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -83,6 +86,8 @@ internal sealed class DocumentIngestionJobService(
         var retry = outcome == DocumentProcessingOutcome.RetryableFailure
             && job.AttemptCount < DocumentProcessingPolicy.MaxAttempts;
         job.Status = retry ? DocumentIngestionStates.RetryPending
+            : outcome == DocumentProcessingOutcome.ReconciliationRequired ? DocumentIngestionStates.ReconciliationRequired
+            : outcome == DocumentProcessingOutcome.ReviewRequired ? DocumentIngestionStates.ReviewRequired
             : outcome == DocumentProcessingOutcome.Completed ? DocumentIngestionStates.Completed : DocumentIngestionStates.Failed;
         job.LastFailureCode = failureCode;
         job.ClaimId = null;
@@ -97,6 +102,13 @@ internal sealed class DocumentIngestionJobService(
     {
         var expired = db.DocumentIngestionJobs.Where(job => job.Status == DocumentIngestionStates.Processing
             && job.ClaimExpiresAtUtc <= now);
+        await expired.Where(job => db.DocumentPreparationOperations.Any(operation => operation.JobId == job.Id
+                && operation.TenantId == job.TenantId && operation.CollectionId == job.CollectionId
+                && operation.Status == DocumentPreparationOperations.Submitting))
+            .ExecuteUpdateAsync(update => update.SetProperty(job => job.Status, DocumentIngestionStates.ReconciliationRequired)
+                .SetProperty(job => job.ClaimId, (Guid?)null)
+                .SetProperty(job => job.FinishedAtUtc, now)
+                .SetProperty(job => job.LastFailureCode, DocumentIngestionStates.ReconciliationRequired), cancellationToken);
         await expired.Where(job => job.AttemptCount >= DocumentProcessingPolicy.MaxAttempts)
             .ExecuteUpdateAsync(update => update.SetProperty(job => job.Status, DocumentIngestionStates.Failed)
                 .SetProperty(job => job.ClaimId, (Guid?)null)

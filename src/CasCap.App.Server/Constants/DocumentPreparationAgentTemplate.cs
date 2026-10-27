@@ -16,7 +16,6 @@ internal static class DocumentPreparationAgentTemplate
         Converters = { new JsonStringEnumConverter() },
     };
 
-    // The benchmark deliberately retains its frozen copy; tests pin this initial production template to it.
     internal const string Instructions = """
         Transcribe the attached single PDF page faithfully into readable Markdown. The PDF is authoritative.
         The user supplies its physical page number in the original document. Return that number as page.

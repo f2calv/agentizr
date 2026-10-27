@@ -380,6 +380,10 @@ namespace CasCap.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("next_attempt_at_utc");
 
+                    b.Property<string>("PreparationPlanJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("preparation_plan_json");
+
                     b.Property<string>("Sequencer")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -400,6 +404,9 @@ namespace CasCap.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_document_ingestion_jobs");
+
+                    b.HasAlternateKey("TenantId", "CollectionId", "DocumentId", "Id")
+                        .HasName("ak_document_ingestion_jobs_tenant_collection_document_id");
 
                     b.HasIndex("Status", "ClaimExpiresAtUtc")
                         .HasDatabaseName("ix_document_ingestion_jobs_status_claim_expiry");
@@ -497,6 +504,119 @@ namespace CasCap.Migrations
                         .HasDatabaseName("ix_document_preparation_generations_document");
 
                     b.ToTable("document_preparation_generations", "agent_runtime");
+                });
+
+            modelBuilder.Entity("CasCap.Entities.DocumentPreparationOperationEntity", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CollectionId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("collection_id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("DerivedPdfSha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("derived_pdf_sha256");
+
+                    b.Property<string>("DocumentId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("document_id");
+
+                    b.Property<string>("JobId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("job_id");
+
+                    b.Property<string>("OperationUri")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("operation_uri");
+
+                    b.Property<int>("PageNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("page_number");
+
+                    b.Property<string>("PlanSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("plan_sha256");
+
+                    b.Property<DateTimeOffset?>("ReceivedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at_utc");
+
+                    b.Property<string>("RequestSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("request_sha256");
+
+                    b.Property<string>("ResultJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("result_json");
+
+                    b.Property<string>("ResultSha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("result_sha256");
+
+                    b.Property<string>("SourceSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("source_sha256");
+
+                    b.Property<string>("Stage")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("stage");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("SubmissionClaimId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("submission_claim_id");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("UsageJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("usage_json");
+
+                    b.HasKey("Id")
+                        .HasName("pk_document_preparation_operations");
+
+                    b.HasIndex("TenantId", "CollectionId", "DocumentId", "JobId")
+                        .HasDatabaseName("ix_document_preparation_operations_job");
+
+                    b.HasIndex("TenantId", "CollectionId", "JobId", "Stage", "PageNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ux_document_preparation_operations_job_stage_page");
+
+                    b.ToTable("document_preparation_operations", "agent_runtime");
                 });
 
             modelBuilder.Entity("CasCap.Entities.DocumentTextChunkEntity", b =>
@@ -686,6 +806,17 @@ namespace CasCap.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_document_preparation_generations_document");
+                });
+
+            modelBuilder.Entity("CasCap.Entities.DocumentPreparationOperationEntity", b =>
+                {
+                    b.HasOne("CasCap.Entities.DocumentIngestionJobEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CollectionId", "DocumentId", "JobId")
+                        .HasPrincipalKey("TenantId", "CollectionId", "DocumentId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_document_preparation_operations_job");
                 });
 
             modelBuilder.Entity("CasCap.Entities.DocumentTextChunkEntity", b =>

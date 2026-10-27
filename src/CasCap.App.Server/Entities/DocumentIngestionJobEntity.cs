@@ -44,4 +44,7 @@ public sealed class DocumentIngestionJobEntity
 
     /// <summary>Gets or sets a bounded content-free failure code, never an exception message.</summary>
     public string? LastFailureCode { get; set; }
+
+    /// <summary>Gets or sets the credential-free preparation plan frozen when the notification was accepted.</summary>
+    public string? PreparationPlanJson { get; set; }
 }

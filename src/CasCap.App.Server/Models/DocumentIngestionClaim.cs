@@ -29,4 +29,7 @@ internal sealed record DocumentIngestionClaim
 
     /// <summary>Gets the database deadline after which job outcomes are rejected.</summary>
     public required DateTimeOffset ExpiresAtUtc { get; init; }
+
+    /// <summary>Gets the admission-pinned hybrid plan; old/local-only jobs retain null.</summary>
+    public string? PreparationPlanJson { get; init; }
 }

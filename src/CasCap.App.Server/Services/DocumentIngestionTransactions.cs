@@ -34,6 +34,7 @@ internal static class DocumentIngestionTransactions
     ) => db.DocumentIngestionJobs.Where(job => job.Id == claim.JobId && job.ClaimId == claim.ClaimId
         && job.DocumentId == claim.DocumentId && job.Sequencer == claim.Sequencer
         && job.TenantId == claim.TenantId && job.CollectionId == claim.CollectionId
+        && job.PreparationPlanJson == claim.PreparationPlanJson
         && job.Status == DocumentIngestionStates.Processing && job.ClaimExpiresAtUtc > now
         && db.KnowledgeDocuments.Any(document => document.Id == job.DocumentId
             && document.TenantId == job.TenantId && document.CollectionId == job.CollectionId

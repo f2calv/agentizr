@@ -14,6 +14,12 @@ internal enum DocumentProcessingOutcome
 
     /// <summary>The attempt no longer owns its revision; no staged output or job outcome may be committed.</summary>
     ClaimLost,
+
+    /// <summary>A paid request has no recoverable receipt and must not be automatically submitted again.</summary>
+    ReconciliationRequired,
+
+    /// <summary>All candidate pages are staged but have not passed independent quality acceptance.</summary>
+    ReviewRequired,
 }
 
 /// <summary>Explicit local preparation outcomes; prepared text is not embedded or searchable content.</summary>

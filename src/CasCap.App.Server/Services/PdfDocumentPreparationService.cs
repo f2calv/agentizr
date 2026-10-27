@@ -58,7 +58,8 @@ internal sealed class PdfDocumentPreparationService(
         }
     }
 
-    private async Task ReadBoundedAsync(Stream source, MemoryStream payload, CancellationToken cancellationToken)
+    /// <summary>Reads at most the configured source limit plus one rejection byte without interpreting document contents.</summary>
+    internal async Task ReadBoundedAsync(Stream source, MemoryStream payload, CancellationToken cancellationToken)
     {
         var buffer = new byte[65_536];
         while (payload.Length <= config.Value.MaximumPdfBytes)

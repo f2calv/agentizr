@@ -23,4 +23,10 @@ public static class DocumentIngestionStates
 
     /// <summary>A permanent failure or the attempt limit ended processing.</summary>
     public const string Failed = nameof(Failed);
+
+    /// <summary>A paid outcome is unknown; operator reconciliation is required before any new submission.</summary>
+    public const string ReconciliationRequired = nameof(ReconciliationRequired);
+
+    /// <summary>Complete immutable preparation candidates await independent quality review; not searchable.</summary>
+    public const string ReviewRequired = nameof(ReviewRequired);
 }
