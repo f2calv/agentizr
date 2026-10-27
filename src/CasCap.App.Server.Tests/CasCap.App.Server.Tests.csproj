@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\CasCap.AgentRuntime.Client\CasCap.AgentRuntime.Client.csproj" />
     <ProjectReference Include="..\CasCap.App.Server\CasCap.App.Server.csproj" />
+    <ProjectReference Include="..\..\..\CasCap.Common\src\CasCap.Common.Testing\CasCap.Common.Testing.csproj" Condition="'$(Configuration)' == 'Debug'" />
   </ItemGroup>
 
   <!-- The server's gitignored Local tier holds private deployment settings; host tests stay credential-free. -->

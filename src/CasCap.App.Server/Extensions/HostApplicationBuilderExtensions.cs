@@ -18,19 +18,7 @@ public static class HostApplicationBuilderExtensions
     {
         builder.Configuration.AddStandardConfiguration(builder.Environment.EnvironmentName, assembly);
 
-        var azureAuthConfig = builder.Configuration
-            .GetSection(AzureAuthConfig.ConfigurationSectionName)
-            .Get<AzureAuthConfig>();
-        if (azureAuthConfig?.IsKeyVaultEnabled is true)
-        {
-            builder.Configuration.AddKeyVaultConfiguration(
-                azureAuthConfig.KeyVaultUri,
-                azureAuthConfig.TokenCredential,
-                new PrefixKeyVaultSecretManager(
-                    "AgentRuntime--Agentizr",
-                    nameof(CasCap),
-                    "AgentRuntime"));
-        }
+        var runtimeCredential = builder.Configuration.AddRuntimeKeyVaultConfiguration();
 
         var appConfig = builder.Configuration
             .GetSection(AppConfig.ConfigurationSectionName)
@@ -41,8 +29,22 @@ public static class HostApplicationBuilderExtensions
 
         var applicationMetadata = new ApplicationMetadata(assembly);
         builder.Services.AddSingleton(applicationMetadata);
-        builder.Services.AddSingleton(new RuntimeEntraCredential(() => azureAuthConfig?.TokenCredential));
+        builder.Services.AddSingleton(runtimeCredential);
 
         return (appConfig, applicationMetadata);
+    }
+
+    /// <summary>Loads the runtime's scoped Key Vault provider and returns its bootstrap identity.</summary>
+    public static RuntimeEntraCredential AddRuntimeKeyVaultConfiguration(this IConfigurationManager configuration)
+    {
+        var azureAuthConfig = configuration.GetSection(AzureAuthConfig.ConfigurationSectionName).Get<AzureAuthConfig>();
+        if (azureAuthConfig?.IsKeyVaultEnabled is true)
+        {
+            configuration.AddKeyVaultConfiguration(
+                azureAuthConfig.KeyVaultUri,
+                azureAuthConfig.TokenCredential,
+                new PrefixKeyVaultSecretManager("AgentRuntime--Agentizr", nameof(CasCap), "AgentRuntime"));
+        }
+        return new RuntimeEntraCredential(() => azureAuthConfig?.TokenCredential);
     }
 }
