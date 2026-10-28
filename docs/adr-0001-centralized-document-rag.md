@@ -1,7 +1,8 @@
 # ADR 0001: Centralize Multi-Application Document RAG In Agentizr
 
-**Status:** Proposed; Debug admission is deployed with ingestion disabled; prepared-generation processing is local-only.
-The built-in preparation-agent foundation is committed but undeployed.
+**Status:** Proposed; elected Debug admission is deployed and enabled for a controlled soak;
+document processing and paid preparation remain disabled.
+The built-in preparation-agent runtime is deployed but no preparation definition was activated.
 **Date:** 2026-10-25.
 **Scope:** Blazor document management, Azure Blob/Event Grid ingestion and tenant-isolated RAG.
 **Canonical record:** This document. Related issues are historical context or implementation tracking,
@@ -924,8 +925,11 @@ The separate IaC workstream owns the following handoff; deployment is not perfor
 - [x] Provision distinct ingestion and application-poison queues. Both exist and their live ARM
   IDs and credential-free endpoints match the infrastructure outputs. This does not establish
   producer TTL, runtime access or event delivery.
-- [ ] Complete approved tenant/collection bindings and producer retention configuration before
-  enabling ingestion. The account does not enable Blob/container soft delete or Blob versioning,
+- [x] Apply approved tenant/collection bindings through private runtime configuration for the
+  controlled admission soak.
+- [ ] Complete durable application-poison retention and operator inspection/replay before unattended
+  operation. Seven-day poison retention was explicitly accepted only for the controlled soak.
+  The account does not enable Blob/container soft delete or Blob versioning,
   and Azure reports no automatic lifecycle policy.
 - [x] Provision storage Event Grid system-topic subscriptions for final writes/deletes, container
   filters, queue destinations, retry/TTL/dead-letter settings, and least-privilege Entra access.
@@ -935,9 +939,12 @@ The separate IaC workstream owns the following handoff; deployment is not perfor
   delivery-role scope; Event Grid's sender and dead-letter writer now use dedicated-account scope.
   The worker's queue grants remain narrowly scoped. Synthetic create/delete events from both
   sources reached the ingestion queue, proving the Event Grid network/delivery path (R10).
-- [ ] Verify the worker identity, DNS/network access and queue lease/poison behavior from the
-  intended runtime; successful Event Grid delivery does not prove pod or application access.
-- [ ] Supply account/container/queue identifiers and authentication configuration through private
+- [x] Verify runtime queue access through elected admission: one controlled valid notification
+  produced one queued document/job; four pre-existing notifications were quarantined. This proves
+  receive/admission and poison sending, not poison inspection or lease-expiry/failure recovery.
+- [ ] Verify queue lease-expiry/failure recovery and inspect quarantined notifications. Both operator
+  and matching application-identity poison peeks returned HTTP 403; reasons remain unverified.
+- [x] Supply account/container/queue identifiers and authentication configuration through private
   operator configuration; retain no real infrastructure coordinates in this public ADR.
 - [ ] Upload one or two authorized test PDFs per initial application container; verify blob
   persistence and Event Grid queue delivery. Keep messages until Agentizr is ready, using explicit
@@ -946,7 +953,9 @@ The separate IaC workstream owns the following handoff; deployment is not perfor
   inspected without dequeueing: each was a single EventGridSchema JSON object encoded as Base64
   UTF-8, with the correct storage-account topic, source subject/URL and `PutBlob`/`DeleteBlob` API.
   All had non-expiring queue retention (expiration year 9999) and dequeue count zero. Synthetic
-  blobs and temporary operator permissions were removed; the four test messages remain queued.
+  blobs and temporary operator permissions were removed; four test messages remained queued at
+  that milestone. The later receiver quarantined four pre-existing notifications, but denied poison
+  inspection prevents confirming their identities or rejection reasons.
 - [x] Prove isolated dead-letter recovery and operator replay. On 2026-10-26 a deleted temporary
   destination forced `NotFound`; a one-attempt test subscription dead-lettered the synthetic event
   with `MaxDeliveryAttemptsExceeded`, observed after 394 seconds. The source ETag/content length
@@ -960,12 +969,15 @@ The operator reports both source accounts online and one example PDF staged for 
 consumer. The application workstream has now verified authenticated conditional reads and bounded
 preparation against both configured source containers using the local runtime certificate and
 standard Key Vault provider. It used synthetic ownership bindings only in the test process.
-This does not establish pod access, production ownership bindings, their PDF notification delivery
-or end-to-end database staging; those gates remain open.
+Approved runtime ownership bindings and controlled notification-to-database admission are now
+verified. Subsequent read-only checks from every deployed runtime replica also verified full
+conditional PDF reads from both configured sources and HTTP 412 for incorrect ETags. This does
+not establish a new original write through Event Grid to application admission or prepared-document
+staging.
 
 #### Exact IaC Handoff
 
-**Readiness on 2026-10-27: partial; not ready to enable live ingestion.** Account provisioning,
+**Readiness on 2026-10-27: controlled admission soak enabled; not unattended processing readiness.** Account provisioning,
 private source/dead-letter containers, ingestion/poison queues and optional Search verification
 are complete, as is optional Document Intelligence account provisioning and scoped RBAC.
 Resource IDs and credential-free container/queue URIs are verified in private
@@ -975,14 +987,15 @@ and non-expiring Event Grid messages are verified, with no-change Terraform conv
 Configure `QueueBase64Encoded = true` for the observed single-object, Base64 UTF-8 envelopes
 (`CasCap__DocumentIngestionConfig__QueueBase64Encoded=true` for environment configuration).
 Isolated dead-letter capture and non-expiring replay are also verified; live retry policy was not
-shortened for that test. Approved source mappings, runtime access, poison-send TTL and application
-admission remain outstanding.
-Do not enable the receiver merely because its transport is now operational.
+shortened for that test. Approved source mappings and runtime queue admission are now verified.
+Application-poison inspection is denied; its seven-day retention is accepted only for this soak.
+Do not enable document processing or unattended operation merely because admission works.
 
 Verified source-container URLs and their storage-account topic are now present in private local
-application configuration. Production tenant/collection bindings are intentionally unset. Local
-read-only PDF tests do not authorize activating ingestion or replace the remaining queue/runtime
-handoff.
+application configuration. Approved tenant/collection bindings are also deployed through private
+runtime overrides. Conditional downloads are now verified separately from inside the intended
+runtime containers, using deployed code, configuration and credentials. This does not replace the
+remaining processing/quality gates.
 
 **Document Intelligence handoff:** Standard S0 is provisioned for low-volume, page-billed managed
 extraction. The verified endpoint and resource ID remain in private infrastructure outputs and the
@@ -1016,7 +1029,8 @@ private originals, comparisons and operation receipts remain evidence, not an ex
 The original diagnostic trial changed no resource-provider registration, RBAC, deployment,
 subscription, storage or queue settings. The separately approved alternative-subscription
 deployment, read-only access and completed bounded comparison are recorded below.
-Application production routing is unchanged and production ingestion remains disabled.
+That diagnostic milestone did not enable ingestion. The subsequent controlled admission rollout
+is recorded below; it enabled no paid preparation or new definition activation.
 
 | Evidence | Observed result |
 | --- | --- |
@@ -1189,9 +1203,10 @@ benchmark (`1b080ae`) milestones. The new commits have not been pushed or releas
 **Deployed versus committed:** The earlier Debug frontend rollout verified the version-suggestion,
 optional-activation and selected-version-action improvements through readiness, served assets and
 the downloaded client assembly. It retained runtime-only role selection: deploying that UI did not
-enable the document-ingestion listener or change definitions. The newly committed preparation
-runtime/template foundation, including its editor integration, is not deployed or activated.
-Complete its runtime rollout before publishing or activating definitions that use the new fields.
+enable the document-ingestion listener or change definitions. The subsequent authorized Debug rollout
+now includes the preparation runtime/template and editor integration, plus elected admission.
+Processing remains off and no preparation definition was installed or activated by that rollout.
+Runtime availability does not replace bounded paid-provider and document-quality acceptance.
 
 **Endpoint scope:** Only the Azure-hosted definition required the subscription/endpoint switch;
 definitions using local models remain unchanged. Preserve provider registrations, model selection
@@ -1211,11 +1226,12 @@ scans passed for both feature commits. No new application tests, provider calls,
 activations, deployments or infrastructure changes were performed while batching these commits.
 Hybrid remains the owner's preferred candidate, not semantic acceptance.
 
-**Subsequent local implementation:** The Debug hybrid worker now pins authorized plans and persists
-paid intents, receipts, review candidates and native usage. It has not been committed or deployed
-at this milestone. See the [worker boundary](#built-in-document-preparation-agent) for implemented
-controls and remaining provider-backed/operator gates. The preferred hybrid still requires semantic
-acceptance; ingestion, paid checks, migrations and rollout remain separately authorized operations.
+**Subsequent implementation and rollout:** The Debug hybrid worker now pins authorized plans and
+persists paid intents, receipts, review candidates and native usage. Its committed source and
+additive schema are deployed; processing remains disabled. See the
+[Phase 2 evidence](#phase-2-deliver-central-upload-storage-and-search) for isolated provider
+acceptance and controlled admission validation. The preferred hybrid still requires semantic
+acceptance; paid checks, definition activation and processing require separate authorization.
 
 #### Event Delivery And Storage Handoff
 
@@ -1303,7 +1319,9 @@ The infrastructure owner should update the Phase 0 checkboxes with sanitized obs
   workload-identity/RBAC propagation and access from intended pods without broad account keys.
 - Distinguish the application poison **queue** from Event Grid delivery dead-letter **Blob storage**.
   Event Grid non-expiring delivery and isolated operator replay are verified. Application poison
-  TTL, runtime permissions and operational replay ownership still require handoff. An encoding
+  sending is verified from the runtime, with seven-day retention accepted only for the controlled
+  soak. Inspection permissions, durable retention and operational replay ownership still require
+  handoff. An encoding
   mismatch fails the receiver; configure the verified Base64 setting before enabling it.
 - Stage authorized PDFs and capture safe evidence that create/delete notifications reach the queue.
   Do not copy PDFs, event bodies, real resource IDs or deployment endpoints into this public ADR.
@@ -1366,8 +1384,8 @@ this does not prove full RAG processing.
   preparation definition without installing or activating it. EF reports no model drift; the additive
   [hybrid-operation migration](../src/CasCap.App.Server/Migrations/20261027125842_DocumentHybridPreparationOperations.cs)
   and offline SQL add the nullable admission plan, operation ledger and constraints, without seeds
-  or destructive upgrade operations. The migration has been applied only to disposable local
-  provider-test databases, not a deployment database; application rollback should retain the expanded
+  or destructive upgrade operations. The migration passed disposable provider-test databases and
+  was subsequently applied through the deployed PreSync migration job; application rollback should retain the expanded
   schema because its `Down` removes receipt and plan history. The pure DI fixture uses already-registered
   runtime infrastructure because cache registration connects eagerly; separate real startup acceptance
   is recorded below. This is local implementation evidence, not rollout or fidelity acceptance.
@@ -1385,13 +1403,30 @@ this does not prove full RAG processing.
   Azure queue delivery is substituted, processing remains disabled and all paid-provider calls are
   synthetic. These checks do not prove deployed Blob/model authorization, partition/renewal-loss
   behavior, prepared-generation storage races, document quality or production rollout readiness.
+- [x] Complete the authorized fresh Debug/project-reference rollout and additive migration.
+  The migration job succeeded, deployment reconciliation is healthy and runtime checks verified
+  health/status HTTP 200, the frontend HTTP 200 and the administration login OIDC redirect.
+  Runtime and migration use the same immutable image digest. Elected admission is enabled with
+  approved source bindings; document processing is off, with no paid preparation bindings or
+  new preparation-definition activation. Replicas are ready with zero restarts; observed logs show
+  one leadership acquisition and no exception-type matches during the check.
+- [x] Admit one controlled valid notification referencing an unchanged existing PDF. The local
+  application credential was verified against the deployed application ID before sending once.
+  PostgreSQL contains exactly one queued document and one queued job, attempt count zero,
+  no preparation plan and zero paid-operation rows, prepared generations or chunks. This proves
+  queue-to-database admission, not a new Blob-write/Event Grid/application end-to-end run.
+  Conditional pod reads are verified separately below. Four older notifications were quarantined; HTTP 403
+  prevents verifying their contents/reasons. Seven-day poison retention is explicitly accepted
+  only for this controlled soak, not unattended readiness. No originals were changed or paid
+  providers invoked.
 - [x] Implement the local gated durable lifecycle: serial claim, three attempts, persisted 30-second
   retry, deadline recovery and revision/claim-checked completion. Focused credential-free run:
   78 cases passed, zero failed/skipped (69 role/ingestion plus nine existing endpoint smoke cases).
   SQLite/manual-clock and fake-runner tests do not establish PostgreSQL races or live failover.
   The full Debug solution builds without warnings/errors; the current EF model has no pending
-  changes. The scaffolded additive processing migration and offline SQL were reviewed but not
-  applied outside disposable provider-test databases. The lifecycle is committed locally, not deployed.
+  changes. The scaffolded additive processing migration and offline SQL were reviewed; the migration
+  was subsequently applied by the deployment migration job. The lifecycle is deployed but processing
+  remains disabled; no live job execution is claimed.
 - [x] Implement offline PDF preparation using synthetic documents: 25 MiB source cap, 200 pages,
   two million extracted UTF-16 characters and 5,000 chunks; defaults are 512 actual tokens with
   at most 64-token overlap. Startup limits and per-call chunk settings are validated.
@@ -1411,11 +1446,26 @@ this does not prove full RAG processing.
   retry deduplication, separate profiles, original-byte hashes and source failures during reading.
   The full Debug solution builds with zero warnings/errors. EF reports no model drift; the additive
   preparation migration, designer/snapshot and offline SQL were reviewed: two new tables, no source
-  data rewrites or seed payloads. It is applied only in disposable provider-test databases, not deployed.
+  data rewrites or seed payloads. It passed disposable provider-test databases and is now applied
+  to the deployment database, with no live prepared output created.
   A schema downgrade drops prepared
   output; roll back application code while retaining the additive schema instead.
-- [ ] Prove conditional downloads from the intended pods and preparation persistence/races against
-  isolated PostgreSQL before enabling processing. Add independently fenced searchable activation with embeddings.
+- [x] Prove bounded conditional downloads from every deployed runtime replica on 2026-10-27.
+  A temporary runner invoked the deployed
+  [download service](../src/CasCap.App.Server/Services/DocumentBlobDownloadService.cs), with each
+  runtime container's existing configuration, Key Vault bootstrap and credential; no alternate
+  downloader or local identity substituted for pod access. For one existing PDF in each configured
+  source, the complete stream matched the metadata length within the 25 MiB bound and had a PDF
+  header. A deliberately incorrect ETag returned HTTP 412 for every source/replica check. Source
+  ETag, length and last-modified metadata were unchanged afterward. No content was exported,
+  database jobs claimed, processing enabled or paid providers called. Database counts remained one
+  document and one job with zero attempts, operations, generations or chunks. Replicas stayed ready
+  with zero restarts. Temporary payloads were removed and nonprivileged diagnostic containers
+  stopped immediately; terminated diagnostic entries remain until a normal rollout. The temporary
+  runner was removed rather than retained as another preparation harness.
+- [ ] Prove prepared-generation persistence/races against isolated PostgreSQL before enabling
+  processing. Hybrid plan/operation acceptance above does not cover every prepared-generation race.
+- [ ] Add independently fenced searchable activation with embeddings.
 - [x] Establish a read-only document-quality baseline through the standard configuration/Key Vault
   provider, shared conditional Blob downloader and real preparation service. One PDF from each
   configured source was prepared and its page-local spans, complete coverage and token bounds
@@ -1563,11 +1613,13 @@ this does not prove full RAG processing.
 The links beside each claim are the evidence. Historical discussion is not current implementation.
 Official documentation was consulted on 2026-10-25; exact version compatibility remains a Phase 1
 gate. This ADR is saved locally. The SmartHaus ownership-handoff closure is verified. The local
-admission foundation is deployed with ingestion disabled; its external migration and basic API
-rollout checks succeeded. Gated job processing is implemented and locally validated, not deployed.
+admission foundation and hybrid runtime are deployed with elected admission enabled for a
+controlled soak; external migrations, frontend/API checks and one queue-to-database admission
+succeeded. Gated job processing is deployed but disabled; no paid preparation was invoked.
 The infrastructure
 workstream supplied the sanitized account/Search observations recorded in Phase 0; private
 resource coordinates and deployment artifacts remain outside this public record. Ingestion
-transport, worker access and full document processing/retrieval remain
-unverified. A read-only follow-up verified pgvector activation and a vector operation; it did not
+transport, runtime queue admission and full conditional pod downloads are verified separately.
+New-original Event Grid-to-application admission, poison inspection/durable retention and full
+document processing/retrieval remain unverified. A read-only follow-up verified pgvector activation and a vector operation; it did not
 mutate the database or establish application compatibility.
