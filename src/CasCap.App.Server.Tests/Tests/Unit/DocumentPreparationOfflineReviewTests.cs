@@ -1,6 +1,7 @@
 #if DEBUG
 using CasCap.Constants;
 using Markdig;
+using Markdig.Extensions.Tables;
 using Markdig.Syntax;
 using Microsoft.ML.Tokenizers;
 using System.Text;
@@ -59,6 +60,55 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
         var result = new DocumentChunkingService().ChunkMarkdown(pages, new(), new(), Token);
         Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => ValidateProjection(pages,
             result with { Chunks = result.Chunks.Take(1).ToArray() }, TiktokenTokenizer.CreateForEncoding("cl100k_base")));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LayoutCoverageCannotHideDroppedCells(bool dropCell)
+    {
+        const string table = "|  |  |\n|---|---|\n| Alpha | Beta |";
+        DocumentMarkdownPage[] pages = [new(1, table)];
+        var review = new DocumentMarkdownSourceReview(2, "synthetic-layout-review",
+            DocumentPreparationIdentity.Hash(JsonSerializer.Serialize(pages)), [], [],
+            [new(1, 0, table.Length, DocumentMarkdownReadingOrders.ColumnMajor, "Verified synthetic layout.")]);
+        var result = new DocumentChunkingService().ChunkMarkdown(pages, new(), new(), review, Token);
+        var tokenizer = TiktokenTokenizer.CreateForEncoding("cl100k_base");
+        if (dropCell)
+        {
+            var chunk = Assert.Single(result.Chunks);
+            Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => ValidateProjection(pages, result with
+            {
+                Chunks = [chunk with { SourceSpans = chunk.SourceSpans.Take(1).ToArray() }],
+            }, tokenizer));
+        }
+        else
+            Assert.Empty(ValidateProjection(pages, result, tokenizer));
+    }
+
+    [Fact]
+    public void UnusedPromotedHeadingIsReported()
+    {
+        DocumentMarkdownPage[] pages = [new(1, "Body.\n\nC")];
+        var review = new DocumentMarkdownSourceReview(2, "synthetic-heading-review",
+            DocumentPreparationIdentity.Hash(JsonSerializer.Serialize(pages)), [], [new(1, 7, 8, 1, "Verified marker.")], []);
+        var result = new DocumentChunkingService().ChunkMarkdown(pages, new(), new(), review, Token);
+        var span = Assert.Single(ValidateProjection(pages, result, TiktokenTokenizer.CreateForEncoding("cl100k_base")));
+        Assert.Equal(new HeadingOnlySpan(1, 7, 8), span);
+    }
+
+    [Fact]
+    public void LayoutSyntaxAllowanceCannotHideExtraCells()
+    {
+        const string original = "|  |  |\n|---|---|\n| Alpha | Beta |";
+        DocumentMarkdownPage[] pages = [new(1, original)];
+        var review = new DocumentMarkdownSourceReview(2, "synthetic-layout-review",
+            DocumentPreparationIdentity.Hash(JsonSerializer.Serialize(pages)), [], [],
+            [new(1, 0, original.Length, DocumentMarkdownReadingOrders.ColumnMajor, "Verified synthetic layout.")]);
+        var result = new DocumentChunkingService().ChunkMarkdown(pages, new(), new(), review, Token);
+        var changed = new[] { new DocumentMarkdownPage(1, original + " Lost |") };
+        result = result with { Review = review with { LayoutTables = [review.LayoutTables[0] with { EndOffset = changed[0].Markdown.Length }] } };
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => ValidateProjection(changed, result, TiktokenTokenizer.CreateForEncoding("cl100k_base")));
     }
 
     [Fact(SkipUnless = nameof(Enabled), Skip = "Requires explicit approval and retained local review input plus a fresh private output directory.")]
@@ -146,6 +196,8 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
                 result.Chunks.Count(chunk => chunk.IsFragmented), headingOnly, null)
             {
                 ExcludedSourceSpans = result.Review?.Exclusions.Count ?? 0,
+                ReviewedHeadings = result.Review?.Headings.Count ?? 0,
+                ReviewedLayoutTables = result.Review?.LayoutTables.Count ?? 0,
             });
         }
         foreach (var artifact in originals)
@@ -164,7 +216,8 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
         foreach (var report in reports)
             output.WriteLine($"Source ordinal {report.SourceOrdinal}: {report.ChunkCount} chunks, {report.MinimumTokens}-{report.MaximumTokens} tokens, "
                 + $"{report.FragmentedChunks} paragraph fragments, {report.HeadingOnlySpans.Length} unembedded heading spans, "
-                + $"{report.ExcludedSourceSpans} reviewed exclusions; rejected: {report.Rejection is not null}.");
+                + $"{report.ExcludedSourceSpans} exclusions, {report.ReviewedHeadings} heading corrections, "
+                + $"{report.ReviewedLayoutTables} layout tables; rejected: {report.Rejection is not null}.");
         Assert.All(reports, report => Assert.Null(report.Rejection));
 
         async Task<byte[]> Read(string name, long maximumBytes, string? root = null)
@@ -218,7 +271,8 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
                 "A reviewed exclusion still contributes body or heading text.");
             Array.Fill(coverage[exclusion.PageNumber], true, exclusion.StartOffset, exclusion.EndOffset - exclusion.StartOffset);
         }
-        var headingOnly = HeadingOnlySpans(pages, coverage);
+        ValidateLayoutCoverage(pages, result, coverage);
+        var headingOnly = HeadingOnlySpans(pages, coverage, result.Review);
         foreach (var page in pages)
             for (var index = 0; index < page.Markdown.Length; index++)
                 Assert.True(coverage[page.PageNumber][index] || char.IsWhiteSpace(page.Markdown[index]),
@@ -237,7 +291,46 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
         }
     }
 
-    private static HeadingOnlySpan[] HeadingOnlySpans(DocumentMarkdownPage[] pages, Dictionary<int, bool[]> coverage)
+    private static void ValidateLayoutCoverage(DocumentMarkdownPage[] pages, DocumentMarkdownChunkingResult result, Dictionary<int, bool[]> coverage)
+    {
+        var pipeline = new MarkdownPipelineBuilder().UsePipeTables().Build();
+        foreach (var annotation in result.Review?.LayoutTables ?? [])
+        {
+            var page = Assert.Single(pages, page => page.PageNumber == annotation.PageNumber);
+            var table = Assert.Single(Markdown.Parse(page.Markdown, pipeline).OfType<Table>(),
+                table => table.Span.Start == annotation.StartOffset && table.Span.End + 1 == annotation.EndOffset);
+            var rows = table.Cast<TableRow>().ToArray();
+            var expected = new List<string>();
+            for (var column = 0; column < rows[0].Count; column++)
+                foreach (var row in rows.Where(row => !row.IsHeader))
+                {
+                    var cell = (TableCell)row[column];
+                    var raw = page.Markdown[cell.Span.Start..(cell.Span.End + 1)];
+                    var text = raw.Trim();
+                    if (text.Length == 0)
+                        continue;
+                    var start = cell.Span.Start + raw.IndexOf(text, StringComparison.Ordinal);
+                    var end = start + text.Length;
+                    Assert.True(coverage[page.PageNumber].Skip(start).Take(text.Length).All(value => value), "A layout entry was dropped.");
+                    Assert.Single(result.Chunks.SelectMany(chunk => chunk.SourceSpans), span =>
+                        span.PageNumber == page.PageNumber && span.StartOffset == start && span.EndOffset == end);
+                    expected.Add("- " + text);
+                }
+            Assert.Contains(result.Chunks, chunk => chunk.Body.Contains(string.Join('\n', expected), StringComparison.Ordinal));
+            var line = 0;
+            for (var offset = annotation.StartOffset; offset < annotation.EndOffset; offset++)
+            {
+                var value = page.Markdown[offset];
+                if (value == '\n')
+                    line++;
+                Assert.True(coverage[page.PageNumber][offset] || char.IsWhiteSpace(value) || value == '|'
+                    || (line == 1 && value is '-' or ':'), "Unmapped layout content is not table formatting.");
+                coverage[page.PageNumber][offset] = true;
+            }
+        }
+    }
+
+    private static HeadingOnlySpan[] HeadingOnlySpans(DocumentMarkdownPage[] pages, Dictionary<int, bool[]> coverage, DocumentMarkdownSourceReview? review)
     {
         var result = new List<HeadingOnlySpan>();
         var pipeline = new MarkdownPipelineBuilder().UsePipeTables().Build();
@@ -266,6 +359,12 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
             }
             first = last;
         }
+        foreach (var heading in review?.Headings ?? [])
+            if (coverage[heading.PageNumber].Skip(heading.StartOffset).Take(heading.EndOffset - heading.StartOffset).All(value => !value))
+            {
+                result.Add(new(heading.PageNumber, heading.StartOffset, heading.EndOffset));
+                Array.Fill(coverage[heading.PageNumber], true, heading.StartOffset, heading.EndOffset - heading.StartOffset);
+            }
         return result.ToArray();
     }
 
@@ -279,6 +378,12 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
     {
         /// <summary>Gets the count of audited per-page spans deliberately ineligible for embedding input.</summary>
         public int ExcludedSourceSpans { get; init; }
+
+        /// <summary>Gets the count of explicit verified heading levels and promoted markers.</summary>
+        public int ReviewedHeadings { get; init; }
+
+        /// <summary>Gets the count of headerless tables projected as column-major independent entries.</summary>
+        public int ReviewedLayoutTables { get; init; }
     }
 
     /// <summary>Identifies retained heading-only Markdown that is deliberately absent from vector input.</summary>

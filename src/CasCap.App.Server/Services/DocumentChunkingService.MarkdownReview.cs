@@ -13,36 +13,65 @@ internal sealed partial class DocumentChunkingService
     {
         if (review is null)
             return null;
-        if (review.Version != 1 || string.IsNullOrWhiteSpace(review.ReviewId) || review.ReviewId.Length > 128
-            || review.MarkdownSha256 != digest || review.Exclusions is null || review.Exclusions.Count > 5_000)
+        if (review.Version != 2 || string.IsNullOrWhiteSpace(review.ReviewId) || review.ReviewId.Length > 128
+            || review.MarkdownSha256 != digest || review.Exclusions is null || review.Headings is null || review.LayoutTables is null
+            || (long)review.Exclusions.Count + review.Headings.Count + review.LayoutTables.Count > 5_000)
             throw new InvalidDataException("Source review version, identity, digest or annotation limit is invalid.");
         var exclusions = review.Exclusions.ToArray();
         foreach (var exclusion in exclusions)
         {
-            if (exclusion is null || string.IsNullOrWhiteSpace(exclusion.Reason) || exclusion.Reason.Length > 1_024
-                || exclusion.Role is not (DocumentMarkdownSourceRoles.RunningHeader or DocumentMarkdownSourceRoles.RunningFooter
+            if (exclusion is null || exclusion.Role is not (DocumentMarkdownSourceRoles.RunningHeader or DocumentMarkdownSourceRoles.RunningFooter
                     or DocumentMarkdownSourceRoles.Navigation))
                 throw new InvalidDataException("A source exclusion requires a supported role and bounded review reason.");
-            var page = pages.FirstOrDefault(page => page.PageNumber == exclusion.PageNumber);
-            if (page is null || exclusion.StartOffset < 0 || exclusion.EndOffset <= exclusion.StartOffset
-                || exclusion.EndOffset > page.Markdown.Length
-                || char.IsLowSurrogate(page.Markdown[exclusion.StartOffset])
-                || char.IsHighSurrogate(page.Markdown[exclusion.EndOffset - 1]))
-                throw new InvalidDataException("A source exclusion has invalid page, offset or Unicode scalar boundaries.");
+            ValidateMarkdownReviewRange(pages, exclusion.PageNumber, exclusion.StartOffset, exclusion.EndOffset, exclusion.Reason);
         }
+        var headings = review.Headings.ToArray();
+        foreach (var heading in headings)
+        {
+            if (heading is null || heading.Level is < 1 or > 6)
+                throw new InvalidDataException("A reviewed heading requires a supported level.");
+            ValidateMarkdownReviewRange(pages, heading.PageNumber, heading.StartOffset, heading.EndOffset, heading.Reason);
+        }
+        var tables = review.LayoutTables.ToArray();
+        foreach (var table in tables)
+        {
+            if (table is null || table.ReadingOrder != DocumentMarkdownReadingOrders.ColumnMajor)
+                throw new InvalidDataException("A reviewed layout table requires an explicit supported reading order.");
+            ValidateMarkdownReviewRange(pages, table.PageNumber, table.StartOffset, table.EndOffset, table.Reason);
+        }
+        var ranges = exclusions.Select(item => (item.PageNumber, item.StartOffset, item.EndOffset))
+            .Concat(headings.Select(item => (item.PageNumber, item.StartOffset, item.EndOffset)))
+            .Concat(tables.Select(item => (item.PageNumber, item.StartOffset, item.EndOffset)))
+            .OrderBy(item => item.PageNumber).ThenBy(item => item.StartOffset).ToArray();
+        for (var index = 1; index < ranges.Length; index++)
+            if (ranges[index].PageNumber == ranges[index - 1].PageNumber
+                && ranges[index].StartOffset < ranges[index - 1].EndOffset)
+                throw new InvalidDataException("Reviewed source decisions must not overlap or repeat.");
         exclusions = exclusions.OrderBy(item => item.PageNumber).ThenBy(item => item.StartOffset).ToArray();
-        for (var index = 1; index < exclusions.Length; index++)
-            if (exclusions[index].PageNumber == exclusions[index - 1].PageNumber
-                && exclusions[index].StartOffset < exclusions[index - 1].EndOffset)
-                throw new InvalidDataException("Reviewed source exclusions must not overlap or repeat.");
-        return review with { Exclusions = exclusions };
+        return review with
+        {
+            Exclusions = exclusions,
+            Headings = headings.OrderBy(item => item.PageNumber).ThenBy(item => item.StartOffset).ToArray(),
+            LayoutTables = tables.OrderBy(item => item.PageNumber).ThenBy(item => item.StartOffset).ToArray(),
+        };
+    }
+
+    private static void ValidateMarkdownReviewRange(
+        IReadOnlyList<DocumentMarkdownPage> pages, int pageNumber, int start, int end, string reason)
+    {
+        if (string.IsNullOrWhiteSpace(reason) || reason.Length > 1_024)
+            throw new InvalidDataException("A source decision requires a bounded review reason.");
+        var page = pages.FirstOrDefault(page => page.PageNumber == pageNumber);
+        if (page is null || start < 0 || end <= start || end > page.Markdown.Length
+            || char.IsLowSurrogate(page.Markdown[start]) || char.IsHighSurrogate(page.Markdown[end - 1]))
+            throw new InvalidDataException("A source decision has invalid page, offset or Unicode scalar boundaries.");
     }
 
     private static bool ExcludeMarkdownBlock(
         MarkdownSource source,
         Block block,
         DocumentMarkdownSourceReview? review,
-        HashSet<DocumentMarkdownExclusion> matched
+        HashSet<(int PageNumber, int StartOffset, int EndOffset)> matched
     )
     {
         if (review is null || review.Exclusions.Count == 0)
@@ -58,7 +87,7 @@ internal sealed partial class DocumentChunkingService
                 && exclusion.StartOffset == span.StartOffset && exclusion.EndOffset == span.EndOffset)))
             throw new InvalidDataException("A reviewed exclusion must cover an entire parsed block with one source role.");
         foreach (var annotation in annotations)
-            matched.Add(annotation);
+            matched.Add((annotation.PageNumber, annotation.StartOffset, annotation.EndOffset));
         return true;
     }
 }

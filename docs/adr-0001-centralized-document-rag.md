@@ -185,7 +185,7 @@ migrations. Proposed logical records are:
 | Source block | Immutable document/preparation generation, block ID/type and reviewed source role/embedding eligibility, exclusion reason where applicable, heading ancestry, normalized Markdown spans and mapped physical pages/regions with coordinate conventions and mapping evidence |
 | Chunk | Tenant, collection, document version, generation, stable ordinal, body/source-block references, heading path, derived embedding text/hash, PDF page/region references, related figure IDs, optional printed-page label and domain metadata |
 | Figure asset | Tenant/document/source generation, stable application-owned figure ID, physical page/polygon, caption/related block IDs, protected derived-asset reference/hash and extraction/rendering profile |
-| Review annotation | Owning document/preparation generation, page/block/region scope, issue/review state and origin; never part of embedding text |
+| Review annotation | Owning document/preparation generation and source digest, versioned role/eligibility or structural decision (heading level/layout reading order), page/block/region scope, reason, issue/review state and origin; audit metadata never part of embedding text |
 | Embedding/index generation | Chunk reference, embedding profile, dimension, metric and vector; only compatible generations are searched together |
 | Ingestion job | Tenant/document/version, idempotency identity, state, attempt/lease information, progress and safe failure code |
 
@@ -519,11 +519,21 @@ keeps reviewed contents/navigation blocks as source/navigation metadata outside 
 Running headers/footers likewise require explicit reviewed exclusions. This is not a blanket
 exclusion of headings, short sections or tables.
 
-The first bounded implementation may exclude only complete parsed blocks, rejecting stale,
-overlapping, partial or unsupported annotations. Corrections inside a mixed body/furniture block,
-heading levels, alphabet sections and layout tables need separate verified structure/correction
-support; do not silently rewrite immutable receipts. Exclusion review is not document approval,
-and must not automatically enable ingestion, persistence, embedding or searchable activation.
+The bounded implementation excludes only complete parsed blocks, rejecting stale, overlapping,
+partial or unsupported annotations. Separately typed structural decisions may assign a verified
+heading level or promote an exact single-line paragraph marker; never infer alphabet labels or
+numbering rules without original-page evidence. An explicitly reviewed headerless layout table may
+project its cells as independent entries in a recorded column-major reading order. Preserve
+relational tables unchanged unless a separate verified decision applies.
+
+Keep each reviewed layout list atomic within its heading-inclusive token budget. Retain exact
+trimmed cell spans and original block ordinals separately from derived list punctuation; source
+offsets follow semantic reading order and need not be monotonic. Require complete cell coverage and
+reject unmapped nonformatting content. Empty parser-synthesized cells contribute no source text.
+Do not silently rewrite immutable receipts, guess mixed body/furniture corrections or treat these
+review decisions as document approval. They enable no ingestion, persistence, embedding or searchable
+activation by themselves. Schema/profile changes produce new reviewed identities, not silent
+reinterpretation of archived annotations.
 
 Capture strategy, packing rule, structure/parser/extractor versions, heading-prefix serialization,
 tokenizer, target/maximum/overlap and fallback rules in the immutable generation identity. Changes
@@ -1725,8 +1735,8 @@ this does not prove full RAG processing.
 - [x] Implement the bounded
   [whole-block source-review contract](../src/CasCap.App.Server/Models/DocumentMarkdownSourceReview.cs)
   and [projection enforcement](../src/CasCap.App.Server/Services/DocumentChunkingService.MarkdownReview.cs).
-  Bind schema-version-1 reviews to exact page Markdown; retain role/range/reason audit, source
-  offsets and block ordinals without rewriting receipts. Profile version 2 and a source/profile/
+  The initial schema-version-1 reviews bind exact page Markdown; retain role/range/reason audit,
+  source offsets and block ordinals without rewriting receipts. Profile version 2 and a source/profile/
   review-bound result identity prevent confusing projections with different review decisions.
   Stale, partial, overlapping, unsupported, scalar-invalid and unmatched annotations reject.
   The approved six-page offline run excludes 31 manual spans (18 navigation) and eight vocabulary
@@ -1737,15 +1747,38 @@ this does not prove full RAG processing.
   restored Release server builds have zero warnings/errors. Navigation remains metadata only.
   The internal contract does not authenticate reviewers or make annotations from documents trusted;
   enforce tenant/reviewer authority when wiring a management action. No generation was persisted,
-  embedded or activated, and heading/entry/table/visual semantic approval remains open.
+  embedded or activated. At that boundary heading/entry/table/visual semantic approval remained open;
+  the archived schema-1 evidence is not reinterpreted by the current contract below.
+- [x] Verify original manual pages 2/3 and vocabulary pages 7/12, then implement explicit
+  [heading/layout decisions](../src/CasCap.App.Server/Services/DocumentChunkingService.MarkdownStructure.cs)
+  with [synthetic structural regressions](../src/CasCap.App.Server.Tests/Tests/Unit/DocumentMarkdownStructureTests.cs).
+  Current review schema 2 requires separate exclusion, heading and layout-table collections;
+  profile version 3 and the exact review identity fence this new projection. The original source
+  remains unchanged; archived schema-1 decisions require a newly issued review rather than
+  compatibility reinterpretation.
+  Seven manual heading decisions restore six chunk prefixes' chapter/subsection ancestry,
+  without changing any of the 23 manual bodies or their body provenance. Two original alphabet
+  markers become explicit headings; no missing alphabet ancestor is fabricated across a page gap.
+  Four verified vocabulary layout tables project 35 independent cells in column-major order,
+  with exact cell spans and atomic fitting groups. The relational clock/example table remains
+  unchanged. Empty parser-synthesized cells invent no source; cell-coverage and extra-content
+  regressions prevent table-formatting allowances from hiding lost text.
+  The approved same-six-page offline run yields **23 manual chunks at 31-302 complete-input tokens**
+  and **10 vocabulary chunks at 52-471 tokens**, zero fragmentation under the unchanged 512-token
+  ceiling. All five originals and two new review inputs retain their hashes; one vocabulary
+  heading-only span remains explicitly unembedded. The focused run passes **109 cases**,
+  zero failures/skips (33 structure, 32 source-review, 30 heading, 14 export/offline).
+  Full Debug and configuration-restored Release server builds pass with zero warnings/errors.
+  Private corrected previews retain all review decisions outside embeddings. No paid calls,
+  service startup, deployment, prepared-generation persistence, embedding or activation occurred.
+  This verifies the sampled corrections, not whole-document semantic, visual or retrieval acceptance.
 - [ ] Complete section/entry semantic classification and warning/procedure, table/header and
   vocabulary/example associations before claiming the full R8/R12 chunking contract. Resolve
-  the sampled source-role and hierarchy findings first: define reviewed body/header/footer and
-  navigation eligibility with retained exclusion spans, distinguish layout from relational tables,
-  and verify heading/letter-label corrections against originals without fabricating ancestors.
-  Preserve immutable receipts and version any reviewed correction/projection; do not silently
-  clean source text, drop repeated/short content or increase budgets to bypass these findings.
-  Repeat the pinned offline checks and semantic review before approving the corrected output.
+  remaining mixed-block eligibility and broader warning/procedure/entry ownership; the sampled
+  whole-block roles, verified hierarchy and layout corrections above do not classify every document.
+  Preserve immutable receipts and version reviewed corrections; do not silently clean source text,
+  drop repeated/short content or increase budgets to bypass findings.
+  Review the corrected private preview before approving that bounded projection.
   Fitting list items and structured blocks stay whole; only oversized paragraphs currently split.
   Oversized tables, entries and code/blockquote blocks fail explicitly for review rather
   than unsafe token slicing. The

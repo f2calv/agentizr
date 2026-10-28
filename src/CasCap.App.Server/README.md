@@ -134,24 +134,42 @@ Existing preparation resource caps apply; synchronous parsing is not a hard CPU 
 The explicit-review overload accepts a
 [`DocumentMarkdownSourceReview`](Models/DocumentMarkdownSourceReview.cs) bound to that exact
 Markdown digest, with an opaque review ID and
-[`DocumentMarkdownExclusion`](Models/DocumentMarkdownExclusion.cs) entries. Supported
+[`DocumentMarkdownExclusion`](Models/DocumentMarkdownExclusion.cs) entries, reviewed
+[heading levels](Models/DocumentMarkdownHeadingReview.cs) and
+[layout-table decisions](Models/DocumentMarkdownLayoutTableReview.cs). Supported
 [roles](Constants/DocumentMarkdownSourceRoles.cs) are `running-header`, `running-footer` and
 `navigation`; reviewed navigation stays source metadata, not embedding input.
-No exclusions are inferred when a review is absent.
+No exclusions, heading repairs or layout roles are inferred when a review is absent.
 
-Review schema version 1 permits at most 5,000 spans, a 128-character review ID and a required
+Review schema version 2 requires all three annotation collections (empty when unused) and permits
+at most 5,000 decisions in total, a 128-character review ID and a required
 reason of at most 1,024 characters per span. Exclusions must identify complete parsed top-level
 blocks, use valid scalar-safe source ranges and neither overlap nor repeat. A cross-page block
 requires every mapped span with one consistent role. Stale digests, unsupported roles, partial
-blocks and unmatched/whitespace-only selections fail explicitly. This cannot repair a heading,
-split a mixed body/furniture block or classify a table's meaning.
+blocks and unmatched/whitespace-only selections fail explicitly. Decisions of different kinds
+cannot overlap either. Mixed body/furniture blocks still require separate review.
+
+Heading decisions assign levels 1-6 to exact single-page headings or promote explicitly verified
+single-line paragraphs. They affect only derived heading context, retain the original heading
+spans and cannot invent missing ancestors. Layout decisions identify exact single-page pipe tables
+with empty column labels. Their nonempty cells become independent Markdown list entries in explicit
+`column-major` order, preserving inline markup and escaped pipes. Each list remains one atomic group
+within the heading-inclusive budget; oversized groups reject instead of silently splitting entries.
+Unreviewed relational tables remain unchanged.
+
+Layout body provenance identifies each actual trimmed cell span in reading order, not table
+delimiter syntax; offsets need not increase across columns. Empty parser-synthesized cells have no
+invented source span. Unmapped nonformatting content rejects. These are reviewed projections,
+not heuristic table classification or rewritten normalized Markdown.
 
 The original text, offsets and retained block ordinals remain unchanged. Heading context can
-continue past an explicitly excluded running title. Profile version 2 identifies this interpretation;
+continue past an explicitly excluded running title. Profile version 3 identifies this interpretation;
 the result's `Id` additionally fences the source digest and exact review decisions, while
 `MarkdownSha256` remains the unmodified source digest. Serialized review metadata retains each
-excluded role/range/reason outside the embedding text. An all-excluded result contains no chunks,
+excluded role/range/reason and structural decisions outside the embedding text. An all-excluded result contains no chunks,
 not an approved or indexed generation.
+Archived schema-version-1 reviews are not reinterpreted; issue a new exact-source version-2 review
+to use the current projection.
 
 This internal review-only contract does not authenticate reviewers or accept annotations from
 document content. A future management action must authorize the reviewer and tenant/source scope.

@@ -55,6 +55,12 @@ internal static partial class DocumentPreparationReviewRenderer
                 + string.Concat(review.Exclusions.Select(item =>
                     $"<li>Physical page {item.PageNumber}, Markdown [{item.StartOffset}, {item.EndOffset}): "
                     + $"{WebUtility.HtmlEncode(item.Role)}; {WebUtility.HtmlEncode(item.Reason)}</li>"))
+                + "</ul></aside>"
+                + "<aside class='review-metadata'><h4>Reviewed structural decisions (not source transcription)</h4><ul>"
+                + string.Concat(review.Headings.Select(item => StructuralDecision(item.PageNumber, item.StartOffset, item.EndOffset,
+                    $"heading level {item.Level}", item.Reason)))
+                + string.Concat(review.LayoutTables.Select(item => StructuralDecision(item.PageNumber, item.StartOffset, item.EndOffset,
+                    $"independent layout entries; {item.ReadingOrder}", item.Reason)))
                 + "</ul></aside>")
         + string.Concat(result.Chunks.Select(chunk =>
             $"<article><h4>Chunk {chunk.Ordinal + 1}</h4>"
@@ -62,6 +68,9 @@ internal static partial class DocumentPreparationReviewRenderer
             + $"tokens including headings: {chunk.TokenCount}; fragmented: {chunk.IsFragmented}</p>"
             + $"<pre class='embedding-preview'>{WebUtility.HtmlEncode(chunk.EmbeddingText)}</pre></article>"))
         + "</details>";
+
+    private static string StructuralDecision(int page, int start, int end, string decision, string reason) =>
+        $"<li>Physical page {page}, Markdown [{start}, {end}): {WebUtility.HtmlEncode(decision)}; {WebUtility.HtmlEncode(reason)}</li>";
 
     private static string Notes(string[] notes) =>
         string.Concat(notes.Where(note => !string.IsNullOrWhiteSpace(note))

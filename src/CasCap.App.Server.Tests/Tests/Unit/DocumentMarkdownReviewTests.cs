@@ -25,8 +25,8 @@ public sealed class DocumentMarkdownReviewTests
         Assert.Equal("# Root\n\nKeep this warning.\n\nRepeated label", chunk.EmbeddingText);
         Assert.Equal(baseline.MarkdownSha256, result.MarkdownSha256);
         Assert.NotEqual(baseline.Id, result.Id);
-        Assert.Equal(2, result.Profile.Version);
-        Assert.NotEqual(result.Profile.Id, (result.Profile with { Version = 1 }).Id);
+        Assert.Equal(3, result.Profile.Version);
+        Assert.NotEqual(result.Profile.Id, (result.Profile with { Version = 2 }).Id);
         Assert.Equal(baseline.Chunks.Last().SourceSpans.Last(), chunk.SourceSpans.Last());
         Assert.NotSame(review.Exclusions, result.Review!.Exclusions);
         Assert.Equal(review.Id, result.Review.Id);
@@ -59,7 +59,7 @@ public sealed class DocumentMarkdownReviewTests
         var review = Review(pages, exclusion);
         review = failure switch
         {
-            "version" => review with { Version = 2 },
+            "version" => review with { Version = 1 },
             "digest" => review with { MarkdownSha256 = "stale" },
             "review-id" => review with { ReviewId = " " },
             "long-id" => review with { ReviewId = new string('x', 129) },
@@ -182,6 +182,6 @@ public sealed class DocumentMarkdownReviewTests
         _chunker.ChunkMarkdown(pages, new(), new(), review, Token);
 
     private static DocumentMarkdownSourceReview Review(DocumentMarkdownPage[] pages, params DocumentMarkdownExclusion[] exclusions) =>
-        new(1, "synthetic-review", DocumentPreparationIdentity.Hash(JsonSerializer.Serialize(pages)), exclusions);
+        new(2, "synthetic-review", DocumentPreparationIdentity.Hash(JsonSerializer.Serialize(pages)), exclusions, [], []);
 }
 #endif

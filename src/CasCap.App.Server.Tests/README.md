@@ -138,6 +138,8 @@ solution built with zero warnings/errors; neither check ran the complete applica
 | --- | ---: | ---: | --- |
 | [`DocumentMarkdownChunkingTests`](Tests/Unit/DocumentMarkdownChunkingTests.cs) | 17 | 30 | Debug-only synthetic heading projection, tagged `MarkdownChunking` |
 | [`DocumentMarkdownReviewTests`](Tests/Unit/DocumentMarkdownReviewTests.cs) | 10 | 32 | Explicit source-role exclusions, unchanged provenance, atomic blocks, audit/identity, stale/invalid annotation rejection; tagged `MarkdownChunking` |
+| [`DocumentMarkdownStructureTests`](Tests/Unit/DocumentMarkdownStructureTests.cs) | 10 | 33 | Reviewed heading levels, paragraph promotion, layout/relational distinction, column-major entries, empty/additional cells, exact Unicode/inline spans, atomic budgets and invalid decisions; tagged `MarkdownChunking` |
+| **Projection subtotal** | **37** | **95** | Synthetic, Debug-only; no provider or database access |
 
 Synthetic Markdown covers ATX/Setext ancestry,
 sibling transitions, contiguous/missing physical pages, code fences and nested pseudo-headings,
@@ -151,14 +153,17 @@ Release excludes this projection and its Markdig dependency. No Azure call, paid
 Docker service, generation persistence or searchable activation was performed.
 
 Parser regressions intentionally use raw heading source spans: normal Markdig inline processing
-clears `HeadingBlock.Lines`. Token tests also distinguish a soft target from the hard ceiling:
+clears heading and paragraph `Lines`. Single-line promotion therefore examines the original span,
+not the cleared line collection. Pipe-table `ColumnIndex` is unset; parsed child order defines
+columns. The net10.0 parser may pad rows/headers with spanless empty cells; those cannot invent
+content or constrain the actual column count. Token tests also distinguish a soft target from the hard ceiling:
 a Unicode scalar that exceeds the soft budget must still fit when the remaining hard budget permits.
 
 #### Retained Real-Document Review
 
 | Class | Methods | Cases | Scope |
 | --- | ---: | ---: | --- |
-| [`DocumentPreparationOfflineReviewTests`](Tests/Unit/DocumentPreparationOfflineReviewTests.cs) | 5 | 10 | Nine synthetic export/coverage cases plus one separately gated local-artifact check; tagged `OfflineDocumentReview` |
+| [`DocumentPreparationOfflineReviewTests`](Tests/Unit/DocumentPreparationOfflineReviewTests.cs) | 8 | 14 | Thirteen synthetic export/coverage cases plus one separately gated local-artifact check; tagged `OfflineDocumentReview` |
 
 The local-artifact case reads only the existing export's encoded transcription elements, never its
 managed drafts or annotation lists. It verifies PDF SHA-256 pins, original page selections and
@@ -201,11 +206,12 @@ failed check, with rejection evidence retained rather than a larger-budget retry
 For an explicitly approved annotation run, additionally set
 `CASCAP_DOCUMENT_REVIEW_ANNOTATIONS` to an absolute private directory containing
 `source-1.review.json` and `source-2.review.json`, then use a fresh output directory.
-Each file follows the [versioned source-review contract](../CasCap.App.Server/Models/DocumentMarkdownSourceReview.cs),
+Each file follows the [versioned source-review contract](../CasCap.App.Server/Models/DocumentMarkdownSourceReview.cs)
+(current schema 2, including explicit `exclusions`, `headings` and `layoutTables` collections),
 not a text-matching cleanup rule. Without this optional directory, the original unannotated
 projection remains available. No review identity or source path is inferred from document text.
 
-The focused reviewed-role run passed **130 cases**, zero failed/skipped: 32 review-contract,
+The earlier schema-1/profile-2 reviewed-role run passed **130 cases**, zero failed/skipped: 32 review-contract,
 30 heading, 15 page-local, ten export/offline, 12 candidate and 31 hybrid-worker cases.
 The full Debug solution and restored Release server build passed with zero warnings/errors.
 When switching conditional Debug project references to Release packages, restore the matching
@@ -224,10 +230,44 @@ projection identities. The five original artifacts plus two annotation inputs re
 The private preview displays exclusion roles/ranges/reasons separately from embeddings.
 One vocabulary heading-only span remains explicitly unembedded.
 
-Receipts and normalized page exports are not rewritten; the new version-2 projection retains
-the whole-block review audit. Contents/navigation remain source metadata. Heading/alphabet
-corrections, layout-table semantics, visuals, reviewer authorization in the future UI, and approved
-generation persistence remain separate gates. Passing this slice is not semantic approval.
+Receipts and normalized page exports were not rewritten; that profile-version-2 projection retains
+the whole-block review audit. Its archived schema-1 annotations remain historical evidence,
+not inputs accepted by the current validator.
+
+#### Verified Heading And Layout Corrections
+
+The current schema-2/profile-3 projection adds explicit structural decisions verified against original
+physical pages. The approved focused selection passed **109 cases**, zero failed/skipped:
+33 structure, 32 source-review, 30 heading and 14 export/offline cases. To repeat that selection,
+use the approved private input/output/annotation settings above and filter these four classes:
+
+```powershell
+dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class CasCap.Tests.Unit.DocumentMarkdownStructureTests CasCap.Tests.Unit.DocumentMarkdownReviewTests CasCap.Tests.Unit.DocumentMarkdownChunkingTests CasCap.Tests.Unit.DocumentPreparationOfflineReviewTests
+```
+
+| Sample | Heading decisions | Layout-table decisions | Chunks | Complete-input tokens/chunk |
+| --- | ---: | ---: | ---: | --- |
+| Device manual | 7 | 0 | 23 | 31-302 |
+| Vocabulary | 2 | 4 | 10 | 52-471 |
+
+The six corrected manual prefixes retain chapter/subsection ancestry; all 23 manual bodies and
+body provenance match the prior reviewed-role projection. Two verified alphabet markers become
+headings; no missing alphabet ancestor is fabricated across the page gap. Four vocabulary layout
+tables yield 35 independent entries in column-major order, each group kept whole, while the
+relational clock/example table remains unchanged. All chunks fit the unchanged 512-token ceiling
+without fragmentation.
+
+Coverage requires every cell's exact source span and full ordered list projection before allowing
+only table formatting to be absent. Dropped-cell and extra-content regressions prevent the formatting
+allowance from hiding lost text. The five original artifacts and two new annotation inputs remain
+unchanged; one heading-only span remains explicitly unembedded. Review annotations, reasons and
+usage never enter embedding text. Full Debug and configuration-restored Release builds pass with
+zero warnings/errors. No service, provider, paid replay, generation persistence or activation runs.
+
+Contents/navigation remain source metadata. Broader warning/procedure and entry/example
+classification, visual associations, reviewer authorization in the future UI and approved generation
+persistence remain separate gates. This bounded correction run is not whole-document semantic or
+retrieval-quality approval.
 
 ### Conditional Blob Downloads
 
@@ -437,8 +477,8 @@ acceptance and protected preview UI remain separate gates in
 | `Agent Runtime` | 54 | Runtime orchestration, tools, metrics, evaluation, persistence, caching, locking and compaction |
 | `Document Preparation` | 3 | Secret-free preparation template, editor constraint preservation and stateless runtime execution |
 | `HybridPreparation` | 76 Debug-only | Bounded worker/runtime, selected original pages, Markdown/review separation, review-only heading projection, paid receipts/recovery, profile authorization and fake read-only model metadata; 35 cases also tagged `Integration` |
-| `MarkdownChunking` | 62 Debug-only | Synthetic heading hierarchy, semantic units, reviewed whole-block exclusions, source/page spans, projection identity and complete-input token bounds |
-| `OfflineDocumentReview` | 10 Debug-only | Nine synthetic export/coverage checks and one separately approved retained-artifact projection without providers or databases |
+| `MarkdownChunking` | 95 Debug-only | Synthetic heading hierarchy, semantic units, reviewed exclusions/structural decisions, cell/source/page spans, identity and complete-input token bounds |
+| `OfflineDocumentReview` | 14 Debug-only | Thirteen synthetic export/coverage checks and one separately approved retained-artifact projection without providers or databases |
 | `LiveDocumentPreparation` | 1 Debug-only | Separately approved real-source/provider acceptance with a retained local ledger; disabled by default |
 | `PreparationProviders` | 22 Debug-only | Real isolated PostgreSQL ledger/recovery and two-host Redis startup/handover; all also `Integration` and `PostgreSQL`, one also `Redis` |
 | `Tenant Isolation` | 38 | Cross-tenant state, JWT permissions, caller mappings, administrator assignment, MCP and provider credentials and identity isolation |
@@ -569,6 +609,7 @@ Tests/
     ├── DocumentIngestionConfigTests.cs
     ├── DocumentMarkdownChunkingTests.cs
     ├── DocumentMarkdownReviewTests.cs
+    ├── DocumentMarkdownStructureTests.cs
     ├── DocumentPreparationModelVerifierTests.cs
     ├── DocumentPreparationPlanTests.cs
     ├── FeatureConfigTests.cs
