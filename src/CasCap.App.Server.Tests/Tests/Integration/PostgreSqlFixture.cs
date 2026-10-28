@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Npgsql;
 
@@ -19,13 +20,15 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
     /// <inheritdoc/>
     public async ValueTask InitializeAsync()
     {
-        var options = new DbContextOptionsBuilder<AgentRuntimeDbContext>()
-            .UseNpgsql(ConnectionString)
-            .Options;
-        DbContextFactory = new PooledDbContextFactory<AgentRuntimeDbContext>(options);
+        DbContextFactory = CreateDbContextFactory();
         await using var dbContext = await DbContextFactory.CreateDbContextAsync();
         await dbContext.Database.MigrateAsync();
     }
+
+    /// <summary>Creates contexts for the same isolated database with optional transaction checkpoints.</summary>
+    internal IDbContextFactory<AgentRuntimeDbContext> CreateDbContextFactory(params IInterceptor[] interceptors) =>
+        new PooledDbContextFactory<AgentRuntimeDbContext>(new DbContextOptionsBuilder<AgentRuntimeDbContext>()
+            .UseNpgsql(ConnectionString).AddInterceptors(interceptors).Options);
 
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
