@@ -137,6 +137,7 @@ solution built with zero warnings/errors; neither check ran the complete applica
 | Class | Methods | Cases | Scope |
 | --- | ---: | ---: | --- |
 | [`DocumentMarkdownChunkingTests`](Tests/Unit/DocumentMarkdownChunkingTests.cs) | 17 | 30 | Debug-only synthetic heading projection, tagged `MarkdownChunking` |
+| [`DocumentMarkdownReviewTests`](Tests/Unit/DocumentMarkdownReviewTests.cs) | 10 | 32 | Explicit source-role exclusions, unchanged provenance, atomic blocks, audit/identity, stale/invalid annotation rejection; tagged `MarkdownChunking` |
 
 Synthetic Markdown covers ATX/Setext ancestry,
 sibling transitions, contiguous/missing physical pages, code fences and nested pseudo-headings,
@@ -144,7 +145,7 @@ source heading/body spans, complete-input token ceilings, scalar-safe Unicode ov
 semantic-unit preservation, explicit oversized structured-unit rejection, profile/digest identity,
 resource limits and cancellation. The existing 15 page-local cases remain unchanged.
 
-The combined chunking, hybrid, template and definition-UI selection passed **133 cases**, zero
+The earlier combined chunking, hybrid, template and definition-UI selection passed **133 cases**, zero
 failed/skipped. The full Debug solution and Release server build passed with zero warnings/errors;
 Release excludes this projection and its Markdig dependency. No Azure call, paid acceptance,
 Docker service, generation persistence or searchable activation was performed.
@@ -194,6 +195,39 @@ The new private output includes the original/draft/agent panels, collapsed chunk
 artifact hashes and verifies they remain unchanged. No paid run was repeated, original artifact
 overwritten, service started or generation persisted. A rejected structured unit remains an explicit
 failed check, with rejection evidence retained rather than a larger-budget retry.
+
+#### Reviewed Source Roles
+
+For an explicitly approved annotation run, additionally set
+`CASCAP_DOCUMENT_REVIEW_ANNOTATIONS` to an absolute private directory containing
+`source-1.review.json` and `source-2.review.json`, then use a fresh output directory.
+Each file follows the [versioned source-review contract](../CasCap.App.Server/Models/DocumentMarkdownSourceReview.cs),
+not a text-matching cleanup rule. Without this optional directory, the original unannotated
+projection remains available. No review identity or source path is inferred from document text.
+
+The focused reviewed-role run passed **130 cases**, zero failed/skipped: 32 review-contract,
+30 heading, 15 page-local, ten export/offline, 12 candidate and 31 hybrid-worker cases.
+The full Debug solution and restored Release server build passed with zero warnings/errors.
+When switching conditional Debug project references to Release packages, restore the matching
+configuration; stale Debug assets alone do not validate Release.
+
+With the same six transcriptions and 512-token ceiling:
+
+| Sample | Reviewed exclusion spans | Chunks before/after | Complete-input tokens/chunk after |
+| --- | ---: | --- | --- |
+| Device manual | 31 (including 18 navigation spans) | 27 / 23 | 21-302 |
+| Vocabulary | 8 | 10 / 9 | 60-504 |
+
+No chunk fragmented. The checker verifies no excluded source span contributes body or heading
+text, complete retained-body coverage, unchanged source digests and deterministic reviewed
+projection identities. The five original artifacts plus two annotation inputs remain unchanged.
+The private preview displays exclusion roles/ranges/reasons separately from embeddings.
+One vocabulary heading-only span remains explicitly unembedded.
+
+Receipts and normalized page exports are not rewritten; the new version-2 projection retains
+the whole-block review audit. Contents/navigation remain source metadata. Heading/alphabet
+corrections, layout-table semantics, visuals, reviewer authorization in the future UI, and approved
+generation persistence remain separate gates. Passing this slice is not semantic approval.
 
 ### Conditional Blob Downloads
 
@@ -403,7 +437,7 @@ acceptance and protected preview UI remain separate gates in
 | `Agent Runtime` | 54 | Runtime orchestration, tools, metrics, evaluation, persistence, caching, locking and compaction |
 | `Document Preparation` | 3 | Secret-free preparation template, editor constraint preservation and stateless runtime execution |
 | `HybridPreparation` | 76 Debug-only | Bounded worker/runtime, selected original pages, Markdown/review separation, review-only heading projection, paid receipts/recovery, profile authorization and fake read-only model metadata; 35 cases also tagged `Integration` |
-| `MarkdownChunking` | 30 Debug-only | Synthetic heading hierarchy, semantic units, source/page spans, profile identity and complete-input token bounds |
+| `MarkdownChunking` | 62 Debug-only | Synthetic heading hierarchy, semantic units, reviewed whole-block exclusions, source/page spans, projection identity and complete-input token bounds |
 | `OfflineDocumentReview` | 10 Debug-only | Nine synthetic export/coverage checks and one separately approved retained-artifact projection without providers or databases |
 | `LiveDocumentPreparation` | 1 Debug-only | Separately approved real-source/provider acceptance with a retained local ledger; disabled by default |
 | `PreparationProviders` | 22 Debug-only | Real isolated PostgreSQL ledger/recovery and two-host Redis startup/handover; all also `Integration` and `PostgreSQL`, one also `Redis` |
@@ -534,6 +568,7 @@ Tests/
     ├── DocumentIngestionAdmissionTests.cs
     ├── DocumentIngestionConfigTests.cs
     ├── DocumentMarkdownChunkingTests.cs
+    ├── DocumentMarkdownReviewTests.cs
     ├── DocumentPreparationModelVerifierTests.cs
     ├── DocumentPreparationPlanTests.cs
     ├── FeatureConfigTests.cs

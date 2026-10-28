@@ -131,6 +131,32 @@ original PDF hash. Each chunk records body spans separately from derived heading
 Offsets are half-open UTF-16 ranges in the supplied page Markdown, not PDF geometry.
 Existing preparation resource caps apply; synchronous parsing is not a hard CPU sandbox.
 
+The explicit-review overload accepts a
+[`DocumentMarkdownSourceReview`](Models/DocumentMarkdownSourceReview.cs) bound to that exact
+Markdown digest, with an opaque review ID and
+[`DocumentMarkdownExclusion`](Models/DocumentMarkdownExclusion.cs) entries. Supported
+[roles](Constants/DocumentMarkdownSourceRoles.cs) are `running-header`, `running-footer` and
+`navigation`; reviewed navigation stays source metadata, not embedding input.
+No exclusions are inferred when a review is absent.
+
+Review schema version 1 permits at most 5,000 spans, a 128-character review ID and a required
+reason of at most 1,024 characters per span. Exclusions must identify complete parsed top-level
+blocks, use valid scalar-safe source ranges and neither overlap nor repeat. A cross-page block
+requires every mapped span with one consistent role. Stale digests, unsupported roles, partial
+blocks and unmatched/whitespace-only selections fail explicitly. This cannot repair a heading,
+split a mixed body/furniture block or classify a table's meaning.
+
+The original text, offsets and retained block ordinals remain unchanged. Heading context can
+continue past an explicitly excluded running title. Profile version 2 identifies this interpretation;
+the result's `Id` additionally fences the source digest and exact review decisions, while
+`MarkdownSha256` remains the unmodified source digest. Serialized review metadata retains each
+excluded role/range/reason outside the embedding text. An all-excluded result contains no chunks,
+not an approved or indexed generation.
+
+This internal review-only contract does not authenticate reviewers or accept annotations from
+document content. A future management action must authorize the reviewer and tenant/source scope.
+It enables no ingestion, correction UI, generation persistence or navigation retrieval API.
+
 ### Durable Hybrid Preparation
 
 Agentizr ships the [`document-preparation` definition template](Constants/DocumentPreparationAgentTemplate.cs)

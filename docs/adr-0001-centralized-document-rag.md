@@ -182,7 +182,7 @@ migrations. Proposed logical records are:
 | --- | --- |
 | Collection | Tenant-qualified identity, authorized purpose, language/metadata and visual-retention policy, embedding profile and active index generation |
 | Document/version | Tenant, collection, opaque document ID, immutable source version/hash, protected source reference, selected preparation method, title, media type, language, validated document type, CEFR classification where required, edition and ingestion status |
-| Source block | Immutable document/preparation generation, block ID/type, heading ancestry, normalized Markdown spans and mapped physical pages/regions with coordinate conventions and mapping evidence |
+| Source block | Immutable document/preparation generation, block ID/type and reviewed source role/embedding eligibility, exclusion reason where applicable, heading ancestry, normalized Markdown spans and mapped physical pages/regions with coordinate conventions and mapping evidence |
 | Chunk | Tenant, collection, document version, generation, stable ordinal, body/source-block references, heading path, derived embedding text/hash, PDF page/region references, related figure IDs, optional printed-page label and domain metadata |
 | Figure asset | Tenant/document/source generation, stable application-owned figure ID, physical page/polygon, caption/related block IDs, protected derived-asset reference/hash and extraction/rendering profile |
 | Review annotation | Owning document/preparation generation, page/block/region scope, issue/review state and origin; never part of embedding text |
@@ -511,6 +511,19 @@ external conversion service. Compare source pages, extracted structure and chunk
 privately; preserve independently reviewed regression expectations without committing licensed
 material. Column order and Markdown syntax do not repair lost table, heading or vocabulary
 associations. Structure, not each newline, defines semantic units.
+
+Apply source-role decisions through explicit versioned review annotations bound to the exact
+normalized page-Markdown digest, not a heuristic that deletes repeated/short text. Retain the
+original source and excluded spans with their role/reason. The operator-approved initial policy
+keeps reviewed contents/navigation blocks as source/navigation metadata outside embedding text.
+Running headers/footers likewise require explicit reviewed exclusions. This is not a blanket
+exclusion of headings, short sections or tables.
+
+The first bounded implementation may exclude only complete parsed blocks, rejecting stale,
+overlapping, partial or unsupported annotations. Corrections inside a mixed body/furniture block,
+heading levels, alphabet sections and layout tables need separate verified structure/correction
+support; do not silently rewrite immutable receipts. Exclusion review is not document approval,
+and must not automatically enable ingestion, persistence, embedding or searchable activation.
 
 Capture strategy, packing rule, structure/parser/extractor versions, heading-prefix serialization,
 tokenizer, target/maximum/overlap and fallback rules in the immutable generation identity. Changes
@@ -1691,9 +1704,49 @@ this does not prove full RAG processing.
   A dropped-body regression prevents the heading-only allowance from hiding lost content.
   These are mechanical checks, not independent semantic chunk-boundary, figure or retrieval
   acceptance. No prepared generation was persisted, embedded or activated.
+- [x] Review all 37 saved chunk projections against their normalized page Markdown on 2026-10-28.
+  The sampled warning/action groups, nested procedures, table/caption/footnote groups and
+  vocabulary headword/example items remain together. However, mechanical acceptance is not
+  semantic approval: page furniture produces standalone chunks and contaminates neighboring
+  sections across otherwise valid page transitions; some parent headings and alphabet-section
+  markers are absent from usable source hierarchy; vocabulary layout tables need independent-item
+  semantics rather than assumed row relationships. Contents/navigation entries also need an
+  explicit retrieval role, and the manual figure legend still lacks its required visual association.
+  Record the complete per-chunk dispositions and exact input hashes in private review evidence,
+  without copying licensed passages into fixtures or this record. This bounded text review is
+  not a new PDF/diagram fidelity audit, operator approval or full-document semantic acceptance.
+  Approved-generation persistence remains gated; no source was changed or paid call repeated.
+- [x] Record operator acceptance of the semantic review and next bounded remediation step on
+  2026-10-28. Reviewed navigation remains metadata outside embeddings. Implement exact-source-bound,
+  auditable whole-block exclusions first, with synthetic and retained six-page offline validation;
+  no new paid calls, service startup or generation persistence is authorized by this step.
+  Acceptance of these findings/policy does not approve the current chunks or resolve heading,
+  entry/table, visual and retrieval-quality gates.
+- [x] Implement the bounded
+  [whole-block source-review contract](../src/CasCap.App.Server/Models/DocumentMarkdownSourceReview.cs)
+  and [projection enforcement](../src/CasCap.App.Server/Services/DocumentChunkingService.MarkdownReview.cs).
+  Bind schema-version-1 reviews to exact page Markdown; retain role/range/reason audit, source
+  offsets and block ordinals without rewriting receipts. Profile version 2 and a source/profile/
+  review-bound result identity prevent confusing projections with different review decisions.
+  Stale, partial, overlapping, unsupported, scalar-invalid and unmatched annotations reject.
+  The approved six-page offline run excludes 31 manual spans (18 navigation) and eight vocabulary
+  spans: **23 manual chunks at 21-302 tokens**, **nine vocabulary chunks at 60-504 tokens**,
+  zero fragmented chunks under the unchanged 512-token ceiling. Complete retained-body coverage,
+  no excluded source contributions, deterministic identities and unchanged five originals/two
+  review inputs pass. The focused run passes **130 cases**, zero failures/skips; full Debug and
+  restored Release server builds have zero warnings/errors. Navigation remains metadata only.
+  The internal contract does not authenticate reviewers or make annotations from documents trusted;
+  enforce tenant/reviewer authority when wiring a management action. No generation was persisted,
+  embedded or activated, and heading/entry/table/visual semantic approval remains open.
 - [ ] Complete section/entry semantic classification and warning/procedure, table/header and
-  vocabulary/example associations before claiming the full R8/R12 chunking contract. Fitting
-  list items and structured blocks stay whole; only oversized paragraphs currently split.
+  vocabulary/example associations before claiming the full R8/R12 chunking contract. Resolve
+  the sampled source-role and hierarchy findings first: define reviewed body/header/footer and
+  navigation eligibility with retained exclusion spans, distinguish layout from relational tables,
+  and verify heading/letter-label corrections against originals without fabricating ancestors.
+  Preserve immutable receipts and version any reviewed correction/projection; do not silently
+  clean source text, drop repeated/short content or increase budgets to bypass these findings.
+  Repeat the pinned offline checks and semantic review before approving the corrected output.
+  Fitting list items and structured blocks stay whole; only oversized paragraphs currently split.
   Oversized tables, entries and code/blockquote blocks fail explicitly for review rather
   than unsafe token slicing. The
   [colocated implementation deferral](../src/CasCap.App.Server/Services/DocumentChunkingService.Markdown.cs)

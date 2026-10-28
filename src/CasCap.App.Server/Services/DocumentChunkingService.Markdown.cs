@@ -16,7 +16,7 @@ internal sealed partial class DocumentChunkingService
     {
         ArgumentNullException.ThrowIfNull(settings);
         Validator.ValidateObject(settings, new ValidationContext(settings), validateAllProperties: true);
-        return new(DocumentPreparationFormats.MarkdownHeadings, 1,
+        return new(DocumentPreparationFormats.MarkdownHeadings, 2,
             typeof(Markdown).Assembly.GetName().Version!.ToString(), "commonmark-pipe-tables-v1",
             DocumentPreparationFormats.Cl100kBase, typeof(TiktokenTokenizer).Assembly.GetName().Version!.ToString(),
             settings.TargetTokensPerChunk ?? settings.MaximumTokensPerChunk,
@@ -28,6 +28,15 @@ internal sealed partial class DocumentChunkingService
         IReadOnlyList<DocumentMarkdownPage> pages,
         DocumentMarkdownChunkingConfig settings,
         DocumentPreparationConfig limits,
+        CancellationToken cancellationToken
+    ) => ChunkMarkdown(pages, settings, limits, null, cancellationToken);
+
+    /// <summary>Applies explicit whole-block role exclusions without rewriting source text or changing its offsets.</summary>
+    public DocumentMarkdownChunkingResult ChunkMarkdown(
+        IReadOnlyList<DocumentMarkdownPage> pages,
+        DocumentMarkdownChunkingConfig settings,
+        DocumentPreparationConfig limits,
+        DocumentMarkdownSourceReview? review,
         CancellationToken cancellationToken
     )
     {
@@ -52,6 +61,9 @@ internal sealed partial class DocumentChunkingService
                 throw new InvalidDataException("Markdown preparation exceeds the character limit.");
         }
 
+        var digest = DocumentPreparationIdentity.Hash(JsonSerializer.Serialize(pages));
+        review = ValidateMarkdownReview(review, pages, digest);
+        var matched = new HashSet<DocumentMarkdownExclusion>();
         var chunks = new List<DocumentMarkdownChunk>();
         var blockOrdinal = 0;
         var first = 0;
@@ -61,16 +73,23 @@ internal sealed partial class DocumentChunkingService
             var last = first + 1;
             while (last < pages.Count && pages[last].PageNumber == pages[last - 1].PageNumber + 1)
                 last++;
-            var source = ReadMarkdown(pages.Skip(first).Take(last - first), ref blockOrdinal);
+            var source = ReadMarkdown(pages.Skip(first).Take(last - first), review, matched, ref blockOrdinal);
             lock (_tokenizer.Value)
                 PackMarkdown(source, profile, limits.MaximumChunks, chunks, cancellationToken);
             first = last;
         }
+        if (review is not null && matched.Count != review.Exclusions.Count)
+            throw new InvalidDataException("A reviewed exclusion does not identify a complete parsed source block.");
         cancellationToken.ThrowIfCancellationRequested();
-        return new(profile, DocumentPreparationIdentity.Hash(JsonSerializer.Serialize(pages)), chunks.ToArray());
+        return new(profile, digest, chunks.ToArray(), review);
     }
 
-    private static MarkdownSource ReadMarkdown(IEnumerable<DocumentMarkdownPage> pages, ref int blockOrdinal)
+    private static MarkdownSource ReadMarkdown(
+        IEnumerable<DocumentMarkdownPage> pages,
+        DocumentMarkdownSourceReview? review,
+        HashSet<DocumentMarkdownExclusion> matched,
+        ref int blockOrdinal
+    )
     {
         var text = new StringBuilder();
         var segments = new List<MarkdownPageSegment>();
@@ -86,20 +105,32 @@ internal sealed partial class DocumentChunkingService
         var headings = new List<DocumentMarkdownHeading>();
         foreach (var block in Markdown.Parse(source.Text, MarkdownPipeline))
         {
+            var excluded = ExcludeMarkdownBlock(source, block, review, matched);
             if (block is HeadingBlock heading)
             {
+                var ordinal = blockOrdinal++;
+                if (excluded)
+                    continue;
                 headings.RemoveAll(item => item.Level >= heading.Level);
                 headings.Add(new(heading.Level, HeadingMarkdown(source.Text, heading),
-                    MapMarkdown(source, heading.Span.Start, heading.Span.End + 1, blockOrdinal++)));
+                    MapMarkdown(source, heading.Span.Start, heading.Span.End + 1, ordinal)));
                 continue;
             }
             if (block is ListBlock list)
             {
                 foreach (var item in list)
-                    source.Units.Add(new(item.Span.Start, item.Span.End + 1, blockOrdinal++, headings.ToArray(), false));
+                {
+                    var ordinal = blockOrdinal++;
+                    if (!excluded)
+                        source.Units.Add(new(item.Span.Start, item.Span.End + 1, ordinal, headings.ToArray(), false));
+                }
             }
             else
-                source.Units.Add(new(block.Span.Start, block.Span.End + 1, blockOrdinal++, headings.ToArray(), block is ParagraphBlock));
+            {
+                var ordinal = blockOrdinal++;
+                if (!excluded)
+                    source.Units.Add(new(block.Span.Start, block.Span.End + 1, ordinal, headings.ToArray(), block is ParagraphBlock));
+            }
         }
         return source;
     }

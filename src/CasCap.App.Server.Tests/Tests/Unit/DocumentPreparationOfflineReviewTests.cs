@@ -69,6 +69,11 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
         Assert.True(Path.IsPathFullyQualified(input) && Path.IsPathFullyQualified(directory));
         Assert.False(Directory.Exists(directory), "Use a fresh private directory; retained evidence must not be overwritten.");
         var originals = new Dictionary<string, string>(StringComparer.Ordinal);
+        var artifactPaths = new Dictionary<string, string>(StringComparer.Ordinal);
+        var sourceReviews = new Dictionary<int, DocumentMarkdownSourceReview>();
+        var reviewDirectory = Environment.GetEnvironmentVariable("CASCAP_DOCUMENT_REVIEW_ANNOTATIONS");
+        if (reviewDirectory is not null)
+            Assert.True(Path.IsPathFullyQualified(reviewDirectory), "Review annotations require an explicit absolute private directory.");
         var limits = new DocumentPreparationConfig();
         var html = Encoding.UTF8.GetString(await Read("index.html", 8 * 1024 * 1024));
         var pages = DocumentPreparationReviewRenderer.ReadPages(html);
@@ -91,6 +96,10 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
             Assert.Equal(selected, operations.Where(operation =>
                 operation.GetProperty("stage").GetString() == DocumentPreparationOperations.PreparationAgent)
                 .Select(operation => operation.GetProperty("pageNumber").GetInt32()).Order());
+            if (reviewDirectory is not null)
+                sourceReviews.Add(ordinal, Assert.IsType<DocumentMarkdownSourceReview>(
+                    JsonSerializer.Deserialize<DocumentMarkdownSourceReview>(
+                        await Read($"source-{ordinal}.review.json", 1024 * 1024, reviewDirectory), EvidenceJson)));
         }
         Directory.CreateDirectory(directory);
         var review = new StringBuilder(html.Replace("Production preparation review", "Offline heading chunk review", StringComparison.Ordinal))
@@ -109,7 +118,7 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
             DocumentMarkdownChunkingResult result;
             try
             {
-                result = chunker.ChunkMarkdown(pages[ordinal], new(), limits, Token);
+                result = chunker.ChunkMarkdown(pages[ordinal], new(), limits, sourceReviews.GetValueOrDefault(ordinal), Token);
             }
             catch (InvalidDataException error)
             {
@@ -120,7 +129,7 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
             var headingOnly = ValidateProjection(pages[ordinal], result, tokenizer);
             var json = JsonSerializer.Serialize(result, EvidenceJson);
             Assert.Equal(DocumentPreparationIdentity.Hash(json), DocumentPreparationIdentity.Hash(JsonSerializer.Serialize(
-                chunker.ChunkMarkdown(pages[ordinal], new(), limits, Token), EvidenceJson)));
+                chunker.ChunkMarkdown(pages[ordinal], new(), limits, sourceReviews.GetValueOrDefault(ordinal), Token), EvidenceJson)));
             await File.WriteAllTextAsync(Path.Combine(directory, prefix + ".chunks.json"), json, Token);
             review.Append(DocumentPreparationReviewRenderer.RenderChunks(result));
             review.Append($"<p>Heading-only source spans not embedded: {headingOnly.Length}. "
@@ -134,10 +143,13 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
             review.Append("</ul>");
             reports.Add(new(ordinal, pages[ordinal].Select(page => page.PageNumber).ToArray(), result.Chunks.Count,
                 result.Chunks.Min(chunk => chunk.TokenCount), result.Chunks.Max(chunk => chunk.TokenCount),
-                result.Chunks.Count(chunk => chunk.IsFragmented), headingOnly, null));
+                result.Chunks.Count(chunk => chunk.IsFragmented), headingOnly, null)
+            {
+                ExcludedSourceSpans = result.Review?.Exclusions.Count ?? 0,
+            });
         }
         foreach (var artifact in originals)
-            Assert.Equal(artifact.Value, DocumentPreparationIdentity.Hash(await File.ReadAllBytesAsync(Path.Combine(input, artifact.Key), Token)));
+            Assert.Equal(artifact.Value, DocumentPreparationIdentity.Hash(await File.ReadAllBytesAsync(artifactPaths[artifact.Key], Token)));
         await File.WriteAllTextAsync(Path.Combine(directory, "index.html"), review.ToString(), Token);
         await File.WriteAllTextAsync(Path.Combine(directory, "validation.json"), JsonSerializer.Serialize(new
         {
@@ -151,16 +163,18 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
         }, EvidenceJson), Token);
         foreach (var report in reports)
             output.WriteLine($"Source ordinal {report.SourceOrdinal}: {report.ChunkCount} chunks, {report.MinimumTokens}-{report.MaximumTokens} tokens, "
-                + $"{report.FragmentedChunks} paragraph fragments, {report.HeadingOnlySpans.Length} unembedded heading spans; rejected: {report.Rejection is not null}.");
+                + $"{report.FragmentedChunks} paragraph fragments, {report.HeadingOnlySpans.Length} unembedded heading spans, "
+                + $"{report.ExcludedSourceSpans} reviewed exclusions; rejected: {report.Rejection is not null}.");
         Assert.All(reports, report => Assert.Null(report.Rejection));
 
-        async Task<byte[]> Read(string name, long maximumBytes)
+        async Task<byte[]> Read(string name, long maximumBytes, string? root = null)
         {
-            var path = Path.Combine(input, name);
+            var path = Path.Combine(root ?? input, name);
             Assert.InRange(new FileInfo(path).Length, 1, maximumBytes);
             var bytes = await File.ReadAllBytesAsync(path, Token);
             Assert.InRange(bytes.LongLength, 1, maximumBytes);
             originals.Add(name, DocumentPreparationIdentity.Hash(bytes));
+            artifactPaths.Add(name, path);
             return bytes;
         }
     }
@@ -196,6 +210,13 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
                         number => Assert.Contains(number, coverage.Keys));
                 }
             }
+        }
+        foreach (var exclusion in result.Review?.Exclusions ?? [])
+        {
+            Assert.False(coverage[exclusion.PageNumber].Skip(exclusion.StartOffset)
+                .Take(exclusion.EndOffset - exclusion.StartOffset).Any(value => value),
+                "A reviewed exclusion still contributes body or heading text.");
+            Array.Fill(coverage[exclusion.PageNumber], true, exclusion.StartOffset, exclusion.EndOffset - exclusion.StartOffset);
         }
         var headingOnly = HeadingOnlySpans(pages, coverage);
         foreach (var page in pages)
@@ -254,7 +275,11 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
 
     /// <summary>Summarizes local mechanical checks without copying document content into runner output.</summary>
     private sealed record SourceReport(int SourceOrdinal, int[] PhysicalPages, int ChunkCount,
-        int MinimumTokens, int MaximumTokens, int FragmentedChunks, HeadingOnlySpan[] HeadingOnlySpans, string? Rejection);
+        int MinimumTokens, int MaximumTokens, int FragmentedChunks, HeadingOnlySpan[] HeadingOnlySpans, string? Rejection)
+    {
+        /// <summary>Gets the count of audited per-page spans deliberately ineligible for embedding input.</summary>
+        public int ExcludedSourceSpans { get; init; }
+    }
 
     /// <summary>Identifies retained heading-only Markdown that is deliberately absent from vector input.</summary>
     private sealed record HeadingOnlySpan(int PageNumber, int StartOffset, int EndOffset);

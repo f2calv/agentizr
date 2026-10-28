@@ -50,6 +50,12 @@ internal static partial class DocumentPreparationReviewRenderer
     /// <summary>Shows nonpersistent heading-aware chunks without implying fidelity approval, embeddings or searchable activation.</summary>
     public static string RenderChunks(DocumentMarkdownChunkingResult result) =>
         "<details class='chunk-preview'><summary>Review-only markdown-headings chunks</summary>"
+        + (result.Review is not { } review ? string.Empty
+            : "<aside class='review-metadata'><h4>Reviewed source exclusions (not embedding text)</h4><ul>"
+                + string.Concat(review.Exclusions.Select(item =>
+                    $"<li>Physical page {item.PageNumber}, Markdown [{item.StartOffset}, {item.EndOffset}): "
+                    + $"{WebUtility.HtmlEncode(item.Role)}; {WebUtility.HtmlEncode(item.Reason)}</li>"))
+                + "</ul></aside>")
         + string.Concat(result.Chunks.Select(chunk =>
             $"<article><h4>Chunk {chunk.Ordinal + 1}</h4>"
             + $"<p>Physical pages: {string.Join(", ", chunk.SourceSpans.Select(span => span.PageNumber).Distinct())}; "
