@@ -355,26 +355,7 @@ public sealed class DocumentHybridPreparationTests : IAsyncLifetime
     private async Task<DocumentIngestionClaim> ClaimAsync(bool paid = true, DocumentAgentPreparationConfig? settings = null)
     {
         if (paid)
-        {
-            await using var db = _factory.CreateDbContext();
-            var snapshot = new AgentDefinitionSnapshotEntity
-            {
-                TenantId = Plan.TenantId,
-                AgentName = Plan.Definition.Name,
-                DefinitionVersion = Plan.Definition.Version,
-                SchemaVersion = 1,
-                DefinitionJson = JsonSerializer.Serialize(Plan.Definition, JsonSerializerOptions.Web),
-                PublishedAtUtc = _clock.GetUtcNow(),
-            };
-            db.ActiveAgentDefinitions.Add(new()
-            {
-                TenantId = Plan.TenantId,
-                AgentName = Plan.Definition.Name,
-                Snapshot = snapshot,
-                UpdatedAtUtc = _clock.GetUtcNow(),
-            });
-            await db.SaveChangesAsync(TestContext.Current.CancellationToken);
-        }
+            await DocumentHybridPreparationTestData.PublishAsync(_factory, _clock, TestContext.Current.CancellationToken);
         await Inbox().AcceptAsync(DocumentIngestionTestData.Notification() with { AgentPreparation = paid ? settings ?? Plan.Settings : null },
             TestContext.Current.CancellationToken);
         return Assert.IsType<DocumentIngestionClaim>(await Jobs().ClaimAsync(TestContext.Current.CancellationToken));

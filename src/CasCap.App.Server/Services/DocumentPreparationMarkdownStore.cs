@@ -6,8 +6,8 @@ using System.Text.Json;
 namespace CasCap.Services;
 
 /// <summary>Explicitly stores receipt-derived review candidates; never invokes providers or approves content.</summary>
-// TODO: Expose only through authenticated tenant/reviewer management after isolated PostgreSQL JSONB/lock/race acceptance;
-// source receipts and annotation IDs are not reviewer authority. Keep visual and retrieval approval as separate gates.
+// TODO: Expose only through authenticated tenant/reviewer management; receipts and annotation IDs are not reviewer authority.
+// Keep visual and retrieval approval as separate gates before permitting embeddings or retrieval.
 internal sealed class DocumentPreparationMarkdownStore(
     IOptions<DocumentPreparationConfig> config,
     TimeProvider timeProvider,
@@ -87,12 +87,19 @@ internal sealed class DocumentPreparationMarkdownStore(
         var query = db.DocumentPreparationOperations.AsNoTracking().Where(item => item.JobId == source.JobId
             && item.TenantId == source.TenantId && item.CollectionId == source.CollectionId && item.DocumentId == source.DocumentId)
             .OrderBy(item => item.Stage).ThenBy(item => item.PageNumber).Take(config.Value.MaximumPages + 2);
-        var lengths = await query.Select(item => item.ResultJson == null ? 0 : item.ResultJson.Length).ToArrayAsync(token);
+        // Npgsql JSONB members need a SQL text conversion that SQLite's string translator does not support.
+        var lengthsQuery = db.Database.IsNpgsql()
+            ? query.Select(item => item.ResultJson == null ? 0 : Convert.ToString(item.ResultJson)!.Length)
+            : query.Select(item => item.ResultJson == null ? 0 : item.ResultJson.Length);
+        var lengths = await lengthsQuery.ToArrayAsync(token);
         var maximum = 8L * config.Value.MaximumExtractedCharacters;
         if (lengths.Length < 2 || lengths.Length > config.Value.MaximumPages + 1
             || lengths.Any(length => length == 0) || lengths.Sum(length => (long)length) > maximum)
             throw new InvalidDataException("A review generation requires complete bounded preparation receipts.");
-        var operations = await query.Where(item => item.ResultJson != null && item.ResultJson.Length <= maximum).ToArrayAsync(token);
+        var bounded = db.Database.IsNpgsql()
+            ? query.Where(item => item.ResultJson != null && Convert.ToString(item.ResultJson)!.Length <= maximum)
+            : query.Where(item => item.ResultJson != null && item.ResultJson.Length <= maximum);
+        var operations = await bounded.ToArrayAsync(token);
         if (operations.Length != lengths.Length || operations.Sum(item => (long)item.ResultJson!.Length) > maximum)
             throw new InvalidDataException("Preparation receipt bounds changed while reading.");
         return operations;

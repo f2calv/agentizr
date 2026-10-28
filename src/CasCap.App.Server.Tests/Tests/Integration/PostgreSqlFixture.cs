@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 
 namespace CasCap.Tests.Integration;
@@ -10,6 +11,9 @@ namespace CasCap.Tests.Integration;
 public sealed class PostgreSqlFixture : IAsyncLifetime
 {
     private readonly string _databaseName = $"agentizr_test_{Guid.NewGuid():N}";
+
+    /// <summary>Gets an optional baseline migration for an isolated upgrade test.</summary>
+    internal string? InitialMigration { get; init; }
 
     /// <summary>Gets the connection string of the isolated migrated database.</summary>
     internal string ConnectionString => new NpgsqlConnectionStringBuilder(PersistenceTestSettings.PostgreSql) { Database = _databaseName }.ConnectionString;
@@ -22,7 +26,7 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
     {
         DbContextFactory = CreateDbContextFactory();
         await using var dbContext = await DbContextFactory.CreateDbContextAsync();
-        await dbContext.Database.MigrateAsync();
+        await dbContext.GetService<IMigrator>().MigrateAsync(InitialMigration);
     }
 
     /// <summary>Creates contexts for the same isolated database with optional transaction checkpoints.</summary>

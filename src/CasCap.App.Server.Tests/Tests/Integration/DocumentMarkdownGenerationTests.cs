@@ -4,7 +4,6 @@ using CasCap.Entities;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json;
 
 namespace CasCap.Tests.Integration;
@@ -14,7 +13,7 @@ namespace CasCap.Tests.Integration;
 [Trait("Category", "PreparedDocuments")]
 public sealed class DocumentMarkdownGenerationTests : IAsyncLifetime
 {
-    private const string Markdown = "# Control\n\nC\n\n- Entry\n  Example.\n\n|  |  |\n|---|---|\n| First | Second |";
+    private const string Markdown = DocumentHybridPreparationTestData.ReviewMarkdown;
     private static readonly string[] Changes = ["change-note"];
     private static readonly string[] Uncertainties = ["uncertainty-note"];
     private static readonly JsonSerializerOptions IndentedJsonOptions = new() { WriteIndented = true };
@@ -24,7 +23,6 @@ public sealed class DocumentMarkdownGenerationTests : IAsyncLifetime
     private Factory _factory = null!;
     private static CancellationToken Token => TestContext.Current.CancellationToken;
     private static DocumentIngestionConfig Config => DocumentIngestionTestData.Config with { ProcessingEnabled = true };
-    private static DocumentPreparationPlan Plan => DocumentHybridPreparationTestData.Plan;
 
     public async ValueTask InitializeAsync()
     {
@@ -413,55 +411,10 @@ public sealed class DocumentMarkdownGenerationTests : IAsyncLifetime
         Assert.DoesNotContain("claim_expires_at_utc >", sql, StringComparison.Ordinal);
     }
 
-    private async Task<DocumentIngestionClaim> SourceAsync(bool finish = true, int pages = 1, string markdown = Markdown)
-    {
-        await using (var db = _factory.CreateDbContext())
-        {
-            db.ActiveAgentDefinitions.Add(new()
-            {
-                TenantId = Plan.TenantId,
-                AgentName = Plan.Definition.Name,
-                UpdatedAtUtc = TimeProvider.System.GetUtcNow(),
-                Snapshot = new AgentDefinitionSnapshotEntity
-                {
-                    TenantId = Plan.TenantId,
-                    AgentName = Plan.Definition.Name,
-                    DefinitionVersion = Plan.Definition.Version,
-                    SchemaVersion = 1,
-                    DefinitionJson = JsonSerializer.Serialize(Plan.Definition, JsonSerializerOptions.Web),
-                    PublishedAtUtc = TimeProvider.System.GetUtcNow(),
-                },
-            });
-            await db.SaveChangesAsync(Token);
-        }
-        await new DocumentIngestionInboxService(TimeProvider.System, _factory).AcceptAsync(
-            DocumentIngestionTestData.Notification() with { AgentPreparation = Plan.Settings }, Token);
-        var source = Assert.IsType<DocumentIngestionClaim>(await Jobs().ClaimAsync(Token));
-        _provider.ResponseChange = response =>
-        {
-            using var json = JsonDocument.Parse(response.Text);
-            var page = json.RootElement.GetProperty("page").GetInt32();
-            return response with { Text = JsonSerializer.Serialize(new { page, markdown, changes = Changes, uncertainties = Uncertainties }) };
-        };
-        var bytes = DocumentPreparationTestData.Pdf(Enumerable.Repeat("Synthetic source.", pages).ToArray());
-        var processor = new HybridDocumentProcessor(NullLogger<HybridDocumentProcessor>.Instance, Options.Create(new DocumentPreparationConfig()),
-            TimeProvider.System, DocumentHybridPreparationTestData.Downloader(() => new MemoryStream(bytes), Config),
-            new PdfDocumentPreparationService(Options.Create(new DocumentPreparationConfig()), new DocumentChunkingService()), Receipts(), _provider);
-        Assert.Equal(DocumentProcessingOutcome.ReviewRequired, await processor.ProcessAsync(source, Token));
-        if (finish)
-            Assert.True(await Jobs().FinishAsync(source, DocumentProcessingOutcome.ReviewRequired, Token));
-        return source;
-    }
+    private Task<DocumentIngestionClaim> SourceAsync(bool finish = true, int pages = 1, string markdown = Markdown) =>
+        DocumentHybridPreparationTestData.PrepareReviewAsync(_factory, _provider, Token, finish, pages, markdown);
 
-    private static DocumentMarkdownSourceReview Review()
-    {
-        DocumentMarkdownPage[] pages = [new(1, Markdown)];
-        var marker = Markdown.IndexOf("\n\nC\n", StringComparison.Ordinal) + 2;
-        var table = Markdown.IndexOf("|  |", StringComparison.Ordinal);
-        return new(2, "synthetic-storage-review", DocumentPreparationIdentity.Hash(JsonSerializer.Serialize(pages)), [],
-            [new(1, marker, marker + 1, 2, "Verified synthetic section.")],
-            [new(1, table, Markdown.Length, DocumentMarkdownReadingOrders.ColumnMajor, "Verified synthetic layout.")]);
-    }
+    private static DocumentMarkdownSourceReview Review() => DocumentHybridPreparationTestData.SourceReview();
 
     private static string Reformat(string value)
     {

@@ -315,23 +315,7 @@ public sealed class PostgresDocumentPreparationIntegrationTests : IAsyncLifetime
 
     private async Task AdmitAsync()
     {
-        await using var db = _database.DbContextFactory.CreateDbContext();
-        db.ActiveAgentDefinitions.Add(new()
-        {
-            TenantId = Plan.TenantId,
-            AgentName = Plan.Definition.Name,
-            Snapshot = new AgentDefinitionSnapshotEntity
-            {
-                TenantId = Plan.TenantId,
-                AgentName = Plan.Definition.Name,
-                DefinitionVersion = Plan.Definition.Version,
-                SchemaVersion = 1,
-                DefinitionJson = JsonSerializer.Serialize(Plan.Definition, JsonSerializerOptions.Web),
-                PublishedAtUtc = TimeProvider.System.GetUtcNow(),
-            },
-            UpdatedAtUtc = TimeProvider.System.GetUtcNow(),
-        });
-        await db.SaveChangesAsync(Token);
+        await DocumentHybridPreparationTestData.PublishAsync(_database.DbContextFactory, TimeProvider.System, Token);
         await new DocumentIngestionInboxService(TimeProvider.System, _database.DbContextFactory)
             .AcceptAsync(DocumentIngestionTestData.Notification() with { AgentPreparation = Plan.Settings }, Token);
     }

@@ -1806,12 +1806,25 @@ this does not prove full RAG processing.
   authenticated management endpoint. It creates no approved state, legacy text chunks, active
   pointer, embeddings or search eligibility. The real six-page evidence has not been persisted,
   and the manual figure/caption association remains unverified.
-- [ ] Prove the new review-generation table and service against isolated PostgreSQL: actual JSONB
-  round-trips, concurrent/idempotent writers, source/admission races, receipt fencing, cancellation
-  and fresh/upgrade migration execution. The additive
-  `20261028120307_DocumentMarkdownReviewGenerations` migration is scaffolded, not applied;
-  SQLite and offline SQL inspection do not establish these guarantees. Obtain separate execution
-  approval; no PostgreSQL/Compose service, paid call, live write or deployment was authorized here.
+- [x] Prove the review-generation table/service against isolated PostgreSQL on 2026-10-28 with
+  [26 native acceptance cases](../src/CasCap.App.Server.Tests/Tests/Integration/PostgresDocumentMarkdownGenerationTests.cs).
+  Actual JSONB snapshots preserve provenance, notes and typed identity without recomputing archived
+  raw receipt hashes. Eight-way retries and review/profile variants remain immutable; exact
+  source/job/plan reads and writes, database timestamps and composite ownership are enforced.
+  Observed advisory-lock waiters and save checkpoints prove both admission orderings for
+  replacement/deletion, uncommitted invisibility, receipt fencing, lock cancellation and post-insert
+  rollback on failure/cancellation/source loss. The first native check exposed JSONB member-length
+  translation: Npgsql now explicitly converts to SQL text while SQLite retains its own supported
+  expression. No client-side full-payload fallback bypasses width checks.
+  Fresh fixture migration and upgrade from the preceding schema succeed; previously validated paid
+  receipts remain unchanged and can produce a review-required snapshot after upgrade.
+  The focused selection passes **149 cases**, zero failed/skipped: 26 native review-generation,
+  47 SQLite review-generation, 31 SQLite hybrid, 21 native hybrid-ledger and 24 native page-local
+  persistence cases. Full Debug/restored Release server builds pass with zero warnings/errors.
+  Only fixture-owned local databases were created/migrated/removed; their count returned to its
+  baseline. The task-started PostgreSQL service was stopped immediately and existing workloads/
+  volumes preserved. No deployed database migration, paid call, real-document persistence,
+  management authorization, semantic/visual approval, embedding or activation is established.
 - [ ] Wire an explicitly authenticated reviewer/tenant/source management action, then persist an
   authorized bounded real-document review generation without treating storage as semantic approval.
   Resolve visual-enabled manual figure/caption/region associations before approving that material;

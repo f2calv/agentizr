@@ -2,7 +2,10 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using CasCap.Constants;
+using CasCap.Entities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json;
 
 namespace CasCap.Tests;
@@ -10,6 +13,72 @@ namespace CasCap.Tests;
 /// <summary>Explicit synthetic hybrid authorization and fake source transport; no external configuration or network.</summary>
 internal static class DocumentHybridPreparationTestData
 {
+    public const string ReviewMarkdown = "# Control\n\nC\n\n- Entry\n  Example.\n\n|  |  |\n|---|---|\n| First | Second |";
+
+    public static async Task PublishAsync(IDbContextFactory<AgentRuntimeDbContext> factory, TimeProvider clock, CancellationToken token)
+    {
+        await using var db = await factory.CreateDbContextAsync(token);
+        db.ActiveAgentDefinitions.Add(new()
+        {
+            TenantId = Plan.TenantId,
+            AgentName = Plan.Definition.Name,
+            UpdatedAtUtc = clock.GetUtcNow(),
+            Snapshot = new AgentDefinitionSnapshotEntity
+            {
+                TenantId = Plan.TenantId,
+                AgentName = Plan.Definition.Name,
+                DefinitionVersion = Plan.Definition.Version,
+                SchemaVersion = 1,
+                DefinitionJson = JsonSerializer.Serialize(Plan.Definition, JsonSerializerOptions.Web),
+                PublishedAtUtc = clock.GetUtcNow(),
+            },
+        });
+        await db.SaveChangesAsync(token);
+    }
+
+    public static async Task<DocumentIngestionClaim> PrepareReviewAsync(
+        IDbContextFactory<AgentRuntimeDbContext> factory,
+        Provider provider,
+        CancellationToken token,
+        bool finish = true,
+        int pages = 1,
+        string markdown = ReviewMarkdown)
+    {
+        await PublishAsync(factory, TimeProvider.System, token);
+        await new DocumentIngestionInboxService(TimeProvider.System, factory).AcceptAsync(
+            DocumentIngestionTestData.Notification() with { AgentPreparation = Plan.Settings }, token);
+        var config = DocumentIngestionTestData.Config with { ProcessingEnabled = true };
+        var jobs = new DocumentIngestionJobService(Options.Create(config), TimeProvider.System, factory);
+        var source = Assert.IsType<DocumentIngestionClaim>(await jobs.ClaimAsync(token));
+        string[] changes = ["change-note"];
+        string[] uncertainties = ["uncertainty-note"];
+        provider.ResponseChange = response =>
+        {
+            using var json = JsonDocument.Parse(response.Text);
+            var page = json.RootElement.GetProperty("page").GetInt32();
+            return response with { Text = JsonSerializer.Serialize(new { page, markdown, changes, uncertainties }) };
+        };
+        var bytes = DocumentPreparationTestData.Pdf(Enumerable.Repeat("Synthetic source.", pages).ToArray());
+        var processor = new HybridDocumentProcessor(NullLogger<HybridDocumentProcessor>.Instance, Options.Create(new DocumentPreparationConfig()),
+            TimeProvider.System, Downloader(() => new MemoryStream(bytes), config),
+            new PdfDocumentPreparationService(Options.Create(new DocumentPreparationConfig()), new DocumentChunkingService()),
+            new DocumentPreparationOperationStore(TimeProvider.System, factory), provider);
+        Assert.Equal(DocumentProcessingOutcome.ReviewRequired, await processor.ProcessAsync(source, token));
+        if (finish)
+            Assert.True(await jobs.FinishAsync(source, DocumentProcessingOutcome.ReviewRequired, token));
+        return source;
+    }
+
+    public static DocumentMarkdownSourceReview SourceReview()
+    {
+        DocumentMarkdownPage[] pages = [new(1, ReviewMarkdown)];
+        var marker = ReviewMarkdown.IndexOf("\n\nC\n", StringComparison.Ordinal) + 2;
+        var table = ReviewMarkdown.IndexOf("|  |", StringComparison.Ordinal);
+        return new(2, "synthetic-storage-review", DocumentPreparationIdentity.Hash(JsonSerializer.Serialize(pages)), [],
+            [new(1, marker, marker + 1, 2, "Verified synthetic section.")],
+            [new(1, table, ReviewMarkdown.Length, DocumentMarkdownReadingOrders.ColumnMajor, "Verified synthetic layout.")]);
+    }
+
     public static DocumentPreparationPlan Plan => new()
     {
         TenantId = "tenant-a",

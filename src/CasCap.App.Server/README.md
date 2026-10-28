@@ -205,10 +205,16 @@ rows. All snapshots remain review-required, including an empty/all-excluded proj
 page-local chunks, approval, active pointer, embedding or search eligibility is created.
 Provenance is normalized Markdown offsets and original physical pages, not fabricated PDF regions.
 
-The additive `20261028120307_DocumentMarkdownReviewGenerations` migration has been scaffolded and
-its SQL/model consistency checked offline; it has not been applied. Synthetic SQLite tests cover
-round-trips, exact limits, source/receipt fences and rollback; PostgreSQL JSONB, advisory-lock races,
-fresh/upgrade execution, protected management and visual/retrieval acceptance remain separate gates.
+Receipt-width checks explicitly convert JSONB to SQL text on Npgsql and retain SQLite's supported
+string expression. Row and payload bounds stay server-side; loaded UTF-16 totals are checked again.
+The [PostgreSQL acceptance tests](../CasCap.App.Server.Tests/Tests/Integration/PostgresDocumentMarkdownGenerationTests.cs)
+prove actual JSONB round-trips, concurrent retries/review/profile changes, both admission orderings,
+receipt/source fencing, cancellation, rollback, timestamps and composite ownership constraints.
+
+The additive `20261028120307_DocumentMarkdownReviewGenerations` migration has been checked and
+applied only to isolated fixture-owned databases, including an upgrade retaining existing paid
+receipts. No deployed database has been migrated. Authenticated management, authorized real-document
+storage and semantic/visual/retrieval acceptance remain separate gates.
 
 ### Durable Hybrid Preparation
 

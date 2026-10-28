@@ -333,7 +333,41 @@ offline. Reordered JSON is a semantic regression, not proof of actual PostgreSQL
 Full Debug solution and configuration-restored Release server builds pass with zero warnings/errors.
 No PostgreSQL/Compose service, database migration execution, paid call, live write, deployment,
 management authorization, semantic/visual approval, embedding or activation is covered by this run.
-Provider-backed JSONB, lock/race and fresh/upgrade acceptance remain required before live use.
+Provider-backed acceptance for this path is recorded below; management and quality approval are
+still separate requirements.
+
+### PostgreSQL Review-Required Generations
+
+[`PostgresDocumentMarkdownGenerationTests`](Tests/Integration/PostgresDocumentMarkdownGenerationTests.cs)
+adds **11 methods / 26 Debug-only cases**, tagged `PreparedDocuments`, `Integration` and `PostgreSQL`.
+It reuses the real synthetic hybrid producer and an isolated migrated database per case.
+Coverage includes actual JSONB snapshots and unchanged archived raw receipt hashes, exact
+source/job/plan reads and writes, eight-way immutable retries and changed review/profile writes,
+database-owned timestamps, null/oversized receipt preflight and composite owner foreign keys.
+Save checkpoints and observed advisory-lock waiters prove replacement/deletion in both admission
+orderings, uncommitted output invisibility, receipt changes before locked recheck, lock cancellation
+and post-insert rollback on failure/cancellation/source loss.
+
+The fixture defaults to fresh full-chain migration. Its optional `InitialMigration` is used only
+by the upgrade case: seed validated receipts on the preceding schema, migrate forward, prove those
+receipts unchanged, then store/read a review-required generation. Only fixture-owned databases
+are created, migrated and removed.
+
+```powershell
+dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class CasCap.Tests.Integration.PostgresDocumentMarkdownGenerationTests CasCap.Tests.Integration.DocumentMarkdownGenerationTests CasCap.Tests.Integration.DocumentHybridPreparationTests CasCap.Tests.Integration.PostgresDocumentPreparationIntegrationTests CasCap.Tests.Integration.PostgresDocumentPreparationPersistenceTests
+```
+
+The approved focused selection passed **149 cases**, zero failed/skipped: 26 new PostgreSQL
+review-generation, 47 SQLite review-generation, 31 SQLite hybrid, 21 PostgreSQL hybrid-ledger and
+24 PostgreSQL page-local persistence cases. Debug solution and restored Release server builds
+pass with zero warnings/errors. The first native check exposed JSONB `string.Length` member
+translation rather than text length; explicit Npgsql text conversion fixes it. SQLite keeps its
+own supported expression, with both paths covered by the final run.
+
+The local PostgreSQL service was stopped immediately afterward; pre-existing workloads/volumes
+were preserved. The fixture-database count returned to its pre-run baseline without deleting
+unknown databases. No Azure/paid calls, deployed database writes, real-document persistence,
+management authorization, semantic/visual approval, embedding, activation or deployment occurred.
 
 ### PostgreSQL Prepared Generations
 
@@ -607,6 +641,7 @@ Tests/
 │   ├── PostgreSqlFixture.cs
 │   ├── PostgresAgentDefinitionStoreIntegrationTests.cs
 │   ├── PostgresDocumentPreparationIntegrationTests.cs
+│   ├── PostgresDocumentMarkdownGenerationTests.cs
 │   ├── PostgresDocumentPreparationPersistenceTests.cs
 │   ├── AgentRunHistoryTests.cs
 │   ├── PostgresAgentStateTests.cs
