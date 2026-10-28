@@ -106,6 +106,31 @@ Cancellation is checked around synchronous parsing/extraction, not inside it. Re
 not a hard CPU/memory sandbox; see the
 [deferred isolation/OCR gates](../../docs/adr-0001-centralized-document-rag.md#poc-limits-and-deliberately-deferred-polishing).
 
+### Offline Markdown-Headings Projection
+
+The Debug-only [`DocumentChunkingService.ChunkMarkdown`](Services/DocumentChunkingService.Markdown.cs)
+builds review-only `markdown-headings` chunks from original physical-page Markdown using Markdig
+1.5.0 (CommonMark with pipe tables). It does not replace the ingestion processor or persist,
+embed, approve or activate a generation; Markdown upload passthrough is not wired.
+
+[`DocumentMarkdownChunkingConfig`](Models/_DocumentPreparationConfig.cs) accepts an explicit
+maximum (default 512 tokens), optional soft target (defaulting to the maximum) and paragraph
+overlap (default 64 tokens). The target cannot exceed the maximum and overlap must be smaller
+than the maximum. The full ancestor-to-leaf heading prefix, separators and body count against
+the hard ceiling. A soft target never forces a fitting semantic unit to split.
+
+Parsed heading context carries across contiguous pages and resets across missing physical pages.
+Paragraphs may split at sentence/scalar-safe boundaries; list items with nested examples and
+tables/code/blockquote blocks remain whole. Oversized structured units fail explicitly for review;
+warning/procedure classification and safe table-header/entry subdivision remain separate gates.
+No missing heading ancestor or PDF coordinate is invented.
+
+[`DocumentMarkdownChunkingResult`](Models/DocumentMarkdownChunkingResult.cs) carries a versioned
+parser/tokenizer/budget profile and a digest of the supplied page numbers and Markdown, not the
+original PDF hash. Each chunk records body spans separately from derived heading context.
+Offsets are half-open UTF-16 ranges in the supplied page Markdown, not PDF geometry.
+Existing preparation resource caps apply; synchronous parsing is not a hard CPU sandbox.
+
 ### Durable Hybrid Preparation
 
 Agentizr ships the [`document-preparation` definition template](Constants/DocumentPreparationAgentTemplate.cs)

@@ -53,4 +53,30 @@ public sealed record DocumentChunkingConfig : IValidatableObject
         if (OverlapTokens >= MaximumTokensPerChunk)
             yield return new ValidationResult("Chunk overlap must be smaller than the chunk token budget.");
     }
+
+}
+
+/// <summary>Explicit budgets for offline heading-aware Markdown projections; enables no ingestion or indexing.</summary>
+public sealed record DocumentMarkdownChunkingConfig : IValidatableObject
+{
+    /// <summary>Gets the hard token ceiling including the complete heading prefix and body.</summary>
+    [Range(8, 8_192)]
+    public int MaximumTokensPerChunk { get; init; } = 512;
+
+    /// <summary>Gets a soft packing target; null uses the hard ceiling without splitting otherwise fitting semantic units.</summary>
+    [Range(8, 8_192)]
+    public int? TargetTokensPerChunk { get; init; }
+
+    /// <summary>Gets the maximum repeated suffix tokens when splitting an oversized paragraph.</summary>
+    [Range(0, 8_191)]
+    public int OverlapTokens { get; init; } = 64;
+
+    /// <inheritdoc/>
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (OverlapTokens >= MaximumTokensPerChunk)
+            yield return new ValidationResult("Markdown overlap must be smaller than the hard token ceiling.");
+        if (TargetTokensPerChunk > MaximumTokensPerChunk)
+            yield return new ValidationResult("Markdown target must not exceed the hard token ceiling.");
+    }
 }

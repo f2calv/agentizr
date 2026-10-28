@@ -132,6 +132,27 @@ or live Blob-to-answer behavior.
 All preparation cases are also included in the current 178-case regression run. The full Debug
 solution built with zero warnings/errors; neither check ran the complete application test suite.
 
+### Offline Markdown-Headings Projection
+
+| Class | Methods | Cases | Scope |
+| --- | ---: | ---: | --- |
+| [`DocumentMarkdownChunkingTests`](Tests/Unit/DocumentMarkdownChunkingTests.cs) | 17 | 30 | Debug-only synthetic heading projection, tagged `MarkdownChunking` |
+
+Synthetic Markdown covers ATX/Setext ancestry,
+sibling transitions, contiguous/missing physical pages, code fences and nested pseudo-headings,
+source heading/body spans, complete-input token ceilings, scalar-safe Unicode overlap, soft targets,
+semantic-unit preservation, explicit oversized structured-unit rejection, profile/digest identity,
+resource limits and cancellation. The existing 15 page-local cases remain unchanged.
+
+The combined chunking, hybrid, template and definition-UI selection passed **133 cases**, zero
+failed/skipped. The full Debug solution and Release server build passed with zero warnings/errors;
+Release excludes this projection and its Markdig dependency. No Azure call, paid acceptance,
+Docker service, generation persistence or searchable activation was performed.
+
+Parser regressions intentionally use raw heading source spans: normal Markdig inline processing
+clears `HeadingBlock.Lines`. Token tests also distinguish a soft target from the hard ceiling:
+a Unicode scalar that exceeds the soft budget must still fit when the remaining hard budget permits.
+
 ### Conditional Blob Downloads
 
 `DocumentBlobDownloadTests` adds **5 methods / 21 Debug-only cases**, tagged `BlobDownload`.
@@ -210,25 +231,26 @@ an isolated SQLite database and fake HTTP/providers; they never start a live wor
 
 | Class | Methods | Cases | Scope |
 | --- | ---: | ---: | --- |
-| [`DocumentHybridPreparationTests`](Tests/Integration/DocumentHybridPreparationTests.cs) | 16 | 30 | Real admission/PDF processing, pinned plans, selected original pages and source limits, single-submission receipts, exact claim/tenant fences, foreign keys, cancellation-time accounting, expired-intent blocking, managed GET resume, recorded-response reuse and review-only candidates |
+| [`DocumentHybridPreparationTests`](Tests/Integration/DocumentHybridPreparationTests.cs) | 17 | 31 | Real admission/PDF processing, pinned plans, selected original pages and source limits, single-submission receipts, exact claim/tenant fences, foreign keys, cancellation-time accounting, expired-intent blocking, managed GET resume, recorded-response reuse and review-only heading projection excluding annotations/usage |
 | [`DocumentPreparationProviderTests`](Tests/Integration/DocumentPreparationProviderTests.cs) | 1 | 4 | Actual worker adapter, framework executor and SDK with fake HTTP: worker-local tenant credentials, selected physical-page authorization/schema, output ceiling, no ambient HTTP tenancy or definition re-resolution |
 | [`DocumentPreparationModelVerifierTests`](Tests/Unit/DocumentPreparationModelVerifierTests.cs) | 3 | 12 | Bounded read-only ARM requests, exact account/endpoint/deployment/model/revision binding, redacted failure, oversized metadata and pre-cancellation |
 | [`DocumentPreparationPlanTests`](Tests/Unit/DocumentPreparationPlanTests.cs) | 1 | 17 | Explicit budgets, distinct physical-page selections and supported stateless, secret-free, exact-schema Azure Responses authorization |
 | [`DocumentPreparationCandidateTests`](Tests/Unit/DocumentPreparationCandidateTests.cs) | 2 | 12 | Markdown whitespace/entity projection without receipt mutation, encoded preview content, separate/collapsed changes, conditional page uncertainties and no inline usage |
-| **Hybrid subtotal** | **23** | **75** | Local implementation proof, not PostgreSQL concurrency, Azure access, document fidelity or invoice reconciliation |
+| **Hybrid subtotal** | **24** | **76** | Local implementation proof, not PostgreSQL concurrency, Azure access, document fidelity or invoice reconciliation |
 
 ```powershell
 dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-trait Category=HybridPreparation
 ```
 
-All 75 cases passed with zero failures/skips. The focused run including the built-in template and
-administration definition UI regressions passed **87 cases**, zero failed/skipped. These validate
+All 76 cases passed within the 133-case offline selection described above. The earlier focused run
+including the built-in template and administration definition UI regressions passed **87 cases**,
+zero failed/skipped. These validate
 the `PdfReconciliationV2` prompt and template discovery without changing installed definitions.
 The actual SDK response-observer regressions also
 exercise receipt observation before malformed/incomplete output is rejected. Missing token usage
 stays unknown, and no test enables ingestion, activates a definition or replays a paid request.
 The shared Azure layout transport has its own fake-handler suite. Markdown passthrough,
-pricing estimates, preview UI and operator reconciliation are not
+pricing estimates, protected document-management preview UI and operator reconciliation are not
 implemented by this selection.
 
 The earlier combined PostgreSQL/SQLite persistence and offline hybrid selection passed **144 cases**,
@@ -271,14 +293,22 @@ pages, two `ReviewRequired` jobs and eight validated operations, with zero gener
 generic agent-run history. The existing PAYG `gpt-5.5` revision `2026-04-24` returned **23,536 input /
 6,275 output / 29,811 total tokens**. Managed receipts record six returned physical-page units;
 neither this count nor native tokens establish a currency total or invoice reconciliation.
-Private three-panel original/draft/agent previews and usage exports were saved; document fidelity
-still requires independent review. This local-identity result does not establish deployed inference
+Private three-panel original/draft/agent previews and usage exports were saved. The operator accepted
+the six sampled transcriptions with qualified minor vocabulary Markdown discrepancies; this is not
+full-document or diagram acceptance. This local-identity result does not establish deployed inference
 access, queue-to-answer behavior or searchable activation.
 The review renderer keeps transcription in its own element, hides empty review annotations, labels
 nonempty **Page Uncertainties** and collapses **Review changes (not document content)**. Native usage
 stays in the separate usage exports/ledger, never in the Markdown. The saved preview was refreshed
 offline with this presentation and whitespace cleanup; neither raw receipts nor usage exports were
 changed, and no new provider call was made.
+
+On a future separately authorized live run, the exporter also projects validated candidate Markdown
+through the shared heading chunker, writes `source-N.chunks.json` and appends a collapsed
+review-only chunk panel. Its token counts describe embedding-input budgets, not provider usage.
+The retained six-page artifact has not been regenerated with these exports. A structured unit
+exceeding the hard ceiling fails for review; inspect retained receipts rather than replaying
+paid preparation to bypass that rejection.
 
 ### PostgreSQL And Redis Preparation Acceptance
 
@@ -302,7 +332,7 @@ dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter
 ```
 
 The earlier combined selection passed **75 cases**, zero failed/skipped: 22 provider-backed cases
-and the then-current 53 offline hybrid regressions. The hybrid selection now has 75 cases; the
+and the then-current 53 offline hybrid regressions. The hybrid selection now has 76 cases; the
 Redis host case was not rerun as part of the later PostgreSQL/page-selection work.
 Provider requests are synthetic, so no Azure calls or paid
 operations occur. Polling receipts resume without another submission, received layout/model JSONB
@@ -330,7 +360,8 @@ acceptance and protected preview UI remain separate gates in
 | `Generation` | 7 | Credential-free definition-version suggestions with a fixed clock |
 | `Agent Runtime` | 54 | Runtime orchestration, tools, metrics, evaluation, persistence, caching, locking and compaction |
 | `Document Preparation` | 3 | Secret-free preparation template, editor constraint preservation and stateless runtime execution |
-| `HybridPreparation` | 75 Debug-only | Bounded worker/runtime, selected original pages, Markdown/review separation, paid receipts/recovery, profile authorization and fake read-only model metadata; 34 cases also tagged `Integration` |
+| `HybridPreparation` | 76 Debug-only | Bounded worker/runtime, selected original pages, Markdown/review separation, review-only heading projection, paid receipts/recovery, profile authorization and fake read-only model metadata; 35 cases also tagged `Integration` |
+| `MarkdownChunking` | 30 Debug-only | Synthetic heading hierarchy, semantic units, source/page spans, profile identity and complete-input token bounds |
 | `LiveDocumentPreparation` | 1 Debug-only | Separately approved real-source/provider acceptance with a retained local ledger; disabled by default |
 | `PreparationProviders` | 22 Debug-only | Real isolated PostgreSQL ledger/recovery and two-host Redis startup/handover; all also `Integration` and `PostgreSQL`, one also `Redis` |
 | `Tenant Isolation` | 38 | Cross-tenant state, JWT permissions, caller mappings, administrator assignment, MCP and provider credentials and identity isolation |
@@ -457,6 +488,7 @@ Tests/
     ├── DocumentPreparationCandidateTests.cs
     ├── DocumentIngestionAdmissionTests.cs
     ├── DocumentIngestionConfigTests.cs
+    ├── DocumentMarkdownChunkingTests.cs
     ├── DocumentPreparationModelVerifierTests.cs
     ├── DocumentPreparationPlanTests.cs
     ├── FeatureConfigTests.cs

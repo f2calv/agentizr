@@ -438,6 +438,13 @@ Implementation boundary:
   The expanded offline hybrid selection has 75 cases; all 87 focused cases including template/UI
   regressions pass with zero failures/skips. The revised template is versioned separately as
   `PdfReconciliationV2`; no installed definition was published/activated.
+- [x] Record the operator's bounded transcription review on 2026-10-28. The device-manual sample
+  (physical pages 2, 3 and 6) has no reported content errors and its displayed uncertainties were
+  resolved. The vocabulary sample (pages 6, 7 and 12) is accepted for the PoC with minor readable
+  Markdown discrepancies; an unnecessary table in the time-expression subsection on page 7 is a
+  source-specific presentation issue, not a reason to prohibit tables globally. This is qualified
+  acceptance of six sampled pages, not full-document, diagram, retrieval or language-policy
+  acceptance. No receipt was rewritten or paid request repeated.
 - [ ] Verify deployed worker-identity preparation access before enabling the hybrid. The bounded
   local runtime-identity result does not establish deployed inference access, lease-loss behavior
   under network faults, semantic fidelity or invoice reconciliation.
@@ -454,7 +461,8 @@ fields; older runtime replicas cannot be relied on to enforce them.
 
 Record the strategy identifier as **`markdown-headings`** in the immutable chunking profile,
 alongside its implementation/parser version. This is the intended replacement for the existing
-page-local splitter, not a claim that the current implementation already uses heading-aware chunks.
+page-local ingestion splitter. A Debug-only offline/review component now implements the bounded
+heading projection below; deployed ingestion still uses the page-local profile.
 Select semantic packing rules by trusted document classification, not application identity:
 
 | Profile | Initial document types | Semantic units |
@@ -508,6 +516,15 @@ Capture strategy, packing rule, structure/parser/extractor versions, heading-pre
 tokenizer, target/maximum/overlap and fallback rules in the immutable generation identity. Changes
 require new chunks/embeddings, not reinterpretation of earlier output. The current page-local
 implementation remains the measured baseline until this strategy is wired and validated.
+
+Continue the Agentizr-owned, pgvector-first implementation. A later comparison with Azure AI Search
+[Document Layout chunking](https://learn.microsoft.com/en-us/azure/search/search-how-to-semantic-chunking)
+and [Content Understanding](https://learn.microsoft.com/en-us/azure/search/cognitive-search-skill-content-understanding)
+is explicitly deferred until the initial path is complete, not a prerequisite or a new paid
+benchmark authorization. These configured managed pipelines overlap with extraction/chunking/
+vectorization work; they do not prove this corpus's fidelity or replace application authorization,
+review and CEFR contracts. Compare exact heading-prefix/token/region behavior, costs and preview
+limitations if that optional investigation is resumed.
 
 #### Source Provenance And Scoped Review Annotations
 
@@ -1650,13 +1667,26 @@ this does not prove full RAG processing.
   panels and retained native receipts; complete independent fidelity review of that evidence.
   Preparation success is not quality acceptance. Any changed extraction/chunking algorithm needs
   a new profile identity.
-- [ ] Implement `markdown-headings` over a shared structured-block contract, with section/entry
-  semantic packing and configurable target/maximum/overlap. Prove exact ancestor-to-leaf prefixes
-  on every continuation chunk, sibling heading transitions, contiguous cross-page context,
-  headingless/noncontiguous-page behavior, code fences, no duplicated prefixes and total-input
-  tokenizer bounds including headings. Verify warning/procedure, table/header and vocabulary/example
-  associations, safe oversized-unit fallback and new identity when any strategy setting changes.
-  Keep extraction-quality acceptance separate from tests over classified blocks (R8, R12).
+- [x] Implement the bounded offline/review `markdown-headings` component with Markdig 1.5.0,
+  explicit target/maximum/overlap and a versioned parser/tokenizer/prefix profile.
+  [Synthetic chunking tests](../src/CasCap.App.Server.Tests/Tests/Unit/DocumentMarkdownChunkingTests.cs)
+  cover ancestor-to-leaf continuation prefixes, sibling transitions, contiguous/missing pages,
+  headingless input, code fences, separate heading/body source spans and complete-input token
+  bounds including scalar-safe Unicode. Thirty new cases plus 15 page-local regressions pass.
+  A [production-worker receipt projection regression](../src/CasCap.App.Server.Tests/Tests/Integration/DocumentHybridPreparationTests.cs)
+  excludes annotations/usage and persists no generations/chunks. The combined offline selection
+  passes **133 cases**, zero failures/skips; full Debug and Release server builds have zero
+  warnings/errors. The gated exporter now emits review-only chunk JSON/HTML on a future explicitly
+  authorized run; the retained six-page paid evidence was not replayed or regenerated.
+- [ ] Complete section/entry semantic classification and warning/procedure, table/header and
+  vocabulary/example associations before claiming the full R8/R12 chunking contract. Fitting
+  list items and structured blocks stay whole; only oversized paragraphs currently split.
+  Oversized tables, entries and code/blockquote blocks fail explicitly for review rather
+  than unsafe token slicing. The
+  [colocated implementation deferral](../src/CasCap.App.Server/Services/DocumentChunkingService.Markdown.cs)
+  records the validated subdivision gate. Keep extraction-quality acceptance separate from
+  synthetic block tests, and persist the approved projection through the generation fence before
+  embedding or activation.
 - [ ] Persist source-block/heading/body mappings and available multi-region/page provenance before
   embedding. Prove source hash/version resolution, no fabricated PDF coordinates after Markdown
   reordering, protected page navigation/highlighting and revocation after replacement/deletion;

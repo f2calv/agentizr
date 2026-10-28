@@ -272,17 +272,23 @@ public sealed class DocumentPreparationLiveAcceptanceTests(ITestOutputHelper out
                 revision = deployment.Revision,
                 operations = evidence,
             }, EvidenceJson), Token);
+            var markdownPages = new List<DocumentMarkdownPage>();
             foreach (var page in input.Plan.Settings.PhysicalPages.Order())
             {
                 var operation = operations.Single(operation => operation.Stage == DocumentPreparationOperations.PreparationAgent && operation.PageNumber == page);
                 var receipt = Assert.IsType<DocumentPreparationAgentReceipt>(JsonSerializer.Deserialize<DocumentPreparationAgentReceipt>(
                     operation.ResultJson!, JsonSerializerOptions.Web));
                 var candidate = DocumentPreparationCandidateValidator.Validate(receipt.Response, input.Plan, page, limits.MaximumExtractedCharacters);
+                markdownPages.Add(new(page, candidate.Markdown));
                 review.Append($"<article><h2>Source {index + 1}, original page {page}</h2><section>"
                     + $"<div><h3>Original</h3><iframe src='{prefix}.pdf#page={page}'></iframe></div>"
                     + $"<div><h3>Managed draft</h3><pre>{WebUtility.HtmlEncode(layout.Pages[page])}</pre></div>"
                     + $"<div><h3>Preparation agent</h3>{DocumentPreparationReviewRenderer.Render(candidate)}</div></section></article>");
             }
+            var chunkPreview = new DocumentChunkingService().ChunkMarkdown(markdownPages, new(), limits, Token);
+            await File.WriteAllTextAsync(Path.Combine(directory, prefix + ".chunks.json"),
+                JsonSerializer.Serialize(chunkPreview, EvidenceJson), Token);
+            review.Append(DocumentPreparationReviewRenderer.RenderChunks(chunkPreview));
             await File.WriteAllTextAsync(Path.Combine(directory, "index.html"), review.ToString(), Token);
             output.WriteLine($"Source ordinal {index + 1}: {PageBudget} original pages, review-only receipts retained.");
         }

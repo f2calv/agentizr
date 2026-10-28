@@ -5,7 +5,7 @@ using UglyToad.PdfPig;
 namespace CasCap.Services;
 
 /// <summary>Builds page-local token windows without decoding incomplete token-byte sequences.</summary>
-internal sealed class DocumentChunkingService
+internal sealed partial class DocumentChunkingService
 {
     private readonly Lazy<TiktokenTokenizer> _tokenizer = new(() =>
         TiktokenTokenizer.CreateForEncoding(DocumentPreparationFormats.Cl100kBase));
@@ -74,16 +74,19 @@ internal sealed class DocumentChunkingService
     }
 
     private int NextStart(DocumentTextChunk chunk, DocumentPreparationProfile profile)
+        => NextStart(chunk.Text, chunk.StartOffset, chunk.EndOffset, profile.OverlapTokens);
+
+    private int NextStart(string text, int startOffset, int endOffset, int overlapTokens)
     {
-        if (profile.OverlapTokens == 0)
-            return chunk.EndOffset;
-        var overlap = _tokenizer.Value.GetIndexByTokenCountFromEnd(chunk.Text, profile.OverlapTokens,
+        if (overlapTokens == 0)
+            return endOffset;
+        var overlap = _tokenizer.Value.GetIndexByTokenCountFromEnd(text, overlapTokens,
             out _, out _, considerNormalization: false);
-        overlap = AfterScalarBoundary(chunk.Text, overlap);
-        while (overlap < chunk.Text.Length && _tokenizer.Value.CountTokens(chunk.Text.AsSpan(overlap),
-            considerNormalization: false) > profile.OverlapTokens)
-            overlap = AfterScalarBoundary(chunk.Text, overlap + 1);
-        return overlap == 0 ? chunk.EndOffset : chunk.StartOffset + overlap;
+        overlap = AfterScalarBoundary(text, overlap);
+        while (overlap < text.Length && _tokenizer.Value.CountTokens(text.AsSpan(overlap),
+            considerNormalization: false) > overlapTokens)
+            overlap = AfterScalarBoundary(text, overlap + 1);
+        return overlap == 0 ? endOffset : startOffset + overlap;
     }
 
     private static int BeforeScalarBoundary(string text, int index) =>

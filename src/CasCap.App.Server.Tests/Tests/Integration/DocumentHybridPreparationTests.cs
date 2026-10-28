@@ -64,6 +64,36 @@ public sealed class DocumentHybridPreparationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task RecordedCandidatesProjectToHeadingChunksWithoutReviewMetadata()
+    {
+        var claim = await ClaimAsync();
+        _provider.Text = """
+            {"page":1,"markdown":"# Control\n\n## Heat\n\nSource passage.","changes":["review change"],"uncertainties":["review uncertainty"]}
+            """;
+        Assert.Equal(DocumentProcessingOutcome.ReviewRequired,
+            await Processor().ProcessAsync(claim, TestContext.Current.CancellationToken));
+        var operation = Assert.Single(await Store().ReadAsync(claim, TestContext.Current.CancellationToken),
+            item => item.Stage == DocumentPreparationOperations.PreparationAgent);
+        var receipt = JsonSerializer.Deserialize<DocumentPreparationAgentReceipt>(operation.ResultJson!, JsonSerializerOptions.Web)!;
+        var candidate = DocumentPreparationCandidateValidator.Validate(receipt.Response, Plan, 1, 10_000);
+        var projection = new DocumentChunkingService().ChunkMarkdown(
+            [new(candidate.Page, candidate.Markdown)], new(), new(), TestContext.Current.CancellationToken);
+        var chunk = Assert.Single(projection.Chunks);
+        Assert.Equal("# Control\n## Heat\n\nSource passage.", chunk.EmbeddingText);
+        Assert.DoesNotContain("review change", chunk.EmbeddingText, StringComparison.Ordinal);
+        Assert.DoesNotContain("review uncertainty", chunk.EmbeddingText, StringComparison.Ordinal);
+        var preview = DocumentPreparationReviewRenderer.RenderChunks(projection);
+        Assert.Contains("Review-only markdown-headings chunks", preview, StringComparison.Ordinal);
+        Assert.DoesNotContain("review uncertainty", preview, StringComparison.Ordinal);
+        Assert.Equal(["review change"], candidate.Changes);
+        Assert.Equal(["review uncertainty"], candidate.Uncertainties);
+        await using var db = _factory.CreateDbContext();
+        Assert.Empty(await db.DocumentPreparationGenerations.ToArrayAsync(TestContext.Current.CancellationToken));
+        Assert.Empty(await db.DocumentTextChunks.ToArrayAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(1, _provider.ModelCalls);
+    }
+
+    [Fact]
     public async Task UnboundExistingJobRetainsLocalProcessing()
     {
         var claim = await ClaimAsync(paid: false);

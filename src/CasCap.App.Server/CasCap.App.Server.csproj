@@ -40,7 +40,7 @@
     <!-- TODO: Enable ingestion in Release after the shared Event Grid parser and leadership APIs are published. -->
     <Compile Remove="Models\_DocumentIngestionConfig.cs;Models\DocumentIngestionNotification.cs;Models\IngestionQueueMessage.cs;Abstractions\IDocumentIngestionEventQueue.cs;Abstractions\IDocumentIngestionInbox.cs;Services\AzureDocumentIngestionQueue.cs;Services\DocumentIngestionAdmissionService.cs;Services\DocumentIngestionInboxService.cs;Services\DocumentIngestionFeature.cs" />
     <Compile Remove="Models\_Enums.cs;Models\DocumentIngestionClaim.cs;Abstractions\IDocumentProcessor.cs;Services\DocumentIngestionJobService.cs;Services\DocumentIngestionProcessingService.cs;Services\DocumentIngestionTransactions.cs" />
-    <Compile Remove="Models\_DocumentPreparationConfig.cs;Models\DocumentPreparationProfile.cs;Models\DocumentTextChunk.cs;Models\PdfPreparationResult.cs;Services\DocumentChunkingService.cs;Services\PdfDocumentPreparationService.cs" />
+    <Compile Remove="Models\_DocumentPreparationConfig.cs;Models\DocumentPreparationProfile.cs;Models\DocumentTextChunk.cs;Models\DocumentMarkdown*.cs;Models\PdfPreparationResult.cs;Services\DocumentChunkingService*.cs;Services\PdfDocumentPreparationService.cs" />
     <Compile Remove="Services\DocumentBlobDownloadService.cs" />
     <Compile Remove="Services\DocumentPreparationStoreService.cs;Services\PdfDocumentProcessor.cs" />
     <Compile Remove="Services\DocumentPreparation*.cs;Services\HybridDocumentProcessor.cs;Models\DocumentPreparation*.cs;Abstractions\IDocumentPreparationProvider.cs" />
@@ -51,6 +51,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)'!='Release'">
+    <PackageReference Include="Markdig" />
     <PackageReference Include="Microsoft.ML.Tokenizers" />
     <PackageReference Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" />
     <PackageReference Include="PdfPig" />
