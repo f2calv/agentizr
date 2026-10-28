@@ -20,6 +20,11 @@ public sealed class DocumentPreparationPlanTests
     [InlineData("time")]
     [InlineData("pages")]
     [InlineData("management")]
+    [InlineData("selection-valid")]
+    [InlineData("selection-count")]
+    [InlineData("selection-duplicate")]
+    [InlineData("selection-zero")]
+    [InlineData("selection-limit")]
     public void RequiresExactApprovedProfile(string invalid)
     {
         var plan = DocumentHybridPreparationTestData.Plan;
@@ -63,9 +68,24 @@ public sealed class DocumentPreparationPlanTests
             case "management":
                 settings = settings with { ManagementEndpoint = "https://example.com/" };
                 break;
+            case "selection-valid":
+                settings = settings with { PhysicalPages = [7, 12] };
+                break;
+            case "selection-count":
+                settings = settings with { PhysicalPages = [1, 2, 3] };
+                break;
+            case "selection-duplicate":
+                settings = settings with { PhysicalPages = [2, 2] };
+                break;
+            case "selection-zero":
+                settings = settings with { PhysicalPages = [0] };
+                break;
+            case "selection-limit":
+                settings = settings with { PhysicalPages = [201] };
+                break;
         }
         var exception = Record.Exception(() => DocumentPreparationPlanService.Validate(definition, settings));
-        if (invalid == "valid")
+        if (invalid is "valid" or "selection-valid")
             Assert.Null(exception);
         else
             Assert.NotNull(exception);

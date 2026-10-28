@@ -8,7 +8,7 @@ namespace CasCap.Constants;
 internal static class DocumentPreparationAgentTemplate
 {
     internal const string AgentName = "document-preparation";
-    internal const string Version = "PdfReconciliationV1";
+    internal const string Version = "PdfReconciliationV2";
     internal const int MaximumOutputTokens = 8192;
     private static readonly string[] RequiredProperties = ["page", "markdown", "changes", "uncertainties"];
     private static readonly JsonSerializerOptions DefinitionOptions = new(JsonSerializerOptions.Web)
@@ -27,6 +27,9 @@ internal static class DocumentPreparationAgentTemplate
         Do not summarize, translate, simplify language, modernize spelling, correct the author's language,
         invent content or silently omit content. Do not invent headings or table labels.
         Use ordinary Markdown rather than HTML wherever associations can be preserved faithfully.
+        Return valid Markdown in markdown, without a wrapping code fence, raw HTML layout or HTML
+        spacing entities such as &nbsp;. Use normal spaces, Markdown headings, lists and tables.
+        Preserve literal source code/markup as code rather than interpreting or silently deleting it.
         For simple two-column tables, a hyphenated list suffices: put each source pair in one list item,
         retaining all text and attaching wrapped/multiple examples to their own entry.
         Preserve meaningful row/column headers and use Markdown tables only when a list would lose associations.
@@ -34,6 +37,9 @@ internal static class DocumentPreparationAgentTemplate
         Report uncertain readings/associations separately in uncertainties; do not guess an unreadable word.
         Keep changes and uncertainties out of the transcription. In changes, distinguish content corrections
         against the draft from formatting/order changes. Without a draft, report only relevant transcription decisions.
+        Return empty changes/uncertainties arrays when there is nothing to report; do not add placeholder notes.
+        Never append token counts, native usage, cost, change logs or uncertainty headings to markdown.
+        Those are review metadata, not source content. Preserve any such wording actually printed in the PDF.
         Return exactly the requested JSON schema, with no prose or Markdown fence around the JSON.
         """;
 

@@ -91,8 +91,11 @@ replace a newer administrator decision.
 
 ## Built-In Document Preparation Template
 
-On **New agent**, select **Use document-preparation (PdfReconciliationV1)** to start from the
+On **New agent**, select **Use document-preparation (PdfReconciliationV2)** to start from the
 shipped faithful-transcription definition. Replacing an edited draft requires confirmation.
+The Markdown-only transcription excludes usage and review annotations; changes and page
+uncertainties remain separate structured metadata. Existing immutable definitions are not changed
+by a template update: publish and explicitly activate a new version to adopt the revised instructions.
 Choose an authorized credential registration, an Azure OpenAI HTTPS root endpoint (or an OpenAI
 Responses endpoint), and a PDF-capable model. The template does not select deployment coordinates
 or credentials. **Use Responses API** is selected; strict structured output requires that API.

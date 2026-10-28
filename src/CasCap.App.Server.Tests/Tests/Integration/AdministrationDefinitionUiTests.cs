@@ -48,7 +48,7 @@ public sealed class AdministrationDefinitionUiTests
             [nameof(DefinitionEditor.AppId)] = AppId,
         }, string.Empty);
 
-        Assert.Contains("Use document-preparation (PdfReconciliationV1)", html, StringComparison.Ordinal);
+        Assert.Contains("Use document-preparation (PdfReconciliationV2)", html, StringComparison.Ordinal);
         Assert.Contains("Use Responses API", html, StringComparison.Ordinal);
         Assert.Contains("Templates do not install themselves", html, StringComparison.Ordinal);
         Assert.Contains("Publish inactive version", html, StringComparison.Ordinal);

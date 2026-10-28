@@ -18,7 +18,7 @@ internal static class DocumentHybridPreparationTestData
         Settings = new()
         {
             AgentName = "document-preparation",
-            DefinitionVersion = "PdfReconciliationV1",
+            DefinitionVersion = DocumentPreparationAgentTemplate.Version,
             Model = "synthetic-model",
             ModelRevision = "synthetic-revision",
             DeploymentResourceId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example/providers/Microsoft.CognitiveServices/accounts/example/deployments/synthetic-deployment",
@@ -46,6 +46,8 @@ internal static class DocumentHybridPreparationTestData
         public int Submissions { get; private set; }
         public int Polls { get; private set; }
         public int ModelCalls { get; private set; }
+        public int[]? SubmittedPages { get; private set; }
+        public string? SubmittedSourceSha256 { get; private set; }
         public bool FailSubmission { get; set; }
         public bool FailModel { get; set; }
         public bool FailVerification { get; set; }
@@ -59,6 +61,8 @@ internal static class DocumentHybridPreparationTestData
         public Task<Uri> SubmitLayoutAsync(DocumentPreparationPlan plan, byte[] pdf, int[] pages, CancellationToken cancellationToken)
         {
             Submissions++;
+            SubmittedPages = pages.ToArray();
+            SubmittedSourceSha256 = DocumentPreparationIdentity.Hash(pdf);
             return FailSubmission ? Task.FromException<Uri>(new HttpRequestException("Synthetic unknown submission."))
                 : Task.FromResult(new Uri("https://layout.example.com/operation"));
         }
@@ -99,7 +103,10 @@ internal static class DocumentHybridPreparationTestData
             cancellationToken.ThrowIfCancellationRequested();
             using var pdf = UglyToad.PdfPig.PdfDocument.Open(request.Pdf);
             Assert.Equal(1, pdf.NumberOfPages);
-            Assert.InRange(request.PageNumber, 1, 2);
+            if (request.Plan.Settings.PhysicalPages.Length == 0)
+                Assert.InRange(request.PageNumber, 1, request.Plan.Settings.MaximumPages);
+            else
+                Assert.Contains(request.PageNumber, request.Plan.Settings.PhysicalPages);
             Assert.Equal("Managed draft", request.Draft);
         }
     }
@@ -107,7 +114,7 @@ internal static class DocumentHybridPreparationTestData
     private static AgentDefinition Definition => new()
     {
         Name = "document-preparation",
-        Version = "PdfReconciliationV1",
+        Version = DocumentPreparationAgentTemplate.Version,
         Agent = DocumentPreparationAgentTemplate.Create().Definition.GetProperty("agent")
             .Deserialize<AgentConfig>(JsonSerializerOptions.Web)! with
         {

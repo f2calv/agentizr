@@ -52,11 +52,15 @@ internal sealed class HybridDocumentProcessor(
             var original = bytes.ToArray();
             using var pdf = PdfDocument.Open(original, new ParsingOptions { UseLenientParsing = false, SkipMissingFonts = false });
             if (pdf.IsEncrypted || pdf.NumberOfPages < 1
-                || pdf.NumberOfPages > Math.Min(config.Value.MaximumPages, plan.Settings.MaximumPages))
+                || pdf.NumberOfPages > config.Value.MaximumPages)
+                return Stop(DocumentProcessingOutcome.PermanentFailure);
+            var pages = plan.Settings.PhysicalPages.Length == 0
+                ? Enumerable.Range(1, pdf.NumberOfPages).ToArray()
+                : plan.Settings.PhysicalPages.Order().ToArray();
+            if (pages.Length > plan.Settings.MaximumPages || pages.Any(page => page > pdf.NumberOfPages))
                 return Stop(DocumentProcessingOutcome.PermanentFailure);
             var sourceHash = DocumentPreparationIdentity.Hash(original);
             var planHash = DocumentPreparationIdentity.Hash(claim.PreparationPlanJson);
-            var pages = Enumerable.Range(1, pdf.NumberOfPages).ToArray();
             var managed = await PrepareLayoutAsync(new LayoutRequest(claim, plan, original, sourceHash, planHash, pages), cancellationToken);
             if (managed.Outcome is { } outcome)
                 return Stop(outcome);

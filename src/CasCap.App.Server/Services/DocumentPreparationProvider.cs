@@ -35,6 +35,7 @@ internal sealed class DocumentPreparationProvider(
     public async Task<Uri> SubmitLayoutAsync(
         DocumentPreparationPlan plan, byte[] pdf, int[] pages, CancellationToken cancellationToken)
     {
+        ValidateLayoutPages(plan, pages);
         using var client = await CreateLayoutHttpClientAsync(plan, cancellationToken);
         return await Layout(client, plan).SubmitAsync(pdf, pages, cancellationToken);
     }
@@ -43,6 +44,7 @@ internal sealed class DocumentPreparationProvider(
     public async Task<DocumentLayoutPollResult> PollLayoutAsync(
         DocumentPreparationPlan plan, Uri operation, int[] pages, CancellationToken cancellationToken)
     {
+        ValidateLayoutPages(plan, pages);
         using var client = await CreateLayoutHttpClientAsync(plan, cancellationToken);
         return await Layout(client, plan).GetResultAsync(operation, pages, cancellationToken);
     }
@@ -53,8 +55,11 @@ internal sealed class DocumentPreparationProvider(
         Func<AgentStructuredResponse, CancellationToken, ValueTask> observer,
         CancellationToken cancellationToken)
     {
+        DocumentPreparationPlanService.Validate(request.Plan.Definition, request.Plan.Settings);
         if (request.TenantId != request.Plan.TenantId || request.PageNumber < 1
-            || request.PageNumber > request.Plan.Settings.MaximumPages)
+            || (request.Plan.Settings.PhysicalPages.Length == 0
+                ? request.PageNumber > request.Plan.Settings.MaximumPages
+                : !request.Plan.Settings.PhysicalPages.Contains(request.PageNumber)))
             throw new InvalidOperationException("The page execution is outside its admitted tenant/page authorization.");
         var tenant = new PreparationTenant(request.TenantId);
         var credentials = ActivatorUtilities.CreateInstance<ConfigurationProviderCredentialStore>(serviceProvider, tenant);
@@ -117,8 +122,15 @@ internal sealed class DocumentPreparationProvider(
         {
             MaximumPdfBytes = 26_214_400,
             MaximumResponseBytes = 16 * 1024 * 1024,
-            MaximumPages = plan.Settings.MaximumPages,
+            MaximumPages = plan.Settings.PhysicalPages.DefaultIfEmpty(plan.Settings.MaximumPages).Max(),
         });
+
+    private static void ValidateLayoutPages(DocumentPreparationPlan plan, int[] pages)
+    {
+        DocumentPreparationPlanService.Validate(plan.Definition, plan.Settings);
+        if (plan.Settings.PhysicalPages.Length > 0 && !pages.Order().SequenceEqual(plan.Settings.PhysicalPages.Order()))
+            throw new InvalidOperationException("The layout request differs from its admitted physical-page selection.");
+    }
 
     private sealed class PreparationTenant(string tenantId) : ITenantContext
     {

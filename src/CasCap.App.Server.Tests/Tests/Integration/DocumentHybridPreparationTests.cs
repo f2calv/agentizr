@@ -203,6 +203,38 @@ public sealed class DocumentHybridPreparationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SelectedPhysicalPagesKeepOriginalIdentity()
+    {
+        var claim = await ClaimAsync(settings: Plan.Settings with { PhysicalPages = [4, 2] });
+        var bytes = DocumentPreparationTestData.Pdf("One", "Two", "Three", "Four");
+        var processor = Processor(bytes);
+        Assert.Equal(DocumentProcessingOutcome.ReviewRequired, await processor.ProcessAsync(claim, TestContext.Current.CancellationToken));
+        Assert.Equal(DocumentProcessingOutcome.ReviewRequired, await processor.ProcessAsync(claim, TestContext.Current.CancellationToken));
+        Assert.Equal([2, 4], Assert.IsType<int[]>(_provider.SubmittedPages));
+        Assert.Equal(DocumentPreparationIdentity.Hash(bytes), _provider.SubmittedSourceSha256);
+        Assert.Equal(1, _provider.Submissions);
+        Assert.Equal(2, _provider.ModelCalls);
+        var operations = await Store().ReadAsync(claim, TestContext.Current.CancellationToken);
+        Assert.Equal([2, 4], operations.Where(operation => operation.Stage == DocumentPreparationOperations.PreparationAgent)
+            .Select(operation => operation.PageNumber).Order());
+        Assert.All(operations, operation => Assert.Equal(DocumentPreparationIdentity.Hash(bytes), operation.SourceSha256));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SelectedPagesRespectSourceLimits(bool resourceLimit)
+    {
+        var claim = await ClaimAsync(settings: Plan.Settings with { PhysicalPages = resourceLimit ? [2, 4] : [2, 5] });
+        var bytes = DocumentPreparationTestData.Pdf("One", "Two", "Three", "Four");
+        var limits = new DocumentPreparationConfig { MaximumPages = resourceLimit ? 3 : 200 };
+        Assert.Equal(DocumentProcessingOutcome.PermanentFailure,
+            await Processor(bytes, limits).ProcessAsync(claim, TestContext.Current.CancellationToken));
+        Assert.Equal(0, _provider.Submissions + _provider.ModelCalls);
+        Assert.Empty(await Store().ReadAsync(claim, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task ResponseReceiptSurvivesCancellationBeforeItsObserver()
     {
         var claim = await ClaimAsync();
@@ -270,7 +302,7 @@ public sealed class DocumentHybridPreparationTests : IAsyncLifetime
         await Inbox().AcceptAsync(notification, TestContext.Current.CancellationToken);
         await Assert.ThrowsAsync<InvalidOperationException>(() => Inbox().AcceptAsync(
             notification with { Event = DocumentIngestionTestData.Notification("event-2", "2").Event }, TestContext.Current.CancellationToken));
-        Assert.Equal("PdfReconciliationV1",
+        Assert.Equal(DocumentPreparationAgentTemplate.Version,
             JsonSerializer.Deserialize<DocumentPreparationPlan>(claim.PreparationPlanJson!, JsonSerializerOptions.Web)!.Definition.Version);
     }
 
@@ -290,7 +322,7 @@ public sealed class DocumentHybridPreparationTests : IAsyncLifetime
         Assert.Empty(await Store().ReadAsync(claim, TestContext.Current.CancellationToken));
     }
 
-    private async Task<DocumentIngestionClaim> ClaimAsync(bool paid = true)
+    private async Task<DocumentIngestionClaim> ClaimAsync(bool paid = true, DocumentAgentPreparationConfig? settings = null)
     {
         if (paid)
         {
@@ -313,7 +345,7 @@ public sealed class DocumentHybridPreparationTests : IAsyncLifetime
             });
             await db.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
-        await Inbox().AcceptAsync(DocumentIngestionTestData.Notification() with { AgentPreparation = paid ? Plan.Settings : null },
+        await Inbox().AcceptAsync(DocumentIngestionTestData.Notification() with { AgentPreparation = paid ? settings ?? Plan.Settings : null },
             TestContext.Current.CancellationToken);
         return Assert.IsType<DocumentIngestionClaim>(await Jobs().ClaimAsync(TestContext.Current.CancellationToken));
     }

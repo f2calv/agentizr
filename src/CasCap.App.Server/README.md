@@ -121,6 +121,14 @@ pins the exact active tenant-local snapshot, model/revision/resource binding and
 inside the inbox transaction. Changing source configuration or the active definition does not
 retarget already-admitted jobs; old/null plans stay local.
 
+`AgentPreparation.PhysicalPages` optionally pins distinct one-based original page numbers.
+An empty array retains whole-document processing. `MaximumPages` limits the selected-page count;
+the separate preparation resource limit still bounds the full PDF page count. Selections are
+validated before paid intents, processed in original-page order and sent unchanged to layout
+analysis and the page-specific response schema. Missing/out-of-range pages are rejected before
+submission. The original Blob URI, ETag and full-byte SHA-256 remain authoritative; no cropped
+bytes are substituted under the original identity.
+
 [`HybridDocumentProcessor`](Services/HybridDocumentProcessor.cs) conditionally downloads and bounds
 the original PDF, including scanned/blank pages. Before each new paid stage it checks current tenant
 provider/endpoint authorization and bounded read-only ARM account/deployment metadata. The runtime
@@ -141,6 +149,18 @@ copies, so fresh copied-byte hashes cannot identify safe replay. Candidates fini
 `ReviewRequired`; schema validity is not fidelity approval, chunk preparation or search activation.
 The runtime adapter uses worker-local tenancy and the actual framework executor, without HTTP
 tenant context, tools, sessions, overrides or generic content history.
+
+The [`candidate validator`](Services/DocumentPreparationCandidateValidator.cs) normalizes line endings,
+HTML whitespace entities such as `&nbsp;` and nonbreaking-space characters in the Markdown projection.
+Raw responses remain unchanged in the ledger. Other escaped source characters are preserved rather
+than blindly decoding/deleting markup and changing its meaning. The `PdfReconciliationV2` template
+instructs the agent to emit Markdown without HTML layout or appended review/usage sections.
+Only `Markdown` is document content; `Changes`, `Uncertainties` and native usage are separate review
+or accounting metadata, not chunk input. Hybrid candidates still stop before chunking.
+The private acceptance preview hides empty notes, labels nonempty **Page Uncertainties**, collapses
+change notes and leaves usage in separate exports. It is not the administration document UI.
+Existing immutable definitions/plans retain their instructions until a new version is explicitly
+published/activated and used for new admissions.
 
 The ledger retains managed page units and reported model token/cache/reasoning counters when
 available. Missing counters remain unknown; no currency estimates or invoice totals are calculated.

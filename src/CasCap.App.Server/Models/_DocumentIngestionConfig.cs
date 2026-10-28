@@ -129,9 +129,13 @@ public sealed record DocumentAgentPreparationConfig : IValidatableObject
     [Required, Url]
     public string DocumentIntelligenceEndpoint { get; init; } = string.Empty;
 
-    /// <summary>Gets the maximum physical pages authorized for this source; one managed request and at most one model request per page.</summary>
+    /// <summary>Gets the maximum selected-page count; without a selection this bounds the whole document.</summary>
     [Range(1, 200)]
     public int MaximumPages { get; init; }
+
+    /// <summary>Gets optional one-based original physical pages; empty processes every page, without renumbering or replacing the source.</summary>
+    [Required, MaxLength(200)]
+    public int[] PhysicalPages { get; init; } = [];
 
     /// <summary>Gets the per-page output-token ceiling, including reasoning tokens.</summary>
     [Range(1, 8_192)]
@@ -144,6 +148,9 @@ public sealed record DocumentAgentPreparationConfig : IValidatableObject
     /// <inheritdoc/>
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
+        if (PhysicalPages.Length > MaximumPages || PhysicalPages.Any(page => page is < 1 or > 200)
+            || PhysicalPages.Distinct().Count() != PhysicalPages.Length)
+            yield return new ValidationResult("Preparation pages must be distinct physical numbers from 1 to 200 within the selected-page budget.");
         if (!Uri.TryCreate(DocumentIntelligenceEndpoint, UriKind.Absolute, out var endpoint)
             || endpoint.Scheme != Uri.UriSchemeHttps || endpoint.Port != 443 || endpoint.AbsolutePath != "/"
             || endpoint.UserInfo.Length != 0 || endpoint.Query.Length != 0 || endpoint.Fragment.Length != 0)

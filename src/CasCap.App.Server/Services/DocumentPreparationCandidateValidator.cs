@@ -1,9 +1,11 @@
+using System.Net;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace CasCap.Services;
 
 /// <summary>Enforces the complete local response/page/usage contract independently of provider schema enforcement.</summary>
-internal static class DocumentPreparationCandidateValidator
+internal static partial class DocumentPreparationCandidateValidator
 {
     private static readonly string[] RequiredProperties = ["page", "markdown", "changes", "uncertainties"];
 
@@ -36,9 +38,19 @@ internal static class DocumentPreparationCandidateValidator
             || !root.GetProperty("page").TryGetInt32(out var returnedPage) || returnedPage != page
             || root.GetProperty("markdown").ValueKind != JsonValueKind.String)
             throw new InvalidDataException("The preparation response violates the exact physical-page contract.");
-        var markdown = root.GetProperty("markdown").GetString()!;
+        var markdown = NormalizeMarkdown(root.GetProperty("markdown").GetString()!);
         return new(page, markdown, ReadNotes(root, "changes"), ReadNotes(root, "uncertainties"));
     }
+
+    private static string NormalizeMarkdown(string markdown) =>
+        HtmlEntity().Replace(markdown.ReplaceLineEndings("\n"), match =>
+        {
+            var decoded = WebUtility.HtmlDecode(match.Value);
+            return decoded.All(char.IsWhiteSpace) ? decoded : match.Value;
+        }).Replace('\u00a0', ' ').Replace('\u2007', ' ').Replace('\u202f', ' ');
+
+    [GeneratedRegex(@"&(?:[a-zA-Z][a-zA-Z0-9]+|#[0-9]+|#[xX][0-9a-fA-F]+);", RegexOptions.CultureInvariant)]
+    private static partial Regex HtmlEntity();
 
     private static string[] ReadNotes(JsonElement root, string property)
     {

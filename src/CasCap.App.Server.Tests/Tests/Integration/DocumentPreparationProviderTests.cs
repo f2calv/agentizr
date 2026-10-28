@@ -14,9 +14,11 @@ namespace CasCap.Tests.Integration;
 public sealed class DocumentPreparationProviderTests
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ActualWorkerAdapterUsesPinnedSchemaAndTenantCredentials(bool forgedTenant)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task ActualWorkerAdapterUsesPinnedSchemaAndTenantCredentials(bool forgedTenant, bool selection)
     {
         using var handler = new DocumentPreparationAgentTemplateTests.PreparationHandler { ExpectedCredential = "synthetic-key-a" };
         using var client = new HttpClient(handler);
@@ -44,13 +46,24 @@ public sealed class DocumentPreparationProviderTests
         var request = new DocumentPreparationPageRequest
         {
             TenantId = forgedTenant ? "tenant-b" : plan.TenantId,
-            Plan = plan with { Settings = plan.Settings with { MaximumPages = 7, MaximumOutputTokens = 1000 } },
+            Plan = plan with
+            {
+                Settings = plan.Settings with { MaximumPages = selection ? 1 : 7, PhysicalPages = selection ? [7] : [], MaximumOutputTokens = 1000 },
+            },
             PageNumber = 7,
             Pdf = DocumentPreparationTestData.Pdf("Synthetic source"),
             OriginalSha256 = new string('A', 64),
             Draft = "Untrusted draft",
         };
         AgentStructuredResponse? receipt = null;
+        if (selection)
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                provider.SubmitLayoutAsync(request.Plan, request.Pdf, [1], TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                provider.PollLayoutAsync(request.Plan, new Uri("https://layout.example.com/operation"), [1], TestContext.Current.CancellationToken));
+            Assert.Null(handler.Body);
+        }
         async Task ExecuteAsync() => await provider.ExecutePageAsync(request, (response, _) =>
         {
             receipt = response;
