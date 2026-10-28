@@ -17,6 +17,11 @@ instructions. Two initial use cases are:
 - German tutoring grounded in authorized Goethe-Institut vocabulary references and sample examination
   material, categorized by language, CEFR level, document type and edition.
 
+The device-manual use case requires diagrams and images, especially heat-pump installation/control
+references. The initial language-learning use case requires text retrieval, not extracted figure
+assets or image embeddings. Preserve original PDFs in both cases; authorize derived visual work
+through trusted collection/document policy rather than making it a mandatory ingestion stage.
+
 Agentizr should manage this capability centrally for multiple applications, rather than each
 application maintaining its own ingestion pipeline, embedding provider and vector database.
 Applications retain their domain tools and business data.
@@ -67,7 +72,7 @@ Issue #73 was closed at the user's request after this proposal was drafted; PR #
 | R1 | Agentizr owns reusable ingestion, indexing, retrieval and lifecycle management; consumers do not access its database directly |
 | R2 | Every operation is authorized by tenant and collection; agent execution is additionally restricted to its configured collections |
 | R3 | Upload authorized PDFs, observe durable ingestion status, replace/reindex documents and delete them without exposing partial generations |
-| R4 | Return bounded relevant passages with document/version/page citations; support German text, exact device identifiers and typed, server-enforced cumulative CEFR filtering |
+| R4 | Return bounded relevant passages with immutable document/version/page and available source-region citations; support German text, exact device identifiers and typed, server-enforced cumulative CEFR filtering |
 | R5 | Keep retrieval opt-in per agent and bounded by result count, query size and prompt-token budget; existing agents retain their behavior |
 | R6 | Preserve recoverability, idempotency, embedding compatibility and tenant isolation across retries, crashes and multiple replicas |
 | R7 | Treat source documents, extracted text, queries and embeddings as sensitive; do not commit source material or export its contents through telemetry |
@@ -75,10 +80,13 @@ Issue #73 was closed at the user's request after this proposal was drafted; PR #
 | R9 | Provide app-scoped document management with protected source/derived previews, page-by-page comparison, status, stage usage/cost visibility, replacement, retry/reindex, download and deletion |
 | R10 | Store original PDFs in private Azure Blob containers; use Event Grid and durable queue delivery to trigger recoverable Agentizr background processing |
 | R11 | Keep queue consumption transport-neutral and allow Azure AI Search as an optional index target without replacing the initial pgvector backend |
-| R12 | Use two versioned, content-selected chunking profiles: section-based references and entry-based vocabulary, sharing extraction contracts, token limits and provenance |
+| R12 | Record the chunking strategy as `markdown-headings`, with configurable token-sized chunks and the full source heading hierarchy prepended to embedding text; retain section-based and entry-based semantic packing rules over shared structure, budgets and provenance |
 | R13 | Initially generate level-restricted lesson responses with pre-delivery vocabulary/grammar validation and bounded repair; review retained conversations for missed violations without claiming an absolute CEFR guarantee |
 | R14 | Select local PdfPig, Document Intelligence or the preferred managed-draft/preparation-agent hybrid through trusted versioned authorization and separate quality gates; keep embedding/index selection independent |
 | R15 | Admit Markdown through a separately validated UTF-8 passthrough path rather than implicitly converting it with PDF or paid extraction services |
+| R16 | Preserve chunk-to-source block/page/region mappings and related figure references before embedding; distinguish source body spans from the derived heading-prefixed embedding projection |
+| R17 | Retain and serve authorized figures/diagrams for device-manual collections, initially through text-to-figure associations and protected source-page/region links; initial language-learning collections require no figure extraction or image-vector pipeline |
+| R18 | Keep uncertainties, change notes and usage out of embeddings; attach scoped review annotations after retrieval and gate unresolved safety-critical or meaning-changing passages |
 
 Initial collections hold application-wide reference material. Learner-private documents and
 within-tenant per-user ACLs are out of scope: reject such uploads until a separately designed ACL
@@ -127,6 +135,9 @@ available local extraction, managed draft and reconciled Markdown, with physical
 raw/rendered Markdown, provenance, changes and uncertainties. A view reads retained artifacts; it
 must not rerun paid preparation. Keep review-required and reconciliation-required candidates distinct
 from searchable generations. These are future document-management capabilities, not current UI.
+For visual-enabled manuals, show associated figures with a protected link to the exact source
+version/page and available region highlight. Keep page/region uncertainty notes outside the
+transcription; hide empty notes and fetch existing artifacts rather than regenerate them on viewing.
 
 Authorize original and derived reads by tenant/collection and current document access. Sanitize
 rendered Markdown, disable active source HTML/scripts and arbitrary external resource loading, and
@@ -169,9 +180,12 @@ migrations. Proposed logical records are:
 
 | Record | Essential information |
 | --- | --- |
-| Collection | Tenant-qualified identity, authorized purpose, language/metadata policy, embedding profile and active index generation |
+| Collection | Tenant-qualified identity, authorized purpose, language/metadata and visual-retention policy, embedding profile and active index generation |
 | Document/version | Tenant, collection, opaque document ID, immutable source version/hash, protected source reference, selected preparation method, title, media type, language, validated document type, CEFR classification where required, edition and ingestion status |
-| Chunk | Tenant, collection, document version, generation, stable ordinal, extracted text, PDF page range, optional printed-page label and domain metadata |
+| Source block | Immutable document/preparation generation, block ID/type, heading ancestry, normalized Markdown spans and mapped physical pages/regions with coordinate conventions and mapping evidence |
+| Chunk | Tenant, collection, document version, generation, stable ordinal, body/source-block references, heading path, derived embedding text/hash, PDF page/region references, related figure IDs, optional printed-page label and domain metadata |
+| Figure asset | Tenant/document/source generation, stable application-owned figure ID, physical page/polygon, caption/related block IDs, protected derived-asset reference/hash and extraction/rendering profile |
+| Review annotation | Owning document/preparation generation, page/block/region scope, issue/review state and origin; never part of embedding text |
 | Embedding/index generation | Chunk reference, embedding profile, dimension, metric and vector; only compatible generations are searched together |
 | Ingestion job | Tenant/document/version, idempotency identity, state, attempt/lease information, progress and safe failure code |
 
@@ -285,6 +299,14 @@ hyphenated list items when every source value, header and wrapped/multiple examp
 associated correctly; elaborate table reproduction is unnecessary when it adds no meaning.
 Keep uncertainties and model-reported changes separate from source Markdown, and treat document
 instructions as content rather than executable directions.
+Only the transcription Markdown is eligible for later chunking: change notes, page uncertainties,
+token counts and other accounting metadata are not document content. The `PdfReconciliationV2`
+template explicitly forbids appending them or HTML layout/spacing entities to the transcription.
+The local candidate projection normalizes HTML whitespace entities/nonbreaking spaces and line
+endings while retaining raw responses and source-character escaping. Preview changes are collapsed
+review metadata; **Page Uncertainties** appears only for nonempty notes, and native usage stays in
+separate exports/receipts. Literal source content is not deleted merely because it resembles a
+review heading or escaped markup. Existing immutable snapshots/admitted plans are not rewritten.
 
 Private exports compare local, managed, PDF-only and hybrid candidates against the original.
 Mechanical word/number multiplicity differences flag changes against the imperfect managed draft;
@@ -390,9 +412,35 @@ Implementation boundary:
   and [two-host startup/handover test](../src/CasCap.App.Server.Tests/Tests/Integration/DocumentIngestionHostIntegrationTests.cs)
   pass 22 Debug cases alongside all 53 offline hybrid regressions. These use synthetic provider
   boundaries and disposable local databases, not deployment identities or real documents.
-- [ ] Verify deployed worker-identity access and a separately authorized bounded real-document run
-  before enabling the hybrid. Local provider acceptance does not establish Azure access, lease-loss
-  behavior under network faults, semantic fidelity or invoice reconciliation.
+- [x] Add explicit admission-pinned `PhysicalPages` for bounded original-page selection.
+  Empty selections retain whole-document behavior. `MaximumPages` limits selected-page count;
+  the independent preparation resource cap still bounds the full PDF. Both provider stages enforce
+  the exact selection, without renumbering or substituting cropped bytes under the original Blob
+  identity. All 63 focused offline hybrid cases pass, including source limits, out-of-range and
+  duplicate selections, original-byte provenance, page-specific SDK schema and receipt reuse.
+- [x] Execute the separately authorized bounded real-document run locally on 2026-10-28 through the
+  [production worker/provider acceptance](../src/CasCap.App.Server.Tests/Tests/Integration/DocumentPreparationLiveAcceptanceTests.cs).
+  Both originals were preflighted before paid intents; exact model/revision and the existing PAYG
+  target were verified against ARM and endpoint policy. The built-in preparation definition,
+  locally bound to `gpt-5.5` revision `2026-04-24`, completed six original physical pages: two managed submissions and six
+  model submissions within 8,192 output tokens/page, 120 seconds/request and 900 seconds/document.
+  A separate retained local PostgreSQL ledger contains two `ReviewRequired` jobs and eight validated
+  operations, with zero generations, chunks or generic agent-run history. Source ETag, length and
+  last-modified metadata remained unchanged. Native usage totals were 23,536 input, 6,275 output and
+  29,811 total tokens; managed receipts record six returned physical-page units, not an invoice.
+  Private original/draft/agent panels and usage exports support independent review. Earlier
+  preflight guard failures created no database or paid intent. The task-started PostgreSQL service
+  stopped immediately afterward; volumes and pre-existing workloads were preserved. No deployed
+  processing, definition activation or source mutation occurred.
+- [x] Apply the review feedback without new paid calls: remove inline usage, separate/collapse
+  change notes, suppress empty page-uncertainty sections and normalize Markdown whitespace entities.
+  Refresh the six saved private panels offline while preserving receipts and usage exports.
+  The expanded offline hybrid selection has 75 cases; all 87 focused cases including template/UI
+  regressions pass with zero failures/skips. The revised template is versioned separately as
+  `PdfReconciliationV2`; no installed definition was published/activated.
+- [ ] Verify deployed worker-identity preparation access before enabling the hybrid. The bounded
+  local runtime-identity result does not establish deployed inference access, lease-loss behavior
+  under network faults, semantic fidelity or invoice reconciliation.
 - [ ] Deliver an authorized operator reconciliation action. Until then, ambiguous jobs stay blocked;
   late receipts remain accounting evidence but do not automatically unblock work. Any paid replay
   requires separate authorization and a new explicit generation, not clearing an intent.
@@ -402,37 +450,125 @@ Implementation boundary:
 Complete the runtime rollout before publishing/activating definitions that use the new profile
 fields; older runtime replicas cannot be relied on to enforce them.
 
-#### Two Content-Based Chunking Profiles
+#### Markdown-Headings Strategy And Semantic Profiles
 
-Select between two profiles by trusted document classification, not application identity:
+Record the strategy identifier as **`markdown-headings`** in the immutable chunking profile,
+alongside its implementation/parser version. This is the intended replacement for the existing
+page-local splitter, not a claim that the current implementation already uses heading-aware chunks.
+Select semantic packing rules by trusted document classification, not application identity:
 
 | Profile | Initial document types | Semantic units |
 | --- | --- | --- |
-| Section-based | Technical manuals, prose references and examination papers | Headings with relevant paragraphs, warnings with procedure steps, and table rows with their header context |
-| Entry-based | Vocabulary lists and dictionary-like references | Headword, grammatical forms, meaning and examples belonging to the same entry |
+| Section-based | Technical manuals, prose references and examination papers | Markdown sections with relevant paragraphs, warnings with procedure steps, and table rows with their header context |
+| Entry-based | Vocabulary lists and dictionary-like references | Within the available Markdown heading context, headword, grammatical forms, meaning and examples belonging to the same entry |
 
 Use one shared extraction/block contract and token-budget implementation, not a separate pipeline
-per consumer or a general plugin framework. Preserve recognized semantic units within the
-embedding input budget. For oversized units, split at validated paragraph/sentence or table-row
-boundaries before using scalar-safe token windows as the final bounded fallback; retain the unit's
-identity and source references. Headings, warnings, table associations and vocabulary boundaries
-must come from explicit structure, not an assumption that every newline starts a new unit.
-Keep cross-page relationships and page/offset provenance; a PDF page boundary is not itself a
-semantic boundary.
+per consumer or a general plugin framework. Build heading ancestry from parsed Markdown structure,
+not a regex over every `#` line: fenced/inline code must not become headings. Preserve source
+heading levels, labels and order. Carry an established hierarchy across contiguous physical pages;
+page boundaries do not reset a section. Do not invent missing ancestors or infer an omitted section
+across noncontiguous selected pages. Headingless material retains explicit unknown/root context and
+its semantic block boundaries rather than receiving fabricated source headings.
 
-Markdown is an optional inspectable extraction representation, not a quality guarantee or mandatory
-external conversion dependency. Compare representative source pages, extracted structure and chunk
-boundaries privately; preserve independently reviewed examples as regression expectations without
-committing licensed source material. Column reading order alone does not reconstruct table rows.
-Markdown parsing/formatting cannot repair lost PDF associations: reconstruct heading fragments,
-contents rows and emphasis runs before rendering them, rather than treating syntactically valid
-Markdown as semantic acceptance.
+Prepend the complete applicable ancestor-to-leaf heading path to **each embedding input**, including
+continuation chunks from a large section. For example, a chunk from an additional-heating subsection
+has this derived embedding projection:
 
-Capture the selected profile, structure-extraction algorithm/version and token settings in the
-immutable preparation identity. A changed algorithm/profile creates a new generation; do not
-silently reinterpret earlier page-local output. The current page-local implementation remains the
-measured baseline until the new profiles are wired and validated; these profiles are not yet a
-delivered layout-recovery guarantee.
+```markdown
+# 7 CONTROL UNIT
+## 7.1 ADDITIONAL HEAT
+
+The source passage belonging to this subsection.
+```
+
+Keep the source body and ordered heading references separately. The prefix is derived context,
+not text newly found at the body location; do not duplicate a heading already emitted at the start
+of the projection or attribute its characters to the body's source span. Retrieval can return the
+same contextual projection with its distinct source mappings.
+
+Configure target size, hard maximum and bounded overlap per versioned collection/document profile.
+Measure tokens with the selected embedding tokenizer over the **entire final input**, including
+heading prefixes, separators and repeated context; do not spend the full limit on body text first.
+No new fixed size is selected by this ADR: choose values through corpus/recall evaluation within
+model limits. Small sections may remain small; do not mix unrelated heading paths merely to fill a
+target. Oversized sections split first on semantic paragraph/procedure/table-row or vocabulary-entry
+boundaries, then sentence boundaries where safe, with scalar-safe token windows only as an explicit
+last resort. Preserve warning/step, table/header and entry/example ownership and record unavoidable
+unit fragmentation. Any overlap stays bounded and within compatible section/unit context.
+If the heading path alone leaves no usable model budget, surface a review/configuration failure
+rather than silently truncate the hierarchy or submit an oversized input.
+
+Markdown is the common heading-aware chunking representation, not a quality guarantee or mandatory
+external conversion service. Compare source pages, extracted structure and chunk boundaries
+privately; preserve independently reviewed regression expectations without committing licensed
+material. Column order and Markdown syntax do not repair lost table, heading or vocabulary
+associations. Structure, not each newline, defines semantic units.
+
+Capture strategy, packing rule, structure/parser/extractor versions, heading-prefix serialization,
+tokenizer, target/maximum/overlap and fallback rules in the immutable generation identity. Changes
+require new chunks/embeddings, not reinterpretation of earlier output. The current page-local
+implementation remains the measured baseline until this strategy is wired and validated.
+
+#### Source Provenance And Scoped Review Annotations
+
+Design this contract before heading-aware chunks and embeddings are persisted, not as optional
+post-index enrichment. Every chunk resolves through its tenant/collection/document/preparation
+generation to the immutable original version/hash and ETag, contributing source block IDs,
+one-based physical page(s), optional printed labels and body spans in the normalized representation.
+Retain heading-source references separately from body references. Region-capable extraction also
+records polygons with page dimensions, units, origin and rotation conventions, permitting multiple
+regions/pages per chunk. Keep mapping evidence/status explicit: normalized Markdown offsets are
+not PDF coordinates, and model-reordered text cannot be assigned invented precise rectangles.
+When only page provenance is established, expose a page citation and report region mapping as
+unavailable; require accurate region mappings for features that promise highlighting.
+
+The current [chunk entity](../src/CasCap.App.Server/Entities/DocumentTextChunkEntity.cs) already records
+generation ownership, physical page and normalized extracted-text offsets; the
+[generation store](../src/CasCap.App.Server/Services/DocumentPreparationStoreService.cs) records source
+hash/ETag. Neither supplies the proposed structured-block/region/figure mapping or heading projection.
+Retain immutable originals for the supported citation lifetime. Citation routes identify an opaque
+document/version/page/region and reauthorize reads; a viewer can implement page navigation and
+region highlighting. A PDF `#page=` fragment alone is viewer-dependent and does not highlight regions.
+Never put expiring signed URLs, private storage coordinates or provenance identifiers into vectors
+as substitute semantic content.
+
+Scope uncertainty annotations to source blocks/regions where known, otherwise to their page.
+Keep changes and usage in review/accounting records, and keep all such annotations out of chunk
+bodies and embedding inputs. After authorized retrieval, load only applicable annotations and
+present them as qualified evidence beside the passage. Existing page-level string notes do not
+establish passage-level precision. Model-reported uncertainty is not calibrated confidence or
+authority to guess: unresolved safety-critical/meaning-changing content blocks the affected unit
+from searchable activation until reviewed. If its scope cannot be narrowed safely, hold the page.
+
+#### Retained Figures And Diagram Links
+
+Initial device-manual collections require retained visual references, including heat-pump control,
+installation and wiring diagrams. Initial language-learning collections are text-only for derived
+assets; original PDFs still retain their visuals. Pin the trusted visual policy and extraction/
+rendering options in the preparation identity so adding figures is explicit new-generation work.
+
+Use region-aware extraction or source-page rendering/cropping to preserve figures, including
+vector-drawn diagrams that are not standalone embedded bitmap objects. Azure Document Intelligence
+[layout figures](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/prebuilt/layout?view=doc-intel-4.0.0#figures)
+provide bounding regions, captions/associations and opt-in figure crops. The current shared layout
+result exposes page Markdown, not retained figure assets; this needs adapter/storage work, not
+just a Markdown image link. Any new managed request option requires explicit authorization and
+receipt handling, not replay of the completed paid run.
+
+Copy derived figures to private durable storage under application-owned stable IDs tied to the
+source generation, physical page, region and asset hash; provider operation URLs/figure IDs are
+not public or durable citation identities. Preserve captions and surrounding-text relationships
+without silently describing or reconstructing a diagram as authoritative prose. Bound asset
+count/bytes/rendering work, apply the same authorization/deletion/retention policy as the source,
+and visibly flag missing figures where a passage depends on them.
+
+Initially retrieve text and return its associated figure references plus protected source-page/
+region links. Figure IDs, URLs and review notes do not belong in embedding text; genuine source
+captions remain source content. Dedicated image vectors or generated visual descriptions are
+separately approved later enrichment, triggered by measured diagram-only retrieval gaps. Azure's
+[multimodal search guidance](https://learn.microsoft.com/en-us/azure/search/multimodal-search-overview)
+illustrates this broader option; neither image embedding nor AI Search is required for retained
+figures and text-to-figure associations.
 
 Evaluate `IEmbeddingGenerator` and the
 [Microsoft vector-data abstractions](https://learn.microsoft.com/en-us/semantic-kernel/concepts/vector-store-connectors/).
@@ -531,6 +667,10 @@ A search request carries query text, permitted collection selection and validate
 The server clamps result count and token budget. Results carry opaque document/chunk identifiers,
 source version, title, PDF page range, excerpt and a documented ranking score/distance meaning.
 Use authenticated source/page links, not persistent signed URLs or internal storage coordinates.
+Return the source heading path, available block/region mappings and authorized related figure
+references as metadata. Load scoped uncertainty annotations after passage selection, without
+embedding them or treating them as source instructions. Preserve these relationships in every
+index target and during source expansion, not just in the preview UI.
 Return genuine empty results distinctly from embedding/database failure.
 
 Expose an Agentizr-owned index-target boundary for writing/querying compatible chunk generations.
@@ -590,7 +730,9 @@ The document-processing workflow is:
    of work; do not hold a database transaction open during parsing or remote embedding calls.
    An in-memory queue may wake workers but must not be the only job record.
 4. Extract page-aware structure, detect unreadable/scanned/encrypted documents explicitly and select
-   the section-based or entry-based profile from trusted document type. Preserve semantic units,
+   the semantic packing rule from trusted document type under `markdown-headings`. Preserve source
+   blocks, heading paths, scoped annotations and authorized figure associations before chunking;
+   construct heading-prefixed embedding inputs within the complete token budget. Preserve semantic units,
    cross-page provenance and token limits using the shared bounded fallback. Unsupported extraction
    is a visible failure, not a successful empty index.
 5. Generate and validate embeddings in bounded batches, then write an inactive generation.
@@ -603,7 +745,8 @@ The document-processing workflow is:
 7. API deletion first commits a tombstone/revocation so new searches and source reads cannot select
    the document. Operator-side blob deletion is eventually observed by events/reconciliation, not
    synchronously revoked in PostgreSQL; controlled production deletion should use Agentizr.
-   Cleanup removes source bytes, text, embeddings, optional remote indexes and jobs under the policy.
+   Cleanup removes source bytes, derived figure assets, annotations, text, embeddings, optional
+   remote indexes and jobs under the policy.
    Previously authorized in-flight responses cannot be recalled. Report purge progress separately
    from revocation and account for backups and already generated answer text.
 
@@ -615,7 +758,8 @@ counting and document-name logging must not be carried into this design.
 Current admission is PDF-only: a Markdown notification is quarantined rather than converted to
 Markdown again. Add Markdown support as an explicit upload/admission change, not by weakening PDF
 validation. Validate bounded UTF-8 text and permitted content, preserve original bytes/source hash,
-and pass normalized Markdown into structure-aware chunking with section/line anchors. Skip PdfPig,
+and pass normalized Markdown into `markdown-headings` chunking with heading ancestry and section/line
+anchors. Skip PdfPig,
 Document Intelligence and model conversion by default. Any optional paid enrichment is a separately
 authorized profile/generation; original and normalized content remain independently inspectable.
 
@@ -766,6 +910,7 @@ a generalized scheduler or provider framework. The following are not delivered g
 | Scheduling throughput and deadlines | One serial loop alternates admission with one bounded attempt, so long processing delays further admissions. A single transaction lock and bulk expiry recovery favor simplicity over scale. Split supervised admission/processing loops, bound recovery batches and measure fairness/progress if corpus size or admission latency warrants it |
 | Management and cleanup | Upload/status/download/replace/delete UI/API, quotas and purge/backup retention remain future steps before broader use. Tombstones prevent new staging but do not erase existing prepared plaintext/history; add authorized retention/purge before broader uploads |
 | Optional providers and onboarding | Add AI Search parity, a Redis transport/bridge or bootstrap wizard only after the initial manual pgvector path is proven |
+| Derived figures and region citations | Originals retain visuals, but no production figure asset or region-mapping path exists. Implement the contract above before claiming diagram-grounded manual retrieval; initial text-only language-learning ingestion needs no derived visual work. Dedicated image vectors remain deferred until text-to-figure retrieval proves insufficient |
 
 ### D5: Retrieval Is An Opt-In Runtime Capability
 
@@ -1463,8 +1608,22 @@ this does not prove full RAG processing.
   with zero restarts. Temporary payloads were removed and nonprivileged diagnostic containers
   stopped immediately; terminated diagnostic entries remain until a normal rollout. The temporary
   runner was removed rather than retained as another preparation harness.
-- [ ] Prove prepared-generation persistence/races against isolated PostgreSQL before enabling
-  processing. Hybrid plan/operation acceptance above does not cover every prepared-generation race.
+- [x] Prove prepared-generation persistence/races against isolated PostgreSQL on 2026-10-28.
+  The [generation acceptance tests](../src/CasCap.App.Server.Tests/Tests/Integration/PostgresDocumentPreparationPersistenceTests.cs)
+  pass 24 Debug cases using fresh migrated databases and synthetic PDFs through the production
+  processor/store. They cover complete JSONB/page/profile output, eight-way writes, immutable retry
+  deduplication, competing original digests, tenant/collection/claim/source/plan fences, composite
+  chunk ownership and database-owned timestamps. Observed advisory-lock waiters and post-save
+  checkpoints establish both admission/staging orderings for supersession/deletion, uncommitted
+  output invisibility and atomic rollback after insertion on failure, cancellation or deadline loss.
+  Staging before supersession/deletion may retain immutable history; it cannot finish the stale job
+  or activate searchable output. All 81 focused cases passed with zero failures/skips, including
+  21 existing PostgreSQL hybrid-ledger and 36 SQLite persistence cases. A final combined run also
+  passed all 144 persistence/offline hybrid cases with zero failures/skips, preserving the separate
+  paid ledger and excluding live acceptance and Redis host handover. The Debug test project
+  built with zero warnings/errors. The task-started PostgreSQL service was stopped immediately;
+  volumes and pre-existing workloads were preserved. No deployed database, live source, paid
+  provider or activation was involved. Processing remains disabled.
 - [ ] Add independently fenced searchable activation with embeddings.
 - [x] Establish a read-only document-quality baseline through the standard configuration/Key Vault
   provider, shared conditional Blob downloader and real preparation service. One PDF from each
@@ -1487,14 +1646,31 @@ this does not prove full RAG processing.
   remain historical evidence, not production chunking profiles or semantic acceptance.
 - [ ] Complete semantic acceptance through the production preparation-agent path using independently
   reviewed originals, exact Blob names, SHA-256/page-count pins, required warning/vocabulary passages
-  and reading-order anchors. Replace the retired prototype-specific live case with acceptance over
-  the actual worker/provider after isolated-provider checks and separate paid-run approval.
+  and reading-order anchors. The opt-in actual worker/provider case now produces private review
+  panels and retained native receipts; complete independent fidelity review of that evidence.
   Preparation success is not quality acceptance. Any changed extraction/chunking algorithm needs
   a new profile identity.
-- [ ] Implement the two content-selected chunking profiles over a shared structured-block contract.
-  Prove heading/paragraph, warning/procedure, table-row/header and vocabulary/example associations,
-  oversized-unit fallback, cross-page citations, Unicode/token bounds and distinct profile identity.
-  Keep extraction-quality acceptance separate from tests over already classified blocks (R8, R12).
+- [ ] Implement `markdown-headings` over a shared structured-block contract, with section/entry
+  semantic packing and configurable target/maximum/overlap. Prove exact ancestor-to-leaf prefixes
+  on every continuation chunk, sibling heading transitions, contiguous cross-page context,
+  headingless/noncontiguous-page behavior, code fences, no duplicated prefixes and total-input
+  tokenizer bounds including headings. Verify warning/procedure, table/header and vocabulary/example
+  associations, safe oversized-unit fallback and new identity when any strategy setting changes.
+  Keep extraction-quality acceptance separate from tests over classified blocks (R8, R12).
+- [ ] Persist source-block/heading/body mappings and available multi-region/page provenance before
+  embedding. Prove source hash/version resolution, no fabricated PDF coordinates after Markdown
+  reordering, protected page navigation/highlighting and revocation after replacement/deletion;
+  page-only mappings must not be presented as precise region citations (R4, R16).
+- [ ] Attach scoped uncertainty/review annotations separately from chunk/embedding text. Prove
+  applicable notes are loaded only after authorized retrieval, empty notes remain hidden and
+  unresolved safety-critical/meaning-changing units (or pages with unknown scope) stay unavailable
+  pending review. Usage/change notes must not influence vector input (R18).
+- [ ] Retain bounded private figure crops or rendered regions for visual-enabled manuals. Independently
+  check representative heat-pump diagrams against originals, their captions/page/region and
+  text-chunk associations; prove authorized figure reads, missing-visual status, deletion/retention
+  and no derived figure requests/assets for initial text-only language-learning collections.
+  Text retrieval must return the correct figure/source links without requiring image embeddings;
+  any new paid extraction needs separate approval (R8, R17).
 - [ ] Add typed document classification to upload/management and authoritative metadata. Enforce
   the trusted cumulative CEFR policy in retrieval/source-expansion queries, including missing/invalid
   levels, mixed-level sources, forged tool filters, alternate backends and cache isolation.
