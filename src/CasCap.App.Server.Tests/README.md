@@ -306,6 +306,35 @@ reviewed. No deployment migration was applied; the provider acceptance below app
 only to disposable local databases. SQLite alone does not prove PostgreSQL locks/races, live identity,
 JSONB storage, embeddings, searchable activation or cleanup/retention behavior.
 
+### Review-Required Markdown Persistence
+
+[`DocumentMarkdownGenerationTests`](Tests/Integration/DocumentMarkdownGenerationTests.cs) adds
+**18 methods / 47 Debug-only cases**, tagged `PreparedDocuments` and `Integration`.
+The real hybrid processor writes synthetic managed/agent receipts to a private SQLite database;
+explicit storage then preserves normalized Markdown, separate notes, structural review, profile,
+heading hierarchy and cell/body spans without another provider call.
+
+Cases cover immutable retries and changed review/profile generations; tenant/collection/document/
+job/sequence/ETag/Blob/plan fences; replacement/deletion; finished review-only state; malformed,
+missing or mismatched receipts; exact aggregate Markdown-plus-note character limits; receipt/page/
+chunk limits; cancellation before/after insertion; post-save failure/source rollback; pre-write
+receipt changes; expired/released original leases; cross-tenant foreign keys; recursively reordered/
+reformatted receipt/snapshot JSON; and stored version/identity corruption.
+No page-local prepared chunks, approved/searchable state or active pointer is created.
+
+```powershell
+dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class CasCap.Tests.Integration.DocumentMarkdownGenerationTests CasCap.Tests.Integration.DocumentHybridPreparationTests CasCap.Tests.Integration.DocumentPreparationPersistenceTests
+```
+
+The focused selection passes **114 cases**, zero failed/skipped: 47 review-generation, 31 existing
+hybrid-receipt and 36 page-local persistence cases. A source-fence `ToQueryString` check uses Npgsql
+without opening a connection. Additive migration SQL and current model consistency are checked
+offline. Reordered JSON is a semantic regression, not proof of actual PostgreSQL JSONB storage.
+Full Debug solution and configuration-restored Release server builds pass with zero warnings/errors.
+No PostgreSQL/Compose service, database migration execution, paid call, live write, deployment,
+management authorization, semantic/visual approval, embedding or activation is covered by this run.
+Provider-backed JSONB, lock/race and fresh/upgrade acceptance remain required before live use.
+
 ### PostgreSQL Prepared Generations
 
 [`PostgresDocumentPreparationPersistenceTests`](Tests/Integration/PostgresDocumentPreparationPersistenceTests.cs)
@@ -569,6 +598,7 @@ Tests/
 │   ├── DocumentIngestionLeadershipTests.cs
 │   ├── DocumentIngestionHostIntegrationTests.cs
 │   ├── DocumentHybridPreparationTests.cs
+│   ├── DocumentMarkdownGenerationTests.cs
 │   ├── DocumentPreparationLiveAcceptanceTests.cs
 │   ├── DocumentPreparationPersistenceTests.cs
 │   ├── DocumentPreparationProviderTests.cs

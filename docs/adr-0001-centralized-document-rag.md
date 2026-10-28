@@ -1786,11 +1786,42 @@ this does not prove full RAG processing.
   records the validated subdivision gate. Keep extraction-quality acceptance separate from
   synthetic block tests, and persist the approved projection through the generation fence before
   embedding or activation.
-- [ ] Persist source-block/heading/body mappings and available multi-region/page provenance before
+- [x] Add explicit review-required Markdown-generation storage from validated durable receipts,
+  separate from page-local prepared chunks and from approval. The Debug-only
+  [store](../src/CasCap.App.Server/Services/DocumentPreparationMarkdownStore.cs) retains a versioned
+  [snapshot](../src/CasCap.App.Server/Models/DocumentMarkdownReviewGeneration.cs) with original
+  source/plan hashes, receipt references, normalized page Markdown, separate notes, profile,
+  reviewed roles/structure and heading/cell/body spans. No PDF coordinates are invented.
+  Finished review-required job/current source fences govern writes and reads, not released claim
+  leases. Projection occurs outside the mutation lock; shared admission locking fences the
+  transactional source/receipt recheck and immutable insert. Replacement/deletion hides historical
+  generations without deleting evidence. JSONB-safe typed snapshot identity preserves retries
+  across object ordering/formatting changes; archived raw receipt hashes are not recomputed from
+  JSONB text. New review/profile identities append instead of replacing.
+  [Synthetic SQLite regressions](../src/CasCap.App.Server.Tests/Tests/Integration/DocumentMarkdownGenerationTests.cs)
+  cover 47 cases; 31 existing hybrid and 36 page-local cases give **114 passed**, zero failed/skipped.
+  Offline Npgsql source-query translation, generated additive migration SQL and model drift are
+  checked; full Debug and configuration-restored Release server builds pass with zero warnings/errors.
+  This is an internal explicit persistence foundation, not an automatic worker action or
+  authenticated management endpoint. It creates no approved state, legacy text chunks, active
+  pointer, embeddings or search eligibility. The real six-page evidence has not been persisted,
+  and the manual figure/caption association remains unverified.
+- [ ] Prove the new review-generation table and service against isolated PostgreSQL: actual JSONB
+  round-trips, concurrent/idempotent writers, source/admission races, receipt fencing, cancellation
+  and fresh/upgrade migration execution. The additive
+  `20261028120307_DocumentMarkdownReviewGenerations` migration is scaffolded, not applied;
+  SQLite and offline SQL inspection do not establish these guarantees. Obtain separate execution
+  approval; no PostgreSQL/Compose service, paid call, live write or deployment was authorized here.
+- [ ] Wire an explicitly authenticated reviewer/tenant/source management action, then persist an
+  authorized bounded real-document review generation without treating storage as semantic approval.
+  Resolve visual-enabled manual figure/caption/region associations before approving that material;
+  a review-required record alone cannot permit retrieval or embeddings.
+- [ ] Complete source-block/heading/body mappings and available multi-region/page provenance before
   embedding. Prove source hash/version resolution, no fabricated PDF coordinates after Markdown
   reordering, protected page navigation/highlighting and revocation after replacement/deletion;
   page-only mappings must not be presented as precise region citations (R4, R16).
-- [ ] Attach scoped uncertainty/review annotations separately from chunk/embedding text. Prove
+- [ ] Complete scoped uncertainty/review annotation delivery separately from chunk/embedding text.
+  Review-generation snapshots now retain page notes separately; retrieval is not wired. Prove
   applicable notes are loaded only after authorized retrieval, empty notes remain hidden and
   unresolved safety-critical/meaning-changing units (or pages with unknown scope) stay unavailable
   pending review. Usage/change notes must not influence vector input (R18).

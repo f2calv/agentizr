@@ -40,4 +40,16 @@ internal static class DocumentIngestionTransactions
             && document.TenantId == job.TenantId && document.CollectionId == job.CollectionId
             && document.Sequencer == claim.Sequencer && document.ETag == claim.ETag
             && document.BlobUri == claim.BlobUri && document.Status != DocumentIngestionStates.Deleted));
+
+    /// <summary>Fences explicit review storage/reads by a finished job and current source, not a released processing lease.</summary>
+    public static IQueryable<DocumentIngestionJobEntity> CurrentReviewSource(AgentRuntimeDbContext db, DocumentIngestionClaim source) =>
+        db.DocumentIngestionJobs.Where(job => source.PreparationPlanJson != null && source.ETag != null
+            && job.Id == source.JobId && job.TenantId == source.TenantId && job.CollectionId == source.CollectionId
+            && job.DocumentId == source.DocumentId && job.Sequencer == source.Sequencer
+            && job.PreparationPlanJson == source.PreparationPlanJson && job.Status == DocumentIngestionStates.ReviewRequired
+            && job.ClaimId == null && job.FinishedAtUtc != null
+            && db.KnowledgeDocuments.Any(document => document.Id == job.DocumentId
+                && document.TenantId == job.TenantId && document.CollectionId == job.CollectionId
+                && document.Sequencer == source.Sequencer && document.ETag == source.ETag
+                && document.BlobUri == source.BlobUri && document.Status != DocumentIngestionStates.Deleted));
 }

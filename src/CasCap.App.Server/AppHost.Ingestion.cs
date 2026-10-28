@@ -40,6 +40,7 @@ public static partial class AppHost
         builder.Services.AddScoped<PdfDocumentPreparationService>();
         builder.Services.AddSingleton<DocumentBlobDownloadService>();
         builder.Services.AddScoped<DocumentPreparationStoreService>();
+        builder.Services.AddScoped<DocumentPreparationMarkdownStore>();
         builder.Services.AddScoped<DocumentPreparationOperationStore>();
         builder.Services.AddScoped<DocumentPreparationModelVerifier>();
         builder.Services.AddScoped<IDocumentPreparationProvider, DocumentPreparationProvider>();

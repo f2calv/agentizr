@@ -25,6 +25,9 @@ public sealed class AgentRuntimeDbContext(
     /// <summary>Gets tenant-qualified paid preparation intents, receipts, usage and immutable candidate projections.</summary>
     public DbSet<DocumentPreparationOperationEntity> DocumentPreparationOperations => Set<DocumentPreparationOperationEntity>();
 
+    /// <summary>Gets immutable review-required Markdown generations, separate from page-local prepared chunks.</summary>
+    public DbSet<DocumentMarkdownGenerationEntity> DocumentMarkdownGenerations => Set<DocumentMarkdownGenerationEntity>();
+
     /// <inheritdoc/>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -141,6 +144,28 @@ public sealed class AgentRuntimeDbContext(
                 .HasDatabaseName("ix_document_preparation_operations_job");
             entity.HasIndex(item => new { item.TenantId, item.CollectionId, item.JobId, item.Stage, item.PageNumber })
                 .IsUnique().HasDatabaseName("ux_document_preparation_operations_job_stage_page");
+        });
+
+        modelBuilder.Entity<DocumentMarkdownGenerationEntity>(entity =>
+        {
+            entity.ToTable("document_markdown_generations", schema);
+            entity.HasKey(item => item.Id).HasName("pk_document_markdown_generations");
+            entity.Property(item => item.Id).HasColumnName("id").HasMaxLength(64);
+            entity.Property(item => item.TenantId).HasColumnName("tenant_id").HasMaxLength(200);
+            entity.Property(item => item.CollectionId).HasColumnName("collection_id").HasMaxLength(200);
+            entity.Property(item => item.DocumentId).HasColumnName("document_id").HasMaxLength(64);
+            entity.Property(item => item.JobId).HasColumnName("job_id").HasMaxLength(64);
+            entity.Property(item => item.Sequencer).HasColumnName("sequencer").HasMaxLength(128);
+            entity.Property(item => item.ETag).HasColumnName("etag").HasMaxLength(200);
+            entity.Property(item => item.ProjectionId).HasColumnName("projection_id").HasMaxLength(64);
+            entity.Property(item => item.PayloadJson).HasColumnName("payload_json").HasColumnType("jsonb");
+            entity.Property(item => item.CreatedAtUtc).HasColumnName("created_at_utc");
+            entity.HasOne<DocumentIngestionJobEntity>().WithMany()
+                .HasForeignKey(item => new { item.TenantId, item.CollectionId, item.DocumentId, item.JobId })
+                .HasPrincipalKey(item => new { item.TenantId, item.CollectionId, item.DocumentId, item.Id })
+                .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_document_markdown_generations_job");
+            entity.HasIndex(item => new { item.TenantId, item.CollectionId, item.DocumentId, item.JobId })
+                .HasDatabaseName("ix_document_markdown_generations_job");
         });
 
         modelBuilder.Entity<DocumentPreparationGenerationEntity>(entity =>

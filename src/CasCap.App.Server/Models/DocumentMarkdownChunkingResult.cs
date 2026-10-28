@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace CasCap.Models;
 
-/// <summary>A bounded, nonpersistent preview projection tied to exact page Markdown; not approval or a PDF source digest.</summary>
+/// <summary>A bounded review projection tied to exact page Markdown; not approval or a PDF source digest.</summary>
 internal sealed record DocumentMarkdownChunkingResult(
     DocumentMarkdownChunkingProfile Profile,
     string MarkdownSha256,

@@ -173,7 +173,42 @@ to use the current projection.
 
 This internal review-only contract does not authenticate reviewers or accept annotations from
 document content. A future management action must authorize the reviewer and tenant/source scope.
-It enables no ingestion, correction UI, generation persistence or navigation retrieval API.
+It enables no ingestion, correction UI or navigation retrieval API. Explicit durable review storage
+is a separate operation below, not a side effect of chunking.
+
+### Review-Required Markdown Generations
+
+The Debug-only [`DocumentPreparationMarkdownStore`](Services/DocumentPreparationMarkdownStore.cs)
+explicitly persists normalized candidates and reviewed heading-aware projections from existing
+validated hybrid receipts. It is registered for ingestion but not invoked automatically by the
+worker, exposed through HTTP/UI or authorized by a source claim alone. Management must separately
+authenticate and authorize the reviewer, tenant and document.
+
+Storage requires a finished `ReviewRequired` job and the exact current tenant/collection/document,
+job, source sequence, ETag, Blob URI and admitted plan. A released/expired processing lease is not
+reused as authorization. Receipt stages, physical pages, completion/model/usage contracts and
+resource bounds are revalidated without provider calls. Projection happens outside the mutation
+lock; the transaction rechecks current source and receipt bindings under the shared admission
+advisory lock before insertion, then rechecks the source before commit.
+
+The separate `agent_runtime.document_markdown_generations` table stores a version-1 JSONB
+[snapshot](Models/DocumentMarkdownReviewGeneration.cs) with source/plan hashes, original receipt
+references, normalized page Markdown, separate change/uncertainty notes, profile, review decisions,
+heading context and ordered multi-span body provenance. Original paid receipts remain unchanged.
+Generation identity binds ownership, job/source revision and the typed snapshot: retries reuse the
+row; changing the review or chunking profile appends another. JSONB object ordering/whitespace is
+not the original receipt serialization, so its archived raw hash is not recomputed from loaded
+JSON; generation identity uses typed reserialization.
+
+Reads require the same current source/job fence; replacement/deletion hides retained historical
+rows. All snapshots remain review-required, including an empty/all-excluded projection. No old
+page-local chunks, approval, active pointer, embedding or search eligibility is created.
+Provenance is normalized Markdown offsets and original physical pages, not fabricated PDF regions.
+
+The additive `20261028120307_DocumentMarkdownReviewGenerations` migration has been scaffolded and
+its SQL/model consistency checked offline; it has not been applied. Synthetic SQLite tests cover
+round-trips, exact limits, source/receipt fences and rollback; PostgreSQL JSONB, advisory-lock races,
+fresh/upgrade execution, protected management and visual/retrieval acceptance remain separate gates.
 
 ### Durable Hybrid Preparation
 
