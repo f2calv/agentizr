@@ -191,7 +191,7 @@ explicit execution commands. The server suite includes Docker-backed PostgreSQL 
 opt-in live-runtime case; it is not entirely credential-free.
 
 The container build/deploy wrappers additionally require PowerShell 7.4+, Docker and the shared
-`container-workflows` scripts, installed as a Copilot skill or available in the adjacent central
+`containers-workflows` scripts, installed as a Copilot skill or available in the adjacent central
 `.github` checkout. Build the Debug image with adjacent project references:
 
 ```powershell
