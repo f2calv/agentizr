@@ -153,6 +153,48 @@ Parser regressions intentionally use raw heading source spans: normal Markdig in
 clears `HeadingBlock.Lines`. Token tests also distinguish a soft target from the hard ceiling:
 a Unicode scalar that exceeds the soft budget must still fit when the remaining hard budget permits.
 
+#### Retained Real-Document Review
+
+| Class | Methods | Cases | Scope |
+| --- | ---: | ---: | --- |
+| [`DocumentPreparationOfflineReviewTests`](Tests/Unit/DocumentPreparationOfflineReviewTests.cs) | 5 | 10 | Nine synthetic export/coverage cases plus one separately gated local-artifact check; tagged `OfflineDocumentReview` |
+
+The local-artifact case reads only the existing export's encoded transcription elements, never its
+managed drafts or annotation lists. It verifies PDF SHA-256 pins, original page selections and
+validated-operation metadata against the retained usage exports. It reuses the production chunker
+without extracting source text, opening the paid ledger, resolving credentials or calling providers.
+The narrow export reader is not a general-purpose HTML importer.
+
+After explicit approval, set `CASCAP_RUN_DOCUMENT_OFFLINE_REVIEW=true`,
+`CASCAP_DOCUMENT_REVIEW_INPUT` to the retained review directory and
+`CASCAP_DOCUMENT_REVIEW_OUTPUT` to a new absolute private directory, then run:
+
+```powershell
+dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class CasCap.Tests.Unit.DocumentPreparationOfflineReviewTests CasCap.Tests.Unit.DocumentMarkdownChunkingTests CasCap.Tests.Unit.DocumentPreparationCandidateTests
+```
+
+The approved run passed **52 cases**, zero failed/skipped. With the unchanged 512-token maximum
+and 64-token paragraph overlap, the six saved transcriptions produced:
+
+| Source sample | Original pages | Chunks | Complete-input tokens/chunk | Fragmented chunks |
+| --- | --- | ---: | --- | ---: |
+| Device manual | 2, 3, 6 | 27 | 12-481 | 0 |
+| Vocabulary | 6, 7, 12 | 10 | 11-504 | 0 |
+
+Checks require deterministic output, exact heading/body projection, scalar-safe source ranges,
+complete non-heading/non-whitespace coverage and no ancestry across missing physical pages.
+The vocabulary has one peer heading with no intervening body; its span is explicitly reported as
+unembedded and retained in the page export, not silently counted as covered or made a false ancestor.
+A synthetic dropped-body regression proves that this allowance cannot hide lost body text.
+This is mechanical acceptance of six retained transcriptions, not independent chunk-boundary,
+warning/procedure, vocabulary/example, diagram or retrieval-quality approval.
+
+The new private output includes the original/draft/agent panels, collapsed chunk previews,
+`source-N.pages.json`, `source-N.chunks.json` and `validation.json`. It records the five original
+artifact hashes and verifies they remain unchanged. No paid run was repeated, original artifact
+overwritten, service started or generation persisted. A rejected structured unit remains an explicit
+failed check, with rejection evidence retained rather than a larger-budget retry.
+
 ### Conditional Blob Downloads
 
 `DocumentBlobDownloadTests` adds **5 methods / 21 Debug-only cases**, tagged `BlobDownload`.
@@ -362,6 +404,7 @@ acceptance and protected preview UI remain separate gates in
 | `Document Preparation` | 3 | Secret-free preparation template, editor constraint preservation and stateless runtime execution |
 | `HybridPreparation` | 76 Debug-only | Bounded worker/runtime, selected original pages, Markdown/review separation, review-only heading projection, paid receipts/recovery, profile authorization and fake read-only model metadata; 35 cases also tagged `Integration` |
 | `MarkdownChunking` | 30 Debug-only | Synthetic heading hierarchy, semantic units, source/page spans, profile identity and complete-input token bounds |
+| `OfflineDocumentReview` | 10 Debug-only | Nine synthetic export/coverage checks and one separately approved retained-artifact projection without providers or databases |
 | `LiveDocumentPreparation` | 1 Debug-only | Separately approved real-source/provider acceptance with a retained local ledger; disabled by default |
 | `PreparationProviders` | 22 Debug-only | Real isolated PostgreSQL ledger/recovery and two-host Redis startup/handover; all also `Integration` and `PostgreSQL`, one also `Redis` |
 | `Tenant Isolation` | 38 | Cross-tenant state, JWT permissions, caller mappings, administrator assignment, MCP and provider credentials and identity isolation |
@@ -381,6 +424,7 @@ separately above.
 | Live runtime tests require `CASCAP_RUN_LOCAL_AGENTRUNTIME_TESTS=true` outside CI | 1 |
 | Once enabled, missing/invalid live base address, agent name or requested certificate-auth settings | 1 (same case) |
 | Live preparation requires separate approval and `CASCAP_RUN_DOCUMENT_PREPARATION_ACCEPTANCE=true` | 1 Debug-only |
+| Retained-document review requires explicit approval and `CASCAP_RUN_DOCUMENT_OFFLINE_REVIEW=true` | 1 Debug-only |
 
 These are conditional skips, not observed outcomes. PostgreSQL/Redis cases do not automatically
 skip without their services: start the local Compose services or exclude both categories.
@@ -486,6 +530,7 @@ Tests/
     ├── CommonAgentExecutorTests.cs
     ├── DocumentPreparationAgentTemplateTests.cs
     ├── DocumentPreparationCandidateTests.cs
+    ├── DocumentPreparationOfflineReviewTests.cs
     ├── DocumentIngestionAdmissionTests.cs
     ├── DocumentIngestionConfigTests.cs
     ├── DocumentMarkdownChunkingTests.cs

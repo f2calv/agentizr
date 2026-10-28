@@ -1678,6 +1678,19 @@ this does not prove full RAG processing.
   passes **133 cases**, zero failures/skips; full Debug and Release server builds have zero
   warnings/errors. The gated exporter now emits review-only chunk JSON/HTML on a future explicitly
   authorized run; the retained six-page paid evidence was not replayed or regenerated.
+- [x] Validate the six retained normalized transcriptions offline on 2026-10-28 using the
+  [shared chunker and local-artifact check](../src/CasCap.App.Server.Tests/Tests/Unit/DocumentPreparationOfflineReviewTests.cs),
+  without new extraction/provider calls or database access. The manual's physical pages 2/3/6 yield
+  **27 chunks, 12-481 complete-input tokens each**; vocabulary pages 6/7/12 yield
+  **10 chunks, 11-504 tokens each**, with the unchanged 512-token ceiling and zero fragmented
+  chunks. All five original PDF/usage/HTML artifacts retain their hashes. The focused run passes
+  **52 cases**, zero failures/skips, including deterministic output, mapped non-heading text,
+  heading/body separation and missing-page ancestry checks. A new private HTML/JSON review records
+  one vocabulary heading-only span outside embeddings: consecutive peer headings do not justify
+  inventing ancestry or an empty-body chunk. The normalized page export retains that span.
+  A dropped-body regression prevents the heading-only allowance from hiding lost content.
+  These are mechanical checks, not independent semantic chunk-boundary, figure or retrieval
+  acceptance. No prepared generation was persisted, embedded or activated.
 - [ ] Complete section/entry semantic classification and warning/procedure, table/header and
   vocabulary/example associations before claiming the full R8/R12 chunking contract. Fitting
   list items and structured blocks stay whole; only oversized paragraphs currently split.
