@@ -1962,33 +1962,42 @@ block deploying a non-searchable review-only API.
   upgrade SQL. Both report no drift. The
   [review-generation migration](../src/CasCap.App.Server/Migrations/20261028120307_DocumentMarkdownReviewGenerations.cs)
   creates its table, source/job foreign key and index without changing existing rows. It has been
-  applied only to approved local fixture/retained databases, not deployed PostgreSQL.
+  applied first to approved local fixture/retained databases; the authorized deployed migration
+  is recorded below.
 - [x] Build the Debug image through the [project-reference wrapper](../build.ps1) for the ARM64
   target without publication. A separately built native AMD64 package passes local HTTP smoke:
   health/status/framework asset return 200, anonymous/test-header/bearer review GET and POST return
   401, the session requires sign-in, and the runtime is non-root. Temporary containers are removed.
-  Local ARM64 emulation failed before managed startup; ARM64 execution must be verified on the
-  deployment target rather than claimed from cross-compilation or the AMD64 smoke.
+  Local ARM64 emulation failed before managed startup. Target execution was subsequently verified
+  during the authorized rollout below, independently of cross-compilation and the AMD64 smoke.
 - [x] Run the [deployment wrapper](../deploy.ps1) in `-WhatIf` mode without registry, database or
   GitOps mutation. The [caller example](../deploy.local.psd1.example) now configures EF model-drift
   checks and `NoCommit`; the private local configuration follows it. Preview validates prerequisites,
   not build/publication, schema state or rollout. `-NoCommit` does not suppress image publication.
-- [ ] Obtain explicit authorization for registry publication, the deployed schema migration and
-  the exact GitOps edit/commit/push. Auto-commit in the application checkout does not authorize
-  GitOps push or deployment; auto-push remains off.
-- [ ] Inspect the authorized deployed migration history before rollout. Require the reviewed
-  pending migration set; stop if unexpected migrations or schema drift appear. Keep runtime and
-  external `--migrate` Job on the same digest-qualified Debug image, with the migration as a
-  completed PreSync prerequisite. Do not copy the retained local paid ledger into deployment.
+- [x] Obtain explicit authorization for registry publication, the deployed schema migration and
+  the exact GitOps edit/commit/push. The owner authorized a Debug rollout through the existing
+  wrapper on 2026-10-29, without pull requests or releases. The deployment push was one-shot;
+  auto-push remains off.
+- [x] Inspect the authorized deployed migration history before rollout. The only pending migration
+  was `20261028120307_DocumentMarkdownReviewGenerations`. The external `--migrate` Job used the
+  same digest-qualified Debug image as runtime and completed successfully as a PreSync prerequisite.
+  The deployed history now includes that migration; pre-existing document/job/receipt/chunk counts
+  stayed unchanged and the new review table is empty. The retained local paid ledger was not copied.
   Preserve the expanded schema/receipts on application rollback; do not invoke destructive `Down`.
-- [ ] Keep document processing disabled and do not activate a paid preparation definition for this
-  rollout. Verify the reconciled ARM64 image digest, migration success, readiness, restart/error
-  behavior and existing administration/runtime behavior. Health alone does not establish review
-  functionality or ingestion progress.
+- [x] Keep document processing disabled and do not activate a paid preparation definition for this
+  rollout. Target ARM64 execution, reconciled digest, readiness and successful migration were
+  verified; the bounded observation found no restarts, warnings or errors. Direct HTTP checks on
+  each runtime replica returned 200 for health/status/framework assets and 401 for anonymous,
+  test-header and synthetic-bearer review GET/POST requests. The session requires sign-in, remains
+  unauthenticated and uses no-store/no-cache. Temporary loopback forwards were stopped.
+  No paid preparation, embeddings or retrieval were activated. Health and rejection checks do not
+  establish authorized review functionality, ingestion progress or valid machine-token rejection.
 - [ ] Verify real assigned-administrator OIDC/cookie/antiforgery behavior through the deployed ingress:
   anonymous/machine callers fail, unassigned apps fail, private responses are not cached, and
   preview/store/read respects exact current-source ownership and revision. If there is no finished
   reviewable job, 404 is expected, not evidence that real-document review has succeeded.
+  Ingress authentication rejected the unauthenticated browser probe before application OIDC, so
+  operator-authenticated browser acceptance remains pending; direct replica checks do not replace it.
   Any deployed real-document processing or storage requires its own approved source/budget scope.
 
 ### Phase 3: Integrate Agents And Onboard Consumers
