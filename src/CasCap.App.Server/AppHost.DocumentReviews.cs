@@ -8,6 +8,9 @@ public static partial class AppHost
     {
 #if DEBUG
         builder.Services.TryAddSingleton<DocumentChunkingService>();
+        builder.Services.AddScoped(services => new DocumentCatalogueAdministrationService(
+            services.GetRequiredService<ITenantContext>(),
+            services.GetService<Microsoft.EntityFrameworkCore.IDbContextFactory<AgentRuntimeDbContext>>()));
         builder.Services.AddScoped(services => new DocumentReviewAdministrationService(
             services.GetRequiredService<IOptions<DocumentPreparationConfig>>(),
             services.GetRequiredService<ITenantContext>(),

@@ -23,10 +23,11 @@ secret. Do not weaken authorization to make an example work.
 | --- | --- | --- |
 | [runtime.http](runtime.http) | Run/stream, sessions, compaction, snapshots, overrides and instructions | `agent.execute` |
 | [definitions.http](definitions.http) | Immutable publication/history, evaluation, activation/rollback and deactivation | `agent.definition.read`, `agent.definition.publish` or `agent.definition.activate`, per action |
-| [document-reviews.http](document-reviews.http) | Debug-only source preview and immutable review-generation create/read | Assigned app administrator's session cookie, plus antiforgery on POST; machine scopes do not qualify |
+| [document-reviews.http](document-reviews.http) | Debug-only admitted-source catalogue, source preview and immutable review-generation create/read | Assigned app administrator's session cookie, plus antiforgery on POST; machine scopes do not qualify |
 
-Document-review examples require enabled administration sign-in and existing finished review-required
-receipts. Acquire the administrator cookie outside these examples. Fetch the session, retain its
+Document-review examples require enabled administration sign-in; preview/storage also requires
+existing finished review-required receipts. The catalogue lists admitted metadata, not every Blob.
+Acquire the administrator cookie outside these examples. Fetch the session, retain its
 antiforgery cookie and matching request token, then set the private cookie header/token variables;
 never paste them into tracked files or chat. Use URL-safe app/collection/document/job/generation
 identifiers. The POST source sequence and ETag must be copied as correctly escaped JSON strings from

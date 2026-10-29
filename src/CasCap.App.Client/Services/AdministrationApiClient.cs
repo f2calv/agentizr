@@ -23,6 +23,15 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
     public Task<ApiResult<IReadOnlyList<AppSummaryResponse>>> GetAppsAsync(CancellationToken cancellationToken) =>
         GetAsync<IReadOnlyList<AppSummaryResponse>>(AdministrationRoutes.Apps, cancellationToken);
 
+    /// <summary>Lists one bounded page of admitted sources and their current jobs, optionally within one exact collection.</summary>
+    public Task<ApiResult<DocumentCataloguePageResponse>> GetDocumentsAsync(
+        string appId, string? collection, int page, int pageSize, CancellationToken cancellationToken) =>
+        GetAsync<DocumentCataloguePageResponse>(
+            AdministrationRoutes.Format(DocumentCatalogueRoutes.Documents, appId)
+                + $"?page={page}&pageSize={pageSize}"
+                + (string.IsNullOrWhiteSpace(collection) ? string.Empty : $"&collection={Uri.EscapeDataString(collection)}"),
+            cancellationToken);
+
     /// <summary>Previews a current source or reads an immutable review-required generation.</summary>
     public Task<ApiResult<DocumentReviewGenerationResponse>> GetDocumentReviewAsync(
         string appId, string collectionId, string documentId, string jobId, string? generationId, CancellationToken cancellationToken) =>

@@ -2,11 +2,7 @@ using CasCap.Client.Constants;
 using CasCap.Client.Models;
 using CasCap.Client.Pages;
 using CasCap.Client.Services;
-using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Web;
-using Microsoft.Extensions.Logging;
-using Microsoft.JSInterop;
-using MudBlazor.Services;
+using static CasCap.Tests.Integration.AdministrationComponentTestRenderer;
 
 namespace CasCap.Tests.Integration;
 
@@ -104,30 +100,6 @@ public sealed class AdministrationDefinitionUiTests
         Assert.Equal(1, handler.SuggestionChecks);
     }
 
-    private static async Task<string> RenderAsync<TComponent>(
-        DefinitionHandler handler,
-        Dictionary<string, object?> parameters,
-        string query) where TComponent : IComponent
-    {
-        using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://example.com/") };
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddMudServices();
-        services.AddSupplyValueFromQueryProvider();
-        services.AddSingleton<IJSRuntime, NoJavaScriptRuntime>();
-        services.AddSingleton<NavigationManager>(new TestNavigationManager(query));
-        services.AddSingleton(httpClient);
-        services.AddSingleton<AdministrationSessionState>();
-        services.AddSingleton<AdministrationApiClient>();
-        await using var provider = services.BuildServiceProvider();
-        await using var renderer = new HtmlRenderer(provider, provider.GetRequiredService<ILoggerFactory>());
-        return await renderer.Dispatcher.InvokeAsync(async () =>
-        {
-            var component = await renderer.RenderComponentAsync<TComponent>(ParameterView.FromDictionary(parameters));
-            return component.ToHtmlString();
-        });
-    }
-
     private sealed class DefinitionHandler(string? activeVersion) : HttpMessageHandler
     {
         public List<string> Requests { get; } = [];
@@ -196,19 +168,4 @@ public sealed class AdministrationDefinitionUiTests
         };
     }
 
-    private sealed class TestNavigationManager : NavigationManager
-    {
-        public TestNavigationManager(string query) => Initialize("https://example.com/", $"https://example.com/{query}");
-
-        protected override void NavigateToCore(string uri, bool forceLoad) => Uri = ToAbsoluteUri(uri).ToString();
-    }
-
-    private sealed class NoJavaScriptRuntime : IJSRuntime
-    {
-        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) =>
-            throw new NotSupportedException("Static component tests must not invoke JavaScript.");
-
-        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) =>
-            throw new NotSupportedException("Static component tests must not invoke JavaScript.");
-    }
 }

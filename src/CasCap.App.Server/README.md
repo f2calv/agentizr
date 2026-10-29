@@ -222,7 +222,14 @@ migrated; semantic/visual/retrieval acceptance remains separate.
 The Debug-only [administration controller](Controllers/AdministrationDocumentReviewsController.cs)
 uses the existing app-administrator assignment and cookie, plus a mandatory authenticated-reviewer
 policy. Anonymous Development access and machine bearer identities cannot use it. Every mutation
-requires the session's antiforgery token. Review content responses carry `Cache-Control: no-store`.
+requires the session's antiforgery token. Review and catalogue responses carry `Cache-Control: no-store`.
+
+The [catalogue controller](Controllers/AdministrationDocumentsController.cs) exposes
+`GET /admin/api/apps/{appId}/documents?page=1&pageSize=25&collection={exactCollectionId}`.
+The collection filter is optional; page is 1-10,000 and page size is 1-100. Its
+[query service](Services/DocumentCatalogueAdministrationService.cs) reads bounded metadata for
+admitted sources, their current jobs and a current-source stored-generation identity. It never
+loads receipt/content payloads or returns Blob URIs and plans. Admission state is not indexing state.
 
 Under `/admin/api/apps/{appId}/collections/{collectionId}/documents/{documentId}/jobs/{jobId}/review`:
 
@@ -243,7 +250,10 @@ Responses allowlist pages/notes, PDF digest, current sequence/ETag and a version
 document. They exclude raw provider receipts, usage, deployment coordinates and plan metadata.
 Projection spans remain Markdown offsets, not precise PDF geometry. Review IDs are structural
 decision identities, not authenticated actor records or semantic approvals; approval and its audit
-remain separate work. There is no document-review screen yet. See the
+remain separate work. The [browser workbench](../../docs/administration-frontend.md#document-catalogue-and-review)
+lists admitted sources, displays escaped Markdown/chunks and confirms storage of the observed
+default-profile preview. It offers no upload, replacement, deletion, original-PDF viewer,
+custom profile/structural editing or approval. See the
 [manual requests](../../requests/document-reviews.http) for the cookie/antiforgery prerequisites.
 
 The [native HTTP acceptance](../CasCap.App.Server.Tests/Tests/Integration/PostgresAdministrationDocumentReviewTests.cs)

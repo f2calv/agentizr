@@ -95,6 +95,41 @@ public sealed class PostgresAdministrationDocumentReviewTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task NativeCatalogue_MaterializesCurrentSourceAndGeneration()
+    {
+        using var http = await ClientAsync(_host);
+        var client = new AdministrationApiClient(http, new AdministrationSessionState());
+        var page = await client.GetDocumentsAsync("tenant-a", _source.CollectionId, 1, 1, Token);
+        Assert.True(page.IsSuccess);
+        var item = Assert.Single(page.Value!.Items);
+        Assert.Equal(_source.DocumentId, item.DocumentId);
+        Assert.Equal(_source.JobId, item.JobId);
+        Assert.Equal(DocumentIngestionStates.ReviewRequired, item.JobState);
+        Assert.Equal(Uri.UnescapeDataString(new Uri(_source.BlobUri).Segments[^1]), item.FileName);
+        Assert.True(item.CanReview);
+        Assert.Null(item.StoredGenerationId);
+        var stored = await client.StoreDocumentReviewAsync("tenant-a", _source.CollectionId,
+            _source.DocumentId, _source.JobId, Request(), Token);
+        Assert.True(stored.IsSuccess);
+        var refreshed = await client.GetDocumentsAsync("tenant-a", null, 1, 25, Token);
+        Assert.Equal(stored.Value!.GenerationId, Assert.Single(refreshed.Value!.Items).StoredGenerationId);
+        var another = await client.GetDocumentsAsync("default", null, 1, 25, Token);
+        Assert.True(another.IsSuccess);
+        Assert.Empty(another.Value!.Items);
+        await using var db = _database.DbContextFactory.CreateDbContext();
+        var document = await db.KnowledgeDocuments.SingleAsync(Token);
+        document.Sequencer = "2".PadLeft(128, '0');
+        await db.SaveChangesAsync(Token);
+        var superseded = await client.GetDocumentsAsync("tenant-a", null, 1, 25, Token);
+        var current = Assert.Single(superseded.Value!.Items);
+        Assert.False(current.CanReview);
+        Assert.Null(current.JobId);
+        Assert.Null(current.StoredGenerationId);
+        Assert.Equal(1, _provider.ModelCalls);
+        Assert.Empty(await db.DocumentTextChunks.ToArrayAsync(Token));
+    }
+
+    [Fact]
     public async Task RealCookieAndAntiforgerySurviveReviewReplicaChanges()
     {
         await using var first = _host.WithWebHostBuilder(ConfigureCookieReplica);

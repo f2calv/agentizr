@@ -1,0 +1,9 @@
+.source-markdown {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.source-metadata dd,
+small {
+    overflow-wrap: anywhere;
+}

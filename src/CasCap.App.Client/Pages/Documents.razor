@@ -1,0 +1,77 @@
+@page "/apps/{AppId}/documents"
+@inherits CancellableComponentBase
+
+<PageTitle>Documents · @AppId · agentizr</PageTitle>
+
+<MudBreadcrumbs Items="Breadcrumbs" />
+<MudText Typo="Typo.h4" HtmlTag="h1">Documents in @AppId</MudText>
+<MudAlert Severity="Severity.Info" Class="my-4">
+    This Debug catalogue lists admitted sources, not everything in Blob Storage.
+    Admission, preparation and stored review snapshots do not mean a document is searchable.
+    Upload, replacement, deletion and approval are not available in this slice.
+</MudAlert>
+<MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="my-4">
+    <MudTextField T="string" Value="_collectionInput" ValueChanged="CollectionChanged" Label="Exact collection ID"
+                  DebounceInterval="400" Immediate="true" Clearable="true" />
+    <MudButton OnClick="ReloadAsync" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Refresh">Refresh</MudButton>
+</MudStack>
+
+@if (_result is null)
+{
+    <MudProgressLinear Indeterminate="true" aria-label="Loading documents" />
+}
+else if (!_result.IsSuccess)
+{
+    <PageState Status="_result.Status" Errors="_result.Errors" OnRetry="ReloadAsync" />
+}
+else if (_result.Value is not { Items.Count: > 0 } page)
+{
+    <MudAlert Severity="Severity.Info">No admitted documents were found on this page. Clear the collection filter or return to page one.</MudAlert>
+}
+else
+{
+    <MudSimpleTable Hover="true" Dense="true">
+        <thead>
+            <tr>
+                <th>Source</th>
+                <th>Collection</th>
+                <th>Admission</th>
+                <th>Current job</th>
+                <th>Review</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var document in page.Items)
+            {
+                <tr @key="(document.DocumentId, document.JobId)">
+                    <td>@document.FileName <small>@document.DocumentId</small></td>
+                    <td>@document.CollectionId</td>
+                    <td>@document.SourceState</td>
+                    <td>@(document.JobState ?? "No current job") <small>@document.JobId</small></td>
+                    <td>
+                        @if (document.CanReview && document.JobId is { } jobId)
+                        {
+                            <MudLink Href="@DocumentReview.Path(AppId, document.CollectionId, document.DocumentId, jobId)">Preview</MudLink>
+                            @if (document.StoredGenerationId is { } generationId)
+                            {
+                                <MudLink Class="ml-3" Href="@DocumentReview.Path(AppId, document.CollectionId, document.DocumentId, jobId, generationId)">Stored snapshot</MudLink>
+                            }
+                        }
+                        else
+                        {
+                            <span>Not reviewable</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </MudSimpleTable>
+}
+@if (PageCount > 1)
+{
+    <MudPagination Count="PageCount" Selected="Page" SelectedChanged="PageChanged" Class="mt-4" />
+}
+@if (Page > 1)
+{
+    <MudButton OnClick="() => PageChanged(1)" Class="mt-4">First page</MudButton>
+}

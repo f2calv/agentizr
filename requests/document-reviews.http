@@ -17,6 +17,12 @@ GET {{baseUrl}}/admin/api/session HTTP/1.1
 Cookie: {{cookie}}
 Accept: application/json
 
+### List admitted source metadata and current review links - expected 200; no Blob enumeration
+# @name getDocumentCatalogue
+GET {{baseUrl}}/admin/api/apps/{{appId}}/documents?collection={{collectionId}}&page=1&pageSize=25 HTTP/1.1
+Cookie: {{cookie}}
+Accept: application/json
+
 ### Preview current validated source and default heading-aware chunks - expected 200 or 404
 # @name previewDocumentReview
 GET {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/{{documentId}}/jobs/{{jobId}}/review HTTP/1.1

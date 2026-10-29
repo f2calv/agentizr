@@ -3,8 +3,8 @@
 **Status:** Proposed; elected Debug admission is deployed and enabled for a controlled soak;
 document processing and paid preparation remain disabled.
 The built-in preparation-agent runtime is deployed but no preparation definition was activated.
-Protected review management is locally verified for an incremental Debug review-only rollout;
-that rollout, its deployed schema and real OIDC acceptance are not yet established.
+The Debug review-only API and its schema are deployed; real assigned-administrator OIDC acceptance
+remains pending. The first document catalogue/review workbench is locally verified, not deployed.
 **Date:** 2026-10-25.
 **Scope:** Blazor document management, Azure Blob/Event Grid ingestion and tenant-isolated RAG.
 **Canonical record:** This document. Related issues are historical context or implementation tracking,
@@ -136,7 +136,9 @@ Provide a protected comparison view inspired by the experimental review panels: 
 available local extraction, managed draft and reconciled Markdown, with physical-page navigation,
 raw/rendered Markdown, provenance, changes and uncertainties. A view reads retained artifacts; it
 must not rerun paid preparation. Keep review-required and reconciliation-required candidates distinct
-from searchable generations. These are future document-management capabilities, not current UI.
+from searchable generations. The current local Debug slice provides an admitted-source catalogue,
+escaped page Markdown and contextual chunks, plus confirmed immutable review-snapshot storage.
+Original PDF comparison, rendered Markdown and the other lifecycle controls remain future work.
 For visual-enabled manuals, show associated figures with a protected link to the exact source
 version/page and available region highlight. Keep page/region uncertainty notes outside the
 transcription; hide empty notes and fetch existing artifacts rather than regenerate them on viewing.
@@ -1999,6 +2001,43 @@ block deploying a non-searchable review-only API.
   Ingress authentication rejected the unauthenticated browser probe before application OIDC, so
   operator-authenticated browser acceptance remains pending; direct replica checks do not replace it.
   Any deployed real-document processing or storage requires its own approved source/budget scope.
+
+### Incremental Debug Document Catalogue And Review Workbench
+
+On 2026-10-29 the owner explicitly authorized this slice while deployed administrator acceptance
+remained blocked at ingress authentication. It does not complete Phase 2's upload/storage/search
+requirement or replace that acceptance gate.
+
+- [x] Add an app-scoped [admitted-source catalogue](../src/CasCap.App.Server/Controllers/AdministrationDocumentsController.cs)
+  with exact collection filtering and bounded pagination. The
+  [metadata query](../src/CasCap.App.Server/Services/DocumentCatalogueAdministrationService.cs)
+  derives tenancy from authorization, returns current-job/review availability and a stored-generation
+  identity, and excludes source URIs, plans, receipts and content payloads. Cookie-only administrator
+  policies and no-store behavior match the existing review API; these endpoints remain Debug-only.
+- [x] Link the [catalogue](../src/CasCap.App.Client/Pages/Documents.razor) from app administration and
+  add a [review workbench](../src/CasCap.App.Client/Pages/DocumentReview.razor) over the existing protected
+  preview/store/read API. Show escaped physical-page Markdown, nonempty separate notes, heading-aware
+  chunk text, token budgets and physical-page/UTF-16 Markdown provenance, not PDF geometry.
+  Storing a snapshot requires confirmation, preserves the observed sequence/ETag and profile,
+  never retries the mutation automatically, and navigates to the exact immutable generation.
+  Refresh after failure only reads; stored snapshots cannot be resubmitted from that view.
+- [x] Verify **55 offline cases**: 35 SQLite catalogue/review HTTP, 11
+  [document UI render cases](../src/CasCap.App.Server.Tests/Tests/Integration/AdministrationDocumentUiTests.cs)
+  and nine existing definition UI cases. Separately execute **15 native PostgreSQL review cases**,
+  including catalogue materialization/current-source revocation, with zero failed/skipped.
+  Disposable database counts return to baseline and task-started PostgreSQL stops.
+  Debug test-assembly and correctly restored Release server builds pass without warnings/errors.
+- [x] Smoke-test the actual local WebAssembly assets using synthetic browser API responses:
+  catalogue/filter navigation, escaped source HTML, hidden empty notes, confirmation/cancel,
+  one source-fenced/profile-preserving POST with the session antiforgery header, exact-generation
+  navigation, 409/503 outcomes without mutation retries, keyboard confirmation and narrow layouts.
+  Referenced scripts/styles return 200. Stop the loopback-only host afterward.
+  These checks do not prove deployed sign-in, actual browser-cookie portability or real-document UI quality.
+- [ ] Complete deployed assigned-administrator acceptance above and explicitly authorize publication/
+  rollout of this UI. The currently deployed review API does not include this local workbench.
+- [ ] Deliver upload/replace/delete, original-source viewing, custom profile/structural editing,
+  semantic approval and search activation through their separately reviewed contracts.
+  The current catalogue lists admitted database sources, not every Blob or completed indexing.
 
 ### Phase 3: Integrate Agents And Onboard Consumers
 

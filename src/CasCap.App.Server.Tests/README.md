@@ -372,7 +372,7 @@ management authorization, semantic/visual approval, embedding, activation or dep
 ### Protected Document Review Management
 
 [`AdministrationDocumentReviewTests`](Tests/Integration/AdministrationDocumentReviewTests.cs)
-adds **12 methods / 26 Debug-only cases**, tagged `Integration` and `DocumentReviewManagement`.
+adds **15 methods / 35 Debug-only cases**, tagged `Integration` and `DocumentReviewManagement`.
 It uses the actual host, authorization policies, antiforgery, typed browser client and production
 review store with per-case SQLite and synthetic receipts. No identity-provider, Azure, paid-model,
 PostgreSQL service or deployment is contacted.
@@ -383,16 +383,18 @@ job, collection and tenant fences; rejected stale revisions and invalid structur
 replacement/deletion revocation; explicit 501 without storage; and corruption as 500, not 400.
 Forged JSON tenant/actor/location/state cannot replace trusted metadata or create approval.
 Source lookup translation is checked offline with Npgsql, not by executing against PostgreSQL.
+Catalogue coverage adds tenant/collection filters, bounded paging, current-job availability,
+stored-generation discovery, revocation and no-store metadata without source URIs or plans.
 
 ```powershell
 dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class CasCap.IntegrationTests.AdministrationDocumentReviewTests CasCap.IntegrationTests.AdministrationApiTests CasCap.IntegrationTests.AdministrationSignInTests CasCap.Tests.Integration.DocumentMarkdownGenerationTests
 ```
 
-The focused selection passed **94 cases**, zero failed/skipped: 26 new management, 47 existing
+Before the catalogue additions, this selection passed **94 cases**, zero failed/skipped: 26 management, 47 existing
 SQLite generation and 21 existing administration cases.
 
 [`PostgresAdministrationDocumentReviewTests`](Tests/Integration/PostgresAdministrationDocumentReviewTests.cs)
-adds **7 methods / 14 Debug-only cases**, also tagged `PostgreSQL`. Both management classes reuse
+adds **8 methods / 15 Debug-only cases**, also tagged `PostgreSQL`. Both management classes reuse
 the [cookie-authenticated host](Tests/Integration/DocumentReviewWebApplicationFactory.cs), with
 per-fixture native databases for this class. Synthetic preparation uses fake providers, not Azure.
 Native coverage verifies JSONB source-plan materialization, eight-way immutable retries, profile
@@ -426,6 +428,31 @@ reads that generation. Anonymous reads still return 401. The case does not conta
 prove deployed ingress/callback configuration or create an authentication bypass in the application.
 The focused native/SQLite review, existing replica and sign-in selection passes **54 cases**,
 zero failed/skipped. Fixture database counts return to baseline and task-started PostgreSQL stops.
+
+#### Catalogue And Review Browser Coverage
+
+[`AdministrationDocumentUiTests`](Tests/Integration/AdministrationDocumentUiTests.cs) adds
+**6 methods / 11 Debug-only cases**, tagged `Integration` and `DocumentReviewManagement`.
+The shared [static renderer](Tests/Integration/AdministrationComponentTestRenderer.cs) also serves
+the existing definition UI tests. Synthetic HTTP verifies catalogue reads, escaped source names/
+Markdown, heading context, separate/nonempty notes, exact snapshots without storage controls,
+401/403/404/409/501 states, unsupported projections and honest empty-state wording.
+
+The focused offline selection passed **55 cases**, zero failed/skipped: 35 SQLite HTTP,
+11 document UI and nine existing definition UI cases. Separately, all **15 native PostgreSQL**
+review cases passed, including catalogue materialization, snapshot discovery and source supersession.
+Fixture database counts returned to baseline and only task-started PostgreSQL was stopped.
+
+Static rendering does not exercise clicks. An approved loopback-only browser smoke over actual
+WebAssembly assets with synthetic API responses verified filtering/navigation, confirmation/cancel,
+one explicit source-fenced/profile-preserving POST with antiforgery, exact-snapshot navigation,
+409/503 outcomes with GET-only refresh, keyboard confirmation and narrow catalogue/review layouts.
+Referenced scripts/styles returned 200; the temporary host was stopped.
+This is not deployed OIDC acceptance or real-document browser quality approval.
+
+```powershell
+dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class CasCap.Tests.Integration.AdministrationDocumentUiTests CasCap.Tests.Integration.AdministrationDefinitionUiTests CasCap.IntegrationTests.AdministrationDocumentReviewTests
+```
 
 #### Retained Real-Document HTTP Acceptance
 
@@ -634,7 +661,7 @@ version and verified deployment revision.
 Production PdfPig parsing, page copying, bounded local preparation and persistence retain their
 regression tests. Document Intelligence HTTP behavior belongs to the shared Azure transport suite;
 the hybrid tests exercise it through the production provider boundary. Real-document semantic
-acceptance and protected preview UI remain separate gates in
+acceptance and deployed assigned-administrator browser checks remain separate gates in
 [ADR 0001](../../docs/adr-0001-centralized-document-rag.md#built-in-document-preparation-agent).
 
 ## Trait Categories
@@ -650,6 +677,7 @@ acceptance and protected preview UI remain separate gates in
 | `OfflineDocumentReview` | 14 Debug-only | Thirteen synthetic export/coverage checks and one separately approved retained-artifact projection without providers or databases |
 | `LiveDocumentPreparation` | 1 Debug-only | Separately approved real-source/provider acceptance with a retained local ledger; disabled by default |
 | `RetainedDocumentReview` | 1 Debug-only | Separately approved migration and protected HTTP storage of reviewed real-document projections in the retained local ledger; disabled by default |
+| `DocumentReviewManagement` | 61 Debug-only | 35 SQLite HTTP, 15 native PostgreSQL HTTP and 11 synthetic document UI cases; all also `Integration` |
 | `PreparationProviders` | 22 Debug-only | Real isolated PostgreSQL ledger/recovery and two-host Redis startup/handover; all also `Integration` and `PostgreSQL`, one also `Redis` |
 | `Tenant Isolation` | 38 | Cross-tenant state, JWT permissions, caller mappings, administrator assignment, MCP and provider credentials and identity isolation |
 | `PostgreSQL` | 25 | Definitions, durable state, run history and shared Data Protection keys against local Compose PostgreSQL |
@@ -658,7 +686,7 @@ acceptance and protected preview UI remain separate gates in
 
 The category inventory above covers the runtime baseline. Debug adds one case to each of
 `Integration` and `PostgreSQL` for the runtime logging soak; role/ingestion, PDF preparation and
-Blob download/prepared-document, hybrid and provider-acceptance categories and counts are listed
+Blob download/prepared-document, review management, hybrid and provider-acceptance categories and counts are listed
 separately above.
 
 ## Skipped Tests
@@ -726,7 +754,9 @@ Tests/
 ├── ScriptedEvaluationAgentFactory.cs
 ├── Integration/
 │   ├── AdministrationApiTests.cs
+│   ├── AdministrationComponentTestRenderer.cs
 │   ├── AdministrationDocumentReviewTests.cs
+│   ├── AdministrationDocumentUiTests.cs
 │   ├── AdministrationDefinitionUiTests.cs
 │   ├── AdministrationReplicaTests.cs
 │   ├── AdministrationSignInTests.cs

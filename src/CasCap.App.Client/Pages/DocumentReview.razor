@@ -1,0 +1,96 @@
+@page "/apps/{AppId}/collections/{CollectionId}/documents/{DocumentId}/jobs/{JobId}/review"
+@inherits CancellableComponentBase
+
+<PageTitle>Document review · @AppId · agentizr</PageTitle>
+
+<MudBreadcrumbs Items="Breadcrumbs" />
+<MudText Typo="Typo.h4" HtmlTag="h1">Document review</MudText>
+<MudAlert Severity="Severity.Warning" Class="my-4">
+    Review-required only. Nothing here approves content, runs preparation, enables embeddings or makes a document searchable.
+    Markdown is shown as escaped source text; embedded HTML and links are not executed.
+</MudAlert>
+<MudStack Row="true" Wrap="Wrap.Wrap" Class="my-4">
+    <MudButton OnClick="ReloadAsync" Disabled="_busy" StartIcon="@Icons.Material.Filled.Refresh">Refresh</MudButton>
+    @if (GenerationId is not null)
+    {
+        <MudButton Href="@Path(AppId, CollectionId, DocumentId, JobId)">Current default-profile preview</MudButton>
+    }
+</MudStack>
+
+@if (_result is null)
+{
+    <MudProgressLinear Indeterminate="true" aria-label="Loading document review" />
+}
+else if (!_result.IsSuccess)
+{
+    <PageState Status="_result.Status" Errors="_result.Errors" OnRetry="ReloadAsync" />
+}
+else if (_result.Value is { } review)
+{
+    <dl class="source-metadata">
+        <dt>Collection</dt><dd>@CollectionId</dd>
+        <dt>Document</dt><dd>@DocumentId</dd>
+        <dt>Job</dt><dd>@JobId</dd>
+        <dt>State</dt><dd>@review.State</dd>
+        <dt>Snapshot</dt><dd>@(review.GenerationId ?? "Non-persisted default-profile preview")</dd>
+        <dt>Original PDF SHA-256</dt><dd>@review.SourceSha256</dd>
+        <dt>Source sequence</dt><dd>@review.Sequencer</dd>
+        <dt>Source ETag</dt><dd>@review.ETag</dd>
+    </dl>
+    @if (_projection is null)
+    {
+        <MudAlert Severity="Severity.Error" Class="my-4">The projection format is unsupported. Snapshot storage is disabled.</MudAlert>
+    }
+    @if (_writeResult is { IsSuccess: false } failed)
+    {
+        <MudAlert Severity="Severity.Warning" Class="my-4">
+            The snapshot was not confirmed. For a network/server failure its outcome may be unknown.
+            Refresh before deciding whether to submit again; mutations are never retried automatically.
+        </MudAlert>
+        <PageState Status="failed.Status" Errors="failed.Errors" OnRetry="ReloadAsync" />
+    }
+    @if (review.GenerationId is null)
+    {
+        <MudButton OnClick="StoreAsync" Disabled="@(_busy || _projection is null || review.State != "ReviewRequired")"
+                   Color="Color.Primary" Variant="Variant.Filled" Class="my-4">
+            Store review-required snapshot
+        </MudButton>
+        <MudText Typo="Typo.body2" Class="mb-4">
+            Stores this preview's chunking profile without editing or approving it. Custom budgets and structural-decision editing are not offered in this slice.
+        </MudText>
+    }
+    <MudText Typo="Typo.h5" HtmlTag="h2">Physical source pages</MudText>
+    <MudExpansionPanels Class="my-4">
+        @foreach (var sourcePage in review.Pages)
+        {
+            <MudExpansionPanel Text="@($"Physical page {sourcePage.Page}")" Expanded="@(sourcePage == review.Pages[0])" @key="sourcePage.Page">
+                <pre class="source-markdown">@sourcePage.Markdown</pre>
+                @if (sourcePage.Uncertainties.Count > 0)
+                {
+                    <MudAlert Severity="Severity.Warning">
+                        <MudText Typo="Typo.subtitle2">Page uncertainties (not embedded)</MudText>
+                        <ul>
+                            @foreach (var note in sourcePage.Uncertainties)
+                            {
+                                <li>@note</li>
+                            }
+                        </ul>
+                    </MudAlert>
+                }
+                @if (sourcePage.Changes.Count > 0)
+                {
+                    <details>
+                        <summary>Preparation changes (not embedded)</summary>
+                        <ul>
+                            @foreach (var note in sourcePage.Changes)
+                            {
+                                <li>@note</li>
+                            }
+                        </ul>
+                    </details>
+                }
+            </MudExpansionPanel>
+        }
+    </MudExpansionPanels>
+    <ReviewProjection Projection="review.Projection" />
+}

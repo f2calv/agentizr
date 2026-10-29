@@ -22,6 +22,8 @@ the API fit together.
 | `/apps/{appId}/agents/{agentName}` | Versions, the selected snapshot, activation audit, activate, roll back and deactivate |
 | `/apps/{appId}/agents/{agentName}/edit?from={version}` | Copy a version, edit it and publish, with optional guarded activation |
 | `/apps/{appId}/new-agent` | Create an agent by publishing its first version, optionally activating it |
+| `/apps/{appId}/documents?collection={exactCollectionId}&page=1` | Debug admitted-source catalogue, current jobs and review links |
+| `/apps/{appId}/collections/{collectionId}/documents/{documentId}/jobs/{jobId}/review?generationId={optionalSnapshot}` | Current preview or exact immutable review-required snapshot |
 
 Selections and searches live in the URL, so a refresh or shared link reopens the same view.
 The editor suggests an unused UTC date-and-revision version. Activation after publication is
@@ -50,6 +52,8 @@ for provider requirements and the still-pending durable-worker integration.
 | [`AdministrationDeactivationRequest`](Models/AdministrationDeactivationRequest.cs) | Deactivation guarded by the observed active version |
 | [`AdministrationApiClient`](Services/AdministrationApiClient.cs) | Typed calls that map every HTTP outcome to an `ApiResult<T>` and send the antiforgery token on mutations |
 | [`DocumentReviewRoutes`](Constants/DocumentReviewRoutes.cs) | Source/job-qualified preview and immutable review-generation routes |
+| [`DocumentCatalogueRoutes`](Constants/DocumentCatalogueRoutes.cs) | App-qualified admitted-source discovery route |
+| [`DocumentCataloguePageResponse`](Models/DocumentCataloguePageResponse.cs) | Bounded source metadata, current-job review availability and stored-generation identity |
 | [`DocumentReviewGenerationRequest`](Models/DocumentReviewGenerationRequest.cs) | Observed source revision, token budgets and optional versioned structural decisions |
 | [`DocumentReviewGenerationResponse`](Models/DocumentReviewGenerationResponse.cs) | Current-source pages/notes and versioned heading-aware projection; never approval |
 | [`DefinitionDraft`](Models/DefinitionDraft.cs) | Builds a publication payload that keeps fields the editor does not change |
@@ -63,7 +67,14 @@ with PostgreSQL; it additionally requires actual administrator sign-in, even in 
 The optional `Review` JSON document uses schema 2 (`version`, `reviewId`, `markdownSha256`,
 `exclusions`, `headings`, `layoutTables`). The response's `Projection` retains the profile, exact
 structural review, chunks and UTF-16 Markdown provenance without exposing server/provider types.
-These are API/client foundations only: no upload, document discovery or review screen is implemented.
+From an app's **Documents** button, filter admitted sources by exact collection and open a preview
+or stored snapshot. The workbench displays escaped Markdown and contextual chunk text, token counts
+and Markdown provenance, not rendered HTML or PDF image regions. Empty notes are hidden.
+Storing the current preview requires confirmation and preserves its observed source revision and
+profile. Success opens the exact immutable generation; failures never automatically repeat a write.
+Upload/replace/delete, original-PDF viewing, custom budgets/structural editing and approval are not
+implemented. Catalogue admission and stored snapshots do not mean content is searchable.
+See the [review walkthrough](../../docs/administration-frontend.md#document-catalogue-and-review).
 
 ## Dependencies
 

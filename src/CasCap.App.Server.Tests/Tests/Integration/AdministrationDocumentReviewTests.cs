@@ -81,6 +81,85 @@ public sealed class AdministrationDocumentReviewTests : IAsyncLifetime
         Assert.DoesNotContain("https://", json, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Catalogue_ListsCurrentJobAndStoredSnapshotWithoutPrivateInfrastructure()
+    {
+        using var http = await ClientAsync();
+        var client = new AdministrationApiClient(http, new AdministrationSessionState());
+        var first = await client.GetDocumentsAsync("tenant-a", null, 1, 25, Token);
+        Assert.True(first.IsSuccess);
+        var item = Assert.Single(first.Value!.Items);
+        Assert.Equal(_source.DocumentId, item.DocumentId);
+        Assert.Equal(_source.JobId, item.JobId);
+        Assert.Equal(DocumentIngestionStates.ReviewRequired, item.JobState);
+        Assert.True(item.CanReview);
+        Assert.Null(item.StoredGenerationId);
+        var stored = await client.StoreDocumentReviewAsync("tenant-a", _source.CollectionId,
+            _source.DocumentId, _source.JobId, Request(), Token);
+        Assert.True(stored.IsSuccess);
+        var refreshed = await client.GetDocumentsAsync("tenant-a", _source.CollectionId, 1, 25, Token);
+        Assert.Equal(stored.Value!.GenerationId, Assert.Single(refreshed.Value!.Items).StoredGenerationId);
+        var filtered = await client.GetDocumentsAsync("tenant-a", "another-collection", 1, 25, Token);
+        Assert.Empty(filtered.Value!.Items);
+        var otherApp = await client.GetDocumentsAsync("default", null, 1, 25, Token);
+        Assert.Empty(otherApp.Value!.Items);
+        var next = await client.GetDocumentsAsync("tenant-a", null, 2, 1, Token);
+        Assert.Empty(next.Value!.Items);
+        Assert.Equal(1, next.Value.TotalCount);
+        using var response = await http.GetAsync(
+            AdministrationRoutes.Format(DocumentCatalogueRoutes.Documents, "tenant-a"), Token);
+        Assert.True(response.Headers.CacheControl?.NoStore);
+        var json = await response.Content.ReadAsStringAsync(Token);
+        Assert.DoesNotContain("https://", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("preparationPlan", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, _provider.Submissions);
+        Assert.Equal(1, _provider.ModelCalls);
+    }
+
+    [Theory]
+    [InlineData("deleted")]
+    [InlineData("superseded")]
+    [InlineData("claimed")]
+    [InlineData("unfinished")]
+    public async Task Catalogue_ObservesReviewRevocation(string change)
+    {
+        await using (var db = _database.CreateDbContext())
+        {
+            var document = await db.KnowledgeDocuments.SingleAsync(Token);
+            var job = await db.DocumentIngestionJobs.SingleAsync(Token);
+            if (change == "deleted")
+                document.Status = DocumentIngestionStates.Deleted;
+            if (change == "superseded")
+                document.Sequencer = "2".PadLeft(128, '0');
+            if (change == "claimed")
+                job.ClaimId = Guid.NewGuid();
+            if (change == "unfinished")
+                job.FinishedAtUtc = null;
+            await db.SaveChangesAsync(Token);
+        }
+        using var http = await ClientAsync();
+        var client = new AdministrationApiClient(http, new AdministrationSessionState());
+        var page = await client.GetDocumentsAsync("tenant-a", null, 1, 25, Token);
+        Assert.True(page.IsSuccess);
+        var item = Assert.Single(page.Value!.Items);
+        Assert.False(item.CanReview);
+        if (change == "superseded")
+            Assert.Null(item.JobId);
+    }
+
+    [Theory]
+    [InlineData("page=0")]
+    [InlineData("page=10001")]
+    [InlineData("pageSize=0")]
+    [InlineData("pageSize=101")]
+    public async Task Catalogue_RejectsInvalidBounds(string query)
+    {
+        using var http = await ClientAsync();
+        using var response = await http.GetAsync(
+            AdministrationRoutes.Format(DocumentCatalogueRoutes.Documents, "tenant-a") + "?" + query, Token);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     [Theory]
     [InlineData("anonymous", HttpStatusCode.Unauthorized)]
     [InlineData("bearer", HttpStatusCode.Unauthorized)]
@@ -94,9 +173,11 @@ public sealed class AdministrationDocumentReviewTests : IAsyncLifetime
             http.DefaultRequestHeaders.Add(AdministrationSignInWebApplicationFactory.AdministratorHeader,
                 AdministrationSignInWebApplicationFactory.OtherAppAdministrator);
         using var preview = await http.GetAsync(Path(DocumentReviewRoutes.Source), Token);
+        using var catalogue = await http.GetAsync(AdministrationRoutes.Format(DocumentCatalogueRoutes.Documents, "tenant-a"), Token);
         using var read = await http.GetAsync(Path(DocumentReviewRoutes.Generation, "missing"), Token);
         using var write = await http.PostAsJsonAsync(Path(DocumentReviewRoutes.Generations), Request(), Token);
         Assert.Equal(status, preview.StatusCode);
+        Assert.Equal(status, catalogue.StatusCode);
         Assert.Equal(status, read.StatusCode);
         Assert.Equal(status, write.StatusCode);
         await using var db = _database.CreateDbContext();
@@ -264,8 +345,10 @@ public sealed class AdministrationDocumentReviewTests : IAsyncLifetime
         using var http = host.CreateClient();
         await AdministrationTestClient.PrepareAsync(http, AdministrationSignInWebApplicationFactory.DefaultAppAdministrator);
         using var preview = await http.GetAsync(Path(DocumentReviewRoutes.Source), Token);
+        using var catalogue = await http.GetAsync(AdministrationRoutes.Format(DocumentCatalogueRoutes.Documents, "tenant-a"), Token);
         using var write = await http.PostAsJsonAsync(Path(DocumentReviewRoutes.Generations), Request(), Token);
         Assert.Equal(HttpStatusCode.NotImplemented, preview.StatusCode);
+        Assert.Equal(HttpStatusCode.NotImplemented, catalogue.StatusCode);
         Assert.Equal(HttpStatusCode.NotImplemented, write.StatusCode);
     }
 
@@ -286,7 +369,9 @@ public sealed class AdministrationDocumentReviewTests : IAsyncLifetime
         await using var host = new AgentDefinitionAdministrationWebApplicationFactory();
         using var http = host.CreateClient();
         using var response = await http.GetAsync(Path(DocumentReviewRoutes.Source), Token);
+        using var catalogue = await http.GetAsync(AdministrationRoutes.Format(DocumentCatalogueRoutes.Documents, "tenant-a"), Token);
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, catalogue.StatusCode);
     }
 
     private DocumentReviewGenerationRequest Request() => new() { Sequencer = _source.Sequencer, ETag = _source.ETag! };

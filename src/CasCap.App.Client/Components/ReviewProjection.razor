@@ -1,0 +1,30 @@
+<MudText Typo="Typo.h5" HtmlTag="h2">Heading-aware chunk candidates</MudText>
+<MudText Typo="Typo.body2" Class="mb-3">
+    Heading ancestry is included in each candidate below. Page uncertainties and change notes are not.
+    Provenance uses physical pages and UTF-16 Markdown offsets, not PDF regions or image coordinates.
+</MudText>
+@if (_view is null)
+{
+    <MudAlert Severity="Severity.Error">The projection format is unsupported. Refresh or contact the operator; no snapshot can be stored from this view.</MudAlert>
+}
+else
+{
+    <MudText Class="mb-3">
+        @_view.Profile.Strategy · @_view.Chunks.Count candidates · target @_view.Profile.TargetTokensPerChunk tokens ·
+        maximum @_view.Profile.MaximumTokensPerChunk tokens · overlap @_view.Profile.OverlapTokens tokens
+    </MudText>
+    @if (_view.Chunks.Count == 0)
+    {
+        <MudAlert Severity="Severity.Warning">No embeddable candidates were produced. This is not search approval.</MudAlert>
+    }
+    <MudExpansionPanels>
+        @foreach (var chunk in _view.Chunks)
+        {
+            <MudExpansionPanel Text="@($"Chunk {chunk.Ordinal + 1} · {chunk.TokenCount} tokens")" Expanded="@(chunk.Ordinal == 0)" @key="chunk.Ordinal">
+                <pre class="projection-text">@chunk.EmbeddingText</pre>
+                <MudText Typo="Typo.subtitle2">Source spans (Markdown, not PDF geometry)</MudText>
+                <pre class="projection-text">@chunk.SourceSpans.ToString()</pre>
+            </MudExpansionPanel>
+        }
+    </MudExpansionPanels>
+}

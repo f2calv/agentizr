@@ -1,7 +1,7 @@
 # Administration Frontend
 
-The administration frontend lets an operator discover apps, inspect providers and manage immutable
-agent definitions in a browser. It is a Blazor Web App that runs its components only in the
+The administration frontend lets an operator discover apps, inspect providers, manage immutable
+agent definitions and review admitted documents in a browser. It is a Blazor Web App that runs its components only in the
 browser with WebAssembly, served and protected by the same host as the runtime API.
 
 ## Service Architecture
@@ -107,6 +107,31 @@ template. Installing or activating the definition does not enable ingestion or s
 Complete the runtime rollout before publishing/activating definitions with these new fields.
 The durable worker binding and quality gates remain pending in
 [ADR 0001](adr-0001-centralized-document-rag.md#built-in-document-preparation-agent).
+
+## Document Catalogue And Review
+
+In a Debug host, open an app and select **Documents**. This lists admitted database sources,
+not every file in Blob Storage. Filter by exact collection ID; collection and page are kept in the URL.
+Rows distinguish source admission from the current job and offer **Preview** or **Stored snapshot**
+only when the source has a finished, released review-required job. The server rechecks ownership
+and current-source fences for every review operation; a catalogue link is not an authorization grant.
+
+The workbench reads existing validated artifacts without another preparation/model request.
+Physical-page Markdown and heading-aware chunk text are escaped source text, so source HTML,
+scripts and links do not execute. Uncertainties and changes are separate and hidden when empty.
+Provenance is physical-page/UTF-16 Markdown offsets, not original PDF geometry or image regions.
+
+**Store review-required snapshot** requires confirmation and sends the observed source sequence,
+ETag and preview profile with the session's antiforgery token. Canceling writes nothing. Success
+opens the exact immutable snapshot, which has no resubmit control. A stale-source or unavailable
+response is explicit; refresh only reads and never automatically repeats a write after an unknown
+outcome. Stored snapshots remain review-required, not approved or searchable.
+
+These APIs require an actually signed-in assigned administrator even in open Development.
+Machine bearer callers do not qualify; Release hosts do not expose the document APIs.
+There is no upload/replace/delete, original-PDF viewer, editable custom profile/structural decisions
+or semantic approval in this slice. See [ADR 0001](adr-0001-centralized-document-rag.md#incremental-debug-document-catalogue-and-review-workbench)
+for local validation versus deployment and remaining acceptance gates.
 
 ## Running Locally
 

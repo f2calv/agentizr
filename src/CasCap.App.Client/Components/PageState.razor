@@ -4,7 +4,7 @@
 {
     case ApiStatus.Unauthorized:
         <MudAlert Severity="Severity.Info">
-            Sign in to manage agent definitions.
+            Sign in to administer this app.
             <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="() => NavigationManager.NavigateToSignIn()">Sign in</MudButton>
         </MudAlert>
         break;
@@ -13,6 +13,12 @@
         break;
     case ApiStatus.NotFound:
         <MudAlert Severity="Severity.Info">Nothing was found here. It may have been removed or never existed.</MudAlert>
+        break;
+    case ApiStatus.Conflict:
+        <MudAlert Severity="Severity.Warning">
+            The source or its current revision changed. Refresh and review it before making another change.
+            <MudButton Variant="Variant.Text" OnClick="OnRetry">Refresh</MudButton>
+        </MudAlert>
         break;
     case ApiStatus.Unavailable:
         <MudAlert Severity="Severity.Error">
