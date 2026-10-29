@@ -1019,29 +1019,65 @@ and its disabled action/sign-in-required state without synthetic API fixtures. S
 found no warning/error or synchronization-failure lines. This does not establish authenticated
 button acceptance, prepared-PDF quality, indexing or search readiness.
 
-#### Preview Readiness Follow-Up (Local, 2026-10-29)
+#### Preview Readiness Follow-Up (Deployed, 2026-10-29)
 
-The local [Documents UI](../src/CasCap.App.Client/Pages/Documents.razor) now separates storage
+The deployed [Documents UI](../src/CasCap.App.Client/Pages/Documents.razor) now separates storage
 discovery from preview preparation. **Storage scan complete** no longer presents an unqualified
 success alongside queued documents; a separate **Preview preparation is paused** message explains
 the processing gate. Rows distinguish missing preview configuration from waiting for preparation,
 and collapse technical identifiers/raw states without removing authorized review links.
 The catalogue exposes only a safe pinned-configuration boolean, never the preparation plan.
 
-The deployed sources still have no preparation binding or active tenant-local preparation
-definition. Enabling processing alone would select local PDF extraction, not the hybrid preview
-path. Before enabling it, obtain an explicit full-document paid budget, verify the approved
-deployment/revision with the runtime identity, publish/activate the intended definitions, configure
-source bindings and synchronize eligible zero-attempt jobs. Read-only inspection has confirmed
-that the current complete originals fit existing byte/page limits; it has not authorized paid
-requests, changed routing or enabled processing. Full-document execution must also respect the
-bounded worker deadline; uncertain paid outcomes require reconciliation, not blind resubmission.
+The initial sources had neither preparation bindings nor active tenant-local preparation
+definitions. Enabling processing alone would have selected local PDF extraction, not the hybrid
+preview path. Following operator authorization to enable processing and redeploy, the real assigned
+administrator session published and activated a separate tenant-local `2026-10-29.1` definition
+for each initial application, using the shipped `PdfReconciliationV2` template without changing its
+transcription instructions or strict output schema.
+
+Read-only checks using the runtime identity verified the selected account, deployment, exact
+`gpt-5.5` revision `2026-04-24`, Global Standard SKU and Document Intelligence Layout access.
+Preparation uses only the restored credit-backed subscription, with no alternative-subscription
+fallback; existing Blob originals and event transport remain unchanged. Tenant-scoped providers
+explicitly opt into Entra credentials, and their endpoint authority is allowed by the definition
+policy. Coordinates and credentials remain outside this public record.
+
+The complete originals contain 28 and 29 physical pages and fit existing byte/page limits.
+Their source bindings cap preparation at those respective page counts, 8,192 output tokens per
+page, a 180-second request deadline and the worker's 900-second attempt deadline. Empty page
+selections retain every original page. The indicative model-plus-layout estimate is USD 3.48;
+the USD 25 operational allowance is not an enforced billing cap or an invoice guarantee.
+
+The staged rollout kept processing disabled while startup synchronization repaired exactly one
+eligible zero-attempt job per source. Database read-back confirmed both pinned preparation plans,
+zero attempts and zero paid-operation intents before enablement. The Debug deployment then
+enabled processing without changing the repaired jobs or selecting local extraction. Initial
+durable receipts showed Layout completion and sequential page preparation. Both complete documents
+subsequently reached `ReviewRequired`, with one validated Layout result per source and 57 validated
+page results in total. The second document recovered from one `RetryPending` transition, retaining
+its first three completed pages and finishing on its second bounded attempt. No additional Layout
+or duplicate page-operation intents were created. Authenticated browser/API read-back confirmed
+28 and 29 physical pages respectively, including every original page number, and rendered both
+review workbenches. One vocabulary-document page has empty Markdown; source-quality acceptance
+remains an independent human review, not a consequence of successful processing.
+
+Results remain review-required, never automatically approved, embedded, indexed or searchable.
+No immutable review snapshot was created during these read-only preview checks. Uncertain paid
+outcomes require receipt reconciliation, not blind resubmission.
+
+The 57 model receipts report 182,589 input tokens and 55,881 output tokens; the largest page
+response used 2,940 output tokens, below the 8,192 cap. Together with 57 analyzed Layout pages,
+the previously verified retail rates imply approximately USD 3.16 before cache discounts,
+subscription credit, tax and other usage. Reported usage is not an invoice.
 
 The exact offline UI/review/synchronization selection passed 87 cases with zero failed/skipped;
 the full Debug solution built without warnings/errors. A read-only synthetic browser smoke
 verified stage wording, escaping, keyboard-accessible collapsed details, review-link preservation
-and a 390px layout without horizontal page overflow. These changes remain local until a further
-Debug rollout; this evidence does not establish deployed preview quality or searchable content.
+and a 390px layout without horizontal page overflow. The subsequent Debug ARM64 deployment
+completed its EF model-drift check and rolled out the same pinned runtime/migration artifact.
+Runtime replicas were Ready without restarts, and authenticated browser reads confirmed the
+separate discovery/preparation stages, enabled processing and configured previews. These checks
+do not establish independent document-quality acceptance or searchable content.
 
 ### PoC Limits And Deliberately Deferred Polishing
 
