@@ -6,6 +6,8 @@ The built-in preparation-agent runtime is deployed but no preparation definition
 The Debug review-only API and its schema are deployed; real assigned-administrator OIDC acceptance
 remains pending. The first document catalogue/review workbench is deployed in the Debug artifact;
 authorized real-document browser review still requires a prepared test source and administrator acceptance.
+Repeatable source synchronization and its administrator panel are deployed and enabled; the
+ownership-startup scan admitted the previously missing source without enabling preparation.
 **Date:** 2026-10-25.
 **Scope:** Blazor document management, Azure Blob/Event Grid ingestion and tenant-isolated RAG.
 **Canonical record:** This document. Related issues are historical context or implementation tracking,
@@ -973,12 +975,49 @@ replicas before enabling it. Its migration adds only synchronization state and a
 marker. The current [contracts](../src/CasCap.App.Server.Tests/Tests/Integration/DocumentSynchronizationTests.cs)
 exercise SQLite and native PostgreSQL, including migration upgrade, deletion and takeover.
 The [owner-bound clock test](../src/CasCap.App.Server.Tests/Tests/Integration/DocumentIngestionLeadershipTests.cs)
-uses deterministic hourly timing; real Redis renewal and deployed Blob permissions remain separate
-acceptance gates. No deployed reconciliation or prepared-document acceptance is claimed.
+uses deterministic hourly timing; real Redis renewal remains a separate acceptance gate.
+Deployed startup inventory acceptance is recorded below; prepared-document acceptance is not claimed.
 The final offline administration/UI selection passed 92 cases, including authorization,
 antiforgery, tenant isolation, request coalescing and idempotent combined-role options binding.
-The Debug solution builds without warnings/errors. Synchronization-specific interactive browser
-acceptance and deployment remain outstanding.
+The Debug solution builds without warnings/errors. Authenticated synchronization-button confirmation
+and real-document browser quality acceptance remain outstanding.
+
+#### Deployed Startup Acceptance (2026-10-29)
+
+The authorized [Debug deployment](../deploy.ps1) built source `ba53b5c` using sibling project
+references, including the shared coalescing schedule runner consumed by the
+[owned worker](../src/CasCap.App.Server/Services/DocumentIngestionFeature.cs).
+The EF model-drift check passed. The published ARM64 image index is
+`sha256:5957f967d84cab214bf45f3258e5d7d9869c74e113f17e261e3a1d79f16ca0f3`;
+the chart remains `1.2.0`, without chart publication, a package release or a GitHub release.
+The private GitOps rollout pins runtime and migration to that same digest. Its PreSync job applied
+`20261029104131_AddDocumentSynchronization`; both runtime replicas became ready with zero restarts,
+and Argo CD reported Synced/Healthy with a succeeded operation.
+
+The deployment enables synchronization while retaining `ProcessingEnabled=false`.
+The hourly UTC expression remains `0 * * * *`; no temporary accelerated schedule was used.
+The operator selected ownership-startup reconciliation as sufficient live acceptance, not waiting
+for or claiming a live hourly occurrence.
+
+Both source scans finished successfully at approximately `12:16:02 UTC`:
+
+| Configured source | Added | Repaired | Removed | Unchanged | Conflicts |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Previously admitted source | 0 | 0 | 0 | 1 | 0 |
+| Previously unadmitted source | 1 | 0 | 0 | 0 | 0 |
+
+Both durable states have successful timestamps, no pending request and no failure code.
+The database now contains one synchronization-marked document and one queued job per source.
+Every job still has zero attempts and no preparation binding. Preparation-operation, prepared/
+Markdown-generation and text-chunk totals remain zero. No originals were uploaded, replaced or
+deleted; no manual queue replay, RBAC widening or paid-processing enablement was performed.
+
+Per-replica HTTP checks returned Healthy from `/healthz`, 200 from `/status` and the Documents
+shell, and 401 for anonymous synchronization reads. Session responses remained unauthenticated,
+sign-in-required and no-store. A clean browser rendered the deployed Source synchronization panel
+and its disabled action/sign-in-required state without synthetic API fixtures. Startup log checks
+found no warning/error or synchronization-failure lines. This does not establish authenticated
+button acceptance, prepared-PDF quality, indexing or search readiness.
 
 ### PoC Limits And Deliberately Deferred Polishing
 
@@ -991,7 +1030,7 @@ a generalized scheduler or provider framework. The following are not delivered g
 | Full role-composition acceptance | Parsing, fake-runner ownership and existing API tests are local checks; worker-only/combined HTTP surfaces and migration process exit still need isolated host acceptance before deployment |
 | Transport recovery and progress readiness | Job attempts now have a persisted bounded retry policy, but transport retries remain Azure SDK-owned. Exhausted transport/database failures propagate to host supervision; unacknowledged messages return after visibility expiry. Validate restart behavior and add queue-age/progress health before unattended operation |
 | Long admissions and poison lifecycle | One short admission runs at a time, without a lease-renew loop; expiry can redeliver safely through inbox deduplication. Poison enqueue precedes source acknowledgement, so duplicates are possible. Add renewal, retention/replay tooling and limits when latency or poison volume warrants them |
-| Reconciliation rollout | Startup/hourly/manual reconciliation is implemented behind a disabled-by-default gate. Apply the additive migration and validate deployed inventory permissions and administrator behavior before relying on loss recovery |
+| Reconciliation acceptance | The additive migration and enabled owner-startup inventory are verified in the Debug deployment; hourly timing has deterministic local coverage. Authenticated administrator-button acceptance, renewal-loss and broader recovery testing remain separate gates |
 | Source validation and indexing | Local read-only conditional downloads and preparation are verified with the runtime certificate. Pod access, approved production ownership mappings and broader document rights remain unproven; add compatible embeddings and pgvector before claiming RAG |
 | PDF isolation, OCR and layout quality | Synchronous parsing/extraction cannot be interrupted mid-call; byte/page/text/chunk caps are not a hard CPU/memory sandbox. Synthetic column and table counterexamples demonstrate that neither content order nor generic spatial order preserves every layout. Live preparation works, but semantic quality requires independently reviewed, source-pinned expectations before choosing a structure-aware replacement. No-text pages are not distinguished as blank versus scanned; add OCR/review and isolate hostile uploads before broader use |
 | Searchable generation activation | Prepared output is idempotent and claim-fenced, but it is not searchable. Add compatible embeddings and an independently fenced active-generation switch before exposing retrieval; claim identity alone cannot fence external effects |

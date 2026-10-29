@@ -176,4 +176,5 @@ A Debug-only [protected review API](../src/CasCap.App.Server/README.md#protected
 and typed administration-client methods now preview/store/read existing receipt-derived review
 generations. They require a signed-in assigned app administrator and antiforgery protection, not
 open Development access. These controls do not approve indexing. Synchronization has local HTTP
-and static-rendering coverage, but its interactive browser acceptance and deployment remain pending.
+and static-rendering coverage, plus deployed startup reconciliation and anonymous-browser checks.
+Authenticated button acceptance remains pending; processing is still disabled.
