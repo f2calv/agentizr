@@ -213,8 +213,9 @@ receipt/source fencing, cancellation, rollback, timestamps and composite ownersh
 
 The additive `20261028120307_DocumentMarkdownReviewGenerations` migration has been checked and
 applied only to isolated fixture-owned databases, including an upgrade retaining existing paid
-receipts. No deployed database has been migrated. Authorized real-document storage and
-semantic/visual/retrieval acceptance remain separate gates.
+receipts. The separately approved retained local paid ledger also has the review-generation
+migration and two real-document review-required generations. No deployed database has been
+migrated; semantic/visual/retrieval acceptance remains separate.
 
 ### Protected Review Management
 
@@ -249,7 +250,13 @@ The [native HTTP acceptance](../CasCap.App.Server.Tests/Tests/Integration/Postgr
 verifies persisted JSONB source resolution, concurrent retries, ownership fences, source revocation,
 advisory-lock conflicts and post-insert rollback against isolated PostgreSQL. Source lookup
 materializes only persisted fields before adding released-lease defaults in application code.
-This does not establish multi-replica HTTP behavior, real-document persistence or deployed acceptance.
+The separately gated
+[retained-document acceptance](../CasCap.App.Server.Tests/Tests/Integration/RetainedDocumentReviewAcceptanceTests.cs)
+also stores the six retained pages as two review-required generations without repeating preparation:
+23 manual chunks and ten vocabulary chunks match the verified structural projections exactly.
+It preserves source/job records, paid receipts and checked private inputs. Authentication is a
+test cookie stand-in; neither run establishes deployed OIDC, multi-replica behavior or semantic/
+visual approval. The manual's figure associations remain unresolved.
 
 ### Durable Hybrid Preparation
 

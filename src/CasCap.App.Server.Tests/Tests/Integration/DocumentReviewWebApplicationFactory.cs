@@ -9,7 +9,9 @@ using System.Text.Encodings.Web;
 namespace CasCap.IntegrationTests;
 
 /// <summary>Shares the real review-management boundary across SQLite and native PostgreSQL fixtures.</summary>
-internal sealed class DocumentReviewWebApplicationFactory(IDbContextFactory<AgentRuntimeDbContext>? database)
+internal sealed class DocumentReviewWebApplicationFactory(
+    IDbContextFactory<AgentRuntimeDbContext>? database,
+    IReadOnlyList<string>? apps = null)
     : AdministrationSignInWebApplicationFactory
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -17,8 +19,16 @@ internal sealed class DocumentReviewWebApplicationFactory(IDbContextFactory<Agen
         base.ConfigureWebHost(builder);
         builder.ConfigureTestServices(services =>
         {
-            services.PostConfigure<AgentRuntimeConfig>(options => options.Tenants["tenant-a"] = options.Tenants["default"]);
-            services.PostConfigure<AdministrationConfig>(options => options.AppAdministrators["tenant-a"] = [DefaultAppAdministrator]);
+            services.PostConfigure<AgentRuntimeConfig>(options =>
+            {
+                foreach (var app in apps ?? ["tenant-a"])
+                    options.Tenants[app] = options.Tenants["default"];
+            });
+            services.PostConfigure<AdministrationConfig>(options =>
+            {
+                foreach (var app in apps ?? ["tenant-a"])
+                    options.AppAdministrators[app] = [DefaultAppAdministrator];
+            });
             services.RemoveAll<IDbContextFactory<AgentRuntimeDbContext>>();
             services.RemoveAll<DocumentPreparationMarkdownStore>();
             if (database is not null)

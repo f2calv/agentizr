@@ -1804,8 +1804,8 @@ this does not prove full RAG processing.
   checked; full Debug and configuration-restored Release server builds pass with zero warnings/errors.
   This persistence foundation is not an automatic worker action; the separately verified
   authenticated management slice is recorded below. It creates no approved state, legacy text chunks, active
-  pointer, embeddings or search eligibility. The real six-page evidence has not been persisted,
-  and the manual figure/caption association remains unverified.
+  pointer, embeddings or search eligibility. Real six-page persistence is recorded in its separate
+  retained-ledger acceptance below; the manual figure/caption association remains unverified.
 - [x] Prove the review-generation table/service against isolated PostgreSQL on 2026-10-28 with
   [26 native acceptance cases](../src/CasCap.App.Server.Tests/Tests/Integration/PostgresDocumentMarkdownGenerationTests.cs).
   Actual JSONB snapshots preserve provenance, notes and typed identity without recomputing archived
@@ -1858,10 +1858,28 @@ this does not prove full RAG processing.
   workloads/volumes were preserved. No real-document storage, paid call, deployed migration,
   semantic/visual approval, embedding or activation occurred. Multi-replica HTTP review acceptance
   remains unverified.
-- [ ] Persist an explicitly authorized bounded real-document review generation through protected
-  management without treating storage as semantic approval.
-  Resolve visual-enabled manual figure/caption/region associations before approving that material;
-  a review-required record alone cannot permit retrieval or embeddings.
+- [x] Persist an explicitly authorized bounded real-document review generation through protected
+  management without treating storage as semantic approval. On 2026-10-29 the separately gated
+  [retained-ledger acceptance](../src/CasCap.App.Server.Tests/Tests/Integration/RetainedDocumentReviewAcceptanceTests.cs)
+  reused the existing six-page local paid ledger, applied only the additive review-generation
+  migration, and used the production HTTP/controller/store/client pipeline with a test-authenticated
+  administrator. Two immutable review-required generations exactly match the previously verified
+  schema-2/profile-3 projections: 23 device-manual chunks (maximum 302 tokens) and ten vocabulary
+  chunks (maximum 471), with the unchanged 512-token ceiling and 64-token overlap. Preview inserted
+  nothing; retries reused identities and exact reads retained original-PDF hashes and page Markdown.
+  All eight checked private inputs (two PDFs, reviewed page/chunk exports and annotation files),
+  eight preparation receipts, job records and source records remained unchanged. No page-local
+  chunks/generations, runtime runs, new provider requests, embeddings or activation were created.
+  The opt-in case passed on initial storage and a separate repeat run, preserving both generation
+  IDs, timestamps and payloads; 39 shared-host regressions also passed, zero failed/skipped.
+  With the gate disabled, the one acceptance case correctly skips without a running PostgreSQL
+  service. Full Debug solution
+  and restored Release server builds passed with zero warnings/errors. The task-started local
+  PostgreSQL service was stopped; disposable fixture counts returned to baseline and existing
+  workloads/volumes were preserved. Private generation exports and a validation manifest are
+  retained outside Git. This is not deployed cookie/OIDC or multi-replica acceptance.
+- [ ] Resolve visual-enabled manual figure/caption/region associations before approving that
+  material; a review-required record alone cannot permit retrieval or embeddings.
 - [ ] Complete source-block/heading/body mappings and available multi-region/page provenance before
   embedding. Prove source hash/version resolution, no fabricated PDF coordinates after Markdown
   reordering, protected page navigation/highlighting and revocation after replacement/deletion;

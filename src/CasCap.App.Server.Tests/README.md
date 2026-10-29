@@ -415,8 +415,56 @@ The approved selection passed **157 cases**, zero failed/skipped: 13 native HTTP
 persistence cases. Full Debug solution and restored Release server builds passed with zero
 warnings/errors. Fixture database counts returned to baseline; the task-started PostgreSQL service
 was stopped and pre-existing services were preserved. Multi-replica review HTTP acceptance,
-authorized real-document persistence, deployed migration and semantic/visual approval remain
+deployed migration and semantic/visual approval remain
 separate gates. No paid call, embedding, activation or deployment occurred.
+
+#### Retained Real-Document HTTP Acceptance
+
+[`RetainedDocumentReviewAcceptanceTests`](Tests/Integration/RetainedDocumentReviewAcceptanceTests.cs)
+adds **1 method / 1 Debug-only case**, tagged `Integration`, `PostgreSQL` and
+`RetainedDocumentReview`. It is skipped unless `CASCAP_RUN_RETAINED_DOCUMENT_REVIEW=true` after
+explicit approval of both migration and storage in the existing retained local acceptance ledger.
+It never creates/drops that ledger, downloads sources or calls preparation providers.
+The shared host uses the real authorization/antiforgery/controller/store/client pipeline with a
+test administrator cookie stand-in, not deployed OIDC.
+
+Supply these process-only values; keep the connection and private document paths outside Git:
+
+| Variable | Required value |
+| --- | --- |
+| `ConnectionStrings__PostgreSql` | Existing retained ledger on IPv4 loopback, standard local PostgreSQL port, database name beginning `agentizr_acceptance_` |
+| `CASCAP_RUN_RETAINED_DOCUMENT_REVIEW` | `true`, only for the separately approved run |
+| `CASCAP_DOCUMENT_REVIEW_INPUT` | Absolute private original preparation-export directory with the two source PDFs |
+| `CASCAP_DOCUMENT_REVIEW_EXPECTED` | Absolute verified projection directory with both page and chunk JSON exports |
+| `CASCAP_DOCUMENT_REVIEW_ANNOTATIONS` | Absolute private directory with both schema-2 source-review files |
+| `CASCAP_DOCUMENT_REVIEW_OUTPUT` | Fresh absolute private directory for generation exports and validation manifest |
+
+The gate requires exactly two review-required jobs, two source records and eight validated receipts.
+It permits only the additive `20261028120307_DocumentMarkdownReviewGenerations` pending migration,
+or an already-upgraded ledger; other pending migrations fail before writes.
+Source ordinals bind by original PDF hash, not tenant names or file-name guesses.
+Before storage, preview pages and recomputed reviewed projections must match retained evidence.
+Retries reuse immutable identities, reads match the expected projection, and a repeat run requires
+the same retained generation pair without changing its storage timestamps or payloads.
+
+After approval, start only [local PostgreSQL](#persistence-test-services), then run:
+
+```powershell
+dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class CasCap.IntegrationTests.RetainedDocumentReviewAcceptanceTests
+```
+
+The approved run passed **1 case**, zero failed/skipped, and applied only the review-generation
+migration to the retained ledger. It persisted 23 manual chunks (maximum 302 tokens) and ten
+vocabulary chunks (maximum 471), all unfragmented and exactly matching the verified projections
+with the unchanged 512-token ceiling and 64-token overlap. All eight checked input files, eight
+paid receipts, jobs and source records stayed unchanged; no page-local generation/chunk or runtime
+run was created. A separate repeat run passed with no pending migration and the same two generation
+IDs, payloads and timestamps. With opt-in disabled, the one case correctly skipped without a running
+PostgreSQL service. **39 shared-host management regressions** also passed, zero failed/skipped.
+Full Debug solution and restored Release server builds passed with zero warnings/errors.
+Task-started PostgreSQL was stopped; disposable fixture counts returned to baseline and existing
+workloads were preserved. These local review-required generations are not visual/semantic approval,
+embeddings, retrieval eligibility, deployed migration or deployed authentication acceptance.
 
 ### PostgreSQL Prepared Generations
 
@@ -592,6 +640,7 @@ acceptance and protected preview UI remain separate gates in
 | `MarkdownChunking` | 95 Debug-only | Synthetic heading hierarchy, semantic units, reviewed exclusions/structural decisions, cell/source/page spans, identity and complete-input token bounds |
 | `OfflineDocumentReview` | 14 Debug-only | Thirteen synthetic export/coverage checks and one separately approved retained-artifact projection without providers or databases |
 | `LiveDocumentPreparation` | 1 Debug-only | Separately approved real-source/provider acceptance with a retained local ledger; disabled by default |
+| `RetainedDocumentReview` | 1 Debug-only | Separately approved migration and protected HTTP storage of reviewed real-document projections in the retained local ledger; disabled by default |
 | `PreparationProviders` | 22 Debug-only | Real isolated PostgreSQL ledger/recovery and two-host Redis startup/handover; all also `Integration` and `PostgreSQL`, one also `Redis` |
 | `Tenant Isolation` | 38 | Cross-tenant state, JWT permissions, caller mappings, administrator assignment, MCP and provider credentials and identity isolation |
 | `PostgreSQL` | 25 | Definitions, durable state, run history and shared Data Protection keys against local Compose PostgreSQL |
@@ -611,6 +660,7 @@ separately above.
 | Once enabled, missing/invalid live base address, agent name or requested certificate-auth settings | 1 (same case) |
 | Live preparation requires separate approval and `CASCAP_RUN_DOCUMENT_PREPARATION_ACCEPTANCE=true` | 1 Debug-only |
 | Retained-document review requires explicit approval and `CASCAP_RUN_DOCUMENT_OFFLINE_REVIEW=true` | 1 Debug-only |
+| Retained-ledger HTTP storage requires explicit migration/storage approval and `CASCAP_RUN_RETAINED_DOCUMENT_REVIEW=true` | 1 Debug-only |
 
 These are conditional skips, not observed outcomes. PostgreSQL/Redis cases do not automatically
 skip without their services: start the local Compose services or exclude both categories.
@@ -630,7 +680,9 @@ Localhost connection settings use the shared `Test`-environment loader with opti
 `appsettings.Test.json`, test-local overrides, user secrets and final environment-variable overrides.
 Compose credentials are loaded
 from `.env.example` and optional gitignored `.env`, not embedded in test fixtures.
-They never start ad hoc containers, touch the development database or flush Redis. See
+They never start ad hoc containers, touch the development database or flush Redis. The separately
+gated retained-document acceptance is the explicit exception to disposable per-run databases:
+it preserves the operator-selected local paid ledger and its review generations. See
 [Compose definition](../../docker-compose.yml) and
 [persistence setup](../../docs/persistence.md#local-development-and-tests) for startup and cleanup.
 
@@ -698,6 +750,7 @@ Tests/
 │   ├── AgentRunHistoryTests.cs
 │   ├── PostgresAgentStateTests.cs
 │   ├── RedisStateFixture.cs
+│   ├── RetainedDocumentReviewAcceptanceTests.cs
 │   └── TenantSecurityStartupTests.cs
 ├── Local/
 │   ├── LiveAgentRuntimeSmokeTests.cs
