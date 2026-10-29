@@ -34,6 +34,26 @@ public partial class Documents(AdministrationApiClient apiClient, NavigationMana
     private List<BreadcrumbItem> Breadcrumbs =>
         [new("Apps", href: "/"), new(AppId, href: Apps.AppPath(AppId)), new("Documents", href: null, disabled: true)];
 
+    private static string PreparationLabel(DocumentCatalogueItemResponse document) =>
+        document.SourceState == "Deleted" ? "Original removed" : document.JobState switch
+        {
+            "Queued" => document.PreviewConfigured ? "Waiting for preparation" : "Preparation setup required",
+            "Processing" => "Preparing document",
+            "RetryPending" => "Waiting to retry",
+            "ReviewRequired" => document.CanReview ? "Ready for review" : "Review preview unavailable",
+            "Completed" => "Processing complete",
+            "Failed" => "Preparation failed",
+            "ReconciliationRequired" => "Operator reconciliation required",
+            "Ignored" => "Superseded job",
+            null => "No current preparation job",
+            _ => $"Unrecognized preparation state: {document.JobState}",
+        };
+
+    private static string PreviewLabel(DocumentCatalogueItemResponse document) =>
+        document.SourceState == "Deleted" ? "Original removed"
+            : document.JobState is "Queued" or "Processing" or "RetryPending" ? "Not prepared yet"
+            : "No review preview available";
+
     /// <inheritdoc/>
     protected override async Task OnParametersSetAsync()
     {

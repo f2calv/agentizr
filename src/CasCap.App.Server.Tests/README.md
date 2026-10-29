@@ -465,7 +465,7 @@ zero failed/skipped. Fixture database counts return to baseline and task-started
 #### Catalogue And Review Browser Coverage
 
 [`AdministrationDocumentUiTests`](Tests/Integration/AdministrationDocumentUiTests.cs) adds
-**10 methods / 19 Debug-only cases**, tagged `Integration` and `DocumentReviewManagement`.
+**13 methods / 39 Debug-only cases**, tagged `Integration` and `DocumentReviewManagement`.
 The shared [static renderer](Tests/Integration/AdministrationComponentTestRenderer.cs) also serves
 the existing definition UI tests. Synthetic HTTP verifies catalogue reads, escaped source names/
 Markdown, heading context, separate/nonempty notes, exact snapshots without storage controls,
@@ -485,7 +485,17 @@ This is not deployed OIDC acceptance or real-document browser quality approval.
 
 Synchronization adds static-rendering coverage for enabled/mapped gates, progress/conflicts,
 escaped safe failure output and catalogue independence, plus typed-client antiforgery and
-no-retry checks. Its confirmation/click/keyboard/mobile behavior has not been browser-validated.
+no-retry checks. Synchronization-request confirmation and submission have not been browser-validated.
+
+Stage-readiness coverage distinguishes a successful storage scan from paused processing and queued
+jobs with/without pinned preview configuration, including explicit unknown-state labels and
+collapsed technical identifiers. The exact focused selection passed **87 cases**, zero
+failed/skipped: 39 synthetic UI, 35 SQLite review HTTP and 13 synchronization HTTP cases.
+The full Debug solution builds with zero warnings/errors. A loopback browser smoke using synthetic,
+read-only API fixtures verified the paused/setup-required combination, enabled/review-ready
+wording, preserved Preview links, escaped filenames, collapsed details and keyboard expansion.
+At 390px there was no horizontal page overflow with long filenames and 64-character identifiers.
+No mutation requests were made. This is not authenticated deployed or real-document acceptance.
 
 [`AdministrationDocumentSynchronizationTests`](Tests/Integration/AdministrationDocumentSynchronizationTests.cs)
 adds **7 methods / 13 Debug-only cases**, tagged `Integration` and
@@ -726,7 +736,7 @@ acceptance and deployed assigned-administrator browser checks remain separate ga
 | `OfflineDocumentReview` | 14 Debug-only | Thirteen synthetic export/coverage checks and one separately approved retained-artifact projection without providers or databases |
 | `LiveDocumentPreparation` | 1 Debug-only | Separately approved real-source/provider acceptance with a retained local ledger; disabled by default |
 | `RetainedDocumentReview` | 1 Debug-only | Separately approved migration and protected HTTP storage of reviewed real-document projections in the retained local ledger; disabled by default |
-| `DocumentReviewManagement` | 69 Debug-only | 35 SQLite HTTP, 15 native PostgreSQL HTTP and 19 synthetic document UI cases; all also `Integration` |
+| `DocumentReviewManagement` | 89 Debug-only | 35 SQLite HTTP, 15 native PostgreSQL HTTP and 39 synthetic document UI cases; all also `Integration` |
 | `DocumentSynchronizationManagement` | 13 Debug-only | API-only administrator authorization, safe status and coalesced requests; also `Integration` |
 | `DocumentSynchronization` | 23 Debug-only | SQLite/native PostgreSQL inventory, repair, deletion, migration and takeover contracts |
 | `PreparationProviders` | 22 Debug-only | Real isolated PostgreSQL ledger/recovery and two-host Redis startup/handover; all also `Integration` and `PostgreSQL`, one also `Redis` |

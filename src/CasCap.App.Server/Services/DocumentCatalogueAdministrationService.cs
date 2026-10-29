@@ -44,6 +44,7 @@ public sealed class DocumentCatalogueAdministrationService
                 SourceState = document.Status,
                 JobId = job == null ? null : job.Id,
                 JobState = job == null ? null : job.Status,
+                PreviewConfigured = job != null && job.PreparationPlanJson != null,
                 CanReview = job != null && job.Status == DocumentIngestionStates.ReviewRequired
                     && job.ClaimId == null && job.FinishedAtUtc != null && job.PreparationPlanJson != null
                     && document.Status != DocumentIngestionStates.Deleted && document.ETag != null,
@@ -70,6 +71,7 @@ public sealed class DocumentCatalogueAdministrationService
                 SourceState = row.SourceState,
                 JobId = row.JobId,
                 JobState = row.JobState,
+                PreviewConfigured = row.PreviewConfigured,
                 CanReview = row.CanReview,
                 StoredGenerationId = row.StoredGenerationId,
             }).ToArray(),

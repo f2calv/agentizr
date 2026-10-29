@@ -1019,6 +1019,30 @@ and its disabled action/sign-in-required state without synthetic API fixtures. S
 found no warning/error or synchronization-failure lines. This does not establish authenticated
 button acceptance, prepared-PDF quality, indexing or search readiness.
 
+#### Preview Readiness Follow-Up (Local, 2026-10-29)
+
+The local [Documents UI](../src/CasCap.App.Client/Pages/Documents.razor) now separates storage
+discovery from preview preparation. **Storage scan complete** no longer presents an unqualified
+success alongside queued documents; a separate **Preview preparation is paused** message explains
+the processing gate. Rows distinguish missing preview configuration from waiting for preparation,
+and collapse technical identifiers/raw states without removing authorized review links.
+The catalogue exposes only a safe pinned-configuration boolean, never the preparation plan.
+
+The deployed sources still have no preparation binding or active tenant-local preparation
+definition. Enabling processing alone would select local PDF extraction, not the hybrid preview
+path. Before enabling it, obtain an explicit full-document paid budget, verify the approved
+deployment/revision with the runtime identity, publish/activate the intended definitions, configure
+source bindings and synchronize eligible zero-attempt jobs. Read-only inspection has confirmed
+that the current complete originals fit existing byte/page limits; it has not authorized paid
+requests, changed routing or enabled processing. Full-document execution must also respect the
+bounded worker deadline; uncertain paid outcomes require reconciliation, not blind resubmission.
+
+The exact offline UI/review/synchronization selection passed 87 cases with zero failed/skipped;
+the full Debug solution built without warnings/errors. A read-only synthetic browser smoke
+verified stage wording, escaping, keyboard-accessible collapsed details, review-link preservation
+and a 390px layout without horizontal page overflow. These changes remain local until a further
+Debug rollout; this evidence does not establish deployed preview quality or searchable content.
+
 ### PoC Limits And Deliberately Deferred Polishing
 
 This may remain a hobby PoC. Keep the first implementation serial and explicit rather than adding

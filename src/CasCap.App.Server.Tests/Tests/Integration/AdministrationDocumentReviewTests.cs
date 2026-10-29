@@ -93,6 +93,7 @@ public sealed class AdministrationDocumentReviewTests : IAsyncLifetime
         Assert.Equal(_source.JobId, item.JobId);
         Assert.Equal(DocumentIngestionStates.ReviewRequired, item.JobState);
         Assert.True(item.CanReview);
+        Assert.True(item.PreviewConfigured);
         Assert.Null(item.StoredGenerationId);
         var stored = await client.StoreDocumentReviewAsync("tenant-a", _source.CollectionId,
             _source.DocumentId, _source.JobId, Request(), Token);
@@ -310,6 +311,9 @@ public sealed class AdministrationDocumentReviewTests : IAsyncLifetime
             await db.SaveChangesAsync(Token);
         }
         using var http = await ClientAsync();
+        var client = new AdministrationApiClient(http, new AdministrationSessionState());
+        var catalogue = await client.GetDocumentsAsync("tenant-a", null, 1, 25, Token);
+        Assert.Equal(field != "no-plan", Assert.Single(catalogue.Value!.Items).PreviewConfigured);
         using var preview = await http.GetAsync(Path(DocumentReviewRoutes.Source), Token);
         using var write = await http.PostAsJsonAsync(Path(DocumentReviewRoutes.Generations), Request(), Token);
         Assert.Equal(HttpStatusCode.NotFound, preview.StatusCode);

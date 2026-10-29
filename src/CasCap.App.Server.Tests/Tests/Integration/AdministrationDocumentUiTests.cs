@@ -23,7 +23,7 @@ public sealed class AdministrationDocumentUiTests
         using var handler = new Handler();
         var html = await RenderAsync<Documents>(handler, new() { [nameof(Documents.AppId)] = App }, "?collection=manuals");
         Assert.Contains("Documents in app-a", html, StringComparison.Ordinal);
-        Assert.Contains("ReviewRequired", html, StringComparison.Ordinal);
+        Assert.Contains("Ready for review", html, StringComparison.Ordinal);
         Assert.Contains("Stored snapshot", html, StringComparison.Ordinal);
         Assert.Contains("&lt;img", html, StringComparison.Ordinal);
         Assert.DoesNotContain("<img src=x", html, StringComparison.Ordinal);
@@ -110,8 +110,8 @@ public sealed class AdministrationDocumentUiTests
         Assert.Equal(disabled, System.Text.RegularExpressions.Regex.IsMatch(html,
             "<button[^>]*disabled[^>]*>[\\s\\S]*?Sync documents"));
         Assert.Contains("all configured collections", html, StringComparison.Ordinal);
-        Assert.Contains("Document processing is disabled", html, StringComparison.Ordinal);
-        Assert.Contains("cannot prepare previews", html, StringComparison.Ordinal);
+        Assert.Contains("Preview preparation is paused", html, StringComparison.Ordinal);
+        Assert.Contains("does not prepare previews", html, StringComparison.Ordinal);
         if (!enabled)
             Assert.Contains("synchronization is disabled", html, StringComparison.Ordinal);
         if (!mapped)
@@ -125,9 +125,9 @@ public sealed class AdministrationDocumentUiTests
         using var handler = new Handler { SynchronizationConflict = true };
         var html = await RenderAsync<Documents>(handler, new() { [nameof(Documents.AppId)] = App }, string.Empty);
         Assert.Contains("Last successful scan", html, StringComparison.Ordinal);
-        Assert.Contains("Added: 1", html, StringComparison.Ordinal);
-        Assert.Contains("Repaired: 2", html, StringComparison.Ordinal);
-        Assert.Contains("Removed: 3", html, StringComparison.Ordinal);
+        Assert.Contains("PDFs added: 1", html, StringComparison.Ordinal);
+        Assert.Contains("Work items repaired: 2", html, StringComparison.Ordinal);
+        Assert.Contains("Missing PDFs removed: 3", html, StringComparison.Ordinal);
         Assert.Contains("Unchanged: 4", html, StringComparison.Ordinal);
         Assert.Contains("Conflicts: 5", html, StringComparison.Ordinal);
         Assert.Contains("does not mean every discrepancy", html, StringComparison.Ordinal);
@@ -165,6 +165,67 @@ public sealed class AdministrationDocumentUiTests
         Assert.True(handler.MutationWasProtected);
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task Catalogue_DistinguishesStorageScanFromPreviewPreparation(bool processing, bool configured)
+    {
+        // Regression: a successful storage scan must not imply the queued PDF has been prepared.
+        using var handler = new Handler
+        {
+            ProcessingEnabled = processing,
+            PreviewConfigured = configured,
+            JobState = "Queued",
+        };
+        var html = await RenderAsync<Documents>(handler, new() { [nameof(Documents.AppId)] = App }, string.Empty);
+        Assert.Contains("manuals: Storage scan complete", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("manuals: Succeeded", html, StringComparison.Ordinal);
+        Assert.Contains("does not mean document previews have been prepared", html, StringComparison.Ordinal);
+        Assert.Contains(configured ? "Waiting for preparation" : "Preparation setup required", html, StringComparison.Ordinal);
+        Assert.Contains("Not prepared yet", html, StringComparison.Ordinal);
+        Assert.Equal(!processing, html.Contains("Preview preparation is paused", StringComparison.Ordinal));
+        Assert.Equal(processing, html.Contains("Document processing is enabled", StringComparison.Ordinal));
+        Assert.Matches("<details[^>]*>\\s*<summary[^>]*>Technical details</summary>[\\s\\S]*?example-document[\\s\\S]*?</details>", html);
+        Assert.DoesNotMatch("<details[^>]*\\bopen\\b", html);
+        Assert.All(handler.Requests, request => Assert.StartsWith("GET ", request, StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("NotRun", "Storage not yet scanned")]
+    [InlineData("Queued", "Storage scan queued")]
+    [InlineData("Running", "Storage scan in progress")]
+    [InlineData("Succeeded", "Storage scan complete")]
+    [InlineData("Failed", "Storage scan failed")]
+    [InlineData("Unexpected", "Unrecognized storage scan state: Unexpected")]
+    public async Task Synchronization_LabelsOnlyStorageProgress(string state, string expected)
+    {
+        using var handler = new Handler { SynchronizationState = state };
+        var html = await RenderAsync<Documents>(handler, new() { [nameof(Documents.AppId)] = App }, string.Empty);
+        Assert.Contains(expected, html, StringComparison.Ordinal);
+        Assert.Contains("Every hour (UTC)", html, StringComparison.Ordinal);
+        Assert.Contains("2. Prepare document previews", html, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("Processing", "Queued", "Preparing document")]
+    [InlineData("RetryPending", "Queued", "Waiting to retry")]
+    [InlineData("ReviewRequired", "Queued", "Ready for review")]
+    [InlineData("Completed", "Queued", "Processing complete")]
+    [InlineData("Failed", "Queued", "Preparation failed")]
+    [InlineData("ReconciliationRequired", "Queued", "Operator reconciliation required")]
+    [InlineData("Ignored", "Queued", "Superseded job")]
+    [InlineData(null, "Queued", "No current preparation job")]
+    [InlineData("Unexpected", "Queued", "Unrecognized preparation state: Unexpected")]
+    [InlineData("Queued", "Deleted", "Original removed")]
+    public async Task Catalogue_LabelsPreparationStates(string? state, string sourceState, string expected)
+    {
+        using var handler = new Handler { JobState = state, SourceState = sourceState };
+        var html = await RenderAsync<Documents>(handler, new() { [nameof(Documents.AppId)] = App }, string.Empty);
+        Assert.Contains(expected, html, StringComparison.Ordinal);
+    }
+
     private static Dictionary<string, object?> Parameters() => new()
     {
         [nameof(DocumentReview.AppId)] = App,
@@ -195,6 +256,16 @@ public sealed class AdministrationDocumentUiTests
 
         public bool SynchronizationConflict { get; init; }
 
+        public string SynchronizationState { get; init; } = "Succeeded";
+
+        public bool ProcessingEnabled { get; init; }
+
+        public string? JobState { get; init; } = "ReviewRequired";
+
+        public string SourceState { get; init; } = "Queued";
+
+        public bool PreviewConfigured { get; init; } = true;
+
         public HttpStatusCode? MutationFailure { get; init; }
 
         public bool MutationWasProtected { get; private set; }
@@ -224,11 +295,12 @@ public sealed class AdministrationDocumentUiTests
                         DocumentId = Document,
                         CollectionId = Collection,
                         FileName = "<img src=x onerror=alert(1)>.pdf",
-                        SourceState = "Queued",
+                        SourceState = SourceState,
                         JobId = Job,
-                        JobState = "ReviewRequired",
-                        CanReview = true,
-                        StoredGenerationId = "example-generation",
+                        JobState = JobState,
+                        PreviewConfigured = PreviewConfigured,
+                        CanReview = JobState == "ReviewRequired" && SourceState != "Deleted",
+                        StoredGenerationId = JobState == "ReviewRequired" ? "example-generation" : null,
                     }],
                 }
                 : Review();
@@ -238,6 +310,7 @@ public sealed class AdministrationDocumentUiTests
         private DocumentSynchronizationResponse Synchronization() => new()
         {
             Enabled = SynchronizationEnabled,
+            ProcessingEnabled = ProcessingEnabled,
             Cron = "0 * * * *",
             Sources = !SynchronizationMapped ? [] :
             [
@@ -245,7 +318,7 @@ public sealed class AdministrationDocumentUiTests
                 {
                     SourceId = "synthetic-source",
                     CollectionId = SynchronizationConflict ? "<script>" : Collection,
-                    State = SynchronizationConflict ? "Failed" : "Queued",
+                    State = SynchronizationConflict ? "Failed" : SynchronizationState,
                     AddedCount = 1,
                     RepairedCount = 2,
                     RemovedCount = 3,

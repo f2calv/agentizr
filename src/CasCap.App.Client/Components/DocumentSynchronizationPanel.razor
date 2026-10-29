@@ -1,12 +1,13 @@
 @inherits CancellableComponentBase
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="my-3">
-    <MudText Typo="Typo.h6" HtmlTag="h2">Source synchronization</MudText>
+    <MudText Typo="Typo.h6" HtmlTag="h2">1. Discover PDFs in storage</MudText>
     <MudButton OnClick="SynchronizeAsync" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Sync"
                Disabled="@(_busy || _result?.Value is not { Enabled: true, Sources.Count: > 0 })">
         Sync documents
     </MudButton>
 </MudStack>
+<MudText Typo="Typo.body2">Sync checks Blob Storage and registers PDFs. A completed storage scan does not mean document previews have been prepared.</MudText>
 @if (_result is null)
 {
     <MudProgressLinear Indeterminate="true" aria-label="Loading synchronization status" Class="my-3" />
@@ -21,11 +22,7 @@ else if (_result.Value is { } synchronization)
     {
         <MudAlert Severity="Severity.Info" Class="my-3">Document synchronization is disabled until the migration and compatible worker rollout are ready.</MudAlert>
     }
-    @if (!synchronization.ProcessingEnabled)
-    {
-        <MudAlert Severity="Severity.Info" Class="my-3">Document processing is disabled. Sync can register PDFs, but cannot prepare previews or make them searchable.</MudAlert>
-    }
-    <MudText Typo="Typo.body2">UTC schedule: <code>@synchronization.Cron</code>. Sync covers all configured collections in this app. Use Refresh to check progress.</MudText>
+    <MudText Typo="Typo.body2">Storage scan schedule: @ScheduleLabel(synchronization.Cron). Sync covers all configured collections in this app. Use Refresh to check progress.</MudText>
     @if (synchronization.Sources.Count == 0)
     {
         <MudAlert Severity="Severity.Info" Class="my-3">No source containers are configured for this app.</MudAlert>
@@ -34,10 +31,13 @@ else if (_result.Value is { } synchronization)
         @foreach (var source in synchronization.Sources)
         {
             <MudPaper Outlined="true" Class="pa-3" @key="source.SourceId">
-                <MudText Typo="Typo.subtitle2">@source.CollectionId: @source.State</MudText>
-                <MudText Typo="Typo.caption">Source @source.SourceId</MudText>
-                <MudText Typo="Typo.body2">Added: @source.AddedCount; Repaired: @source.RepairedCount; Removed: @source.RemovedCount; Unchanged: @source.UnchangedCount; Conflicts: @source.ConflictCount</MudText>
+                <MudText Typo="Typo.subtitle2">@source.CollectionId: @ScanLabel(source.State)</MudText>
+                <MudText Typo="Typo.body2">Latest scan - PDFs added: @source.AddedCount; Work items repaired: @source.RepairedCount; Missing PDFs removed: @source.RemovedCount; Unchanged: @source.UnchangedCount; Conflicts: @source.ConflictCount</MudText>
                 <MudText Typo="Typo.body2">Last successful scan: @TimeLabel(source.LastSucceededAtUtc)</MudText>
+                <details class="mt-2">
+                    <summary>Scan technical details</summary>
+                    <MudText Typo="Typo.caption">Source ID: <code>@source.SourceId</code>; scan state: @source.State</MudText>
+                </details>
                 @if (source.ConflictCount > 0)
                 {
                     <MudAlert Severity="Severity.Warning" Class="mt-2">Some observations conflicted with concurrent changes or deleted source names. A successful scan does not mean every discrepancy was repaired.</MudAlert>
@@ -49,10 +49,27 @@ else if (_result.Value is { } synchronization)
             </MudPaper>
         }
     </MudStack>
+    <MudText Typo="Typo.h6" HtmlTag="h2">2. Prepare document previews</MudText>
+    @if (!synchronization.ProcessingEnabled)
+    {
+        <MudAlert Severity="Severity.Warning" Class="my-3">
+            Preview preparation is paused because document processing is disabled.
+            Storage scans can complete successfully while documents remain queued.
+            An administrator must configure an approved preparation agent and budgets, then enable processing.
+            Sync documents does not prepare previews or enable search.
+        </MudAlert>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info" Class="my-3">
+            Document processing is enabled. Each document still needs preview configuration and a finished preparation job before Preview is available.
+            Prepared previews require review and are not searchable.
+        </MudAlert>
+    }
 }
 @if (_request is { IsSuccess: true })
 {
-    <MudAlert Severity="Severity.Success" Class="my-3">Sync request accepted. The elected worker will handle it; no document processing was run by this request. Use Refresh to check progress.</MudAlert>
+    <MudAlert Severity="Severity.Info" Class="my-3">Storage scan requested, not completed. The elected worker will handle it; this request does not prepare previews. Use Refresh to check progress.</MudAlert>
 }
 else if (_request is { } failedRequest)
 {

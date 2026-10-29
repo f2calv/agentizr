@@ -75,6 +75,19 @@ public partial class DocumentSynchronizationPanel(
     private static string TimeLabel(DateTimeOffset? timestamp) =>
         timestamp?.UtcDateTime.ToString("yyyy-MM-dd HH:mm 'UTC'", CultureInfo.InvariantCulture) ?? "Not yet";
 
+    private static string ScanLabel(string state) => state switch
+    {
+        "NotRun" => "Storage not yet scanned",
+        "Queued" => "Storage scan queued",
+        "Running" => "Storage scan in progress",
+        "Succeeded" => "Storage scan complete",
+        "Failed" => "Storage scan failed",
+        _ => $"Unrecognized storage scan state: {state}",
+    };
+
+    private static string ScheduleLabel(string cron) =>
+        cron == "0 * * * *" ? "Every hour (UTC)" : $"UTC cron: {cron}";
+
     /// <inheritdoc/>
     protected override void Dispose(bool disposing)
     {

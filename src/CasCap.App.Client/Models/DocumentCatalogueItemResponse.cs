@@ -27,6 +27,10 @@ public sealed record DocumentCatalogueItemResponse
     /// <example>ReviewRequired</example>
     public string? JobState { get; init; }
 
+    /// <summary>Gets whether the current job has pinned preview preparation configuration; not execution or search readiness.</summary>
+    /// <example>false</example>
+    public bool PreviewConfigured { get; init; }
+
     /// <summary>Gets whether the observed job can currently be previewed; the review API rechecks this independently.</summary>
     /// <example>true</example>
     public bool CanReview { get; init; }

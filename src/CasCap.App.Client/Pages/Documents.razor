@@ -6,8 +6,9 @@
 <MudBreadcrumbs Items="Breadcrumbs" />
 <MudText Typo="Typo.h4" HtmlTag="h1">Documents in @AppId</MudText>
 <MudAlert Severity="Severity.Info" Class="my-4">
-    This Debug catalogue lists admitted sources, not everything in Blob Storage.
-    Admission, preparation and stored review snapshots do not mean a document is searchable.
+    PDFs are discovered in Blob Storage first, then prepared separately for review.
+    This Debug catalogue lists registered documents, not everything in Blob Storage.
+    Neither a completed storage scan nor a prepared preview means a document is searchable.
     Upload, replacement, deletion and approval are not available in this slice.
 </MudAlert>
 <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="my-4">
@@ -18,7 +19,7 @@
 
 <DocumentSynchronizationPanel AppId="@AppId" RefreshVersion="_refreshVersion" />
 
-<MudText Typo="Typo.h6" HtmlTag="h2">Admitted documents</MudText>
+<MudText Typo="Typo.h6" HtmlTag="h2">Documents and preview readiness</MudText>
 
 @if (_result is null)
 {
@@ -37,21 +38,20 @@ else
     <MudSimpleTable Hover="true" Dense="true">
         <thead>
             <tr>
-                <th>Source</th>
+                <th>Document</th>
                 <th>Collection</th>
-                <th>Admission</th>
-                <th>Current job</th>
-                <th>Review</th>
+                <th>Preparation</th>
+                <th>Preview</th>
+                <th>Details</th>
             </tr>
         </thead>
         <tbody>
             @foreach (var document in page.Items)
             {
                 <tr @key="(document.DocumentId, document.JobId)">
-                    <td>@document.FileName <small>@document.DocumentId</small></td>
+                    <td class="document-name">@document.FileName</td>
                     <td>@document.CollectionId</td>
-                    <td>@document.SourceState</td>
-                    <td>@(document.JobState ?? "No current job") <small>@document.JobId</small></td>
+                    <td>@PreparationLabel(document)</td>
                     <td>
                         @if (document.CanReview && document.JobId is { } jobId)
                         {
@@ -63,8 +63,19 @@ else
                         }
                         else
                         {
-                            <span>Not reviewable</span>
+                            <span>@PreviewLabel(document)</span>
                         }
+                    </td>
+                    <td>
+                        <details>
+                            <summary>Technical details</summary>
+                            <dl class="document-identifiers">
+                                <dt>Document ID</dt><dd>@document.DocumentId</dd>
+                                <dt>Source state</dt><dd>@document.SourceState</dd>
+                                <dt>Job ID</dt><dd>@(document.JobId ?? "None")</dd>
+                                <dt>Job state</dt><dd>@(document.JobState ?? "None")</dd>
+                            </dl>
+                        </details>
                     </td>
                 </tr>
             }

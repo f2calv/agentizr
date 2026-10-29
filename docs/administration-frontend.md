@@ -112,7 +112,10 @@ The durable worker binding and quality gates remain pending in
 
 In a Debug host, open an app and select **Documents**. This lists admitted database sources,
 not every file in Blob Storage. Filter by exact collection ID; collection and page are kept in the URL.
-Rows distinguish source admission from the current job and offer **Preview** or **Stored snapshot**
+Rows show human-readable preparation and preview readiness; document/job identifiers and raw
+states are collapsed under **Technical details**. **Preparation setup required** means the queued
+job has no pinned preview configuration; **Waiting for preparation** means configuration is pinned,
+not that processing has run. **Preview** or **Stored snapshot** appears
 only when the source has a finished, released review-required job. The server rechecks ownership
 and current-source fences for every review operation; a catalogue link is not an authorization grant.
 
@@ -122,8 +125,11 @@ have their stored chunks/review content removed; original blobs are never change
 unmapped synchronization cannot be requested. Requests coalesce and return accepted before work
 finishes; use **Refresh** to read counts, conflicts, timestamps and safe failure status. There is
 no polling or automatic mutation retry. A successful scan can still contain conflicts.
-Processing-disabled status means synchronization can register PDFs without producing previews;
-neither this button nor catalogue admission enables paid processing or search.
+The panel separates **1. Discover PDFs in storage** from **2. Prepare document previews**.
+**Storage scan complete** describes discovery only, while **Preview preparation is paused**
+explains why documents can remain queued. Scan identifiers and raw states are collapsed under
+**Scan technical details**. Enabling processing still requires approved preparation configuration
+and budgets; neither this button nor catalogue admission enables paid processing or search.
 
 The workbench reads existing validated artifacts without another preparation/model request.
 Physical-page Markdown and heading-aware chunk text are escaped source text, so source HTML,

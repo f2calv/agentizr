@@ -54,6 +54,7 @@ for provider requirements and the still-pending durable-worker integration.
 | [`DocumentReviewRoutes`](Constants/DocumentReviewRoutes.cs) | Source/job-qualified preview and immutable review-generation routes |
 | [`DocumentCatalogueRoutes`](Constants/DocumentCatalogueRoutes.cs) | App-qualified admitted-source discovery and synchronization routes |
 | [`DocumentCataloguePageResponse`](Models/DocumentCataloguePageResponse.cs) | Bounded source metadata, current-job review availability and stored-generation identity |
+| [`DocumentCatalogueItemResponse`](Models/DocumentCatalogueItemResponse.cs) | Per-document preparation state and a safe `PreviewConfigured` flag; pinned configuration is not a finished preview |
 | [`DocumentSynchronizationResponse`](Models/DocumentSynchronizationResponse.cs) | Synchronization/processing gates, UTC cron and configured-source progress |
 | [`DocumentSynchronizationSourceResponse`](Models/DocumentSynchronizationSourceResponse.cs) | Safe counts, conflicts, timestamps and failure codes without Blob coordinates |
 | [`DocumentReviewGenerationRequest`](Models/DocumentReviewGenerationRequest.cs) | Observed source revision, token budgets and optional versioned structural decisions |
@@ -83,8 +84,11 @@ collections in the app, not the current filter. Confirmation explains that confi
 lose stored chunks/review content; original blobs are unchanged. Disabled/unmapped sources prevent
 submission. A 202 response means the request was persisted, not completed. **Refresh** reads progress
 without polling or automatically retrying a mutation; conflicts can remain after a successful scan.
-Processing-disabled status explains why admitted PDFs may still lack previews. Synchronization
-does not enable paid processing or search.
+Separate discovery/preparation headings distinguish **Storage scan complete** from
+**Preview preparation is paused**. Queued rows distinguish **Preparation setup required** from
+**Waiting for preparation** using the pinned-configuration flag; neither means a preview exists.
+Technical identifiers and raw states are collapsed, with readable document/preparation labels
+remaining visible. Synchronization does not enable paid processing or search.
 
 ## Dependencies
 

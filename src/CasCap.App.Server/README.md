@@ -261,7 +261,11 @@ The [catalogue controller](Controllers/AdministrationDocumentsController.cs) exp
 The collection filter is optional; page is 1-10,000 and page size is 1-100. Its
 [query service](Services/DocumentCatalogueAdministrationService.cs) reads bounded metadata for
 admitted sources, their current jobs and a current-source stored-generation identity. It never
-loads receipt/content payloads or returns Blob URIs and plans. Admission state is not indexing state.
+loads receipt/content payloads or returns Blob URIs and plans.
+[`DocumentCatalogueItemResponse.PreviewConfigured`](../CasCap.App.Client/Models/DocumentCatalogueItemResponse.cs)
+reports only whether the current job has a pinned preparation plan. It does not assert that
+processing is enabled, the plan has executed or a review preview exists. Admission state is not
+indexing state.
 
 The [synchronization controller](Controllers/AdministrationDocumentSynchronizationController.cs)
 uses the same cookie/assignment policies, antiforgery protection and no-store responses:

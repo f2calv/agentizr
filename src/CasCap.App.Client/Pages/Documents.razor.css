@@ -1,4 +1,8 @@
-small {
-    display: block;
+.document-name,
+.document-identifiers {
     overflow-wrap: anywhere;
+}
+
+.document-name {
+    max-width: 28rem;
 }
