@@ -245,6 +245,12 @@ decision identities, not authenticated actor records or semantic approvals; appr
 remain separate work. There is no document-review screen yet. See the
 [manual requests](../../requests/document-reviews.http) for the cookie/antiforgery prerequisites.
 
+The [native HTTP acceptance](../CasCap.App.Server.Tests/Tests/Integration/PostgresAdministrationDocumentReviewTests.cs)
+verifies persisted JSONB source resolution, concurrent retries, ownership fences, source revocation,
+advisory-lock conflicts and post-insert rollback against isolated PostgreSQL. Source lookup
+materializes only persisted fields before adding released-lease defaults in application code.
+This does not establish multi-replica HTTP behavior, real-document persistence or deployed acceptance.
+
 ### Durable Hybrid Preparation
 
 Agentizr ships the [`document-preparation` definition template](Constants/DocumentPreparationAgentTemplate.cs)

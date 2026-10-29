@@ -34,6 +34,19 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
         new PooledDbContextFactory<AgentRuntimeDbContext>(new DbContextOptionsBuilder<AgentRuntimeDbContext>()
             .UseNpgsql(ConnectionString).AddInterceptors(interceptors).Options);
 
+    /// <summary>Waits for an actual blocked advisory lock in this fixture's database, not an arbitrary timing delay.</summary>
+    internal async Task WaitForBlockedAdvisoryLockAsync(CancellationToken cancellationToken)
+    {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(15));
+        await using var db = DbContextFactory.CreateDbContext();
+        while (!await db.Database.SqlQuery<bool>($"""
+            SELECT EXISTS(SELECT 1 FROM pg_locks locks JOIN pg_stat_activity activity ON activity.pid = locks.pid
+                WHERE activity.datname = current_database() AND locks.locktype = 'advisory' AND NOT locks.granted) AS "Value"
+            """).SingleAsync(deadline.Token))
+            await Task.Delay(TimeSpan.FromMilliseconds(20), deadline.Token);
+    }
+
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {

@@ -325,17 +325,7 @@ public sealed class PostgresDocumentMarkdownGenerationTests : IAsyncLifetime
         Assert.Equal(expected, await db.DocumentMarkdownGenerations.CountAsync(Token));
     }
 
-    private async Task WaitForBlockedAdvisoryLockAsync()
-    {
-        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(Token);
-        deadline.CancelAfter(TimeSpan.FromSeconds(15));
-        await using var db = _database.DbContextFactory.CreateDbContext();
-        while (!await db.Database.SqlQuery<bool>($"""
-            SELECT EXISTS(SELECT 1 FROM pg_locks locks JOIN pg_stat_activity activity ON activity.pid = locks.pid
-                WHERE activity.datname = current_database() AND locks.locktype = 'advisory' AND NOT locks.granted) AS "Value"
-            """).SingleAsync(deadline.Token))
-            await Task.Delay(TimeSpan.FromMilliseconds(20), deadline.Token);
-    }
+    private Task WaitForBlockedAdvisoryLockAsync() => _database.WaitForBlockedAdvisoryLockAsync(Token);
 
     private sealed class SaveCheckpoint(Func<AgentRuntimeDbContext, CancellationToken, Task> saved) : SaveChangesInterceptor
     {

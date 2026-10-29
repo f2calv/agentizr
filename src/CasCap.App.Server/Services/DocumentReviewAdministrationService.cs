@@ -105,10 +105,24 @@ public sealed class DocumentReviewAdministrationService
     private async Task<DocumentIngestionClaim?> SourceAsync(string collectionId, string documentId, string jobId, CancellationToken token)
     {
         await using var db = await _dbContextFactory!.CreateDbContextAsync(token);
-        return await SourceQuery(db, _tenantContext.TenantId, collectionId, documentId, jobId).SingleOrDefaultAsync(token);
+        var tenant = _tenantContext.TenantId;
+        var source = await SourceQuery(db, tenant, collectionId, documentId, jobId).SingleOrDefaultAsync(token);
+        return source is null ? null : new()
+        {
+            JobId = source.JobId,
+            TenantId = tenant,
+            CollectionId = collectionId,
+            DocumentId = documentId,
+            Sequencer = source.Sequencer,
+            ETag = source.ETag,
+            BlobUri = source.BlobUri,
+            PreparationPlanJson = source.PreparationPlanJson,
+            ClaimId = Guid.Empty,
+            ExpiresAtUtc = DateTimeOffset.MinValue,
+        };
     }
 
-    internal static IQueryable<DocumentIngestionClaim> SourceQuery(
+    internal static IQueryable<DocumentReviewSource> SourceQuery(
         AgentRuntimeDbContext db, string tenant, string collectionId, string documentId, string jobId) =>
         from job in db.DocumentIngestionJobs.AsNoTracking()
         join document in db.KnowledgeDocuments.AsNoTracking() on job.DocumentId equals document.Id
@@ -118,19 +132,7 @@ public sealed class DocumentReviewAdministrationService
             && job.Sequencer == document.Sequencer && document.Status != DocumentIngestionStates.Deleted
             && job.Status == DocumentIngestionStates.ReviewRequired && job.ClaimId == null
             && job.FinishedAtUtc != null && job.PreparationPlanJson != null && document.ETag != null
-        select new DocumentIngestionClaim
-        {
-            JobId = job.Id,
-            TenantId = tenant,
-            CollectionId = collectionId,
-            DocumentId = documentId,
-            Sequencer = job.Sequencer,
-            ETag = document.ETag,
-            BlobUri = document.BlobUri,
-            PreparationPlanJson = job.PreparationPlanJson,
-            ClaimId = Guid.Empty,
-            ExpiresAtUtc = DateTimeOffset.MinValue,
-        };
+        select new DocumentReviewSource(job.Id, job.Sequencer, job.PreparationPlanJson!, document.BlobUri, document.ETag!);
 
     private static DocumentReviewGenerationResponse Response(
         DocumentIngestionClaim source, DocumentMarkdownReviewGeneration snapshot, string? id) =>

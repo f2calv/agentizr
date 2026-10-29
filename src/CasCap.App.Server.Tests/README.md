@@ -389,8 +389,34 @@ dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter
 ```
 
 The focused selection passed **94 cases**, zero failed/skipped: 26 new management, 47 existing
-SQLite generation and 21 existing administration cases. PostgreSQL HTTP/replica acceptance and
-authorized real-document persistence remain separate gates.
+SQLite generation and 21 existing administration cases.
+
+[`PostgresAdministrationDocumentReviewTests`](Tests/Integration/PostgresAdministrationDocumentReviewTests.cs)
+adds **6 methods / 13 Debug-only cases**, also tagged `PostgreSQL`. Both management classes reuse
+the [cookie-authenticated host](Tests/Integration/DocumentReviewWebApplicationFactory.cs), with
+per-fixture native databases for this class. Synthetic preparation uses fake providers, not Azure.
+Native coverage verifies JSONB source-plan materialization, eight-way immutable retries, profile
+append, ownership fences, retained-receipt identity and source replacement/deletion revocation.
+Observed advisory-lock waiters and save checkpoints verify 409 on source loss, post-insert
+rollback on failure/source loss and a clean retry; missing/corrupt receipts remain 500.
+The first native run exposed a GUID reader mismatch from synthetic lease defaults in a SQL
+projection. Source lookup now materializes persisted fields before constructing those defaults;
+offline translation and SQLite execution alone did not prove native reader compatibility.
+
+After approval, start only the required [local PostgreSQL service](#persistence-test-services),
+preserving existing workloads and volumes, then run:
+
+```powershell
+dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class CasCap.IntegrationTests.PostgresAdministrationDocumentReviewTests CasCap.IntegrationTests.AdministrationDocumentReviewTests CasCap.IntegrationTests.AdministrationApiTests CasCap.IntegrationTests.AdministrationSignInTests CasCap.Tests.Integration.DocumentMarkdownGenerationTests CasCap.Tests.Integration.PostgresDocumentMarkdownGenerationTests CasCap.Tests.Integration.PostgresDocumentPreparationPersistenceTests
+```
+
+The approved selection passed **157 cases**, zero failed/skipped: 13 native HTTP, 26 SQLite HTTP,
+21 existing administration, 47 SQLite generation, 26 native generation and 24 native page-local
+persistence cases. Full Debug solution and restored Release server builds passed with zero
+warnings/errors. Fixture database counts returned to baseline; the task-started PostgreSQL service
+was stopped and pre-existing services were preserved. Multi-replica review HTTP acceptance,
+authorized real-document persistence, deployed migration and semantic/visual approval remain
+separate gates. No paid call, embedding, activation or deployment occurred.
 
 ### PostgreSQL Prepared Generations
 
@@ -660,10 +686,12 @@ Tests/
 │   ├── DocumentPreparationLiveAcceptanceTests.cs
 │   ├── DocumentPreparationPersistenceTests.cs
 │   ├── DocumentPreparationProviderTests.cs
+│   ├── DocumentReviewWebApplicationFactory.cs
 │   ├── HostIntegrationCollection.cs
 │   ├── McpAgentizrWebApplicationFactory.cs
 │   ├── PostgreSqlFixture.cs
 │   ├── PostgresAgentDefinitionStoreIntegrationTests.cs
+│   ├── PostgresAdministrationDocumentReviewTests.cs
 │   ├── PostgresDocumentPreparationIntegrationTests.cs
 │   ├── PostgresDocumentMarkdownGenerationTests.cs
 │   ├── PostgresDocumentPreparationPersistenceTests.cs

@@ -1842,9 +1842,22 @@ this does not prove full RAG processing.
   and restored Release server builds pass with zero warnings/errors. Review identifiers
   remain structural metadata, not trusted actor attribution or semantic approval. No screen,
   real-document storage, paid call, applied deployment migration, embedding or activation occurred.
-- [ ] Prove the protected HTTP management boundary against isolated PostgreSQL, including source
-  resolution from persisted JSONB plans and source loss between preview, storage and read. The
-  existing native store acceptance and offline query translation do not replace this host-level gate.
+- [x] Prove the protected HTTP management boundary against isolated PostgreSQL on 2026-10-29 with
+  [13 native HTTP cases](../src/CasCap.App.Server.Tests/Tests/Integration/PostgresAdministrationDocumentReviewTests.cs).
+  Persisted JSONB plans resolve through authorized source metadata; eight-way retries preserve
+  immutable receipts, profile changes append generations, and wrong ownership cannot read/write.
+  Replacement/deletion revokes preview and historical reads. Observed advisory-lock waiters and
+  post-insert checkpoints prove conflict/rollback behavior, clean retries and corruption as a
+  server error. The first native execution exposed a GUID reader mismatch from synthetic lease
+  defaults in the source projection: only persisted fields now materialize from SQL, and released
+  lease defaults are added afterward. Successful offline translation alone did not establish
+  native materialization. The combined HTTP, administration and native/SQLite persistence selection
+  passes **157 cases**, zero failed/skipped. Full Debug solution and restored Release server builds
+  pass with zero warnings/errors. Only random fixture-owned local databases were migrated/removed;
+  their count returned to baseline, the task-started PostgreSQL service was stopped, and existing
+  workloads/volumes were preserved. No real-document storage, paid call, deployed migration,
+  semantic/visual approval, embedding or activation occurred. Multi-replica HTTP review acceptance
+  remains unverified.
 - [ ] Persist an explicitly authorized bounded real-document review generation through protected
   management without treating storage as semantic approval.
   Resolve visual-enabled manual figure/caption/region associations before approving that material;

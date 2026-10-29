@@ -4,13 +4,8 @@ using CasCap.Client.Models;
 using CasCap.Client.Services;
 using CasCap.Constants;
 using CasCap.Tests;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using System.Security.Claims;
-using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace CasCap.IntegrationTests;
@@ -24,7 +19,7 @@ public sealed class AdministrationDocumentReviewTests : IAsyncLifetime
     private readonly SqliteConnection _connection = new("Data Source=:memory:;Foreign Keys=True");
     private readonly DocumentHybridPreparationTestData.Provider _provider = new();
     private Factory _database = null!;
-    private ReviewHost _host = null!;
+    private DocumentReviewWebApplicationFactory _host = null!;
     private DocumentIngestionClaim _source = null!;
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
@@ -265,7 +260,7 @@ public sealed class AdministrationDocumentReviewTests : IAsyncLifetime
     [Fact]
     public async Task MissingStorage_IsExplicitlyUnsupported()
     {
-        await using var host = new ReviewHost(_database, storage: false);
+        await using var host = new DocumentReviewWebApplicationFactory(null);
         using var http = host.CreateClient();
         await AdministrationTestClient.PrepareAsync(http, AdministrationSignInWebApplicationFactory.DefaultAppAdministrator);
         using var preview = await http.GetAsync(Path(DocumentReviewRoutes.Source), Token);
@@ -311,37 +306,5 @@ public sealed class AdministrationDocumentReviewTests : IAsyncLifetime
         public AgentRuntimeDbContext CreateDbContext() => new(options);
     }
 
-    private sealed class ReviewHost(Factory database, bool storage = true) : AdministrationSignInWebApplicationFactory
-    {
-        protected override void ConfigureWebHost(IWebHostBuilder builder)
-        {
-            base.ConfigureWebHost(builder);
-            builder.ConfigureTestServices(services =>
-            {
-                services.PostConfigure<AgentRuntimeConfig>(options => options.Tenants["tenant-a"] = options.Tenants["default"]);
-                services.PostConfigure<AdministrationConfig>(options => options.AppAdministrators["tenant-a"] = [DefaultAppAdministrator]);
-                services.RemoveAll<IDbContextFactory<AgentRuntimeDbContext>>();
-                services.RemoveAll<DocumentPreparationMarkdownStore>();
-                if (storage)
-                {
-                    services.AddSingleton<IDbContextFactory<AgentRuntimeDbContext>>(database);
-                    services.AddScoped<DocumentPreparationMarkdownStore>();
-                }
-                services.AddAuthentication("Bearer").AddScheme<AuthenticationSchemeOptions, MachineHandler>("Bearer", _ => { });
-            });
-        }
-    }
-
-    private sealed class MachineHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)
-        : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
-    {
-        protected override Task<AuthenticateResult> HandleAuthenticateAsync()
-        {
-            if (Request.Headers.Authorization != "Bearer synthetic")
-                return Task.FromResult(AuthenticateResult.NoResult());
-            var identity = new ClaimsIdentity([new Claim("oid", AdministrationSignInWebApplicationFactory.DefaultAppAdministrator)], Scheme.Name);
-            return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme.Name)));
-        }
-    }
 }
 #endif
