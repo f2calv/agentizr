@@ -5,8 +5,14 @@ using CasCap.Client.Services;
 using CasCap.Constants;
 using CasCap.Tests;
 using CasCap.Tests.Integration;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Mvc.Testing.Handlers;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using System.Security.Claims;
 using System.Text.Json;
 
 namespace CasCap.IntegrationTests;
@@ -86,6 +92,57 @@ public sealed class PostgresAdministrationDocumentReviewTests : IAsyncLifetime
         var json = await response.Content.ReadAsStringAsync(Token);
         Assert.DoesNotContain("planSha256", json, StringComparison.Ordinal);
         Assert.DoesNotContain("nativeUsage", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RealCookieAndAntiforgerySurviveReviewReplicaChanges()
+    {
+        await using var first = _host.WithWebHostBuilder(ConfigureCookieReplica);
+        await using var second = _host.WithWebHostBuilder(ConfigureCookieReplica);
+        var address = new Uri("https://localhost");
+        var cookies = new CookieContainer();
+        var options = first.Services.GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>()
+            .Get(AdministrationAuthenticationSchemes.Cookie);
+        var identity = new ClaimsIdentity(
+            [
+                new Claim("oid", AdministrationSignInWebApplicationFactory.DefaultAppAdministrator),
+                new Claim("sub", "synthetic-review-administrator"),
+            ],
+            AdministrationAuthenticationSchemes.Cookie);
+        var ticket = new AuthenticationTicket(new ClaimsPrincipal(identity), new AuthenticationProperties
+        {
+            IssuedUtc = DateTimeOffset.UtcNow,
+            ExpiresUtc = DateTimeOffset.UtcNow.AddMinutes(10),
+        }, AdministrationAuthenticationSchemes.Cookie);
+        cookies.Add(address, new Cookie(options.Cookie.Name!, options.TicketDataFormat.Protect(ticket)));
+        using var firstHttp = first.CreateDefaultClient(address, new CookieContainerHandler(cookies));
+        using var secondHttp = second.CreateDefaultClient(address, new CookieContainerHandler(cookies));
+        var session = await AdministrationTestClient.PrepareAsync(firstHttp);
+        Assert.True(session.SignInRequired);
+        Assert.True(session.IsAuthenticated);
+        secondHttp.DefaultRequestHeaders.Add(AdministrationRoutes.AntiforgeryHeaderName, session.AntiforgeryToken);
+        var firstClient = new AdministrationApiClient(firstHttp, new AdministrationSessionState());
+        var secondClient = new AdministrationApiClient(secondHttp, new AdministrationSessionState());
+        var preview = await firstClient.GetDocumentReviewAsync("tenant-a", _source.CollectionId,
+            _source.DocumentId, _source.JobId, null, Token);
+        Assert.True(preview.IsSuccess);
+        var stored = await secondClient.StoreDocumentReviewAsync("tenant-a", _source.CollectionId,
+            _source.DocumentId, _source.JobId, Request(), Token);
+        Assert.True(stored.IsSuccess);
+        var read = await firstClient.GetDocumentReviewAsync("tenant-a", _source.CollectionId,
+            _source.DocumentId, _source.JobId, stored.Value!.GenerationId, Token);
+        Assert.True(read.IsSuccess);
+        Assert.Equal(stored.Value.GenerationId, read.Value!.GenerationId);
+        Assert.Equal(DocumentIngestionStates.ReviewRequired, read.Value.State);
+        using var anonymous = second.CreateClient(new() { BaseAddress = address });
+        using var denied = await anonymous.GetAsync(Path(DocumentReviewRoutes.Generation, stored.Value.GenerationId), Token);
+        Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
+        await using var db = _database.DbContextFactory.CreateDbContext();
+        Assert.NotEmpty(await db.DataProtectionKeys.ToArrayAsync(Token));
+        Assert.Single(await db.DocumentMarkdownGenerations.ToArrayAsync(Token));
+        Assert.Empty(await db.DocumentTextChunks.ToArrayAsync(Token));
+        Assert.NotSame(first.Services.GetRequiredService<IDataProtectionProvider>(),
+            second.Services.GetRequiredService<IDataProtectionProvider>());
     }
 
     [Theory]
@@ -236,6 +293,17 @@ public sealed class PostgresAdministrationDocumentReviewTests : IAsyncLifetime
         await AdministrationTestClient.PrepareAsync(http, AdministrationSignInWebApplicationFactory.DefaultAppAdministrator);
         return http;
     }
+
+    private void ConfigureCookieReplica(IWebHostBuilder builder) =>
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<AgentRuntimeDbContext>();
+            services.AddScoped(_ => _database.DbContextFactory.CreateDbContext());
+            services.AddDataProtection().PersistKeysToDbContext<AgentRuntimeDbContext>();
+            services.Configure<AuthenticationOptions>(options =>
+                options.Schemes.Single(scheme => scheme.Name == AdministrationAuthenticationSchemes.Cookie)
+                    .HandlerType = typeof(CookieAuthenticationHandler));
+        });
 
     private async Task AssertCountAsync(int expected)
     {

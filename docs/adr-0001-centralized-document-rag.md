@@ -3,6 +3,8 @@
 **Status:** Proposed; elected Debug admission is deployed and enabled for a controlled soak;
 document processing and paid preparation remain disabled.
 The built-in preparation-agent runtime is deployed but no preparation definition was activated.
+Protected review management is locally verified for an incremental Debug review-only rollout;
+that rollout, its deployed schema and real OIDC acceptance are not yet established.
 **Date:** 2026-10-25.
 **Scope:** Blazor document management, Azure Blob/Event Grid ingestion and tenant-isolated RAG.
 **Canonical record:** This document. Related issues are historical context or implementation tracking,
@@ -1856,8 +1858,9 @@ this does not prove full RAG processing.
   pass with zero warnings/errors. Only random fixture-owned local databases were migrated/removed;
   their count returned to baseline, the task-started PostgreSQL service was stopped, and existing
   workloads/volumes were preserved. No real-document storage, paid call, deployed migration,
-  semantic/visual approval, embedding or activation occurred. Multi-replica HTTP review acceptance
-  remains unverified.
+  semantic/visual approval, embedding or activation occurred. Subsequent local real-cookie replica
+  acceptance is recorded in the incremental deployment gate below; deployed replica behavior remains
+  unverified.
 - [x] Persist an explicitly authorized bounded real-document review generation through protected
   management without treating storage as semantic approval. On 2026-10-29 the separately gated
   [retained-ledger acceptance](../src/CasCap.App.Server.Tests/Tests/Integration/RetainedDocumentReviewAcceptanceTests.cs)
@@ -1937,6 +1940,56 @@ this does not prove full RAG processing.
 - [ ] Record corpus size, hardware, model/profile, concurrency, ingestion throughput, storage/index
   size and warm/cold p50/p95 search latency including query embeddings. Agree a numeric latency SLO
   from those results before production; do not choose a backend from an unmeasured speed claim (R8).
+
+### Incremental Debug Review-Only Deployment Gate
+
+On 2026-10-29 the owner selected this bounded milestone before completing the rest of Phase 2.
+It exposes only the existing protected preview/store/read API and typed client, not a document
+management screen, new upload workflow, semantic approval, embeddings or retrieval. All stored
+generations remain review-required. Visual source-region/caption work and the full RAG acceptance
+gates above remain mandatory before approving or searching the affected material; they do not
+block deploying a non-searchable review-only API.
+
+- [x] Prove actual cookie and antiforgery portability across two independent PostgreSQL-backed
+  hosts with the [native review acceptance](../src/CasCap.App.Server.Tests/Tests/Integration/PostgresAdministrationDocumentReviewTests.cs).
+  Unlike the header-authenticated receipt runs, this case uses the real cookie handler, a synthetic
+  encrypted ticket and shared database Data Protection keys. Preview on one host, mutation on the
+  other and exact-generation read back on the first succeed; anonymous access remains 401.
+  The focused review, existing replica and sign-in selection passes **54 cases**, zero failed/skipped.
+  Disposable fixture counts return to baseline and task-started PostgreSQL stops.
+  This does not exercise an OIDC issuer, deployed ingress or real-user sign-in.
+- [x] Check Debug and Release models against the current migration snapshot and inspect offline
+  upgrade SQL. Both report no drift. The
+  [review-generation migration](../src/CasCap.App.Server/Migrations/20261028120307_DocumentMarkdownReviewGenerations.cs)
+  creates its table, source/job foreign key and index without changing existing rows. It has been
+  applied only to approved local fixture/retained databases, not deployed PostgreSQL.
+- [x] Build the Debug image through the [project-reference wrapper](../build.ps1) for the ARM64
+  target without publication. A separately built native AMD64 package passes local HTTP smoke:
+  health/status/framework asset return 200, anonymous/test-header/bearer review GET and POST return
+  401, the session requires sign-in, and the runtime is non-root. Temporary containers are removed.
+  Local ARM64 emulation failed before managed startup; ARM64 execution must be verified on the
+  deployment target rather than claimed from cross-compilation or the AMD64 smoke.
+- [x] Run the [deployment wrapper](../deploy.ps1) in `-WhatIf` mode without registry, database or
+  GitOps mutation. The [caller example](../deploy.local.psd1.example) now configures EF model-drift
+  checks and `NoCommit`; the private local configuration follows it. Preview validates prerequisites,
+  not build/publication, schema state or rollout. `-NoCommit` does not suppress image publication.
+- [ ] Obtain explicit authorization for registry publication, the deployed schema migration and
+  the exact GitOps edit/commit/push. Auto-commit in the application checkout does not authorize
+  GitOps push or deployment; auto-push remains off.
+- [ ] Inspect the authorized deployed migration history before rollout. Require the reviewed
+  pending migration set; stop if unexpected migrations or schema drift appear. Keep runtime and
+  external `--migrate` Job on the same digest-qualified Debug image, with the migration as a
+  completed PreSync prerequisite. Do not copy the retained local paid ledger into deployment.
+  Preserve the expanded schema/receipts on application rollback; do not invoke destructive `Down`.
+- [ ] Keep document processing disabled and do not activate a paid preparation definition for this
+  rollout. Verify the reconciled ARM64 image digest, migration success, readiness, restart/error
+  behavior and existing administration/runtime behavior. Health alone does not establish review
+  functionality or ingestion progress.
+- [ ] Verify real assigned-administrator OIDC/cookie/antiforgery behavior through the deployed ingress:
+  anonymous/machine callers fail, unassigned apps fail, private responses are not cached, and
+  preview/store/read respects exact current-source ownership and revision. If there is no finished
+  reviewable job, 404 is expected, not evidence that real-document review has succeeded.
+  Any deployed real-document processing or storage requires its own approved source/budget scope.
 
 ### Phase 3: Integrate Agents And Onboard Consumers
 

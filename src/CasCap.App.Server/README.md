@@ -255,8 +255,10 @@ The separately gated
 also stores the six retained pages as two review-required generations without repeating preparation:
 23 manual chunks and ten vocabulary chunks match the verified structural projections exactly.
 It preserves source/job records, paid receipts and checked private inputs. Authentication is a
-test cookie stand-in; neither run establishes deployed OIDC, multi-replica behavior or semantic/
-visual approval. The manual's figure associations remain unresolved.
+test cookie stand-in. An additional synthetic native acceptance case uses actual encrypted cookies,
+PostgreSQL-backed Data Protection and antiforgery across two independent HTTP hosts.
+These checks do not establish deployed OIDC/callback behavior or semantic/visual approval.
+The manual's figure associations remain unresolved.
 
 ### Durable Hybrid Preparation
 

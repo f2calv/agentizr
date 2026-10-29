@@ -198,12 +198,19 @@ The container build/deploy wrappers additionally require PowerShell 7.4+, Docker
 .\build.ps1
 ```
 
-Copy `deploy.local.psd1.example` to the gitignored `deploy.local.psd1`, set the private GitOps
-repository and Application path, then publish the Debug image and chart and patch that Application:
+Copy `deploy.local.psd1.example` to the gitignored `deploy.local.psd1` and set the private GitOps
+repository and Application path. The example enables the EF model-drift preflight and leaves
+GitOps changes uncommitted. Preview before an explicitly authorized deployment:
 
 ```powershell
-.\deploy.ps1 -Chart
+.\deploy.ps1 -WhatIf
+.\deploy.ps1 -Chart -NoCommit
 ```
+
+The second command publishes a Debug image and chart and patches the Application; it is not a
+dry run. `-NoCommit` prevents GitOps commit/push, not publication or manifest edits.
+Do not pass a live database connection merely to check model drift: the design-time factory
+can use a non-routable connection because this check does not apply schema.
 
 The chart's `migrate` alias runs `agentizr --migrate` as an external Job; the
 [chart example](charts/agentizr/README.md#usage) shows Argo CD PreSync annotations.

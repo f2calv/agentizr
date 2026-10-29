@@ -392,7 +392,7 @@ The focused selection passed **94 cases**, zero failed/skipped: 26 new managemen
 SQLite generation and 21 existing administration cases.
 
 [`PostgresAdministrationDocumentReviewTests`](Tests/Integration/PostgresAdministrationDocumentReviewTests.cs)
-adds **6 methods / 13 Debug-only cases**, also tagged `PostgreSQL`. Both management classes reuse
+adds **7 methods / 14 Debug-only cases**, also tagged `PostgreSQL`. Both management classes reuse
 the [cookie-authenticated host](Tests/Integration/DocumentReviewWebApplicationFactory.cs), with
 per-fixture native databases for this class. Synthetic preparation uses fake providers, not Azure.
 Native coverage verifies JSONB source-plan materialization, eight-way immutable retries, profile
@@ -410,13 +410,22 @@ preserving existing workloads and volumes, then run:
 dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class CasCap.IntegrationTests.PostgresAdministrationDocumentReviewTests CasCap.IntegrationTests.AdministrationDocumentReviewTests CasCap.IntegrationTests.AdministrationApiTests CasCap.IntegrationTests.AdministrationSignInTests CasCap.Tests.Integration.DocumentMarkdownGenerationTests CasCap.Tests.Integration.PostgresDocumentMarkdownGenerationTests CasCap.Tests.Integration.PostgresDocumentPreparationPersistenceTests
 ```
 
-The approved selection passed **157 cases**, zero failed/skipped: 13 native HTTP, 26 SQLite HTTP,
+Before the additional real-cookie replica case, this selection passed **157 cases**, zero failed/skipped:
+13 native HTTP, 26 SQLite HTTP,
 21 existing administration, 47 SQLite generation, 26 native generation and 24 native page-local
 persistence cases. Full Debug solution and restored Release server builds passed with zero
 warnings/errors. Fixture database counts returned to baseline; the task-started PostgreSQL service
-was stopped and pre-existing services were preserved. Multi-replica review HTTP acceptance,
-deployed migration and semantic/visual approval remain
+was stopped and pre-existing services were preserved. Deployed migration and semantic/visual approval remain
 separate gates. No paid call, embedding, activation or deployment occurred.
+
+The additional real-cookie replica case replaces the header-driven handler with the actual cookie
+handler in two independent hosts and stores their Data Protection keys in the same fixture database.
+A synthetic authentication ticket protected by the first host is accepted by the second;
+an antiforgery token/cookie from the first protects generation storage on the second, and the first
+reads that generation. Anonymous reads still return 401. The case does not contact an OIDC issuer,
+prove deployed ingress/callback configuration or create an authentication bypass in the application.
+The focused native/SQLite review, existing replica and sign-in selection passes **54 cases**,
+zero failed/skipped. Fixture database counts return to baseline and task-started PostgreSQL stops.
 
 #### Retained Real-Document HTTP Acceptance
 
