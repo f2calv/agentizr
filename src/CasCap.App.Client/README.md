@@ -52,8 +52,10 @@ for provider requirements and the still-pending durable-worker integration.
 | [`AdministrationDeactivationRequest`](Models/AdministrationDeactivationRequest.cs) | Deactivation guarded by the observed active version |
 | [`AdministrationApiClient`](Services/AdministrationApiClient.cs) | Typed calls that map every HTTP outcome to an `ApiResult<T>` and send the antiforgery token on mutations |
 | [`DocumentReviewRoutes`](Constants/DocumentReviewRoutes.cs) | Source/job-qualified preview and immutable review-generation routes |
-| [`DocumentCatalogueRoutes`](Constants/DocumentCatalogueRoutes.cs) | App-qualified admitted-source discovery route |
+| [`DocumentCatalogueRoutes`](Constants/DocumentCatalogueRoutes.cs) | App-qualified admitted-source discovery and synchronization routes |
 | [`DocumentCataloguePageResponse`](Models/DocumentCataloguePageResponse.cs) | Bounded source metadata, current-job review availability and stored-generation identity |
+| [`DocumentSynchronizationResponse`](Models/DocumentSynchronizationResponse.cs) | Synchronization/processing gates, UTC cron and configured-source progress |
+| [`DocumentSynchronizationSourceResponse`](Models/DocumentSynchronizationSourceResponse.cs) | Safe counts, conflicts, timestamps and failure codes without Blob coordinates |
 | [`DocumentReviewGenerationRequest`](Models/DocumentReviewGenerationRequest.cs) | Observed source revision, token budgets and optional versioned structural decisions |
 | [`DocumentReviewGenerationResponse`](Models/DocumentReviewGenerationResponse.cs) | Current-source pages/notes and versioned heading-aware projection; never approval |
 | [`DefinitionDraft`](Models/DefinitionDraft.cs) | Builds a publication payload that keeps fields the editor does not change |
@@ -75,6 +77,14 @@ profile. Success opens the exact immutable generation; failures never automatica
 Upload/replace/delete, original-PDF viewing, custom budgets/structural editing and approval are not
 implemented. Catalogue admission and stored snapshots do not mean content is searchable.
 See the [review walkthrough](../../docs/administration-frontend.md#document-catalogue-and-review).
+
+The **Sync documents** panel is independent of catalogue loading and applies to all configured
+collections in the app, not the current filter. Confirmation explains that confirmed missing PDFs
+lose stored chunks/review content; original blobs are unchanged. Disabled/unmapped sources prevent
+submission. A 202 response means the request was persisted, not completed. **Refresh** reads progress
+without polling or automatically retrying a mutation; conflicts can remain after a successful scan.
+Processing-disabled status explains why admitted PDFs may still lack previews. Synchronization
+does not enable paid processing or search.
 
 ## Dependencies
 

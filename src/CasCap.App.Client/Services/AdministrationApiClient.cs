@@ -32,6 +32,18 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
                 + (string.IsNullOrWhiteSpace(collection) ? string.Empty : $"&collection={Uri.EscapeDataString(collection)}"),
             cancellationToken);
 
+    /// <summary>Reads source synchronization settings/progress without returning source coordinates.</summary>
+    public Task<ApiResult<DocumentSynchronizationResponse>> GetDocumentSynchronizationAsync(
+        string appId, CancellationToken cancellationToken) =>
+        GetAsync<DocumentSynchronizationResponse>(
+            AdministrationRoutes.Format(DocumentCatalogueRoutes.Synchronization, appId), cancellationToken);
+
+    /// <summary>Persists one coalesced request with antiforgery protection; never retries an uncertain mutation.</summary>
+    public Task<ApiResult<DocumentSynchronizationResponse>> RequestDocumentSynchronizationAsync(
+        string appId, CancellationToken cancellationToken) =>
+        SendMutationAsync<DocumentSynchronizationResponse>(HttpMethod.Post,
+            AdministrationRoutes.Format(DocumentCatalogueRoutes.Synchronization, appId), new { }, cancellationToken);
+
     /// <summary>Previews a current source or reads an immutable review-required generation.</summary>
     public Task<ApiResult<DocumentReviewGenerationResponse>> GetDocumentReviewAsync(
         string appId, string collectionId, string documentId, string jobId, string? generationId, CancellationToken cancellationToken) =>
@@ -188,7 +200,7 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
                 using var response = await httpClient.SendAsync(request, cancellationToken);
                 return response.StatusCode switch
                 {
-                    HttpStatusCode.OK or HttpStatusCode.Created => new ApiResult<T>(
+                    HttpStatusCode.OK or HttpStatusCode.Created or HttpStatusCode.Accepted => new ApiResult<T>(
                         ApiStatus.Success,
                         await response.Content.ReadFromJsonAsync<T>(JsonSerializerOptions.Web, cancellationToken)),
                     HttpStatusCode.NoContent => new ApiResult<T>(ApiStatus.Success, typeof(T) == typeof(bool) ? (T)(object)true : default),

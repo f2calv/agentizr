@@ -5,18 +5,24 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 
 namespace CasCap.IntegrationTests;
 
 /// <summary>Shares the real review-management boundary across SQLite and native PostgreSQL fixtures.</summary>
 internal sealed class DocumentReviewWebApplicationFactory(
     IDbContextFactory<AgentRuntimeDbContext>? database,
-    IReadOnlyList<string>? apps = null)
+    IReadOnlyList<string>? apps = null,
+    DocumentIngestionConfig? synchronization = null)
     : AdministrationSignInWebApplicationFactory
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         base.ConfigureWebHost(builder);
+        if (synchronization is not null)
+            builder.ConfigureAppConfiguration((_, configuration) => configuration.AddJsonStream(new MemoryStream(
+                JsonSerializer.SerializeToUtf8Bytes(new { CasCap = new { DocumentIngestionConfig = synchronization } }))));
         builder.ConfigureTestServices(services =>
         {
             services.PostConfigure<AgentRuntimeConfig>(options =>

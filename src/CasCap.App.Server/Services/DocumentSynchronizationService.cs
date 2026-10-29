@@ -15,15 +15,21 @@ internal sealed partial class DocumentSynchronizationService(
     IDocumentBlobInventory documentBlobInventory)
 {
     /// <summary>Requests configured sources, optionally restricted to one server-authorized application.</summary>
-    public async Task RequestAsync(string? tenantId, CancellationToken token)
+    public Task RequestAsync(string? tenantId, CancellationToken token) =>
+        RequestSourcesAsync(config.Value, timeProvider, dbContextFactory, tenantId, token);
+
+    /// <summary>Persists requests without resolving inventory, transport or processing dependencies on an HTTP replica.</summary>
+    internal static async Task RequestSourcesAsync(
+        DocumentIngestionConfig settings, TimeProvider clock, IDbContextFactory<AgentRuntimeDbContext> database,
+        string? tenantId, CancellationToken token)
     {
-        if (!config.Value.SynchronizationEnabled)
+        if (!settings.SynchronizationEnabled)
             throw new InvalidOperationException("Document synchronization is disabled.");
-        await using var db = await dbContextFactory.CreateDbContextAsync(token);
+        await using var db = await database.CreateDbContextAsync(token);
         await using var transaction = await db.Database.BeginTransactionAsync(token);
         await DocumentIngestionTransactions.LockAsync(db, token);
-        var now = await DocumentIngestionTransactions.GetUtcNowAsync(db, timeProvider, token);
-        foreach (var source in config.Value.Sources.Where(item => tenantId == null || item.TenantId == tenantId))
+        var now = await DocumentIngestionTransactions.GetUtcNowAsync(db, clock, token);
+        foreach (var source in settings.Sources.Where(item => tenantId == null || item.TenantId == tenantId))
         {
             var id = SourceId(source);
             var state = await db.DocumentSynchronizations.SingleOrDefaultAsync(item => item.Id == id, token);

@@ -263,6 +263,21 @@ The collection filter is optional; page is 1-10,000 and page size is 1-100. Its
 admitted sources, their current jobs and a current-source stored-generation identity. It never
 loads receipt/content payloads or returns Blob URIs and plans. Admission state is not indexing state.
 
+The [synchronization controller](Controllers/AdministrationDocumentSynchronizationController.cs)
+uses the same cookie/assignment policies, antiforgery protection and no-store responses:
+
+| Method / route | Behavior |
+| --- | --- |
+| `GET /admin/api/apps/{appId}/documents/synchronization` | Read configured-source progress, counts, conflicts, timestamps and safe failure codes |
+| `POST /admin/api/apps/{appId}/documents/synchronization` | Coalesce durable requests for all configured collections; return 202 with a status Location |
+
+The [administration service](Services/DocumentSynchronizationAdministrationService.cs) derives
+tenancy from the authorized app, not request fields. HTTP replicas persist requests only; they
+require neither Blob/queue transports nor a local ingestion worker. Source URIs, plans and other
+tenants' state never enter responses. Missing storage returns 501; requesting synchronization while
+disabled or without mapped sources also returns 501. Refresh reads status; do not automatically
+repeat a POST after an uncertain response. See the reconciliation gate and deletion contract above.
+
 Under `/admin/api/apps/{appId}/collections/{collectionId}/documents/{documentId}/jobs/{jobId}/review`:
 
 | Method / suffix | Behavior |

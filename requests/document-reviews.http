@@ -23,6 +23,23 @@ GET {{baseUrl}}/admin/api/apps/{{appId}}/documents?collection={{collectionId}}&p
 Cookie: {{cookie}}
 Accept: application/json
 
+### Read configured source synchronization progress - expected 200 or 501 when storage is unavailable
+# @name getDocumentSynchronization
+GET {{baseUrl}}/admin/api/apps/{{appId}}/documents/synchronization HTTP/1.1
+Cookie: {{cookie}}
+Accept: application/json
+
+### Request synchronization for all configured collections in this app - expected 202 with status Location
+# @name requestDocumentSynchronization
+# @note Persists coalesced requests for the elected worker. A completed inventory may remove chunks/review content for confirmed missing originals. Does not alter blobs, enable processing or call paid providers. Check status after an uncertain response rather than automatically retrying. Disabled, unmapped or unavailable storage returns 501.
+POST {{baseUrl}}/admin/api/apps/{{appId}}/documents/synchronization HTTP/1.1
+Cookie: {{cookie}}
+X-XSRF-TOKEN: {{antiforgery}}
+Content-Type: application/json
+Accept: application/json
+
+{}
+
 ### Preview current validated source and default heading-aware chunks - expected 200 or 404
 # @name previewDocumentReview
 GET {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/{{documentId}}/jobs/{{jobId}}/review HTTP/1.1

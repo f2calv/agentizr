@@ -3,13 +3,14 @@ using MudBlazor;
 
 namespace CasCap.Client.Pages;
 
-/// <summary>Pages app-owned admitted documents without performing source or preparation mutations.</summary>
+/// <summary>Pages app-owned admitted documents alongside independently scoped source synchronization controls.</summary>
 public partial class Documents(AdministrationApiClient apiClient, NavigationManager navigationManager) : CancellableComponentBase
 {
     private const int PageSize = 25;
     private (string AppId, string? Collection, int Page)? _loaded;
     private ApiResult<DocumentCataloguePageResponse>? _result;
     private string? _collectionInput;
+    private int _refreshVersion;
 
     /// <summary>Gets or sets the app selected by the route.</summary>
     [Parameter]
@@ -47,9 +48,10 @@ public partial class Documents(AdministrationApiClient apiClient, NavigationMana
     private Task ReloadAsync() => RunAsync(async token =>
     {
         _result = null;
-        var result = await apiClient.GetDocumentsAsync(AppId, Collection, Page, PageSize, token);
+        _refreshVersion++;
+        var documents = await apiClient.GetDocumentsAsync(AppId, Collection, Page, PageSize, token);
         token.ThrowIfCancellationRequested();
-        _result = result;
+        _result = documents;
     }, renew: true);
 
     private void CollectionChanged(string? value)

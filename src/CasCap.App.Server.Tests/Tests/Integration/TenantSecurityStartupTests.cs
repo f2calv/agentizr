@@ -106,7 +106,11 @@ public sealed class TenantSecurityStartupTests
         };
 
         Assert.Equal(19, protectedEndpoints.Count(endpoint => !AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
+#if DEBUG
+        Assert.Equal(17, protectedEndpoints.Count(endpoint => AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
+#else
         Assert.Equal(11, protectedEndpoints.Count(endpoint => AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
+#endif
         // Session description, sign-in and sign-out must be reachable before an administrator signs in.
         Assert.Equal(3, sessionEndpoints.Length);
         Assert.All(sessionEndpoints, endpoint => Assert.Empty(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()));
@@ -119,7 +123,11 @@ public sealed class TenantSecurityStartupTests
                 : expectedDefinitionPolicies.GetValueOrDefault(name, AgentRuntimePolicies.Execute);
             var policies = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()
                 .Select(metadata => metadata.Policy).OfType<string>();
-            Assert.Equal(expectedPolicy, Assert.Single(policies));
+            var documentAdministration = endpoint.Metadata.GetMetadata<ControllerActionDescriptor>()!.ControllerName is
+                "AdministrationDocuments" or "AdministrationDocumentReviews" or "AdministrationDocumentSynchronization";
+            string[] expectedPolicies = documentAdministration
+                ? [expectedPolicy, AdministrationPolicies.AuthenticatedDocumentReviewer] : [expectedPolicy];
+            Assert.Equal(expectedPolicies.Order(StringComparer.Ordinal), policies.Order(StringComparer.Ordinal));
             Assert.Null(endpoint.Metadata.GetMetadata<IAllowAnonymous>());
         });
     }

@@ -1,0 +1,60 @@
+@inherits CancellableComponentBase
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="my-3">
+    <MudText Typo="Typo.h6" HtmlTag="h2">Source synchronization</MudText>
+    <MudButton OnClick="SynchronizeAsync" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Sync"
+               Disabled="@(_busy || _result?.Value is not { Enabled: true, Sources.Count: > 0 })">
+        Sync documents
+    </MudButton>
+</MudStack>
+@if (_result is null)
+{
+    <MudProgressLinear Indeterminate="true" aria-label="Loading synchronization status" Class="my-3" />
+}
+else if (!_result.IsSuccess)
+{
+    <PageState Status="_result.Status" Errors="_result.Errors" OnRetry="ReloadAsync" />
+}
+else if (_result.Value is { } synchronization)
+{
+    @if (!synchronization.Enabled)
+    {
+        <MudAlert Severity="Severity.Info" Class="my-3">Document synchronization is disabled until the migration and compatible worker rollout are ready.</MudAlert>
+    }
+    @if (!synchronization.ProcessingEnabled)
+    {
+        <MudAlert Severity="Severity.Info" Class="my-3">Document processing is disabled. Sync can register PDFs, but cannot prepare previews or make them searchable.</MudAlert>
+    }
+    <MudText Typo="Typo.body2">UTC schedule: <code>@synchronization.Cron</code>. Sync covers all configured collections in this app. Use Refresh to check progress.</MudText>
+    @if (synchronization.Sources.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Class="my-3">No source containers are configured for this app.</MudAlert>
+    }
+    <MudStack Spacing="2" Class="my-3">
+        @foreach (var source in synchronization.Sources)
+        {
+            <MudPaper Outlined="true" Class="pa-3" @key="source.SourceId">
+                <MudText Typo="Typo.subtitle2">@source.CollectionId: @source.State</MudText>
+                <MudText Typo="Typo.caption">Source @source.SourceId</MudText>
+                <MudText Typo="Typo.body2">Added: @source.AddedCount; Repaired: @source.RepairedCount; Removed: @source.RemovedCount; Unchanged: @source.UnchangedCount; Conflicts: @source.ConflictCount</MudText>
+                <MudText Typo="Typo.body2">Last successful scan: @TimeLabel(source.LastSucceededAtUtc)</MudText>
+                @if (source.ConflictCount > 0)
+                {
+                    <MudAlert Severity="Severity.Warning" Class="mt-2">Some observations conflicted with concurrent changes or deleted source names. A successful scan does not mean every discrepancy was repaired.</MudAlert>
+                }
+                @if (source.FailureCode is { } failure)
+                {
+                    <MudAlert Severity="Severity.Warning" Class="mt-2">Last run failed: @failure. Unconfirmed missing sources are not removed.</MudAlert>
+                }
+            </MudPaper>
+        }
+    </MudStack>
+}
+@if (_request is { IsSuccess: true })
+{
+    <MudAlert Severity="Severity.Success" Class="my-3">Sync request accepted. The elected worker will handle it; no document processing was run by this request. Use Refresh to check progress.</MudAlert>
+}
+else if (_request is { } failedRequest)
+{
+    <PageState Status="failedRequest.Status" Errors="failedRequest.Errors" />
+}

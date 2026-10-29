@@ -10,6 +10,7 @@ public static partial class AppHost
     internal static void AddIngestion(WebApplicationBuilder builder, bool runtimeEnabled)
     {
 #if DEBUG
+        AddDocumentIngestionConfiguration(builder);
         var database = builder.Configuration.GetSection(DatabaseConfig.ConfigurationSectionName).Get<DatabaseConfig>();
         var caching = builder.Configuration.GetSection(CachingConfig.ConfigurationSectionName).Get<CachingConfig>();
         if (string.IsNullOrWhiteSpace(database?.ConnectionString))
@@ -28,7 +29,6 @@ public static partial class AppHost
         }
         builder.Services.AddHealthChecks();
         builder.Services.AddOptionsWithValidateOnStart<DocumentIngestionConfig>()
-            .BindConfiguration(DocumentIngestionConfig.ConfigurationSectionName)
             .ValidateDataAnnotations()
             .Validate<IServiceProviderIsService>((options, services) =>
                 !options.ProcessingEnabled || services.IsService(typeof(IDocumentProcessor)),
@@ -64,4 +64,11 @@ public static partial class AppHost
         throw new InvalidOperationException("The ingestion PoC requires Debug source references until its shared APIs are published.");
 #endif
     }
+
+#if DEBUG
+    internal static void AddDocumentIngestionConfiguration(WebApplicationBuilder builder) =>
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IConfigureOptions<DocumentIngestionConfig>>(
+            new ConfigureFromConfigurationOptions<DocumentIngestionConfig>(
+                builder.Configuration.GetSection(DocumentIngestionConfig.ConfigurationSectionName))));
+#endif
 }

@@ -79,7 +79,7 @@ These additional role/ingestion tests are separate from the runtime baseline inv
 | `DocumentIngestionAdmissionTests` | 9 | 20 | Commit-before-ack, infrastructure/argument failures, cancellation, malformed envelopes, source isolation and sequencer normalization |
 | `DocumentIngestionInboxTests` | 16 | 19 | SQLite admission, disabled/missing processors, terminal outcomes, exact retry delay/attempt limit, expired and replaced claims, supersession, cancellation, deadline cleanup and unknown faults |
 | `DocumentIngestionLeadershipTests` | 3 | 4 | Fake-runner ownership, cancellation on loss, gated processing resolution and clock-driven startup/hourly durable synchronization |
-| `DocumentIngestionCompositionTests` | 1 | 4 | Real local/hybrid-router DI with runtime infrastructure already registered, disabled/enabled gates, explicitly removed processor rejection and test substitution; no transport starts |
+| `DocumentIngestionCompositionTests` | 1 | 4 | Real local/hybrid-router DI, idempotent API/ingestion source binding, disabled/enabled gates, explicitly removed processor rejection and test substitution; no transport starts |
 | **Role/ingestion subtotal** | **39** | **81** | All but the role-parser class are Debug-only |
 
 Run the focused credential-free selection from the repository root:
@@ -465,7 +465,7 @@ zero failed/skipped. Fixture database counts return to baseline and task-started
 #### Catalogue And Review Browser Coverage
 
 [`AdministrationDocumentUiTests`](Tests/Integration/AdministrationDocumentUiTests.cs) adds
-**6 methods / 11 Debug-only cases**, tagged `Integration` and `DocumentReviewManagement`.
+**10 methods / 19 Debug-only cases**, tagged `Integration` and `DocumentReviewManagement`.
 The shared [static renderer](Tests/Integration/AdministrationComponentTestRenderer.cs) also serves
 the existing definition UI tests. Synthetic HTTP verifies catalogue reads, escaped source names/
 Markdown, heading context, separate/nonempty notes, exact snapshots without storage controls,
@@ -482,6 +482,22 @@ one explicit source-fenced/profile-preserving POST with antiforgery, exact-snaps
 409/503 outcomes with GET-only refresh, keyboard confirmation and narrow catalogue/review layouts.
 Referenced scripts/styles returned 200; the temporary host was stopped.
 This is not deployed OIDC acceptance or real-document browser quality approval.
+
+Synchronization adds static-rendering coverage for enabled/mapped gates, progress/conflicts,
+escaped safe failure output and catalogue independence, plus typed-client antiforgery and
+no-retry checks. Its confirmation/click/keyboard/mobile behavior has not been browser-validated.
+
+[`AdministrationDocumentSynchronizationTests`](Tests/Integration/AdministrationDocumentSynchronizationTests.cs)
+adds **7 methods / 13 Debug-only cases**, tagged `Integration` and
+`DocumentSynchronizationManagement`. The API-only host verifies administrator/cookie/antiforgery
+boundaries, tenant isolation, safe progress, forged-body rejection, request coalescing and
+disabled/unmapped/storage outcomes without resolving Blob/queue/processor transports.
+
+The final exact offline selection passed **92 cases**, zero failed/skipped: synchronization HTTP,
+document UI, SQLite review HTTP, ingestion composition, tenant-security startup and endpoint smoke
+classes. The composition regression also proves repeated shared options registration keeps one
+configured source rather than appending duplicates. Set `AppConfig__KeyVaultName=skip` as documented
+above; these tests do not require PostgreSQL, Redis, Azure credentials or paid providers.
 
 ```powershell
 dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class CasCap.Tests.Integration.AdministrationDocumentUiTests CasCap.Tests.Integration.AdministrationDefinitionUiTests CasCap.IntegrationTests.AdministrationDocumentReviewTests
@@ -710,7 +726,9 @@ acceptance and deployed assigned-administrator browser checks remain separate ga
 | `OfflineDocumentReview` | 14 Debug-only | Thirteen synthetic export/coverage checks and one separately approved retained-artifact projection without providers or databases |
 | `LiveDocumentPreparation` | 1 Debug-only | Separately approved real-source/provider acceptance with a retained local ledger; disabled by default |
 | `RetainedDocumentReview` | 1 Debug-only | Separately approved migration and protected HTTP storage of reviewed real-document projections in the retained local ledger; disabled by default |
-| `DocumentReviewManagement` | 61 Debug-only | 35 SQLite HTTP, 15 native PostgreSQL HTTP and 11 synthetic document UI cases; all also `Integration` |
+| `DocumentReviewManagement` | 69 Debug-only | 35 SQLite HTTP, 15 native PostgreSQL HTTP and 19 synthetic document UI cases; all also `Integration` |
+| `DocumentSynchronizationManagement` | 13 Debug-only | API-only administrator authorization, safe status and coalesced requests; also `Integration` |
+| `DocumentSynchronization` | 23 Debug-only | SQLite/native PostgreSQL inventory, repair, deletion, migration and takeover contracts |
 | `PreparationProviders` | 22 Debug-only | Real isolated PostgreSQL ledger/recovery and two-host Redis startup/handover; all also `Integration` and `PostgreSQL`, one also `Redis` |
 | `Tenant Isolation` | 38 | Cross-tenant state, JWT permissions, caller mappings, administrator assignment, MCP and provider credentials and identity isolation |
 | `PostgreSQL` | 25 | Definitions, durable state, run history and shared Data Protection keys against local Compose PostgreSQL |
@@ -789,6 +807,7 @@ Tests/
 │   ├── AdministrationApiTests.cs
 │   ├── AdministrationComponentTestRenderer.cs
 │   ├── AdministrationDocumentReviewTests.cs
+│   ├── AdministrationDocumentSynchronizationTests.cs
 │   ├── AdministrationDocumentUiTests.cs
 │   ├── AdministrationDefinitionUiTests.cs
 │   ├── AdministrationReplicaTests.cs

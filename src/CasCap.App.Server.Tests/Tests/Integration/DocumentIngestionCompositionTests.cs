@@ -43,6 +43,7 @@ public sealed class DocumentIngestionCompositionTests
         builder.Services.AddDbContextFactory<AgentRuntimeDbContext>(options => options.UseSqlite("Data Source=:memory:"));
         if (registered)
             builder.Services.AddScoped<IDocumentProcessor, UnusedProcessor>();
+        AppHost.AddDocumentIngestionConfiguration(builder);
         AppHost.AddIngestion(builder, runtimeEnabled: true);
         if (!valid)
             builder.Services.RemoveAll<IDocumentProcessor>();
@@ -55,6 +56,7 @@ public sealed class DocumentIngestionCompositionTests
         if (valid)
         {
             Assert.Equal(enabled, options.Value.ProcessingEnabled);
+            Assert.Single(options.Value.Sources);
             using var scope = provider.CreateScope();
             Assert.IsType(registered ? typeof(UnusedProcessor) : typeof(DocumentPreparationProcessor),
                 Assert.Single(scope.ServiceProvider.GetServices<IDocumentProcessor>()));

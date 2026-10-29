@@ -116,6 +116,15 @@ Rows distinguish source admission from the current job and offer **Preview** or 
 only when the source has a finished, released review-required job. The server rechecks ownership
 and current-source fences for every review operation; a catalogue link is not an authorization grant.
 
+**Sync documents** requests a durable scan of every configured collection in the app, regardless
+of the catalogue filter. Confirm only after reviewing the warning: confirmed missing originals
+have their stored chunks/review content removed; original blobs are never changed. Disabled or
+unmapped synchronization cannot be requested. Requests coalesce and return accepted before work
+finishes; use **Refresh** to read counts, conflicts, timestamps and safe failure status. There is
+no polling or automatic mutation retry. A successful scan can still contain conflicts.
+Processing-disabled status means synchronization can register PDFs without producing previews;
+neither this button nor catalogue admission enables paid processing or search.
+
 The workbench reads existing validated artifacts without another preparation/model request.
 Physical-page Markdown and heading-aware chunk text are escaped source text, so source HTML,
 scripts and links do not execute. Uncertainties and changes are separate and hidden when empty.
@@ -160,10 +169,11 @@ the identity provider an `http://` callback it would reject.
 
 [ADR 0001](adr-0001-centralized-document-rag.md) proposes app-scoped PDF upload, document management
 and ingestion status in this frontend, backed by private Azure Blob Storage and background RAG
-processing. These controls are not implemented; the frontend currently manages agent definitions,
-not document collections.
+processing. Upload/replace/delete and provisioning controls remain unimplemented; the Debug frontend
+already offers an admitted-source catalogue, review workbench and synchronization panel.
 
 A Debug-only [protected review API](../src/CasCap.App.Server/README.md#protected-review-management)
 and typed administration-client methods now preview/store/read existing receipt-derived review
 generations. They require a signed-in assigned app administrator and antiforgery protection, not
-open Development access. This backend slice does not add a document screen or approve indexing.
+open Development access. These controls do not approve indexing. Synchronization has local HTTP
+and static-rendering coverage, but its interactive browser acceptance and deployment remain pending.

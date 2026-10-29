@@ -1,5 +1,7 @@
 using CasCap.Client.Models;
 using CasCap.Client.Pages;
+using CasCap.Client.Constants;
+using CasCap.Client.Services;
 using System.Text.Json;
 using static CasCap.Tests.Integration.AdministrationComponentTestRenderer;
 
@@ -27,6 +29,7 @@ public sealed class AdministrationDocumentUiTests
         Assert.DoesNotContain("<img src=x", html, StringComparison.Ordinal);
         Assert.Contains("not everything in Blob Storage", html, StringComparison.Ordinal);
         Assert.Contains(handler.Requests, request => request.Contains("collection=manuals", StringComparison.Ordinal));
+        Assert.Contains(handler.Requests, request => request.EndsWith("/apps/app-a/documents/synchronization", StringComparison.Ordinal));
         Assert.All(handler.Requests, request => Assert.StartsWith("GET ", request, StringComparison.Ordinal));
     }
 
@@ -93,7 +96,73 @@ public sealed class AdministrationDocumentUiTests
         var html = await RenderAsync<Documents>(handler, new() { [nameof(Documents.AppId)] = App }, string.Empty);
         Assert.Contains("No admitted documents", html, StringComparison.Ordinal);
         Assert.DoesNotContain(">Upload<", html, StringComparison.Ordinal);
-        Assert.Single(handler.Requests);
+        Assert.Equal(2, handler.Requests.Count);
+    }
+
+    [Theory]
+    [InlineData(true, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, true)]
+    public async Task SynchronizationControlRequiresEnabledMappedSource(bool enabled, bool mapped, bool disabled)
+    {
+        using var handler = new Handler { SynchronizationEnabled = enabled, SynchronizationMapped = mapped };
+        var html = await RenderAsync<Documents>(handler, new() { [nameof(Documents.AppId)] = App }, "?collection=filtered");
+        Assert.Equal(disabled, System.Text.RegularExpressions.Regex.IsMatch(html,
+            "<button[^>]*disabled[^>]*>[\\s\\S]*?Sync documents"));
+        Assert.Contains("all configured collections", html, StringComparison.Ordinal);
+        Assert.Contains("Document processing is disabled", html, StringComparison.Ordinal);
+        Assert.Contains("cannot prepare previews", html, StringComparison.Ordinal);
+        if (!enabled)
+            Assert.Contains("synchronization is disabled", html, StringComparison.Ordinal);
+        if (!mapped)
+            Assert.Contains("No source containers", html, StringComparison.Ordinal);
+        Assert.All(handler.Requests, request => Assert.StartsWith("GET ", request, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task SynchronizationProgressAndConflictsAreExplicitAndEscaped()
+    {
+        using var handler = new Handler { SynchronizationConflict = true };
+        var html = await RenderAsync<Documents>(handler, new() { [nameof(Documents.AppId)] = App }, string.Empty);
+        Assert.Contains("Last successful scan", html, StringComparison.Ordinal);
+        Assert.Contains("Added: 1", html, StringComparison.Ordinal);
+        Assert.Contains("Repaired: 2", html, StringComparison.Ordinal);
+        Assert.Contains("Removed: 3", html, StringComparison.Ordinal);
+        Assert.Contains("Unchanged: 4", html, StringComparison.Ordinal);
+        Assert.Contains("Conflicts: 5", html, StringComparison.Ordinal);
+        Assert.Contains("does not mean every discrepancy", html, StringComparison.Ordinal);
+        Assert.Contains("StorageUnavailable", html, StringComparison.Ordinal);
+        Assert.Contains("&lt;script&gt;", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<script>", html, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Unauthorized, "Sign in to administer this app")]
+    [InlineData(HttpStatusCode.Forbidden, "not assigned")]
+    [InlineData(HttpStatusCode.NotImplemented, "does not support this operation")]
+    public async Task SynchronizationFailureDoesNotHideTheCatalogue(HttpStatusCode failure, string text)
+    {
+        using var handler = new Handler { SynchronizationFailure = failure };
+        var html = await RenderAsync<Documents>(handler, new() { [nameof(Documents.AppId)] = App }, string.Empty);
+        Assert.Contains(text, html, StringComparison.Ordinal);
+        Assert.Contains("Stored snapshot", html, StringComparison.Ordinal);
+        Assert.Matches("<button[^>]*disabled[^>]*>[\\s\\S]*?Sync documents", html);
+    }
+
+    [Fact]
+    public async Task SynchronizationClientDoesNotRetryAnUnknownMutationOutcome()
+    {
+        using var handler = new Handler { MutationFailure = HttpStatusCode.ServiceUnavailable };
+        using var http = new HttpClient(handler) { BaseAddress = new Uri("https://example.com/") };
+        var session = new AdministrationSessionState
+        {
+            Current = new() { IsAuthenticated = true, SignInRequired = true, AntiforgeryToken = "synthetic-token" },
+        };
+        var client = new AdministrationApiClient(http, session);
+        var result = await client.RequestDocumentSynchronizationAsync(App, TestContext.Current.CancellationToken);
+        Assert.Equal(ApiStatus.Unavailable, result.Status);
+        Assert.StartsWith("POST ", Assert.Single(handler.Requests), StringComparison.Ordinal);
+        Assert.True(handler.MutationWasProtected);
     }
 
     private static Dictionary<string, object?> Parameters() => new()
@@ -118,13 +187,33 @@ public sealed class AdministrationDocumentUiTests
 
         public HttpStatusCode? Failure { get; init; }
 
+        public HttpStatusCode? SynchronizationFailure { get; init; }
+
+        public bool SynchronizationEnabled { get; init; } = true;
+
+        public bool SynchronizationMapped { get; init; } = true;
+
+        public bool SynchronizationConflict { get; init; }
+
+        public HttpStatusCode? MutationFailure { get; init; }
+
+        public bool MutationWasProtected { get; private set; }
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             Requests.Add($"{request.Method} {request.RequestUri!.PathAndQuery}");
+            if (request.Method == HttpMethod.Post && MutationFailure is { } mutationFailure)
+            {
+                MutationWasProtected = request.Headers.Contains(AdministrationRoutes.AntiforgeryHeaderName);
+                return Task.FromResult(new HttpResponseMessage(mutationFailure));
+            }
             if (Failure is { } failure)
                 return Task.FromResult(new HttpResponseMessage(failure));
-            object value = request.RequestUri.AbsolutePath.EndsWith("/documents", StringComparison.Ordinal)
+            var synchronization = request.RequestUri.AbsolutePath.EndsWith("/synchronization", StringComparison.Ordinal);
+            if (synchronization && SynchronizationFailure is { } syncFailure)
+                return Task.FromResult(new HttpResponseMessage(syncFailure));
+            object value = synchronization ? Synchronization() : request.RequestUri.AbsolutePath.EndsWith("/documents", StringComparison.Ordinal)
                 ? new DocumentCataloguePageResponse
                 {
                     Page = 1,
@@ -145,6 +234,28 @@ public sealed class AdministrationDocumentUiTests
                 : Review();
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(value) });
         }
+
+        private DocumentSynchronizationResponse Synchronization() => new()
+        {
+            Enabled = SynchronizationEnabled,
+            Cron = "0 * * * *",
+            Sources = !SynchronizationMapped ? [] :
+            [
+                new()
+                {
+                    SourceId = "synthetic-source",
+                    CollectionId = SynchronizationConflict ? "<script>" : Collection,
+                    State = SynchronizationConflict ? "Failed" : "Queued",
+                    AddedCount = 1,
+                    RepairedCount = 2,
+                    RemovedCount = 3,
+                    UnchangedCount = 4,
+                    ConflictCount = SynchronizationConflict ? 5 : 0,
+                    FailureCode = SynchronizationConflict ? "StorageUnavailable" : null,
+                    LastSucceededAtUtc = DateTimeOffset.UnixEpoch,
+                },
+            ],
+        };
 
         private DocumentReviewGenerationResponse Review() => new()
         {

@@ -944,7 +944,14 @@ against durable document/jobs rather than a one-off import or replaying transien
 The [synchronizer](../src/CasCap.App.Server/Services/DocumentSynchronizationService.cs) now supports
 durable per-source requests, owner-startup execution and an hourly UTC cron request. A manual
 application-scoped administrator request must use that same persisted path so a standby HTTP
-replica never starts a competing local inventory; administration/UI wiring is still pending.
+replica never starts a competing local inventory. The Debug
+[administration API](../src/CasCap.App.Server/Controllers/AdministrationDocumentSynchronizationController.cs)
+and [Documents panel](../src/CasCap.App.Client/Components/DocumentSynchronizationPanel.razor)
+now implement that path. The administrator confirms app-wide synchronization across all configured
+collections, including removal of derived content for confirmed missing originals. Requests return
+202 with a status Location; Refresh reads progress without polling or automatically retrying writes.
+Safe status includes counts, conflicts, timestamps and failure codes, never container coordinates.
+Processing remains a separate gate; registering missing PDFs does not itself produce previews.
 
 The [inventory adapter](../src/CasCap.App.Server/Services/AzureDocumentBlobInventory.cs) pages PDFs
 and verifies current metadata using the runtime identity. Missing jobs and eligible zero-attempt
@@ -968,6 +975,10 @@ exercise SQLite and native PostgreSQL, including migration upgrade, deletion and
 The [owner-bound clock test](../src/CasCap.App.Server.Tests/Tests/Integration/DocumentIngestionLeadershipTests.cs)
 uses deterministic hourly timing; real Redis renewal and deployed Blob permissions remain separate
 acceptance gates. No deployed reconciliation or prepared-document acceptance is claimed.
+The final offline administration/UI selection passed 92 cases, including authorization,
+antiforgery, tenant isolation, request coalescing and idempotent combined-role options binding.
+The Debug solution builds without warnings/errors. Synchronization-specific interactive browser
+acceptance and deployment remain outstanding.
 
 ### PoC Limits And Deliberately Deferred Polishing
 
@@ -980,13 +991,13 @@ a generalized scheduler or provider framework. The following are not delivered g
 | Full role-composition acceptance | Parsing, fake-runner ownership and existing API tests are local checks; worker-only/combined HTTP surfaces and migration process exit still need isolated host acceptance before deployment |
 | Transport recovery and progress readiness | Job attempts now have a persisted bounded retry policy, but transport retries remain Azure SDK-owned. Exhausted transport/database failures propagate to host supervision; unacknowledged messages return after visibility expiry. Validate restart behavior and add queue-age/progress health before unattended operation |
 | Long admissions and poison lifecycle | One short admission runs at a time, without a lease-renew loop; expiry can redeliver safely through inbox deduplication. Poison enqueue precedes source acknowledgement, so duplicates are possible. Add renewal, retention/replay tooling and limits when latency or poison volume warrants them |
-| Reconciliation | Events before subscription, expired deliveries and unfinalized uploads are not discovered automatically. Stage/replay test events explicitly; add container reconciliation before relying on loss recovery |
+| Reconciliation rollout | Startup/hourly/manual reconciliation is implemented behind a disabled-by-default gate. Apply the additive migration and validate deployed inventory permissions and administrator behavior before relying on loss recovery |
 | Source validation and indexing | Local read-only conditional downloads and preparation are verified with the runtime certificate. Pod access, approved production ownership mappings and broader document rights remain unproven; add compatible embeddings and pgvector before claiming RAG |
 | PDF isolation, OCR and layout quality | Synchronous parsing/extraction cannot be interrupted mid-call; byte/page/text/chunk caps are not a hard CPU/memory sandbox. Synthetic column and table counterexamples demonstrate that neither content order nor generic spatial order preserves every layout. Live preparation works, but semantic quality requires independently reviewed, source-pinned expectations before choosing a structure-aware replacement. No-text pages are not distinguished as blank versus scanned; add OCR/review and isolate hostile uploads before broader use |
 | Searchable generation activation | Prepared output is idempotent and claim-fenced, but it is not searchable. Add compatible embeddings and an independently fenced active-generation switch before exposing retrieval; claim identity alone cannot fence external effects |
 | Failure diagnostics | Known failures use existing generic retryable/permanent durable codes. Add bounded, content-free cause codes when the management UI needs operator triage; do not persist provider messages or extracted text |
 | Scheduling throughput and deadlines | One serial loop alternates admission with one bounded attempt, so long processing delays further admissions. A single transaction lock and bulk expiry recovery favor simplicity over scale. Split supervised admission/processing loops, bound recovery batches and measure fairness/progress if corpus size or admission latency warrants it |
-| Management and cleanup | Upload/status/download/replace/delete UI/API, quotas and purge/backup retention remain future steps before broader use. Tombstones prevent new staging but do not erase existing prepared plaintext/history; add authorized retention/purge before broader uploads |
+| Management and cleanup | Catalogue/review/synchronization UI/API and confirmed-missing derived-content cleanup are implemented. Upload/download/replace/delete controls, quotas and purge/backup retention remain future steps; tombstones and minimal usage audit are retained |
 | Optional providers and onboarding | Add AI Search parity, a Redis transport/bridge or bootstrap wizard only after the initial manual pgvector path is proven |
 | Derived figures and region citations | Originals retain visuals, but no production figure asset or region-mapping path exists. Implement the contract above before claiming diagram-grounded manual retrieval; initial text-only language-learning ingestion needs no derived visual work. Dedicated image vectors remain deferred until text-to-figure retrieval proves insufficient |
 
