@@ -1,4 +1,6 @@
 using CasCap.Constants;
+using CasCap.Common.Services;
+using Cronos;
 
 namespace CasCap.Services;
 
@@ -18,17 +20,46 @@ internal sealed class DocumentIngestionFeature(
 
     private async Task RunOwnedAsync(CancellationToken ownershipToken)
     {
+        if (!config.Value.SynchronizationEnabled)
+        {
+            await RunAdmissionAsync(ownershipToken);
+            return;
+        }
+        await RequestSynchronizationAsync(ownershipToken);
+        Func<CancellationToken, Task>[] loops =
+        [
+            RunAdmissionAsync,
+            token => CoalescingScheduleRunner.RunAsync(CronExpression.Parse(config.Value.SynchronizationCron),
+                timeProvider, (_, scheduleToken) => RequestSynchronizationAsync(scheduleToken), token),
+        ];
+        await Parallel.ForEachAsync(loops, new ParallelOptions
+        {
+            CancellationToken = ownershipToken,
+            MaxDegreeOfParallelism = loops.Length,
+        }, async (loop, token) => await loop(token));
+    }
+
+    private async Task RequestSynchronizationAsync(CancellationToken token)
+    {
+        await using var scope = serviceScopeFactory.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<DocumentSynchronizationService>().RequestAsync(null, token);
+    }
+
+    private async Task RunAdmissionAsync(CancellationToken ownershipToken)
+    {
         while (!ownershipToken.IsCancellationRequested)
         {
             ownershipToken.ThrowIfCancellationRequested();
             await using var scope = serviceScopeFactory.CreateAsyncScope();
+            var synchronized = config.Value.SynchronizationEnabled
+                && await scope.ServiceProvider.GetRequiredService<DocumentSynchronizationService>().ProcessNextAsync(ownershipToken);
             var received = await scope.ServiceProvider.GetRequiredService<DocumentIngestionAdmissionService>()
                 .ReceiveAsync(ownershipToken);
             ownershipToken.ThrowIfCancellationRequested();
             var processed = config.Value.ProcessingEnabled
                 && await scope.ServiceProvider.GetRequiredService<DocumentIngestionProcessingService>()
                     .ProcessOneAsync(ownershipToken);
-            if (!received && !processed)
+            if (!received && !processed && !synchronized)
                 await Task.Delay(TimeSpan.FromMilliseconds(config.Value.PollIntervalMs), timeProvider, ownershipToken);
         }
         ownershipToken.ThrowIfCancellationRequested();

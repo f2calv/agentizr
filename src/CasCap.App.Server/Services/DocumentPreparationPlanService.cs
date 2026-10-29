@@ -9,17 +9,24 @@ namespace CasCap.Services;
 internal static class DocumentPreparationPlanService
 {
     /// <summary>Pins the admission plan inside the caller's inbox transaction; null never opts an existing job into paid preparation.</summary>
-    public static async Task<string?> PinAsync(
+    public static Task<string?> PinAsync(
         AgentRuntimeDbContext db,
         DocumentIngestionNotification notification,
         CancellationToken cancellationToken
-    )
+    ) => PinAsync(db, notification.TenantId, notification.AgentPreparation, cancellationToken);
+
+    /// <summary>Pins an explicitly configured source plan without manufacturing an Event Grid notification.</summary>
+    public static async Task<string?> PinAsync(
+        AgentRuntimeDbContext db,
+        string tenantId,
+        DocumentAgentPreparationConfig? settings,
+        CancellationToken cancellationToken)
     {
-        if (notification.AgentPreparation is not { } settings)
+        if (settings is null)
             return null;
         Validator.ValidateObject(settings, new ValidationContext(settings), validateAllProperties: true);
         var snapshot = await db.ActiveAgentDefinitions
-            .Where(item => item.TenantId == notification.TenantId && item.AgentName == settings.AgentName
+            .Where(item => item.TenantId == tenantId && item.AgentName == settings.AgentName
                 && item.Snapshot!.DefinitionVersion == settings.DefinitionVersion)
             .Select(item => item.Snapshot!)
             .SingleOrDefaultAsync(cancellationToken)
@@ -28,7 +35,7 @@ internal static class DocumentPreparationPlanService
         Validate(definition, settings);
         return JsonSerializer.Serialize(new DocumentPreparationPlan
         {
-            TenantId = notification.TenantId,
+            TenantId = tenantId,
             Definition = definition,
             DefinitionSha256 = DocumentPreparationIdentity.Hash(snapshot.DefinitionJson),
             Settings = settings,

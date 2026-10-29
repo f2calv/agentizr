@@ -1,15 +1,16 @@
 using CasCap.Constants;
 using CasCap.Entities;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Cryptography;
 using System.Text.Json;
+using static CasCap.Services.DocumentIngestionIdentity;
 
 namespace CasCap.Services;
 
 /// <summary>Serializes admission in PostgreSQL and rejects stale events independently of Redis leadership.</summary>
 internal sealed class DocumentIngestionInboxService(
     TimeProvider timeProvider,
-    IDbContextFactory<AgentRuntimeDbContext> dbContextFactory) : IDocumentIngestionInbox
+    IDbContextFactory<AgentRuntimeDbContext> dbContextFactory,
+    IDocumentBlobInventory? documentBlobInventory = null) : IDocumentIngestionInbox
 {
     /// <inheritdoc/>
     public async Task AcceptAsync(DocumentIngestionNotification notification, CancellationToken cancellationToken)
@@ -31,7 +32,21 @@ internal sealed class DocumentIngestionInboxService(
         }
 
         var document = await db.KnowledgeDocuments.SingleOrDefaultAsync(item => item.Id == documentId, cancellationToken);
+        if (document?.LastSeenSyncId is not null && documentBlobInventory is null)
+            throw new InvalidOperationException("Synchronized source admission requires current storage verification.");
+        var current = documentBlobInventory is null ? null
+            : await documentBlobInventory.ReadAsync(notification.Event.BlobUri.AbsoluteUri, cancellationToken);
         var status = notification.Event.Deleted ? DocumentIngestionStates.Deleted : DocumentIngestionStates.Queued;
+        var obsolete = documentBlobInventory is not null
+            && (notification.Event.Deleted ? current is not null : !SameETag(current?.ETag, notification.Event.ETag));
+        if (obsolete)
+            status = DocumentIngestionStates.Ignored;
+        if (document is null && obsolete)
+        {
+            // Obsolete deliveries need no durable processing intent; queue acknowledgement remains safe.
+            await transaction.CommitAsync(cancellationToken);
+            return;
+        }
         if (document is null)
         {
             document = new KnowledgeDocumentEntity
@@ -45,8 +60,10 @@ internal sealed class DocumentIngestionInboxService(
             };
             db.KnowledgeDocuments.Add(document);
         }
-        else if (string.CompareOrdinal(notification.Event.Sequencer, document.Sequencer) <= 0
-            || document.Status == DocumentIngestionStates.Deleted)
+        else if (obsolete || string.CompareOrdinal(notification.Event.Sequencer, document.Sequencer) <= 0
+            || document.Status == DocumentIngestionStates.Deleted
+            || document.LastSeenSyncId is not null && !notification.Event.Deleted
+                && SameETag(document.ETag, notification.Event.ETag))
         {
             // Immutable source names are never resurrected by event replay or a later overwrite.
             status = DocumentIngestionStates.Ignored;
@@ -54,6 +71,8 @@ internal sealed class DocumentIngestionInboxService(
 
         if (status != DocumentIngestionStates.Ignored)
         {
+            if (notification.Event.Deleted || document.ETag is not null && document.ETag != notification.Event.ETag)
+                await DocumentSourceRetirement.PurgeAsync(db, document, cancellationToken);
             document.Sequencer = notification.Event.Sequencer;
             document.ETag = notification.Event.ETag;
             document.Status = status;
@@ -87,6 +106,4 @@ internal sealed class DocumentIngestionInboxService(
         await transaction.CommitAsync(cancellationToken);
     }
 
-    private static string Digest(params string?[] values) =>
-        Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(values)));
 }

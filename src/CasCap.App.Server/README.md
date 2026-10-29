@@ -49,6 +49,38 @@ Apply the processing and `20261026041415_DocumentPreparedGenerations` migrations
 rolling out this code; do not enable processing during a mixed-version ingestion rollout.
 Embeddings and searchable generation activation remain future work.
 
+### Document Source Synchronization
+
+The Debug [`DocumentSynchronizationService`](Services/DocumentSynchronizationService.cs) repairs
+missed Blob events against durable document/job state, not the contents of transient queues.
+`SynchronizationEnabled` defaults to `false`; apply the additive
+`20261029104131_AddDocumentSynchronization` migration externally and deploy compatible ingestion
+replicas before enabling it. This gate is independent of `ProcessingEnabled`: reconciliation never
+calls a preparation or embedding provider, and enabling it does not make PDFs reviewable.
+
+An ingestion owner requests synchronization after every ownership acquisition and at minute zero
+each UTC hour. `SynchronizationCron` accepts recurring five-field Cronos expressions and defaults to
+`0 * * * *`; `SynchronizationTimeoutSeconds` defaults to `600` (range 30-3600). The shared timing
+runner currently requires the Debug sibling checkout, not a published-package assumption.
+Requests coalesce durably per configured source; the existing elected loop claims one source at a
+time. Database run identity/deadline checks reject expired owners independently of Redis ownership.
+
+The read-only [`Blob inventory`](Services/AzureDocumentBlobInventory.cs) uses the runtime identity
+and requires list/read access, but creates no containers, queues or fabricated Event Grid events.
+It admits missing PDFs and repairs missing jobs or a queued, unattempted job's absent preparation
+plan from trusted source configuration. It does not reset attempts, replay uncertain submissions or
+resurrect deleted immutable blob names. Conflicts are counted; a successful scan can still contain
+conflicts that require operator attention.
+
+Only a completed inventory followed by an individual `BlobNotFound` permits absence-based deletion.
+Partial listings, missing containers, permissions and transport failures leave unobserved content
+intact and record a safe failure code. Confirmed deletions and revision replacement remove currently
+implemented text/Markdown projections, clear receipt content and revoke pending/active work while
+retaining tombstones and usage audit. Existing source/claim fences block stale output publication.
+Embedding/search-index purge remains a prerequisite for those future adapters.
+Event admission verifies current storage under the existing global transaction lock; slow metadata
+calls therefore serialize admissions. Queue redelivery remains safe through durable receipt checks.
+
 Release explicitly rejects ingestion until the required shared APIs are published.
 `migrate` is a finite external schema job with no HTTP listener or background ingestion; the existing
 `--migrate` argument also selects it.

@@ -936,6 +936,39 @@ be externally applied before rollout. Keep processing off until all ingestion re
 contract, isolated PostgreSQL race checks and authenticated source checks pass, and the infrastructure
 handoff is complete. The existing admission-only deployment includes none of this local processing.
 
+### Repeatable Source Reconciliation
+
+Event Grid remains the fast path, but events created before subscription provisioning cannot
+bootstrap the document catalogue. Choose repeatable synchronization of trusted source containers
+against durable document/jobs rather than a one-off import or replaying transient queue contents.
+The [synchronizer](../src/CasCap.App.Server/Services/DocumentSynchronizationService.cs) now supports
+durable per-source requests, owner-startup execution and an hourly UTC cron request. A manual
+application-scoped administrator request must use that same persisted path so a standby HTTP
+replica never starts a competing local inventory; administration/UI wiring is still pending.
+
+The [inventory adapter](../src/CasCap.App.Server/Services/AzureDocumentBlobInventory.cs) pages PDFs
+and verifies current metadata using the runtime identity. Missing jobs and eligible zero-attempt
+preparation bindings can be repaired without generating pretend storage events, resetting attempts
+or calling paid providers. A synchronized same-ETag source ignores delayed create notifications;
+revision replacement revokes earlier work. Immutable deleted source names are not resurrected.
+
+Absence is authoritative only after a complete listing and an individual `BlobNotFound`. Failed
+or partial listings, missing containers, permissions and transport failures cannot trigger cleanup.
+The [retirement helper](../src/CasCap.App.Server/Services/DocumentSourceRetirement.cs) removes
+implemented text and Markdown projections, clears receipt result content, invalidates active/pending
+jobs and preserves source tombstones plus usage audit. Database source/claim and synchronization
+run/deadline fences prevent stale writers from republishing. Future vector/index adapters must
+implement corresponding deletion before claiming this contract.
+
+The default `SynchronizationEnabled=false` is a rollout gate, separate from processing and paid
+budgets. Externally apply `20261029104131_AddDocumentSynchronization` and deploy compatible ingestion
+replicas before enabling it. Its migration adds only synchronization state and a nullable source
+marker. The current [contracts](../src/CasCap.App.Server.Tests/Tests/Integration/DocumentSynchronizationTests.cs)
+exercise SQLite and native PostgreSQL, including migration upgrade, deletion and takeover.
+The [owner-bound clock test](../src/CasCap.App.Server.Tests/Tests/Integration/DocumentIngestionLeadershipTests.cs)
+uses deterministic hourly timing; real Redis renewal and deployed Blob permissions remain separate
+acceptance gates. No deployed reconciliation or prepared-document acceptance is claimed.
+
 ### PoC Limits And Deliberately Deferred Polishing
 
 This may remain a hobby PoC. Keep the first implementation serial and explicit rather than adding

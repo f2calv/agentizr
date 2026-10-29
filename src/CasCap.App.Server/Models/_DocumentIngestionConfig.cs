@@ -32,6 +32,18 @@ public sealed record DocumentIngestionConfig : IAppConfig, IValidatableObject
     /// <summary>Gets whether durable processing is enabled; requires a real registered document processor.</summary>
     public bool ProcessingEnabled { get; init; }
 
+    /// <summary>Gets whether startup/hourly synchronization and administrator requests are enabled.</summary>
+    /// <remarks>Enable after the additive migration and compatible ingestion replicas are deployed.</remarks>
+    public bool SynchronizationEnabled { get; init; }
+
+    /// <summary>Gets the five-field UTC schedule used by <see cref="DocumentIngestionFeature"/>.</summary>
+    [Required, MinLength(1), MaxLength(200)]
+    public string SynchronizationCron { get; init; } = "0 * * * *";
+
+    /// <summary>Gets the cooperative per-source deadline used by <see cref="DocumentSynchronizationService"/>.</summary>
+    [Range(30, 3_600)]
+    public int SynchronizationTimeoutSeconds { get; init; } = 600;
+
     /// <summary>Gets the attempt deadline in seconds, used by <see cref="DocumentIngestionJobService"/>
     /// and <see cref="DocumentIngestionProcessingService"/>.</summary>
     [Range(30, 900)]
@@ -43,6 +55,9 @@ public sealed record DocumentIngestionConfig : IAppConfig, IValidatableObject
     /// <inheritdoc/>
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
+        if (!Cronos.CronExpression.TryParse(SynchronizationCron, out var schedule)
+            || schedule.GetNextOccurrence(DateTime.UnixEpoch) is null)
+            yield return new ValidationResult("SynchronizationCron must describe a recurring five-field UTC schedule.");
         if (!IsPrivateEndpoint(QueueUri) || !IsPrivateEndpoint(PoisonQueueUri)
             || string.Equals(QueueUri.TrimEnd('/'), PoisonQueueUri.TrimEnd('/'), StringComparison.OrdinalIgnoreCase))
             yield return new ValidationResult("Distinct credential-free HTTPS queue endpoints are required.");

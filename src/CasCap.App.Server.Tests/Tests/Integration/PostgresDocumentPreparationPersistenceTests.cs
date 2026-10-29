@@ -180,7 +180,7 @@ public sealed class PostgresDocumentPreparationPersistenceTests : IAsyncLifetime
         }
         Assert.False(await Store().StoreAsync(claim, preparation, Token));
         Assert.False(await Jobs().FinishAsync(claim, DocumentProcessingOutcome.Completed, Token));
-        await AssertCountsAsync(admissionFirst ? 0 : 1, admissionFirst ? 0 : preparation.Chunks.Count);
+        await AssertCountsAsync(admissionFirst || deleted ? 0 : 1, admissionFirst || deleted ? 0 : preparation.Chunks.Count);
         await using var db = _database.DbContextFactory.CreateDbContext();
         Assert.Equal(deleted ? DocumentIngestionStates.Deleted : DocumentIngestionStates.Queued,
             (await db.KnowledgeDocuments.SingleAsync(Token)).Status);

@@ -52,6 +52,8 @@ public static partial class AppHost
         builder.Services.AddHttpClient(nameof(DocumentPreparationModelVerifier))
             .RemoveAllLoggers().ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         builder.Services.AddSingleton<IDocumentIngestionEventQueue, AzureDocumentIngestionQueue>();
+        builder.Services.AddSingleton<IDocumentBlobInventory, AzureDocumentBlobInventory>();
+        builder.Services.AddScoped<DocumentSynchronizationService>();
         builder.Services.AddScoped<IDocumentIngestionInbox, DocumentIngestionInboxService>();
         builder.Services.AddScoped<DocumentIngestionAdmissionService>();
         builder.Services.AddScoped<DocumentIngestionJobService>();

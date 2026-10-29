@@ -75,17 +75,20 @@ These additional role/ingestion tests are separate from the runtime baseline inv
 | Class | Methods | Cases | Scope |
 | --- | ---: | ---: | --- |
 | `FeatureConfigTests` | 3 | 11 | Default, normalization, duplicate, unknown, empty and incompatible finite-role selections; Debug and Release |
-| `DocumentIngestionConfigTests` | 5 | 13 | Synthetic source/queue configuration, canonical HTTPS endpoints, visibility and exact processing deadline boundaries |
+| `DocumentIngestionConfigTests` | 7 | 23 | Synthetic source/queue configuration, canonical HTTPS endpoints, visibility, processing/sync deadlines and recurring five-field calendars |
 | `DocumentIngestionAdmissionTests` | 9 | 20 | Commit-before-ack, infrastructure/argument failures, cancellation, malformed envelopes, source isolation and sequencer normalization |
 | `DocumentIngestionInboxTests` | 16 | 19 | SQLite admission, disabled/missing processors, terminal outcomes, exact retry delay/attempt limit, expired and replaced claims, supersession, cancellation, deadline cleanup and unknown faults |
-| `DocumentIngestionLeadershipTests` | 2 | 3 | Fake-runner ownership, cancellation on loss and processing resolution only inside ownership when enabled |
+| `DocumentIngestionLeadershipTests` | 3 | 4 | Fake-runner ownership, cancellation on loss, gated processing resolution and clock-driven startup/hourly durable synchronization |
 | `DocumentIngestionCompositionTests` | 1 | 4 | Real local/hybrid-router DI with runtime infrastructure already registered, disabled/enabled gates, explicitly removed processor rejection and test substitution; no transport starts |
-| **Role/ingestion subtotal** | **36** | **70** | All but the role-parser class are Debug-only |
+| **Role/ingestion subtotal** | **39** | **81** | All but the role-parser class are Debug-only |
 
 Run the focused credential-free selection from the repository root:
 
 ```powershell
-dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class '*FeatureConfigTests' '*DocumentIngestion*'
+dotnet test --project src\CasCap.App.Server.Tests --configuration Debug `
+  --filter-class '*FeatureConfigTests' '*DocumentIngestionConfigTests' `
+  '*DocumentIngestionAdmissionTests' '*DocumentIngestionInboxTests' `
+  '*DocumentIngestionLeadershipTests' '*DocumentIngestionCompositionTests'
 ```
 
 The database/DI fixtures are under `Integration/` and use synthetic, test-owned setup rather than
@@ -93,19 +96,49 @@ any live-service configuration; no Azure, PostgreSQL or Redis connection is made
 The composition fixture exercises `runtimeEnabled=true`. Full ingestion-only startup calls the
 existing eager Redis registration and therefore needs a separately approved isolated Redis check;
 the worker's tenant-local runtime adapter is independently covered without HTTP tenancy.
-`Roles` covers the 11 parser cases; `Ingestion` covers the remaining 59, including 26 also tagged
+`Roles` covers the 11 parser cases; `Ingestion` covers the remaining 70, including 27 also tagged
 `Integration`. The processing tests use a manual clock/timer, not retry-duration sleeps.
 Neither a fake ownership callback nor SQLite validates actual Redlock renewal,
 PostgreSQL advisory-lock concurrency, Azure queue encoding/leases/poison delivery, migration process
 exit or worker-only/combined host routes.
 
-Observed current combined Debug run: **178 passed, zero failed/skipped**: the 70 cases above, nine
+Earlier baseline combined Debug run: **178 passed, zero failed/skipped**: the previous 70 role/ingestion cases, nine
 existing endpoint cases, 42 preparation cases, 21 download cases and 36 staged-persistence cases.
 This is not a
 full-suite or live-provider result. See
 [ADR 0001](../../docs/adr-0001-centralized-document-rag.md#poc-limits-and-deliberately-deferred-polishing)
 for the remaining acceptance gates. The real processor is exercised with synthetic streams and
 SQLite; no live-provider race test or blob-to-answer flow is claimed.
+
+### Document Source Synchronization
+
+| Class | Methods | Cases | Scope |
+| --- | ---: | ---: | --- |
+| [`DocumentSynchronizationTests`](Tests/Integration/DocumentSynchronizationTests.cs) | 11 | 23 | Matching SQLite/native PostgreSQL contracts, failed inventories, content retirement, late-event coalescing, deadline takeover and additive migration upgrade |
+
+These Debug-only cases use a fake read-only Blob inventory and synthetic documents/providers; no
+Azure or paid call occurs. PostgreSQL cases create, migrate and drop only uniquely named test-owned
+databases using the existing fixture. The upgrade case preserves an admitted row from
+`20261028120307_DocumentMarkdownReviewGenerations`. A completed scan is not permission to delete
+content when HEAD fails; native tests also prove expired run IDs and retired processing claims
+cannot publish stale content. Quoted and unquoted ETags are treated as the same revision.
+
+The ownership case in the preceding table uses `FakeTimeProvider` and explicit timer/transaction
+gates, not sleeps. It proves startup work begins only under ownership, the next UTC hour commits a
+durable request even while admission is blocked, and ownership cancellation joins both loops.
+It does not prove real Redis renewal or live Azure permissions.
+
+Run the synchronization contract with approved local PostgreSQL available:
+
+```powershell
+dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class '*DocumentSynchronizationTests'
+```
+
+Observed validation: **164 passed, zero failed/skipped**, combining the 81 role/ingestion cases,
+23 synchronization cases and affected SQLite/PostgreSQL preparation persistence regressions.
+The full Debug solution built with zero warnings/errors; EF reported no pending model changes and
+the reviewed migration SQL was additive. The separate Redis-host handover case could not connect
+to its required Redis service and is not included in that passing selection.
 
 ### Offline PDF Preparation
 

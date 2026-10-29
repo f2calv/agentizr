@@ -16,6 +16,9 @@ public sealed class AgentRuntimeDbContext(
     /// <summary>Gets durable event receipts and queued document-processing intents.</summary>
     public DbSet<DocumentIngestionJobEntity> DocumentIngestionJobs => Set<DocumentIngestionJobEntity>();
 
+    /// <summary>Gets durable synchronization requests and latest per-source run progress.</summary>
+    public DbSet<DocumentSynchronizationEntity> DocumentSynchronizations => Set<DocumentSynchronizationEntity>();
+
     /// <summary>Gets immutable, non-searchable preparation generations.</summary>
     public DbSet<DocumentPreparationGenerationEntity> DocumentPreparationGenerations => Set<DocumentPreparationGenerationEntity>();
 
@@ -54,6 +57,34 @@ public sealed class AgentRuntimeDbContext(
     {
         var schema = Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite" ? null : Schema;
 
+        modelBuilder.Entity<DocumentSynchronizationEntity>(entity =>
+        {
+            entity.ToTable("document_synchronizations", schema);
+            entity.HasKey(item => item.Id).HasName("pk_document_synchronizations");
+            entity.Property(item => item.Id).HasColumnName("id").HasMaxLength(64);
+            entity.Property(item => item.TenantId).HasColumnName("tenant_id").HasMaxLength(200);
+            entity.Property(item => item.CollectionId).HasColumnName("collection_id").HasMaxLength(200);
+            entity.Property(item => item.Requested).HasColumnName("requested");
+            entity.Property(item => item.RequestedAtUtc).HasColumnName("requested_at_utc");
+            entity.Property(item => item.RunId).HasColumnName("run_id");
+            entity.Property(item => item.ExpiresAtUtc).HasColumnName("expires_at_utc");
+            entity.Property(item => item.StartedAtUtc).HasColumnName("started_at_utc");
+            entity.Property(item => item.FinishedAtUtc).HasColumnName("finished_at_utc");
+            entity.Property(item => item.LastSucceededAtUtc).HasColumnName("last_succeeded_at_utc");
+            entity.Property(item => item.State).HasColumnName("state").HasMaxLength(30);
+            entity.Property(item => item.AddedCount).HasColumnName("added_count");
+            entity.Property(item => item.RepairedCount).HasColumnName("repaired_count");
+            entity.Property(item => item.RemovedCount).HasColumnName("removed_count");
+            entity.Property(item => item.UnchangedCount).HasColumnName("unchanged_count");
+            entity.Property(item => item.ConflictCount).HasColumnName("conflict_count");
+            entity.Property(item => item.FailureCode).HasColumnName("failure_code").HasMaxLength(40);
+            entity.HasIndex(item => new { item.TenantId, item.CollectionId })
+                .HasDatabaseName("ix_document_synchronizations_tenant_collection");
+            if (Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite")
+                entity.Property(item => item.ExpiresAtUtc).HasConversion(
+                    value => value!.Value.UtcTicks, value => new DateTimeOffset(value, TimeSpan.Zero));
+        });
+
         modelBuilder.Entity<KnowledgeDocumentEntity>(entity =>
         {
             entity.ToTable("knowledge_documents", schema);
@@ -66,6 +97,7 @@ public sealed class AgentRuntimeDbContext(
             entity.Property(item => item.ETag).HasColumnName("etag").HasMaxLength(200);
             entity.Property(item => item.Status).HasColumnName("status").HasMaxLength(30);
             entity.Property(item => item.UpdatedAtUtc).HasColumnName("updated_at_utc");
+            entity.Property(item => item.LastSeenSyncId).HasColumnName("last_seen_sync_id");
             entity.HasAlternateKey(item => new { item.TenantId, item.CollectionId, item.Id })
                 .HasName("ak_knowledge_documents_tenant_collection_id");
         });

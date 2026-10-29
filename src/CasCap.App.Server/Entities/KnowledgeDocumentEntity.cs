@@ -26,4 +26,7 @@ public sealed class KnowledgeDocumentEntity
 
     /// <summary>Gets or sets when the latest state was admitted.</summary>
     public DateTimeOffset UpdatedAtUtc { get; set; }
+
+    /// <summary>Gets or sets the last complete-run inventory observation; null denotes event-only admission.</summary>
+    public Guid? LastSeenSyncId { get; set; }
 }

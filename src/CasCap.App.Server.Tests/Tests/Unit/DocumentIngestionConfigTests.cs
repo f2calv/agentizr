@@ -40,6 +40,24 @@ public sealed class DocumentIngestionConfigTests
     public void ProcessingDeadline(int seconds, bool valid) =>
         Assert.Equal(valid, Validate(DocumentIngestionTestData.Config with { ProcessingTimeoutSeconds = seconds }).Count == 0);
 
+    [Theory]
+    [InlineData("0 * * * *", true)]
+    [InlineData("0 0 29 2 *", true)]
+    [InlineData("0 0 30 2 *", false)]
+    [InlineData("0 0 * * * *", false)]
+    [InlineData("invalid", false)]
+    public void RecurringSynchronizationSchedule(string cron, bool valid) =>
+        Assert.Equal(valid, Validate(DocumentIngestionTestData.Config with { SynchronizationCron = cron }).Count == 0);
+
+    [Theory]
+    [InlineData(29, false)]
+    [InlineData(30, true)]
+    [InlineData(600, true)]
+    [InlineData(3600, true)]
+    [InlineData(3601, false)]
+    public void SynchronizationDeadline(int seconds, bool valid) =>
+        Assert.Equal(valid, Validate(DocumentIngestionTestData.Config with { SynchronizationTimeoutSeconds = seconds }).Count == 0);
+
     private static List<ValidationResult> Validate(DocumentIngestionConfig config)
     {
         var results = new List<ValidationResult>();
