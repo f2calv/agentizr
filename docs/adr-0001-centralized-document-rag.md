@@ -4,7 +4,8 @@
 document processing and paid preparation remain disabled.
 The built-in preparation-agent runtime is deployed but no preparation definition was activated.
 The Debug review-only API and its schema are deployed; real assigned-administrator OIDC acceptance
-remains pending. The first document catalogue/review workbench is locally verified, not deployed.
+remains pending. The first document catalogue/review workbench is deployed in the Debug artifact;
+authorized real-document browser review still requires a prepared test source and administrator acceptance.
 **Date:** 2026-10-25.
 **Scope:** Blazor document management, Azure Blob/Event Grid ingestion and tenant-isolated RAG.
 **Canonical record:** This document. Related issues are historical context or implementation tracking,
@@ -2033,8 +2034,17 @@ requirement or replace that acceptance gate.
   navigation, 409/503 outcomes without mutation retries, keyboard confirmation and narrow layouts.
   Referenced scripts/styles return 200. Stop the loopback-only host afterward.
   These checks do not prove deployed sign-in, actual browser-cookie portability or real-document UI quality.
-- [ ] Complete deployed assigned-administrator acceptance above and explicitly authorize publication/
-  rollout of this UI. The currently deployed review API does not include this local workbench.
+- [x] Publish and deploy the UI from `bfdf006` through the explicitly authorized Debug
+  [deployment workflow](../deploy.ps1), without chart publication, pull requests or releases.
+  The model-drift check reports no changes. The unchanged chart uses the same pinned image for
+  migration and runtime; its PreSync migration succeeds and the application reconciles healthy.
+  Both target ARM64 replicas are ready with zero restarts; bounded logs contain no warnings/errors.
+  Each replica serves the document shell and imported client review styles with HTTP 200,
+  rejects anonymous catalogue/review reads with 401, and requires sign-in with no-store session
+  responses. Document processing remains explicitly disabled; no preparation, embedding or
+  document-review mutation was performed. Temporary loopback forwards are stopped after checks.
+- [ ] Complete deployed assigned-administrator acceptance above against a prepared, approved test
+  source. An available document screen or healthy deployment alone does not establish that result.
 - [ ] Deliver upload/replace/delete, original-source viewing, custom profile/structural editing,
   semantic approval and search activation through their separately reviewed contracts.
   The current catalogue lists admitted database sources, not every Blob or completed indexing.
