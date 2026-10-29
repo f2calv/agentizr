@@ -28,6 +28,7 @@ public static partial class AppHost
             builder.Services.AddCasCapCaching(builder.Configuration);
 
         var postgresEnabled = AddDatabase(builder, !builder.Environment.IsDevelopment());
+        AddDocumentReviews(builder, postgresEnabled);
 
         if (tenantAuthenticationEnabled)
         {

@@ -137,3 +137,8 @@ the identity provider an `http://` callback it would reject.
 and ingestion status in this frontend, backed by private Azure Blob Storage and background RAG
 processing. These controls are not implemented; the frontend currently manages agent definitions,
 not document collections.
+
+A Debug-only [protected review API](../src/CasCap.App.Server/README.md#protected-review-management)
+and typed administration-client methods now preview/store/read existing receipt-derived review
+generations. They require a signed-in assigned app administrator and antiforgery protection, not
+open Development access. This backend slice does not add a document screen or approve indexing.

@@ -369,6 +369,29 @@ were preserved. The fixture-database count returned to its pre-run baseline with
 unknown databases. No Azure/paid calls, deployed database writes, real-document persistence,
 management authorization, semantic/visual approval, embedding, activation or deployment occurred.
 
+### Protected Document Review Management
+
+[`AdministrationDocumentReviewTests`](Tests/Integration/AdministrationDocumentReviewTests.cs)
+adds **12 methods / 26 Debug-only cases**, tagged `Integration` and `DocumentReviewManagement`.
+It uses the actual host, authorization policies, antiforgery, typed browser client and production
+review store with per-case SQLite and synthetic receipts. No identity-provider, Azure, paid-model,
+PostgreSQL service or deployment is contacted.
+
+Coverage proves cookie-only app assignments; 401/403 before reads/writes; no anonymous Development
+bypass; required antiforgery; preview without insertion; immutable retry/profile behavior; source,
+job, collection and tenant fences; rejected stale revisions and invalid structural decisions;
+replacement/deletion revocation; explicit 501 without storage; and corruption as 500, not 400.
+Forged JSON tenant/actor/location/state cannot replace trusted metadata or create approval.
+Source lookup translation is checked offline with Npgsql, not by executing against PostgreSQL.
+
+```powershell
+dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class CasCap.IntegrationTests.AdministrationDocumentReviewTests CasCap.IntegrationTests.AdministrationApiTests CasCap.IntegrationTests.AdministrationSignInTests CasCap.Tests.Integration.DocumentMarkdownGenerationTests
+```
+
+The focused selection passed **94 cases**, zero failed/skipped: 26 new management, 47 existing
+SQLite generation and 21 existing administration cases. PostgreSQL HTTP/replica acceptance and
+authorized real-document persistence remain separate gates.
+
 ### PostgreSQL Prepared Generations
 
 [`PostgresDocumentPreparationPersistenceTests`](Tests/Integration/PostgresDocumentPreparationPersistenceTests.cs)
@@ -616,6 +639,7 @@ Tests/
 ├── ScriptedEvaluationAgentFactory.cs
 ├── Integration/
 │   ├── AdministrationApiTests.cs
+│   ├── AdministrationDocumentReviewTests.cs
 │   ├── AdministrationDefinitionUiTests.cs
 │   ├── AdministrationReplicaTests.cs
 │   ├── AdministrationSignInTests.cs

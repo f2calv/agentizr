@@ -59,13 +59,22 @@ public static class ServiceCollectionExtensions
             });
         });
         services.AddOptions<AuthorizationOptions>().Configure<IOptions<AdministrationConfig>>((options, administrationConfig) =>
+        {
             options.AddPolicy(AdministrationPolicies.AppAdministrator, policy =>
             {
                 // Only the administration cookie counts; machine bearer tokens never grant administration.
                 if (administrationConfig.Value.Enabled)
                     policy.AddAuthenticationSchemes(AdministrationAuthenticationSchemes.Cookie);
                 policy.AddRequirements(new AppAdministratorRequirement());
-            }));
+            });
+            options.AddPolicy(AdministrationPolicies.AuthenticatedDocumentReviewer, policy =>
+            {
+                if (administrationConfig.Value.Enabled)
+                    policy.AddAuthenticationSchemes(AdministrationAuthenticationSchemes.Cookie);
+                policy.RequireAuthenticatedUser();
+                policy.RequireAssertion(_ => administrationConfig.Value.Enabled);
+            });
+        });
         return services;
     }
 }

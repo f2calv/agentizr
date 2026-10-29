@@ -6,14 +6,25 @@ using System.Text.Json;
 namespace CasCap.Services;
 
 /// <summary>Explicitly stores receipt-derived review candidates; never invokes providers or approves content.</summary>
-// TODO: Expose only through authenticated tenant/reviewer management; receipts and annotation IDs are not reviewer authority.
-// Keep visual and retrieval approval as separate gates before permitting embeddings or retrieval.
+// TODO: Keep visual and retrieval approval separate from authenticated review management before permitting embeddings or retrieval.
 internal sealed class DocumentPreparationMarkdownStore(
     IOptions<DocumentPreparationConfig> config,
     TimeProvider timeProvider,
     IDbContextFactory<AgentRuntimeDbContext> dbContextFactory,
     DocumentChunkingService documentChunkingSvc)
 {
+    /// <summary>Builds a non-persisted current-source preview from validated receipts without invoking providers.</summary>
+    public async Task<DocumentMarkdownReviewGeneration?> PreviewAsync(DocumentIngestionClaim source, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        Validator.ValidateObject(config.Value, new ValidationContext(config.Value), validateAllProperties: true);
+        await using var db = await dbContextFactory.CreateDbContextAsync(token);
+        if (!await DocumentIngestionTransactions.CurrentReviewSource(db, source).AnyAsync(token))
+            return null;
+        var snapshot = Build(source, await OperationsAsync(db, source, token), new(), null, token);
+        return await DocumentIngestionTransactions.CurrentReviewSource(db, source).AnyAsync(token) ? snapshot : null;
+    }
+
     /// <summary>Returns the immutable generation ID, or null when the finished job/source is no longer reviewable.</summary>
     /// <remarks>The original claim pins ownership and source revision; its expired lease does not authorize this action.</remarks>
     public async Task<string?> StoreAsync(

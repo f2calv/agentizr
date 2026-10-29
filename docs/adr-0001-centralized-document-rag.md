@@ -1802,8 +1802,8 @@ this does not prove full RAG processing.
   cover 47 cases; 31 existing hybrid and 36 page-local cases give **114 passed**, zero failed/skipped.
   Offline Npgsql source-query translation, generated additive migration SQL and model drift are
   checked; full Debug and configuration-restored Release server builds pass with zero warnings/errors.
-  This is an internal explicit persistence foundation, not an automatic worker action or
-  authenticated management endpoint. It creates no approved state, legacy text chunks, active
+  This persistence foundation is not an automatic worker action; the separately verified
+  authenticated management slice is recorded below. It creates no approved state, legacy text chunks, active
   pointer, embeddings or search eligibility. The real six-page evidence has not been persisted,
   and the manual figure/caption association remains unverified.
 - [x] Prove the review-generation table/service against isolated PostgreSQL on 2026-10-28 with
@@ -1825,8 +1825,28 @@ this does not prove full RAG processing.
   baseline. The task-started PostgreSQL service was stopped immediately and existing workloads/
   volumes preserved. No deployed database migration, paid call, real-document persistence,
   management authorization, semantic/visual approval, embedding or activation is established.
-- [ ] Wire an explicitly authenticated reviewer/tenant/source management action, then persist an
-  authorized bounded real-document review generation without treating storage as semantic approval.
+- [x] Wire the Debug-only [protected review-management API](../src/CasCap.App.Server/Controllers/AdministrationDocumentReviewsController.cs)
+  and [typed administration client](../src/CasCap.App.Client/Services/AdministrationApiClient.cs).
+  Existing configured app administrators act as reviewers through the administration cookie;
+  a separate authenticated-reviewer policy denies anonymous Development and machine bearer access.
+  Antiforgery protects mutations. The authorized app selects the tenant; database-owned job/source
+  metadata selects the plan and location. A finished, released review-required job is mandatory.
+  Preview/create/read return only allowlisted source pages, separate notes and versioned Markdown
+  projections. Source sequence/ETag observations fence creation, and replacement/deletion revokes
+  reads without deleting history. Invalid decisions are 400, stale observations 409, absent material
+  404 and unconfigured storage 501; receipt corruption remains a server error.
+  [Offline HTTP/SQLite regressions](../src/CasCap.App.Server.Tests/Tests/Integration/AdministrationDocumentReviewTests.cs)
+  prove 26 cases; the combined management, existing administration and SQLite store selection
+  passes **94 cases**, zero failed/skipped. Source lookup also translates on Npgsql without a
+  connection; this does not establish a new PostgreSQL HTTP acceptance run. Full Debug solution
+  and restored Release server builds pass with zero warnings/errors. Review identifiers
+  remain structural metadata, not trusted actor attribution or semantic approval. No screen,
+  real-document storage, paid call, applied deployment migration, embedding or activation occurred.
+- [ ] Prove the protected HTTP management boundary against isolated PostgreSQL, including source
+  resolution from persisted JSONB plans and source loss between preview, storage and read. The
+  existing native store acceptance and offline query translation do not replace this host-level gate.
+- [ ] Persist an explicitly authorized bounded real-document review generation through protected
+  management without treating storage as semantic approval.
   Resolve visual-enabled manual figure/caption/region associations before approving that material;
   a review-required record alone cannot permit retrieval or embeddings.
 - [ ] Complete source-block/heading/body mappings and available multi-region/page provenance before

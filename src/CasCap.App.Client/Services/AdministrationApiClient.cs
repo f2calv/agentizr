@@ -23,6 +23,21 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
     public Task<ApiResult<IReadOnlyList<AppSummaryResponse>>> GetAppsAsync(CancellationToken cancellationToken) =>
         GetAsync<IReadOnlyList<AppSummaryResponse>>(AdministrationRoutes.Apps, cancellationToken);
 
+    /// <summary>Previews a current source or reads an immutable review-required generation.</summary>
+    public Task<ApiResult<DocumentReviewGenerationResponse>> GetDocumentReviewAsync(
+        string appId, string collectionId, string documentId, string jobId, string? generationId, CancellationToken cancellationToken) =>
+        GetAsync<DocumentReviewGenerationResponse>(
+            DocumentReviewRoutes.Format(generationId is null ? DocumentReviewRoutes.Source : DocumentReviewRoutes.Generation,
+                appId, collectionId, documentId, jobId, generationId), cancellationToken);
+
+    /// <summary>Stores a source-fenced review generation with antiforgery protection; never retries or approves it.</summary>
+    public Task<ApiResult<DocumentReviewGenerationResponse>> StoreDocumentReviewAsync(
+        string appId, string collectionId, string documentId, string jobId,
+        DocumentReviewGenerationRequest request, CancellationToken cancellationToken) =>
+        SendMutationAsync<DocumentReviewGenerationResponse>(HttpMethod.Post,
+            DocumentReviewRoutes.Format(DocumentReviewRoutes.Generations, appId, collectionId, documentId, jobId),
+            request, cancellationToken);
+
     /// <summary>Gets one page of an app's agents.</summary>
     public Task<ApiResult<AgentSummaryPageResponse>> GetAgentsAsync(
         string appId,

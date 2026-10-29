@@ -1,0 +1,76 @@
+#if DEBUG
+using CasCap.Client.Constants;
+using CasCap.Client.Models;
+using CasCap.Constants;
+using CasCap.Filters;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
+
+namespace CasCap.Controllers;
+
+/// <summary>Exposes source-fenced review projections only to signed-in administrators of the selected app.</summary>
+[ApiController]
+[Tags("Administration")]
+[Authorize(Policy = AdministrationPolicies.AppAdministrator)]
+[Authorize(Policy = AdministrationPolicies.AuthenticatedDocumentReviewer)]
+[ValidateAdministrationAntiforgery]
+[ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+[ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+[ProducesResponseType(StatusCodes.Status501NotImplemented)]
+public sealed class AdministrationDocumentReviewsController : ControllerBase
+{
+    /// <summary>Previews validated source Markdown and heading-aware chunks without persisting or preparing anything.</summary>
+    [HttpGet(DocumentReviewRoutes.Source, Name = "PreviewDocumentReview")]
+    public async Task<Results<Ok<DocumentReviewGenerationResponse>, NotFound, StatusCodeHttpResult>> PreviewAsync(
+        [StringLength(200, MinimumLength = 1)] string collectionId,
+        [StringLength(128, MinimumLength = 1)] string documentId,
+        [StringLength(128, MinimumLength = 1)] string jobId,
+        [FromServices] DocumentReviewAdministrationService reviewSvc,
+        CancellationToken cancellationToken) =>
+        (await reviewSvc.ReadAsync(collectionId, documentId, jobId, null, cancellationToken)) switch
+        {
+            { IsSupported: false } => TypedResults.StatusCode(StatusCodes.Status501NotImplemented),
+            { Generation: { } generation } => TypedResults.Ok(generation),
+            _ => TypedResults.NotFound(),
+        };
+
+    /// <summary>Reads one immutable review generation only while its exact tenant/job/source remains current.</summary>
+    [HttpGet(DocumentReviewRoutes.Generation, Name = "GetDocumentReviewGeneration")]
+    public async Task<Results<Ok<DocumentReviewGenerationResponse>, NotFound, StatusCodeHttpResult>> ReadAsync(
+        [StringLength(200, MinimumLength = 1)] string collectionId,
+        [StringLength(128, MinimumLength = 1)] string documentId,
+        [StringLength(128, MinimumLength = 1)] string jobId,
+        [StringLength(128, MinimumLength = 1)] string generationId,
+        [FromServices] DocumentReviewAdministrationService reviewSvc,
+        CancellationToken cancellationToken) =>
+        (await reviewSvc.ReadAsync(collectionId, documentId, jobId, generationId, cancellationToken)) switch
+        {
+            { IsSupported: false } => TypedResults.StatusCode(StatusCodes.Status501NotImplemented),
+            { Generation: { } generation } => TypedResults.Ok(generation),
+            _ => TypedResults.NotFound(),
+        };
+
+    /// <summary>Stores an immutable review-required generation; retries reuse its identity and never approve indexing.</summary>
+    [HttpPost(DocumentReviewRoutes.Generations, Name = "StoreDocumentReviewGeneration")]
+    [RequestSizeLimit(1_048_576)]
+    public async Task<Results<Created<DocumentReviewGenerationResponse>, NotFound, Conflict, ValidationProblem, StatusCodeHttpResult>> StoreAsync(
+        string appId,
+        [StringLength(200, MinimumLength = 1)] string collectionId,
+        [StringLength(128, MinimumLength = 1)] string documentId,
+        [StringLength(128, MinimumLength = 1)] string jobId,
+        [FromBody] DocumentReviewGenerationRequest request,
+        [FromServices] DocumentReviewAdministrationService reviewSvc,
+        CancellationToken cancellationToken) =>
+        (await reviewSvc.StoreAsync(collectionId, documentId, jobId, request, cancellationToken)) switch
+        {
+            { IsSupported: false } => TypedResults.StatusCode(StatusCodes.Status501NotImplemented),
+            { IsConflict: true } => TypedResults.Conflict(),
+            { ValidationError: { } error } => TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request)] = [error] }),
+            { Generation: { } generation } => TypedResults.Created(
+                DocumentReviewRoutes.Format(DocumentReviewRoutes.Generation, appId, collectionId, documentId, jobId, generation.GenerationId),
+                generation),
+            _ => TypedResults.NotFound(),
+        };
+}
+#endif

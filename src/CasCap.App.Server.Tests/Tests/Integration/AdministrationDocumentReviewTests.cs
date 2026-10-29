@@ -1,0 +1,347 @@
+#if DEBUG
+using CasCap.Client.Constants;
+using CasCap.Client.Models;
+using CasCap.Client.Services;
+using CasCap.Constants;
+using CasCap.Tests;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using System.Security.Claims;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+
+namespace CasCap.IntegrationTests;
+
+/// <summary>Proves the protected management boundary with synthetic receipts and in-process HTTP/SQLite only.</summary>
+[Trait("Category", "Integration")]
+[Trait("Category", "DocumentReviewManagement")]
+[Collection(HostIntegrationCollection.Name)]
+public sealed class AdministrationDocumentReviewTests : IAsyncLifetime
+{
+    private readonly SqliteConnection _connection = new("Data Source=:memory:;Foreign Keys=True");
+    private readonly DocumentHybridPreparationTestData.Provider _provider = new();
+    private Factory _database = null!;
+    private ReviewHost _host = null!;
+    private DocumentIngestionClaim _source = null!;
+    private static CancellationToken Token => TestContext.Current.CancellationToken;
+
+    public async ValueTask InitializeAsync()
+    {
+        await _connection.OpenAsync(Token);
+        _database = new(new DbContextOptionsBuilder<AgentRuntimeDbContext>().UseSqlite(_connection).Options);
+        await using var db = _database.CreateDbContext();
+        await db.Database.EnsureCreatedAsync(Token);
+        _source = await DocumentHybridPreparationTestData.PrepareReviewAsync(_database, _provider, Token);
+        _host = new(_database);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _host.DisposeAsync();
+        await _connection.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task TypedClient_PreviewsStoresReadsAndRetriesWithoutPreparation()
+    {
+        using var http = await ClientAsync();
+        using var cacheProbe = await http.GetAsync(Path(DocumentReviewRoutes.Source), Token);
+        Assert.True(cacheProbe.Headers.CacheControl?.NoStore);
+        var client = new AdministrationApiClient(http, new AdministrationSessionState());
+        var preview = await client.GetDocumentReviewAsync("tenant-a", _source.CollectionId, _source.DocumentId, _source.JobId, null, Token);
+        Assert.True(preview.IsSuccess);
+        Assert.Null(preview.Value!.GenerationId);
+        Assert.Equal(DocumentIngestionStates.ReviewRequired, preview.Value.State);
+        Assert.Equal(_source.ETag, preview.Value.ETag);
+        Assert.Equal("markdown-headings", preview.Value.Projection.GetProperty("profile").GetProperty("strategy").GetString());
+        Assert.Equal(["uncertainty-note"], Assert.Single(preview.Value.Pages).Uncertainties);
+        await using (var db = _database.CreateDbContext())
+            Assert.Empty(await db.DocumentMarkdownGenerations.ToArrayAsync(Token));
+
+        var request = Request() with { Review = JsonSerializer.SerializeToElement(DocumentHybridPreparationTestData.SourceReview(), JsonSerializerOptions.Web) };
+        var stored = await client.StoreDocumentReviewAsync("tenant-a", _source.CollectionId, _source.DocumentId, _source.JobId, request, Token);
+        Assert.True(stored.IsSuccess);
+        var retry = await client.StoreDocumentReviewAsync("tenant-a", _source.CollectionId, _source.DocumentId, _source.JobId, request, Token);
+        Assert.Equal(stored.Value!.GenerationId, retry.Value!.GenerationId);
+        var read = await client.GetDocumentReviewAsync("tenant-a", _source.CollectionId, _source.DocumentId, _source.JobId, stored.Value.GenerationId, Token);
+        Assert.True(read.IsSuccess);
+        Assert.Equal(stored.Value.Projection.GetRawText(), read.Value!.Projection.GetRawText());
+        Assert.Contains("## C", read.Value.Projection.GetProperty("chunks")[0].GetProperty("embeddingText").GetString(), StringComparison.Ordinal);
+        var changed = await client.StoreDocumentReviewAsync("tenant-a", _source.CollectionId, _source.DocumentId, _source.JobId,
+            request with { TargetTokensPerChunk = 128 }, Token);
+        Assert.True(changed.IsSuccess);
+        Assert.NotEqual(stored.Value.GenerationId, changed.Value!.GenerationId);
+        await using var result = _database.CreateDbContext();
+        Assert.Equal(2, await result.DocumentMarkdownGenerations.CountAsync(Token));
+        Assert.Empty(await result.DocumentTextChunks.ToArrayAsync(Token));
+        Assert.Equal(DocumentIngestionStates.ReviewRequired, (await result.DocumentIngestionJobs.SingleAsync(Token)).Status);
+        Assert.Equal(1, _provider.Submissions);
+        Assert.Equal(1, _provider.ModelCalls);
+        var json = JsonSerializer.Serialize(read.Value, JsonSerializerOptions.Web);
+        Assert.DoesNotContain("planSha256", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("nativeUsage", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("https://", json, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("anonymous", HttpStatusCode.Unauthorized)]
+    [InlineData("bearer", HttpStatusCode.Unauthorized)]
+    [InlineData("other-admin", HttpStatusCode.Forbidden)]
+    public async Task Authorization_PrecedesReadsAndWrites(string caller, HttpStatusCode status)
+    {
+        using var http = _host.CreateClient();
+        if (caller == "bearer")
+            http.DefaultRequestHeaders.Authorization = new("Bearer", "synthetic");
+        if (caller == "other-admin")
+            http.DefaultRequestHeaders.Add(AdministrationSignInWebApplicationFactory.AdministratorHeader,
+                AdministrationSignInWebApplicationFactory.OtherAppAdministrator);
+        using var preview = await http.GetAsync(Path(DocumentReviewRoutes.Source), Token);
+        using var read = await http.GetAsync(Path(DocumentReviewRoutes.Generation, "missing"), Token);
+        using var write = await http.PostAsJsonAsync(Path(DocumentReviewRoutes.Generations), Request(), Token);
+        Assert.Equal(status, preview.StatusCode);
+        Assert.Equal(status, read.StatusCode);
+        Assert.Equal(status, write.StatusCode);
+        await using var db = _database.CreateDbContext();
+        Assert.Empty(await db.DocumentMarkdownGenerations.ToArrayAsync(Token));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Antiforgery_RejectsMissingAndInvalidTokens(bool invalid)
+    {
+        using var http = _host.CreateClient();
+        http.DefaultRequestHeaders.Add(AdministrationSignInWebApplicationFactory.AdministratorHeader,
+            AdministrationSignInWebApplicationFactory.DefaultAppAdministrator);
+        if (invalid)
+            http.DefaultRequestHeaders.Add(AdministrationRoutes.AntiforgeryHeaderName, "invalid");
+        using var response = await http.PostAsJsonAsync(Path(DocumentReviewRoutes.Generations), Request(), Token);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await using var db = _database.CreateDbContext();
+        Assert.Empty(await db.DocumentMarkdownGenerations.ToArrayAsync(Token));
+    }
+
+    [Theory]
+    [InlineData("app")]
+    [InlineData("collection")]
+    [InlineData("document")]
+    [InlineData("job")]
+    public async Task Ownership_FencesAuthorizedRequests(string field)
+    {
+        using var http = await ClientAsync();
+        var path = DocumentReviewRoutes.Format(DocumentReviewRoutes.Source,
+            field == "app" ? "default" : "tenant-a", field == "collection" ? "other" : _source.CollectionId,
+            field == "document" ? "other" : _source.DocumentId, field == "job" ? "other" : _source.JobId);
+        using var response = await http.GetAsync(path, Token);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        using var write = await http.PostAsJsonAsync(path + "/generations", Request(), Token);
+        Assert.Equal(HttpStatusCode.NotFound, write.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("etag", HttpStatusCode.Conflict)]
+    [InlineData("sequence", HttpStatusCode.Conflict)]
+    [InlineData("budget", HttpStatusCode.BadRequest)]
+    [InlineData("shape", HttpStatusCode.BadRequest)]
+    [InlineData("digest", HttpStatusCode.BadRequest)]
+    public async Task InvalidDecisions_DoNotPersist(string field, HttpStatusCode status)
+    {
+        using var http = await ClientAsync();
+        var request = Request();
+        request = field switch
+        {
+            "etag" => request with { ETag = "stale" },
+            "sequence" => request with { Sequencer = "stale" },
+            "budget" => request with { MaximumTokensPerChunk = 8, OverlapTokens = 8 },
+            "shape" => request with { Review = JsonSerializer.SerializeToElement(new { approved = true, actor = "forged" }) },
+            "digest" => request with
+            {
+                Review = JsonSerializer.SerializeToElement(
+                    DocumentHybridPreparationTestData.SourceReview() with { MarkdownSha256 = new('0', 64) }, JsonSerializerOptions.Web),
+            },
+            _ => throw new ArgumentOutOfRangeException(nameof(field)),
+        };
+        using var response = await http.PostAsJsonAsync(Path(DocumentReviewRoutes.Generations), request, Token);
+        Assert.Equal(status, response.StatusCode);
+        await using var db = _database.CreateDbContext();
+        Assert.Empty(await db.DocumentMarkdownGenerations.ToArrayAsync(Token));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SourceLoss_RevokesRetainedGeneration(bool deleted)
+    {
+        using var http = await ClientAsync();
+        using var created = await http.PostAsJsonAsync(Path(DocumentReviewRoutes.Generations), Request(), Token);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var stored = await created.Content.ReadFromJsonAsync<DocumentReviewGenerationResponse>(Token);
+        Assert.Equal(Path(DocumentReviewRoutes.Generation, stored!.GenerationId), created.Headers.Location!.OriginalString);
+        await using (var db = _database.CreateDbContext())
+        {
+            var source = await db.KnowledgeDocuments.SingleAsync(Token);
+            if (deleted)
+                source.Status = DocumentIngestionStates.Deleted;
+            else
+                source.Sequencer = "2".PadLeft(128, '0');
+            await db.SaveChangesAsync(Token);
+        }
+        using var read = await http.GetAsync(created.Headers.Location, Token);
+        using var preview = await http.GetAsync(Path(DocumentReviewRoutes.Source), Token);
+        using var write = await http.PostAsJsonAsync(Path(DocumentReviewRoutes.Generations), Request(), Token);
+        Assert.Equal(HttpStatusCode.NotFound, read.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, preview.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, write.StatusCode);
+        await using var retained = _database.CreateDbContext();
+        Assert.Single(await retained.DocumentMarkdownGenerations.ToArrayAsync(Token));
+    }
+
+    [Fact]
+    public async Task CorruptReceipts_AreServerErrorsNotInputValidation()
+    {
+        await using (var db = _database.CreateDbContext())
+        {
+            var receipt = await db.DocumentPreparationOperations.FirstAsync(Token);
+            receipt.ResultJson = "{}";
+            await db.SaveChangesAsync(Token);
+        }
+        using var http = await ClientAsync();
+        using var response = await http.PostAsJsonAsync(Path(DocumentReviewRoutes.Generations), Request(), Token);
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("processing")]
+    [InlineData("claimed")]
+    [InlineData("unfinished")]
+    [InlineData("no-plan")]
+    public async Task ReviewRequiresFinishedReleasedPlannedJob(string field)
+    {
+        await using (var db = _database.CreateDbContext())
+        {
+            var job = await db.DocumentIngestionJobs.SingleAsync(Token);
+            if (field == "processing")
+                job.Status = DocumentIngestionStates.Processing;
+            if (field == "claimed")
+                job.ClaimId = Guid.NewGuid();
+            if (field == "unfinished")
+                job.FinishedAtUtc = null;
+            if (field == "no-plan")
+                job.PreparationPlanJson = null;
+            await db.SaveChangesAsync(Token);
+        }
+        using var http = await ClientAsync();
+        using var preview = await http.GetAsync(Path(DocumentReviewRoutes.Source), Token);
+        using var write = await http.PostAsJsonAsync(Path(DocumentReviewRoutes.Generations), Request(), Token);
+        Assert.Equal(HttpStatusCode.NotFound, preview.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, write.StatusCode);
+    }
+
+    [Fact]
+    public async Task RequestCannotSupplyTenantActorSourceLocationOrApproval()
+    {
+        using var http = await ClientAsync();
+        using var response = await http.PostAsJsonAsync(Path(DocumentReviewRoutes.Generations), new
+        {
+            _source.Sequencer,
+            _source.ETag,
+            tenantId = "other",
+            actor = "forged",
+            blobUri = "https://evil.invalid/other.pdf",
+            state = "Approved",
+            claimId = Guid.NewGuid(),
+        }, Token);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var stored = await response.Content.ReadFromJsonAsync<DocumentReviewGenerationResponse>(Token);
+        Assert.Equal(DocumentIngestionStates.ReviewRequired, stored!.State);
+        await using var db = _database.CreateDbContext();
+        Assert.Equal("tenant-a", (await db.DocumentMarkdownGenerations.SingleAsync(Token)).TenantId);
+        Assert.Equal(_source.BlobUri, (await db.KnowledgeDocuments.SingleAsync(Token)).BlobUri);
+    }
+
+    [Fact]
+    public async Task MissingStorage_IsExplicitlyUnsupported()
+    {
+        await using var host = new ReviewHost(_database, storage: false);
+        using var http = host.CreateClient();
+        await AdministrationTestClient.PrepareAsync(http, AdministrationSignInWebApplicationFactory.DefaultAppAdministrator);
+        using var preview = await http.GetAsync(Path(DocumentReviewRoutes.Source), Token);
+        using var write = await http.PostAsJsonAsync(Path(DocumentReviewRoutes.Generations), Request(), Token);
+        Assert.Equal(HttpStatusCode.NotImplemented, preview.StatusCode);
+        Assert.Equal(HttpStatusCode.NotImplemented, write.StatusCode);
+    }
+
+    [Fact]
+    public void SourceLookup_TranslatesOnNpgsqlWithoutConnecting()
+    {
+        using var db = new AgentRuntimeDbContext(new DbContextOptionsBuilder<AgentRuntimeDbContext>()
+            .UseNpgsql("Host=invalid.example;Database=design;Username=design").Options);
+        var sql = DocumentReviewAdministrationService.SourceQuery(db, "tenant-a", _source.CollectionId, _source.DocumentId, _source.JobId).ToQueryString();
+        Assert.Contains("JOIN agent_runtime.knowledge_documents", sql, StringComparison.Ordinal);
+        Assert.Contains("IS NULL", sql, StringComparison.Ordinal);
+        Assert.Contains("IS NOT NULL", sql, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task OpenDevelopment_DoesNotAuthorizeReviewManagement()
+    {
+        await using var host = new AgentDefinitionAdministrationWebApplicationFactory();
+        using var http = host.CreateClient();
+        using var response = await http.GetAsync(Path(DocumentReviewRoutes.Source), Token);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    private DocumentReviewGenerationRequest Request() => new() { Sequencer = _source.Sequencer, ETag = _source.ETag! };
+
+    private string Path(string route, string? id = null) =>
+        DocumentReviewRoutes.Format(route, "tenant-a", _source.CollectionId, _source.DocumentId, _source.JobId, id);
+
+    private async Task<HttpClient> ClientAsync()
+    {
+        var http = _host.CreateClient();
+        await AdministrationTestClient.PrepareAsync(http, AdministrationSignInWebApplicationFactory.DefaultAppAdministrator);
+        return http;
+    }
+
+    private sealed class Factory(DbContextOptions<AgentRuntimeDbContext> options) : IDbContextFactory<AgentRuntimeDbContext>
+    {
+        public AgentRuntimeDbContext CreateDbContext() => new(options);
+    }
+
+    private sealed class ReviewHost(Factory database, bool storage = true) : AdministrationSignInWebApplicationFactory
+    {
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            base.ConfigureWebHost(builder);
+            builder.ConfigureTestServices(services =>
+            {
+                services.PostConfigure<AgentRuntimeConfig>(options => options.Tenants["tenant-a"] = options.Tenants["default"]);
+                services.PostConfigure<AdministrationConfig>(options => options.AppAdministrators["tenant-a"] = [DefaultAppAdministrator]);
+                services.RemoveAll<IDbContextFactory<AgentRuntimeDbContext>>();
+                services.RemoveAll<DocumentPreparationMarkdownStore>();
+                if (storage)
+                {
+                    services.AddSingleton<IDbContextFactory<AgentRuntimeDbContext>>(database);
+                    services.AddScoped<DocumentPreparationMarkdownStore>();
+                }
+                services.AddAuthentication("Bearer").AddScheme<AuthenticationSchemeOptions, MachineHandler>("Bearer", _ => { });
+            });
+        }
+    }
+
+    private sealed class MachineHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)
+        : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+    {
+        protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+        {
+            if (Request.Headers.Authorization != "Bearer synthetic")
+                return Task.FromResult(AuthenticateResult.NoResult());
+            var identity = new ClaimsIdentity([new Claim("oid", AdministrationSignInWebApplicationFactory.DefaultAppAdministrator)], Scheme.Name);
+            return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme.Name)));
+        }
+    }
+}
+#endif

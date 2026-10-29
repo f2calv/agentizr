@@ -1,0 +1,48 @@
+### Agentizr Debug-only document review management
+### Requires a signed-in assigned app administrator; bearer tokens and anonymous Development access do not qualify.
+### Configure the private cookie header (administration and antiforgery cookies) and matching request token outside this file.
+
+@baseUrl = {{$dotenv AGENTIZR_BASE_URL}}
+@cookie = {{$dotenv AGENTIZR_ADMIN_COOKIE}}
+@antiforgery = {{$dotenv AGENTIZR_ADMIN_ANTIFORGERY_TOKEN}}
+@appId = {{$dotenv AGENTIZR_APP_ID}}
+@collectionId = {{$dotenv AGENTIZR_REVIEW_COLLECTION_ID}}
+@documentId = {{$dotenv AGENTIZR_REVIEW_DOCUMENT_ID}}
+@jobId = {{$dotenv AGENTIZR_REVIEW_JOB_ID}}
+@generationId = {{$dotenv AGENTIZR_REVIEW_GENERATION_ID}}
+
+### Get session and antiforgery request token - expected 200, sign-in state must be authenticated
+# @name getReviewSession
+GET {{baseUrl}}/admin/api/session HTTP/1.1
+Cookie: {{cookie}}
+Accept: application/json
+
+### Preview current validated source and default heading-aware chunks - expected 200 or 404
+# @name previewDocumentReview
+GET {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/{{documentId}}/jobs/{{jobId}}/review HTTP/1.1
+Cookie: {{cookie}}
+Accept: application/json
+
+### Store review-required generation - expected 201 with Location; 400 invalid, 404 absent, 409 stale source
+# @name storeDocumentReview
+# @note Persists an immutable review generation from existing receipts. No provider call or content approval occurs. Replace both concurrency fields with the approved preview's exact JSON strings; these placeholders do not identify a real source.
+POST {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/{{documentId}}/jobs/{{jobId}}/review/generations HTTP/1.1
+Cookie: {{cookie}}
+X-XSRF-TOKEN: {{antiforgery}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "sequencer": "0000000000000001",
+  "eTag": "\"example-etag\"",
+  "maximumTokensPerChunk": 512,
+  "targetTokensPerChunk": 384,
+  "overlapTokens": 64,
+  "review": null
+}
+
+### Read exact stored generation while its source is current - expected 200 or 404
+# @name getDocumentReviewGeneration
+GET {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/{{documentId}}/jobs/{{jobId}}/review/generations/{{generationId}} HTTP/1.1
+Cookie: {{cookie}}
+Accept: application/json

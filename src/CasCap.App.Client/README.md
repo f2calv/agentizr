@@ -49,10 +49,21 @@ for provider requirements and the still-pending durable-worker integration.
 | [`AdministrationActivationRequest`](Models/AdministrationActivationRequest.cs) | Activation or rollback guarded by the observed active version |
 | [`AdministrationDeactivationRequest`](Models/AdministrationDeactivationRequest.cs) | Deactivation guarded by the observed active version |
 | [`AdministrationApiClient`](Services/AdministrationApiClient.cs) | Typed calls that map every HTTP outcome to an `ApiResult<T>` and send the antiforgery token on mutations |
+| [`DocumentReviewRoutes`](Constants/DocumentReviewRoutes.cs) | Source/job-qualified preview and immutable review-generation routes |
+| [`DocumentReviewGenerationRequest`](Models/DocumentReviewGenerationRequest.cs) | Observed source revision, token budgets and optional versioned structural decisions |
+| [`DocumentReviewGenerationResponse`](Models/DocumentReviewGenerationResponse.cs) | Current-source pages/notes and versioned heading-aware projection; never approval |
 | [`DefinitionDraft`](Models/DefinitionDraft.cs) | Builds a publication payload that keeps fields the editor does not change |
 
 Definition snapshots, history and evaluation reuse the
 [versioned contracts](../CasCap.AgentRuntime.Contracts/README.md).
+
+`GetDocumentReviewAsync` and `StoreDocumentReviewAsync` use the same session and outcome handling
+as definition administration. The host currently exposes document-review management only in Debug
+with PostgreSQL; it additionally requires actual administrator sign-in, even in Development.
+The optional `Review` JSON document uses schema 2 (`version`, `reviewId`, `markdownSha256`,
+`exclusions`, `headings`, `layoutTables`). The response's `Projection` retains the profile, exact
+structural review, chunks and UTF-16 Markdown provenance without exposing server/provider types.
+These are API/client foundations only: no upload, document discovery or review screen is implemented.
 
 ## Dependencies
 

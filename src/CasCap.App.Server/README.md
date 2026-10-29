@@ -213,8 +213,37 @@ receipt/source fencing, cancellation, rollback, timestamps and composite ownersh
 
 The additive `20261028120307_DocumentMarkdownReviewGenerations` migration has been checked and
 applied only to isolated fixture-owned databases, including an upgrade retaining existing paid
-receipts. No deployed database has been migrated. Authenticated management, authorized real-document
-storage and semantic/visual/retrieval acceptance remain separate gates.
+receipts. No deployed database has been migrated. Authorized real-document storage and
+semantic/visual/retrieval acceptance remain separate gates.
+
+### Protected Review Management
+
+The Debug-only [administration controller](Controllers/AdministrationDocumentReviewsController.cs)
+uses the existing app-administrator assignment and cookie, plus a mandatory authenticated-reviewer
+policy. Anonymous Development access and machine bearer identities cannot use it. Every mutation
+requires the session's antiforgery token. Review content responses carry `Cache-Control: no-store`.
+
+Under `/admin/api/apps/{appId}/collections/{collectionId}/documents/{documentId}/jobs/{jobId}/review`:
+
+| Method / suffix | Behavior |
+| --- | --- |
+| `GET` | Preview validated normalized pages, separate notes and default heading-aware chunks; no persistence |
+| `POST /generations` | Store or reuse an immutable review-required projection with the observed sequence/ETag, explicit token budgets and optional schema-2 structural review |
+| `GET /generations/{generationId}` | Read an exact generation only while its finished job and source remain current |
+
+The [service](Services/DocumentReviewAdministrationService.cs) derives the tenant from the
+authorized app and loads source URI, plan and job metadata from the database, never request JSON.
+Wrong ownership or unavailable review material returns 404; stale source observations return 409;
+invalid budgets/decisions return 400. Receipt corruption remains a server error, not a bad-input
+fallback. Missing PostgreSQL support returns 501. No Redis or ingestion worker is required for
+these management operations, and they make no preparation/provider calls.
+
+Responses allowlist pages/notes, PDF digest, current sequence/ETag and a versioned projection
+document. They exclude raw provider receipts, usage, deployment coordinates and plan metadata.
+Projection spans remain Markdown offsets, not precise PDF geometry. Review IDs are structural
+decision identities, not authenticated actor records or semantic approvals; approval and its audit
+remain separate work. There is no document-review screen yet. See the
+[manual requests](../../requests/document-reviews.http) for the cookie/antiforgery prerequisites.
 
 ### Durable Hybrid Preparation
 

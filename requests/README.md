@@ -23,6 +23,16 @@ secret. Do not weaken authorization to make an example work.
 | --- | --- | --- |
 | [runtime.http](runtime.http) | Run/stream, sessions, compaction, snapshots, overrides and instructions | `agent.execute` |
 | [definitions.http](definitions.http) | Immutable publication/history, evaluation, activation/rollback and deactivation | `agent.definition.read`, `agent.definition.publish` or `agent.definition.activate`, per action |
+| [document-reviews.http](document-reviews.http) | Debug-only source preview and immutable review-generation create/read | Assigned app administrator's session cookie, plus antiforgery on POST; machine scopes do not qualify |
+
+Document-review examples require enabled administration sign-in and existing finished review-required
+receipts. Acquire the administrator cookie outside these examples. Fetch the session, retain its
+antiforgery cookie and matching request token, then set the private cookie header/token variables;
+never paste them into tracked files or chat. Use URL-safe app/collection/document/job/generation
+identifiers. The POST source sequence and ETag must be copied as correctly escaped JSON strings from
+the authorized preview. Set the generation variable from the resulting Location. Storage without
+configured PostgreSQL returns 501; these endpoints are absent in Release. No manual request has
+been executed as part of static example validation.
 
 Separate token variables support least-privilege identities. Publish/activate also require a
 validated actor identifier. An invalid or missing identity is not a resource-not-found result;
