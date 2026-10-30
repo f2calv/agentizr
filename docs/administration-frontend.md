@@ -171,7 +171,7 @@ content. Apply it only through the externally approved deployment migration step
 
 ### Document-Level Readiness Assessment
 
-On **Stored snapshot**, first save a chunk review, then use **Document-level approval**. Explicitly
+On **Stored snapshot**, first save a chunk review, then use **Document assessment and readiness**. Explicitly
 classify the language, document type, optional edition and highest CEFR content level. Vocabulary
 lists and exam papers require CEFR; missing CEFR can be saved but remains a blocker.
 Reconfirm provenance, included-content fidelity and safety checks, explain the decision and choose
@@ -184,9 +184,16 @@ classification, never attestations or rationale. Unsaved selection and assessmen
 exclusive; discard the active draft before editing the other form. Failed saves retain the draft,
 show validation/conflict errors and never retry automatically.
 
+The local clarity update separates **Last saved assessment** from **Record a new assessment**.
+The saved panel shows its revision/time, stored attestations and rationale, readiness result and
+individual blockers. A save can succeed while readiness remains blocked or withheld. Reset
+checkboxes and an empty rationale belong to the new assessment; they do not erase the saved one.
+Indexing authorization is shown separately and is never inferred from a successful assessment save.
+This display update requires a frontend rollout; it does not change the approval or visual gates.
+
 Unchecked gates or an empty included selection block readiness. Device manuals are always blocked
 until figure/caption/source associations are implemented and verified; there is no bypass checkbox.
-**Readiness approved; indexing blocked** is not publication: the job stays `ReviewRequired`, no
+Readiness approval is not indexing authorization or publication: the job stays `ReviewRequired`, no
 provider is invoked and nothing is embedded or searchable. Classification records a reviewer's
 decision; it does not implement trusted-collection policy or cumulative CEFR retrieval enforcement.
 Those remain separate prerequisites when retrieval is implemented.

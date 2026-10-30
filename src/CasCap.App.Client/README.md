@@ -85,15 +85,18 @@ On a stored snapshot, include/exclude candidates, filter the list and save a con
 All candidates start included. Optional exclusion reasons never alter embedding text. Unsaved edits
 warn before navigation; observed review revisions prevent concurrent edits from overwriting decisions.
 Review records remain separate from the immutable snapshot and do not approve indexing.
-After saving a selection, the separate **Document-level approval** form records a confirmed readiness
+After saving a selection, **Document assessment and readiness** records a confirmed readiness
 assessment. It retains classification but requires fresh attestations/rationale; editing either form
 blocks competing edits, not navigation after an explicit discard confirmation. Source/snapshot and
 selection revisions fence the decision. Missing CEFR for vocabulary/exam papers, unresolved gates
 and empty selections remain blocked; manuals cannot pass the unimplemented visual-association gate.
 Server field validation is shown in the form without losing edits. No readiness decision enables
 indexing, invokes a provider or implements future trusted-collection/CEFR retrieval policy.
-Upload/replace/delete, original-PDF viewing, custom budgets/structural editing and indexing approval are not
-implemented. Catalogue admission and stored snapshots do not mean content is searchable.
+The saved summary shows the revision/time, recorded attestations and rationale, readiness/blockers
+and separate indexing-authorization notice. The new-assessment form is labelled separately:
+unchecked fresh attestations and an empty rationale do not erase the saved record.
+Upload/replace/delete, original-PDF viewing, custom budgets/structural editing and browser indexing
+authorization controls are not offered. Catalogue admission and stored snapshots do not mean content is searchable.
 See the [review walkthrough](../../docs/administration-frontend.md#document-catalogue-and-review).
 
 The **Sync documents** panel is independent of catalogue loading and applies to all configured

@@ -533,9 +533,11 @@ reasons and the explicit indexing block. These static checks do not prove checkb
 The [selection-draft tests](Tests/Unit/DocumentChunkSelectionDraftTests.cs) add **two methods/cases**
 for default inclusion, edits/restoration, explanations, counts and all-excluded decisions without I/O.
 
-[`DocumentApprovalUiTests`](Tests/Integration/DocumentApprovalUiTests.cs) adds **three methods /
-seven cases** for the saved-selection prerequisite, approved/blocked/stale readiness, escaped
-assessment metadata, the non-bypassable manual gate and server field messages.
+[`DocumentApprovalUiTests`](Tests/Integration/DocumentApprovalUiTests.cs) covers the saved-selection
+prerequisite, approved/blocked/withheld/stale readiness, escaped assessment metadata, the
+non-bypassable manual gate and server field messages. Successful saved-record visibility remains
+separate from readiness and the fresh-assessment form; recorded attestations/rationale stay visible
+even when new checkboxes/rationale are reset.
 [`DocumentApprovalDraftTests`](Tests/Unit/DocumentApprovalDraftTests.cs) adds **one method/case**
 for fresh attestations/rationale with classification retained and source/selection/revision pinned.
 
