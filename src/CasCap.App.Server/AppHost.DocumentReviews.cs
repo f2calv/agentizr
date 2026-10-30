@@ -13,6 +13,8 @@ public static partial class AppHost
                 || Validator.TryValidateObject(options, new ValidationContext(options), [], validateAllProperties: true),
                 "Enabled document synchronization requires valid ingestion source configuration.");
         builder.Services.TryAddSingleton<DocumentChunkingService>();
+        builder.Services.AddOptionsWithValidateOnStart<DocumentIndexingConfig>()
+            .BindConfiguration(DocumentIndexingConfig.ConfigurationSectionName).ValidateDataAnnotations();
         builder.Services.AddScoped(services => new DocumentSynchronizationAdministrationService(
             services.GetRequiredService<ITenantContext>(),
             services.GetRequiredService<IOptions<DocumentIngestionConfig>>(),
@@ -27,7 +29,8 @@ public static partial class AppHost
             services.GetRequiredService<DocumentChunkingService>(),
             services.GetService<Microsoft.EntityFrameworkCore.IDbContextFactory<AgentRuntimeDbContext>>(),
             services.GetService<DocumentPreparationMarkdownStore>(),
-            services.GetRequiredService<IActorContext>()));
+            services.GetRequiredService<IActorContext>(),
+            services.GetRequiredService<IOptions<DocumentIndexingConfig>>()));
         if (!databaseEnabled)
             return;
         builder.Services.AddOptionsWithValidateOnStart<DocumentPreparationConfig>()

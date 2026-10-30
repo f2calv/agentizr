@@ -14,7 +14,8 @@ namespace CasCap.IntegrationTests;
 internal sealed class DocumentReviewWebApplicationFactory(
     IDbContextFactory<AgentRuntimeDbContext>? database,
     IReadOnlyList<string>? apps = null,
-    DocumentIngestionConfig? synchronization = null)
+    DocumentIngestionConfig? synchronization = null,
+    DocumentIndexingConfig? indexing = null)
     : AdministrationSignInWebApplicationFactory
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -23,6 +24,9 @@ internal sealed class DocumentReviewWebApplicationFactory(
         if (synchronization is not null)
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddJsonStream(new MemoryStream(
                 JsonSerializer.SerializeToUtf8Bytes(new { CasCap = new { DocumentIngestionConfig = synchronization } }))));
+        if (indexing is not null)
+            builder.ConfigureAppConfiguration((_, configuration) => configuration.AddJsonStream(new MemoryStream(
+                JsonSerializer.SerializeToUtf8Bytes(new { CasCap = new { DocumentIndexingConfig = indexing } }))));
         builder.ConfigureTestServices(services =>
         {
             services.PostConfigure<AgentRuntimeConfig>(options =>

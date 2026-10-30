@@ -20,6 +20,22 @@ namespace CasCap.Controllers;
 [ProducesResponseType(StatusCodes.Status501NotImplemented)]
 public sealed class AdministrationDocumentReviewsController : ControllerBase
 {
+    /// <inheritdoc cref="DocumentReviewAdministrationService.PreflightIndexingAsync"/>
+    [HttpGet(DocumentReviewRoutes.IndexingPreflight, Name = "PreflightDocumentIndexing")]
+    public async Task<Results<Ok<DocumentIndexingPreflightResponse>, NotFound, StatusCodeHttpResult>> PreflightIndexingAsync(
+        [StringLength(200, MinimumLength = 1)] string collectionId,
+        [StringLength(128, MinimumLength = 1)] string documentId,
+        [StringLength(128, MinimumLength = 1)] string jobId,
+        [StringLength(128, MinimumLength = 1)] string generationId,
+        [FromServices] DocumentReviewAdministrationService reviewSvc,
+        CancellationToken cancellationToken) =>
+        (await reviewSvc.PreflightIndexingAsync(collectionId, documentId, jobId, generationId, cancellationToken)) switch
+        {
+            { IsSupported: false } => TypedResults.StatusCode(StatusCodes.Status501NotImplemented),
+            { Preflight: { } result } => TypedResults.Ok(result),
+            _ => TypedResults.NotFound(),
+        };
+
     /// <inheritdoc cref="DocumentReviewAdministrationService.RecordApprovalAsync"/>
     [HttpPut(DocumentReviewRoutes.Approval, Name = "RecordDocumentApproval")]
     [RequestSizeLimit(16_384)]

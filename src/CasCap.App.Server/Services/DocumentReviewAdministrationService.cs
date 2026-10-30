@@ -16,6 +16,7 @@ public sealed partial class DocumentReviewAdministrationService
     private readonly IDbContextFactory<AgentRuntimeDbContext>? _dbContextFactory;
     private readonly DocumentPreparationMarkdownStore? _markdownStore;
     private readonly IActorContext _actorContext;
+    private readonly IOptions<DocumentIndexingConfig> _indexingConfig;
     private static readonly JsonSerializerOptions ReviewJsonOptions = new(JsonSerializerOptions.Web)
     {
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
@@ -27,7 +28,8 @@ public sealed partial class DocumentReviewAdministrationService
         DocumentChunkingService chunkingSvc,
         IDbContextFactory<AgentRuntimeDbContext>? dbContextFactory,
         DocumentPreparationMarkdownStore? markdownStore,
-        IActorContext actorContext)
+        IActorContext actorContext,
+        IOptions<DocumentIndexingConfig> indexingConfig)
     {
         _config = config;
         _tenantContext = tenantContext;
@@ -35,6 +37,7 @@ public sealed partial class DocumentReviewAdministrationService
         _dbContextFactory = dbContextFactory;
         _markdownStore = markdownStore;
         _actorContext = actorContext;
+        _indexingConfig = indexingConfig;
     }
 
     /// <summary>Previews current validated receipts, or reads one immutable generation while its source is current.</summary>

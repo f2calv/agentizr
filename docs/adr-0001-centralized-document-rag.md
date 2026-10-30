@@ -1724,6 +1724,18 @@ this does not prove full RAG processing.
 
 ### Phase 2: Deliver Central Upload, Storage And Search
 
+- [x] Implement the local Debug indexing-preflight boundary: operator-owned tenant-qualified
+  collection classification/CEFR policy, content-bound model/profile settings and input ceilings,
+  exact included-candidate manifests, and a protected metadata-only API/typed client. The
+  [lifecycle guide](document-rag-lifecycle.md#local-preflight-implementation) records the contract.
+  The focused indexing/review selection passes **180 tests, zero failures/skips**, including native
+  PostgreSQL source/selection changes while preflight waits for the mutation lock, exact input
+  limits, authorization, stale source/assessment and classification-bypass checks. Release builds
+  without warnings/errors; isolated fixture databases were removed. This is local implementation
+  evidence only: preflight is disabled by default, is not deployed, always retains
+  `IndexingApproved=false`, and neither persists jobs nor invokes embeddings, writes vectors or
+  activates retrieval. Paid-operation authorization, durable indexing and native pgvector storage
+  remain unimplemented; these PostgreSQL checks do not prove a vector adapter.
 - [ ] After accepting the managed/PDF-only/hybrid quality contract, deliver the
   [built-in preparation agent](#built-in-document-preparation-agent) through versioned tenant-local
   definitions and the durable worker. Verify actual runtime PDF/structured-output behavior,

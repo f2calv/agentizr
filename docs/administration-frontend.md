@@ -110,6 +110,9 @@ The durable worker binding and quality gates remain pending in
 
 ## Document Catalogue And Review
 
+See the [document RAG lifecycle](document-rag-lifecycle.md) for the upload-to-model diagram,
+current versus planned stages and the gates between readiness, indexing and retrieval.
+
 In a Debug host, open an app and select **Documents**. This lists admitted database sources,
 not every file in Blob Storage. Filter by exact collection ID; collection and page are kept in the URL.
 Rows show human-readable preparation and preview readiness; document/job identifiers and raw
@@ -187,6 +190,11 @@ until figure/caption/source associations are implemented and verified; there is 
 provider is invoked and nothing is embedded or searchable. Classification records a reviewer's
 decision; it does not implement trusted-collection policy or cumulative CEFR retrieval enforcement.
 Those remain separate prerequisites when retrieval is implemented.
+
+Local Debug development now includes a protected read-only indexing-preflight API and typed client;
+it has no browser control and has not been rolled out. It checks trusted collection policy/profile
+and exact included-input bindings, but always retains `IndexingApproved=false`. See the
+[local preflight contract](document-rag-lifecycle.md#local-preflight-implementation).
 
 The additive `DocumentApprovals` migration must complete externally before deploying this
 reader/writer. Snapshot deletion cascades to its assessment history; originals, preparation

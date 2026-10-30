@@ -51,6 +51,13 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
             DocumentReviewRoutes.Format(generationId is null ? DocumentReviewRoutes.Source : DocumentReviewRoutes.Generation,
                 appId, collectionId, documentId, jobId, generationId), cancellationToken);
 
+    /// <summary>Checks indexing eligibility without creating jobs, calling providers or approving publication.</summary>
+    public Task<ApiResult<DocumentIndexingPreflightResponse>> GetDocumentIndexingPreflightAsync(
+        string appId, string collectionId, string documentId, string jobId, string generationId, CancellationToken cancellationToken) =>
+        GetAsync<DocumentIndexingPreflightResponse>(
+            DocumentReviewRoutes.Format(DocumentReviewRoutes.IndexingPreflight, appId, collectionId, documentId, jobId, generationId),
+            cancellationToken);
+
     /// <summary>Stores a source-fenced review generation with antiforgery protection; never retries or approves it.</summary>
     public Task<ApiResult<DocumentReviewGenerationResponse>> StoreDocumentReviewAsync(
         string appId, string collectionId, string documentId, string jobId,

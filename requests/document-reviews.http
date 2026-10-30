@@ -70,6 +70,13 @@ GET {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/
 Cookie: {{cookie}}
 Accept: application/json
 
+### Preflight indexing inputs - expected 200 with eligibility/blockers; 404 unavailable source/snapshot, 501 unavailable storage
+# @name preflightDocumentIndexing
+# @note Read-only local Debug slice, not yet deployed: derives a metadata-only manifest identity under current source/review fences. Does not create jobs, call providers, store vectors or grant indexing approval. Missing trusted collection/profile configuration remains explicitly blocked.
+GET {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/{{documentId}}/jobs/{{jobId}}/review/generations/{{generationId}}/indexing-preflight HTTP/1.1
+Cookie: {{cookie}}
+Accept: application/json
+
 ### Record chunk selection review - expected 200; 400 invalid, 404 unavailable snapshot, 409 stale observation
 # @name recordDocumentChunkReview
 # @note Appends authenticated review history only; never approves indexing or invokes providers. Copy the exact snapshot's sequence/ETag and latest chunkReview.revision (zero if absent). The placeholders below are not real source observations. Refresh after an uncertain outcome; do not replay automatically.
