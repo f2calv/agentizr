@@ -1243,9 +1243,11 @@ The separate IaC workstream owns the following handoff; deployment is not perfor
   transport, keeps Search Free and OpenAI deployments consumption-based, and adds no metric alerts.
   Fifteen mocked Terraform cases and static configuration checks passed; this is not live
   provisioning or inference-access evidence.
-- [ ] Obtain separate apply approval, provision the missing counterparts and verify application
-  access and convergence. The original-subscription live plan is blocked by its backend reporting
-  `ReadOnlyDisabledSubscription`; do not move state or replace existing accounts to bypass it.
+- [x] Obtain separate apply approval, provision the missing counterparts and verify read-only
+  application access and convergence. On 2026-10-29 both existing backends worked, both roots
+  converged, all configured model revisions were verified and both application-identity model-list
+  checks returned HTTP 200. No state ownership or existing accounts were replaced. This does not
+  authorize paid processing or establish inference permission on the restored subscription.
 - [x] Provision dedicated Standard GPv2 Hot/LRS storage in the durable-data subscription through
   the existing storage module. Live settings disable anonymous Blob access and shared-key
   authentication, require HTTPS/TLS 1.2, and preserve the existing runtime principal's inherited
@@ -1393,7 +1395,7 @@ accounts so applications can explicitly select where new requests are billed. Ke
 consumption-based services; do not introduce provisioned model throughput, paid Search capacity
 or other minimum commitments. Monitoring has separate pricing and is not implicitly duplicated.
 Infrastructure parity does not copy Search indexes/data, implement automatic failover or establish
-data-plane access. This is the requested configuration direction, not evidence of deployment.
+data-plane access. Deployment and read-only access were separately verified on 2026-10-29 below.
 Further IaC belongs to the separate infrastructure session, using this ADR as the handoff.
 Prepare a parallel OpenAI account/deployment rather than moving or deleting existing resources.
 Preserve existing service resources, Blob Storage, Event Grid, queues, runtime identities and
@@ -1445,11 +1447,11 @@ from the reviewed provenance tags.
 
 Two timed-out creates completed remotely without entering state. After verifying their exact
 identities and model contracts, separately approved imports reconciled them without recreation.
-A fresh plan now contains only one create: `gpt-4.1-mini`, which Azure rejected with `715-123420`
-("unusual activity"; contact support). Existing resources have no pending changes. Preserve the
-successful resources and private error evidence; do not loop deployment requests, silently
-substitute another model/geography or call the full mirror converged. Azure support clearance
-and a newly reviewed plan are required before completing that deployment.
+At that milestone the remaining create, `gpt-4.1-mini`, was rejected with `715-123420`
+("unusual activity"; contact support). Existing resources had no pending changes. Successful
+resources and private failure evidence were preserved without looping requests or substituting a
+model/geography. The later authorized closeout succeeded, as recorded below; the original failure's
+cause remains unproven.
 
 The approved application-identity access test, subsequently retired,
 ran against the alternative OpenAI endpoint: exactly one test passed, zero failed and zero skipped,
@@ -1460,11 +1462,10 @@ extraction quality. Verified coordinates and deployed-model inventory remain in 
 artifacts; configured deployment-name outputs alone are not availability evidence.
 
 All 15 approved mocked Terraform cases passed with the deployment's pinned provider before the
-apply. The original-subscription configuration passes
-backend-free validation, but its live plan is blocked: subscription metadata reports `Enabled`
-while the existing backend key lookup returns `ReadOnlyDisabledSubscription`. Preserve the backend,
-account and original access-failure evidence; no original-subscription apply or authenticated
-recovery is established.
+apply. At that milestone the original-subscription configuration passed backend-free validation,
+but its live plan was blocked: subscription metadata reported `Enabled` while the existing backend
+key lookup returned `ReadOnlyDisabledSubscription`. Backend/account ownership and the original
+access-failure evidence were preserved. Subsequent recovery is recorded below.
 
 **Credit-renewal hypothesis:** Exhausting the monthly credit of a credit-backed subscription can
 disable its services when the spending limit is enabled. Microsoft documents automatic
@@ -1478,15 +1479,37 @@ After renewal, verify actual backend and application data-plane access rather th
 subscription metadata. Explicit endpoint selection can direct new requests to the alternative
 subscription while the credit-backed one is unavailable; no automatic cutover has been implemented.
 
-**Next infrastructure boundary:** Escalate the remaining model-deployment rejection to Azure
-support, then regenerate and review a private saved plan before any further apply. Recheck
-subscription/quota readiness and deployment provenance; do not reuse either partial-apply plan.
-Verify full convergence after the blocked deployment succeeds. The alternative `gpt-5.5` deployment,
-read-only access and bounded comparison are verified. The rejected generation was explicitly
-reconciled under renewed sample/model/token-budget approval, as recorded below; any further
-generation needs its own approved budget and recovery decision. Do not enable
-ingestion, remove the spending limit, change production routing or push changes merely because
-the infrastructure handover has been committed.
+**Current IaC handover (2026-10-29): requested service provisioning is complete.**
+The previously blocked infrastructure changes were applied after billing availability was restored,
+and follow-up plans reported no changes with the applied provenance. Approved model revisions,
+service tiers, keyless authentication and existing-identity grants were verified. No deletion,
+replacement, state-ownership change or privilege expansion occurred. Deployment coordinates,
+resource inventory, repository/release references and raw plan/support evidence remain private.
+
+The infrastructure change set has passed its configured PR checks, merged and been released.
+Subsequent source-provenance-only refresh operations were interrupted before their final
+convergence checks completed. The successful provisioning and earlier no-change plans remain
+evidence; they do not prove final-source metadata convergence. Recheck the existing state and
+a fresh plan before the next apply, preserving any lock until its owning process is confirmed
+stopped. Do not retry service creation, migrate state or widen access to reconcile metadata.
+
+All approved Terraform mock cases passed. The obsolete application access test was not
+restored: a separately approved isolated diagnostic reused the current runtime's certificate/Key
+Vault bootstrap without starting the host or workers. Exactly two read-only model-list checks
+passed, one per subscription, each returning HTTP 200, with no failures or skips. This establishes
+current original-subscription read-only access, not the historical registration error's root cause,
+Responses inference permission or extraction quality. Private outputs retain the verified endpoint
+and deployment coordinates; no production endpoint selection was changed.
+
+This infrastructure closeout submitted no PDFs, analysis or generation requests and did not alter
+the application workstream's controlled admission/synchronization or disabled paid-processing gate.
+The owner-reported billing restoration was not independently audited; this session changed no
+budget or spending-limit setting. The earlier credit-exhaustion explanation remains a hypothesis.
+**Next application/operator actions:** Queue lease/failure recovery, poison inspection/retention,
+definition/source preparation bindings,
+paid budgets and document-quality acceptance remain separate application/operator gates, not
+unfinished mirrored-service provisioning. The prior rejected generation was reconciled under
+renewed approval as recorded below; further paid work still needs its own budget/recovery decision.
 
 **Application comparison evidence (2026-10-27):** After renewed approval, the original request
 manifest, HTTP-400 status and raw error were preserved byte-for-byte in an attempt archive inside
@@ -1513,14 +1536,16 @@ These structural checks, lexical differences and seven model-reported uncertaint
 review aids, not proof of complete text, correct associations or A1 compliance. Independent
 source review is pending; neither candidate is approved for production preparation or indexing.
 Applications using local models do not need this endpoint cutover and remain unchanged.
-The built-in preparation-agent foundation is implemented locally; durable worker integration and
-the blocked infrastructure model deployment remain separate unfinished work.
+The built-in preparation-agent foundation was implemented locally at that milestone; subsequent
+durable worker integration is recorded in its own application sections. The formerly blocked
+infrastructure model deployment completed in the 2026-10-29 closeout above.
 
 Current runtime validation is documented under
 [durable hybrid preparation](../src/CasCap.App.Server.Tests/README.md#durable-hybrid-preparation);
 the historical benchmark's standalone configuration and executable tests have been removed.
-The original access failure is bypassed for this trial, not diagnosed or repaired on the original
-subscription. Completed inference is not evidence that hybrid extraction improves quality.
+The original access failure was bypassed for this trial. Read-only access on the original
+subscription subsequently recovered, without establishing the historical failure's root cause.
+Completed inference is not evidence that hybrid extraction improves quality.
 
 #### Application Cutover Session Handover (2026-10-27)
 
