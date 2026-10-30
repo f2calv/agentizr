@@ -26,7 +26,8 @@ public static partial class AppHost
             services.GetRequiredService<ITenantContext>(),
             services.GetRequiredService<DocumentChunkingService>(),
             services.GetService<Microsoft.EntityFrameworkCore.IDbContextFactory<AgentRuntimeDbContext>>(),
-            services.GetService<DocumentPreparationMarkdownStore>()));
+            services.GetService<DocumentPreparationMarkdownStore>(),
+            services.GetRequiredService<IActorContext>()));
         if (!databaseEnabled)
             return;
         builder.Services.AddOptionsWithValidateOnStart<DocumentPreparationConfig>()

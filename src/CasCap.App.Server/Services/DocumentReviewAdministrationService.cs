@@ -15,6 +15,7 @@ public sealed class DocumentReviewAdministrationService
     private readonly DocumentChunkingService _chunkingSvc;
     private readonly IDbContextFactory<AgentRuntimeDbContext>? _dbContextFactory;
     private readonly DocumentPreparationMarkdownStore? _markdownStore;
+    private readonly IActorContext _actorContext;
     private static readonly JsonSerializerOptions ReviewJsonOptions = new(JsonSerializerOptions.Web)
     {
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
@@ -25,13 +26,15 @@ public sealed class DocumentReviewAdministrationService
         ITenantContext tenantContext,
         DocumentChunkingService chunkingSvc,
         IDbContextFactory<AgentRuntimeDbContext>? dbContextFactory,
-        DocumentPreparationMarkdownStore? markdownStore)
+        DocumentPreparationMarkdownStore? markdownStore,
+        IActorContext actorContext)
     {
         _config = config;
         _tenantContext = tenantContext;
         _chunkingSvc = chunkingSvc;
         _dbContextFactory = dbContextFactory;
         _markdownStore = markdownStore;
+        _actorContext = actorContext;
     }
 
     /// <summary>Previews current validated receipts, or reads one immutable generation while its source is current.</summary>
@@ -46,7 +49,38 @@ public sealed class DocumentReviewAdministrationService
         var snapshot = generationId is null
             ? await _markdownStore.PreviewAsync(source, token)
             : await _markdownStore.ReadAsync(source, generationId, token);
-        return new() { Generation = snapshot is null ? null : Response(source, snapshot, generationId) };
+        return new()
+        {
+            Generation = snapshot is null ? null : Response(source, snapshot, generationId) with
+            {
+                ChunkReview = generationId is null ? null : await _markdownStore.ReadChunkReviewAsync(source, generationId, token),
+            },
+        };
+    }
+
+    /// <summary>Appends authenticated candidate decisions; never changes the snapshot, source/job state or indexing eligibility.</summary>
+    public async Task<DocumentReviewGenerationOutcome> RecordChunkReviewAsync(
+        string collectionId, string documentId, string jobId, string generationId, DocumentChunkReviewRequest request, CancellationToken token)
+    {
+        if (_dbContextFactory is null || _markdownStore is null)
+            return new() { IsSupported = false };
+        var source = await SourceAsync(collectionId, documentId, jobId, token);
+        if (source is null)
+            return new();
+        if (request.Sequencer != source.Sequencer || request.ETag != source.ETag)
+            return new() { IsConflict = true };
+        var errors = new List<ValidationResult>();
+        if (!Validator.TryValidateObject(request, new ValidationContext(request), errors, validateAllProperties: true))
+            return new() { ValidationError = "Candidate exclusions or the observed review revision are invalid." };
+        var snapshot = await _markdownStore.ReadAsync(source, generationId, token);
+        if (snapshot is null)
+            return new();
+        var ordinals = snapshot.Projection.Chunks.Select(chunk => chunk.Ordinal).ToHashSet();
+        if (request.Exclusions.Any(item => !ordinals.Contains(item.Ordinal)))
+            return new() { ValidationError = "An excluded candidate does not belong to this snapshot." };
+        var review = await _markdownStore.StoreChunkReviewAsync(source, generationId, request, _actorContext.ActorId, token);
+        return review is null ? new() { IsConflict = true }
+            : new() { Generation = Response(source, snapshot, generationId) with { ChunkReview = review } };
     }
 
     /// <summary>Appends or reuses a current-source review generation after validating bounded structural decisions.</summary>

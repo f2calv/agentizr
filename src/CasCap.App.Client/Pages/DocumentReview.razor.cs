@@ -15,6 +15,7 @@ public partial class DocumentReview(
     private ApiResult<DocumentReviewGenerationResponse>? _writeResult;
     private DocumentReviewProjectionView? _projection;
     private bool _busy;
+    private bool _selectionDirty;
 
     /// <summary>Gets or sets the requested app.</summary>
     [Parameter]
@@ -65,6 +66,7 @@ public partial class DocumentReview(
         _result = null;
         _writeResult = null;
         _projection = null;
+        _selectionDirty = false;
         var result = await apiClient.GetDocumentReviewAsync(AppId, CollectionId, DocumentId, JobId, GenerationId, token);
         token.ThrowIfCancellationRequested();
         _result = result;
@@ -80,6 +82,56 @@ public partial class DocumentReview(
             }
         }
     }, renew: true);
+
+    private async Task ReloadAfterWriteFailureAsync()
+    {
+        if (_busy)
+            return;
+        if (_selectionDirty && await dialogService.ShowMessageBoxAsync("Discard unsaved decisions and refresh?",
+            "Refresh loads the authoritative saved review. Your unsaved local edits will be discarded.",
+            yesText: "Discard and refresh", cancelText: "Keep editing") != true)
+            return;
+        await ReloadAsync();
+    }
+
+    private async Task RecordSelectionAsync(IReadOnlyList<DocumentChunkExclusionRequest> exclusions)
+    {
+        if (_busy || _result?.Value is not { GenerationId: { } id } review || _projection is null)
+            return;
+        var selection = _loaded;
+        var confirmed = await dialogService.ShowMessageBoxAsync("Save chunk selection review?",
+            "This records an immutable review revision. It does not change the PDF or candidate text, approve indexing, or run providers.",
+            yesText: "Save review", cancelText: "Cancel");
+        if (confirmed != true || selection != _loaded)
+            return;
+        _busy = true;
+        try
+        {
+            await RunAsync(async token =>
+            {
+                var result = await apiClient.RecordDocumentChunkReviewAsync(AppId, CollectionId, DocumentId, JobId, id,
+                    new DocumentChunkReviewRequest
+                    {
+                        Sequencer = review.Sequencer,
+                        ETag = review.ETag,
+                        ExpectedRevision = review.ChunkReview?.Revision ?? 0,
+                        Exclusions = exclusions,
+                    }, token);
+                token.ThrowIfCancellationRequested();
+                _writeResult = result;
+                if (result is { IsSuccess: true, Value: { } saved })
+                {
+                    _result = result;
+                    _projection = DocumentReviewProjectionView.Read(saved.Projection);
+                    _selectionDirty = false;
+                }
+            });
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
 
     private async Task StoreAsync()
     {

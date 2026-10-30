@@ -7,7 +7,7 @@ namespace CasCap.Services;
 
 /// <summary>Explicitly stores receipt-derived review candidates; never invokes providers or approves content.</summary>
 // TODO: Keep visual and retrieval approval separate from authenticated review management before permitting embeddings or retrieval.
-internal sealed class DocumentPreparationMarkdownStore(
+internal sealed partial class DocumentPreparationMarkdownStore(
     IOptions<DocumentPreparationConfig> config,
     TimeProvider timeProvider,
     IDbContextFactory<AgentRuntimeDbContext> dbContextFactory,

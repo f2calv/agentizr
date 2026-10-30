@@ -405,7 +405,7 @@ management authorization, semantic/visual approval, embedding, activation or dep
 ### Protected Document Review Management
 
 [`AdministrationDocumentReviewTests`](Tests/Integration/AdministrationDocumentReviewTests.cs)
-adds **15 methods / 35 Debug-only cases**, tagged `Integration` and `DocumentReviewManagement`.
+adds **21 methods / 60 Debug-only cases**, tagged `Integration` and `DocumentReviewManagement`.
 It uses the actual host, authorization policies, antiforgery, typed browser client and production
 review store with per-case SQLite and synthetic receipts. No identity-provider, Azure, paid-model,
 PostgreSQL service or deployment is contacted.
@@ -418,6 +418,10 @@ Forged JSON tenant/actor/location/state cannot replace trusted metadata or creat
 Source lookup translation is checked offline with Npgsql, not by executing against PostgreSQL.
 Catalogue coverage adds tenant/collection filters, bounded paging, current-job availability,
 stored-generation discovery, revocation and no-store metadata without source URIs or plans.
+The [chunk-review cases](Tests/Integration/AdministrationDocumentReviewTests.ChunkReview.cs)
+prove explicit required members, exact revision bounds, snapshot-local exclusions, optional bounded
+notes, authenticated attribution, optimistic concurrency/idempotency and unchanged preparation
+artifacts. Snapshot deletion cascades to review records; source replacement/deletion revokes access.
 
 ```powershell
 dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class CasCap.IntegrationTests.AdministrationDocumentReviewTests CasCap.IntegrationTests.AdministrationApiTests CasCap.IntegrationTests.AdministrationSignInTests CasCap.Tests.Integration.DocumentMarkdownGenerationTests
@@ -427,7 +431,7 @@ Before the catalogue additions, this selection passed **94 cases**, zero failed/
 SQLite generation and 21 existing administration cases.
 
 [`PostgresAdministrationDocumentReviewTests`](Tests/Integration/PostgresAdministrationDocumentReviewTests.cs)
-adds **8 methods / 15 Debug-only cases**, also tagged `PostgreSQL`. Both management classes reuse
+adds **10 methods / 18 Debug-only cases**, also tagged `PostgreSQL`. Both management classes reuse
 the [cookie-authenticated host](Tests/Integration/DocumentReviewWebApplicationFactory.cs), with
 per-fixture native databases for this class. Synthetic preparation uses fake providers, not Azure.
 Native coverage verifies JSONB source-plan materialization, eight-way immutable retries, profile
@@ -437,6 +441,9 @@ rollback on failure/source loss and a clean retry; missing/corrupt receipts rema
 The first native run exposed a GUID reader mismatch from synthetic lease defaults in a SQL
 projection. Source lookup now materializes persisted fields before constructing those defaults;
 offline translation and SQLite execution alone did not prove native reader compatibility.
+The [native chunk-review cases](Tests/Integration/PostgresAdministrationDocumentReviewTests.ChunkReview.cs)
+cover fresh schemas, upgrade with existing snapshots, JSONB round-trips, eight concurrent identical
+writes, conflicting decisions and revocation while a real advisory-lock waiter is blocked.
 
 After approval, start only the required [local PostgreSQL service](#persistence-test-services),
 preserving existing workloads and volumes, then run:
@@ -465,11 +472,20 @@ zero failed/skipped. Fixture database counts return to baseline and task-started
 #### Catalogue And Review Browser Coverage
 
 [`AdministrationDocumentUiTests`](Tests/Integration/AdministrationDocumentUiTests.cs) adds
-**13 methods / 39 Debug-only cases**, tagged `Integration` and `DocumentReviewManagement`.
+**14 methods / 41 cases**, tagged `Integration` and `DocumentReviewManagement`.
 The shared [static renderer](Tests/Integration/AdministrationComponentTestRenderer.cs) also serves
 the existing definition UI tests. Synthetic HTTP verifies catalogue reads, escaped source names/
 Markdown, heading context, separate/nonempty notes, exact snapshots without storage controls,
 401/403/404/409/501 states, unsupported projections and honest empty-state wording.
+Stored-snapshot rendering additionally checks selection controls, counts, filters, escaped exclusion
+reasons and the explicit indexing block. These static checks do not prove checkbox clicks or dialogs.
+The [selection-draft tests](Tests/Unit/DocumentChunkSelectionDraftTests.cs) add **two methods/cases**
+for default inclusion, edits/restoration, explanations, counts and all-excluded decisions without I/O.
+
+The focused selection of these three classes and the selection-draft class passed **121 cases**:
+60 SQLite HTTP, 18 native PostgreSQL HTTP, 41 rendered UI and two pure draft cases, zero failed/skipped.
+Fixture database counts returned to baseline; the pre-existing local PostgreSQL service was left
+running. No Azure request, deployed migration, document approval or rollout occurred.
 
 The focused offline selection passed **55 cases**, zero failed/skipped: 35 SQLite HTTP,
 11 document UI and nine existing definition UI cases. Separately, all **15 native PostgreSQL**
@@ -736,7 +752,7 @@ acceptance and deployed assigned-administrator browser checks remain separate ga
 | `OfflineDocumentReview` | 14 Debug-only | Thirteen synthetic export/coverage checks and one separately approved retained-artifact projection without providers or databases |
 | `LiveDocumentPreparation` | 1 Debug-only | Separately approved real-source/provider acceptance with a retained local ledger; disabled by default |
 | `RetainedDocumentReview` | 1 Debug-only | Separately approved migration and protected HTTP storage of reviewed real-document projections in the retained local ledger; disabled by default |
-| `DocumentReviewManagement` | 89 Debug-only | 35 SQLite HTTP, 15 native PostgreSQL HTTP and 39 synthetic document UI cases; all also `Integration` |
+| `DocumentReviewManagement` | 121 (78 Debug-only) | 60 SQLite HTTP, 18 native PostgreSQL HTTP, 41 synthetic UI and two pure draft cases; all but the draft cases also `Integration` |
 | `DocumentSynchronizationManagement` | 13 Debug-only | API-only administrator authorization, safe status and coalesced requests; also `Integration` |
 | `DocumentSynchronization` | 23 Debug-only | SQLite/native PostgreSQL inventory, repair, deletion, migration and takeover contracts |
 | `PreparationProviders` | 22 Debug-only | Real isolated PostgreSQL ledger/recovery and two-host Redis startup/handover; all also `Integration` and `PostgreSQL`, one also `Redis` |

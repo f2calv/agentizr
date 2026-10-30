@@ -22,7 +22,7 @@ namespace CasCap.IntegrationTests;
 [Trait("Category", "PostgreSQL")]
 [Trait("Category", "DocumentReviewManagement")]
 [Collection(HostIntegrationCollection.Name)]
-public sealed class PostgresAdministrationDocumentReviewTests : IAsyncLifetime
+public sealed partial class PostgresAdministrationDocumentReviewTests : IAsyncLifetime
 {
     private readonly PostgreSqlFixture _database = new();
     private readonly DocumentHybridPreparationTestData.Provider _provider = new();

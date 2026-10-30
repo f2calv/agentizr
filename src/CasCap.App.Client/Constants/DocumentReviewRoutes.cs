@@ -12,6 +12,9 @@ public static class DocumentReviewRoutes
     /// <summary>Gets one exact immutable generation.</summary>
     public const string Generation = Generations + "/{generationId}";
 
+    /// <summary>Gets the optimistic-concurrency-protected selection review route for an exact snapshot.</summary>
+    public const string ChunkReview = Generation + "/chunk-review";
+
     /// <summary>Escapes all caller-supplied route values.</summary>
     public static string Format(string template, string appId, string collectionId, string documentId, string jobId, string? generationId = null) =>
         AdministrationRoutes.Format(template, appId)

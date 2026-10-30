@@ -23,7 +23,7 @@ secret. Do not weaken authorization to make an example work.
 | --- | --- | --- |
 | [runtime.http](runtime.http) | Run/stream, sessions, compaction, snapshots, overrides and instructions | `agent.execute` |
 | [definitions.http](definitions.http) | Immutable publication/history, evaluation, activation/rollback and deactivation | `agent.definition.read`, `agent.definition.publish` or `agent.definition.activate`, per action |
-| [document-reviews.http](document-reviews.http) | Debug-only catalogue, synchronization status/request, source preview and immutable review-generation create/read | Assigned app administrator's session cookie, plus antiforgery on POST; machine scopes do not qualify |
+| [document-reviews.http](document-reviews.http) | Debug-only catalogue, synchronization, source preview, immutable snapshots and chunk-selection reviews | Assigned app administrator's session cookie, plus antiforgery on POST/PUT; machine scopes do not qualify |
 
 Document-review examples require enabled administration sign-in; preview/storage also requires
 existing finished review-required receipts. The catalogue lists admitted metadata, not every Blob.
@@ -34,6 +34,12 @@ identifiers. The POST source sequence and ETag must be copied as correctly escap
 the authorized preview. Set the generation variable from the resulting Location. Storage without
 configured PostgreSQL returns 501; these endpoints are absent in Release. No manual request has
 been executed as part of static example validation.
+
+The chunk-review PUT targets an exact stored generation and sends its observed source sequence,
+ETag and latest review revision (zero before the first review). It appends authenticated selection
+history, preserving the snapshot; exclusions are zero-based candidate ordinals with optional
+500-character reasons. A stale revision/source returns 409. GET the generation after an uncertain
+outcome rather than automatically retrying. Selection never approves indexing or invokes providers.
 
 The synchronization POST applies to all configured collections for the app. It persists/coalesces
 requests and returns 202 with a status Location; use GET to inspect an uncertain outcome rather than

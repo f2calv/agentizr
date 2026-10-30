@@ -324,6 +324,46 @@ namespace CasCap.Migrations
                     b.ToTable("agent_states", "agent_runtime");
                 });
 
+            modelBuilder.Entity("CasCap.Entities.DocumentChunkReviewEntity", b =>
+                {
+                    b.Property<string>("GenerationId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("generation_id");
+
+                    b.Property<long>("Revision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("revision");
+
+                    b.Property<string>("ActorId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("actor_id");
+
+                    b.Property<string>("ExclusionsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("exclusions_json");
+
+                    b.Property<DateTimeOffset>("RecordedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at_utc");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("GenerationId", "Revision")
+                        .HasName("pk_document_chunk_reviews");
+
+                    b.HasIndex("TenantId", "GenerationId")
+                        .HasDatabaseName("ix_document_chunk_reviews_tenant_generation");
+
+                    b.ToTable("document_chunk_reviews", "agent_runtime");
+                });
+
             modelBuilder.Entity("CasCap.Entities.DocumentIngestionJobEntity", b =>
                 {
                     b.Property<string>("Id")
@@ -483,6 +523,9 @@ namespace CasCap.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_document_markdown_generations");
+
+                    b.HasAlternateKey("TenantId", "Id")
+                        .HasName("ak_document_markdown_generations_tenant_id");
 
                     b.HasIndex("TenantId", "CollectionId", "DocumentId", "JobId")
                         .HasDatabaseName("ix_document_markdown_generations_job");
@@ -942,6 +985,17 @@ namespace CasCap.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_agent_run_activities_run");
+                });
+
+            modelBuilder.Entity("CasCap.Entities.DocumentChunkReviewEntity", b =>
+                {
+                    b.HasOne("CasCap.Entities.DocumentMarkdownGenerationEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "GenerationId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_document_chunk_reviews_generation");
                 });
 
             modelBuilder.Entity("CasCap.Entities.DocumentIngestionJobEntity", b =>

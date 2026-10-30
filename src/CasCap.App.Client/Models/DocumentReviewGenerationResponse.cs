@@ -33,4 +33,8 @@ public sealed record DocumentReviewGenerationResponse
     /// <remarks>Spans are half-open UTF-16 Markdown offsets, not PDF geometry. No native response, usage or credential is exposed.</remarks>
     /// <example>{}</example>
     public required JsonElement Projection { get; init; }
+
+    /// <summary>Gets the latest selection review, separate from the immutable projection and never approval.</summary>
+    /// <example>null</example>
+    public DocumentChunkReviewResponse? ChunkReview { get; init; }
 }

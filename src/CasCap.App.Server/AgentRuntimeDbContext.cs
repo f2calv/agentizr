@@ -31,6 +31,9 @@ public sealed class AgentRuntimeDbContext(
     /// <summary>Gets immutable review-required Markdown generations, separate from page-local prepared chunks.</summary>
     public DbSet<DocumentMarkdownGenerationEntity> DocumentMarkdownGenerations => Set<DocumentMarkdownGenerationEntity>();
 
+    /// <summary>Gets append-only chunk-selection decisions, never indexing approval.</summary>
+    public DbSet<DocumentChunkReviewEntity> DocumentChunkReviews => Set<DocumentChunkReviewEntity>();
+
     /// <inheritdoc/>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -192,12 +195,32 @@ public sealed class AgentRuntimeDbContext(
             entity.Property(item => item.ProjectionId).HasColumnName("projection_id").HasMaxLength(64);
             entity.Property(item => item.PayloadJson).HasColumnName("payload_json").HasColumnType("jsonb");
             entity.Property(item => item.CreatedAtUtc).HasColumnName("created_at_utc");
+            entity.HasAlternateKey(item => new { item.TenantId, item.Id })
+                .HasName("ak_document_markdown_generations_tenant_id");
             entity.HasOne<DocumentIngestionJobEntity>().WithMany()
                 .HasForeignKey(item => new { item.TenantId, item.CollectionId, item.DocumentId, item.JobId })
                 .HasPrincipalKey(item => new { item.TenantId, item.CollectionId, item.DocumentId, item.Id })
                 .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_document_markdown_generations_job");
             entity.HasIndex(item => new { item.TenantId, item.CollectionId, item.DocumentId, item.JobId })
                 .HasDatabaseName("ix_document_markdown_generations_job");
+        });
+
+        modelBuilder.Entity<DocumentChunkReviewEntity>(entity =>
+        {
+            entity.ToTable("document_chunk_reviews", schema);
+            entity.HasKey(item => new { item.GenerationId, item.Revision }).HasName("pk_document_chunk_reviews");
+            entity.Property(item => item.TenantId).HasColumnName("tenant_id").HasMaxLength(200);
+            entity.Property(item => item.GenerationId).HasColumnName("generation_id").HasMaxLength(64);
+            entity.Property(item => item.Revision).HasColumnName("revision");
+            entity.Property(item => item.ActorId).HasColumnName("actor_id");
+            entity.Property(item => item.ExclusionsJson).HasColumnName("exclusions_json").HasColumnType("jsonb");
+            entity.Property(item => item.RecordedAtUtc).HasColumnName("recorded_at_utc");
+            entity.HasOne<DocumentMarkdownGenerationEntity>().WithMany()
+                .HasForeignKey(item => new { item.TenantId, item.GenerationId })
+                .HasPrincipalKey(item => new { item.TenantId, item.Id })
+                .OnDelete(DeleteBehavior.Cascade).HasConstraintName("fk_document_chunk_reviews_generation");
+            entity.HasIndex(item => new { item.TenantId, item.GenerationId })
+                .HasDatabaseName("ix_document_chunk_reviews_tenant_generation");
         });
 
         modelBuilder.Entity<DocumentPreparationGenerationEntity>(entity =>

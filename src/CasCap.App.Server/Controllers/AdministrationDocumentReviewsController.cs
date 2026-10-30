@@ -20,6 +20,26 @@ namespace CasCap.Controllers;
 [ProducesResponseType(StatusCodes.Status501NotImplemented)]
 public sealed class AdministrationDocumentReviewsController : ControllerBase
 {
+    /// <inheritdoc cref="DocumentReviewAdministrationService.RecordChunkReviewAsync"/>
+    [HttpPut(DocumentReviewRoutes.ChunkReview, Name = "RecordDocumentChunkReview")]
+    [RequestSizeLimit(1_048_576)]
+    public async Task<Results<Ok<DocumentReviewGenerationResponse>, NotFound, Conflict, ValidationProblem, StatusCodeHttpResult>> RecordChunkReviewAsync(
+        [StringLength(200, MinimumLength = 1)] string collectionId,
+        [StringLength(128, MinimumLength = 1)] string documentId,
+        [StringLength(128, MinimumLength = 1)] string jobId,
+        [StringLength(128, MinimumLength = 1)] string generationId,
+        [FromBody] DocumentChunkReviewRequest request,
+        [FromServices] DocumentReviewAdministrationService reviewSvc,
+        CancellationToken cancellationToken) =>
+        (await reviewSvc.RecordChunkReviewAsync(collectionId, documentId, jobId, generationId, request, cancellationToken)) switch
+        {
+            { IsSupported: false } => TypedResults.StatusCode(StatusCodes.Status501NotImplemented),
+            { IsConflict: true } => TypedResults.Conflict(),
+            { ValidationError: { } error } => TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request)] = [error] }),
+            { Generation: { } generation } => TypedResults.Ok(generation),
+            _ => TypedResults.NotFound(),
+        };
+
     /// <summary>Previews validated source Markdown and heading-aware chunks without persisting or preparing anything.</summary>
     [HttpGet(DocumentReviewRoutes.Source, Name = "PreviewDocumentReview")]
     public async Task<Results<Ok<DocumentReviewGenerationResponse>, NotFound, StatusCodeHttpResult>> PreviewAsync(

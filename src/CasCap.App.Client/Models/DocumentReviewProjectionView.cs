@@ -24,7 +24,8 @@ internal sealed record DocumentReviewProjectionView
             || profile.OverlapTokens >= profile.MaximumTokensPerChunk || view.Chunks is null
             || view.Chunks.Any(chunk => chunk is null || chunk.Ordinal < 0 || chunk.TokenCount < 1
                 || chunk.TokenCount > profile.MaximumTokensPerChunk || chunk.EmbeddingText is null
-                || chunk.SourceSpans.ValueKind != JsonValueKind.Array))
+                || chunk.SourceSpans.ValueKind != JsonValueKind.Array)
+            || view.Chunks.Select(chunk => chunk.Ordinal).Distinct().Count() != view.Chunks.Count)
             throw new JsonException("The review projection has an unsupported shape.");
         return view;
     }

@@ -289,6 +289,7 @@ Under `/admin/api/apps/{appId}/collections/{collectionId}/documents/{documentId}
 | `GET` | Preview validated normalized pages, separate notes and default heading-aware chunks; no persistence |
 | `POST /generations` | Store or reuse an immutable review-required projection with the observed sequence/ETag, explicit token budgets and optional schema-2 structural review |
 | `GET /generations/{generationId}` | Read an exact generation only while its finished job and source remain current |
+| `PUT /generations/{generationId}/chunk-review` | Append authenticated inclusion/exclusion decisions using the observed source and review revision; never approve indexing |
 
 The [service](Services/DocumentReviewAdministrationService.cs) derives the tenant from the
 authorized app and loads source URI, plan and job metadata from the database, never request JSON.
@@ -303,9 +304,20 @@ Projection spans remain Markdown offsets, not precise PDF geometry. Review IDs a
 decision identities, not authenticated actor records or semantic approvals; approval and its audit
 remain separate work. The [browser workbench](../../docs/administration-frontend.md#document-catalogue-and-review)
 lists admitted sources, displays escaped Markdown/chunks and confirms storage of the observed
-default-profile preview. It offers no upload, replacement, deletion, original-PDF viewer,
+default-profile preview. Stored snapshots also offer confirmed chunk-selection reviews, counts,
+included/excluded filters and optional exclusion reasons, without editing candidate content.
+It offers no upload, replacement, deletion, original-PDF viewer,
 custom profile/structural editing or approval. See the
 [manual requests](../../requests/document-reviews.http) for the cookie/antiforgery prerequisites.
+
+The additive `DocumentChunkReviews` migration creates `agent_runtime.document_chunk_reviews`
+and a tenant-qualified snapshot key. Review history is append-only, attributed through the validated
+actor context and serialized with admission/revocation through the existing PostgreSQL advisory lock.
+The exact generation and source remain fenced; selection revisions use optimistic concurrency.
+An identical current retry by the same actor reuses its receipt, including after a JSONB round-trip.
+Deletion of a snapshot cascades to its selection records. No snapshot payload, preparation receipt
+or job state is rewritten. Apply the migration externally before rollout; selection remains
+review-required with indexing denied until separate classification, safety and provenance gates pass.
 
 The [native HTTP acceptance](../CasCap.App.Server.Tests/Tests/Integration/PostgresAdministrationDocumentReviewTests.cs)
 verifies persisted JSONB source resolution, concurrent retries, ownership fences, source revocation,

@@ -59,6 +59,14 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
             DocumentReviewRoutes.Format(DocumentReviewRoutes.Generations, appId, collectionId, documentId, jobId),
             request, cancellationToken);
 
+    /// <summary>Records selection decisions with antiforgery and an observed revision; never retries or approves indexing.</summary>
+    public Task<ApiResult<DocumentReviewGenerationResponse>> RecordDocumentChunkReviewAsync(
+        string appId, string collectionId, string documentId, string jobId, string generationId,
+        DocumentChunkReviewRequest request, CancellationToken cancellationToken) =>
+        SendMutationAsync<DocumentReviewGenerationResponse>(HttpMethod.Put,
+            DocumentReviewRoutes.Format(DocumentReviewRoutes.ChunkReview, appId, collectionId, documentId, jobId, generationId),
+            request, cancellationToken);
+
     /// <summary>Gets one page of an app's agents.</summary>
     public Task<ApiResult<AgentSummaryPageResponse>> GetAgentsAsync(
         string appId,

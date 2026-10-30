@@ -69,3 +69,21 @@ Accept: application/json
 GET {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/{{documentId}}/jobs/{{jobId}}/review/generations/{{generationId}} HTTP/1.1
 Cookie: {{cookie}}
 Accept: application/json
+
+### Record chunk selection review - expected 200; 400 invalid, 404 unavailable snapshot, 409 stale observation
+# @name recordDocumentChunkReview
+# @note Appends authenticated review history only; never approves indexing or invokes providers. Copy the exact snapshot's sequence/ETag and latest chunkReview.revision (zero if absent). The placeholders below are not real source observations. Refresh after an uncertain outcome; do not replay automatically.
+PUT {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/{{documentId}}/jobs/{{jobId}}/review/generations/{{generationId}}/chunk-review HTTP/1.1
+Cookie: {{cookie}}
+X-XSRF-TOKEN: {{antiforgery}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "sequencer": "0000000000000001",
+  "eTag": "\"example-etag\"",
+  "expectedRevision": 0,
+  "exclusions": [
+    { "ordinal": 0, "reason": "Irrelevant publisher advertisement." }
+  ]
+}

@@ -147,6 +147,29 @@ opens the exact immutable snapshot, which has no resubmit control. A stale-sourc
 response is explicit; refresh only reads and never automatically repeats a write after an unknown
 outcome. Stored snapshots remain review-required, not approved or searchable.
 
+On an exact stored snapshot, **Include chunk ... in future search** controls the proposed selection.
+All candidates start included. Counts and **Show chunks** filters distinguish included/excluded
+candidates; excluded candidates can carry an optional explanation of at most 500 characters.
+Exclusion preserves the original PDF, page Markdown, chunk text and provenance. Reviewer explanations
+are separate from embedding input. An incorrectly extracted safety warning needs correction, not
+silent removal.
+
+**Save chunk review** requires confirmation and appends an authenticated review revision; it does not
+approve indexing, invoke a provider, resolve uncertainties or publish anything. The source sequence,
+ETag, exact snapshot and observed review revision fence the write. Concurrent different edits return
+409; the same current retry by the same actor reuses the saved revision. Nothing retries automatically.
+Unsaved edits warn before navigation and disable ordinary refresh; discard them explicitly or confirm
+discard-and-refresh after a failed write to load authoritative state. Replacement/deletion revokes
+review access, and removing a stored snapshot also removes its selection records.
+
+The additive `DocumentChunkReviews` migration must complete before rolling out this reader/writer.
+It adds a tenant-qualified snapshot key and separate review-history table without rewriting prepared
+content. Apply it only through the externally approved deployment migration step.
+Classification (including authoritative CEFR), manual safety/visual checks and source-provenance gates
+remain prerequisites for any future approval/indexing path. Candidate inclusion is not eligibility.
+Future production policy can require review or automate publication for validated trusted collections;
+neither automatic publication nor final indexing approval is implemented by this slice.
+
 These APIs require an actually signed-in assigned administrator even in open Development.
 Machine bearer callers do not qualify; Release hosts do not expose the document APIs.
 There is no upload/replace/delete, original-PDF viewer, editable custom profile/structural decisions

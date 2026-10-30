@@ -59,6 +59,9 @@ for provider requirements and the still-pending durable-worker integration.
 | [`DocumentSynchronizationSourceResponse`](Models/DocumentSynchronizationSourceResponse.cs) | Safe counts, conflicts, timestamps and failure codes without Blob coordinates |
 | [`DocumentReviewGenerationRequest`](Models/DocumentReviewGenerationRequest.cs) | Observed source revision, token budgets and optional versioned structural decisions |
 | [`DocumentReviewGenerationResponse`](Models/DocumentReviewGenerationResponse.cs) | Current-source pages/notes and versioned heading-aware projection; never approval |
+| [`DocumentChunkReviewRequest`](Models/DocumentChunkReviewRequest.cs) | Observed source/review revision and excluded candidate ordinals with optional reasons |
+| [`DocumentChunkReviewResponse`](Models/DocumentChunkReviewResponse.cs) | Saved selection revision/time, separate exclusions and fixed denied indexing approval |
+| [`DocumentChunkSelectionDraft`](Models/DocumentChunkSelectionDraft.cs) | Local inclusion counts, explanations and dirty-state tracking |
 | [`DefinitionDraft`](Models/DefinitionDraft.cs) | Builds a publication payload that keeps fields the editor does not change |
 
 Definition snapshots, history and evaluation reuse the
@@ -75,6 +78,10 @@ or stored snapshot. The workbench displays escaped Markdown and contextual chunk
 and Markdown provenance, not rendered HTML or PDF image regions. Empty notes are hidden.
 Storing the current preview requires confirmation and preserves its observed source revision and
 profile. Success opens the exact immutable generation; failures never automatically repeat a write.
+On a stored snapshot, include/exclude candidates, filter the list and save a confirmed chunk review.
+All candidates start included. Optional exclusion reasons never alter embedding text. Unsaved edits
+warn before navigation; observed review revisions prevent concurrent edits from overwriting decisions.
+Review records remain separate from the immutable snapshot and do not approve indexing.
 Upload/replace/delete, original-PDF viewing, custom budgets/structural editing and approval are not
 implemented. Catalogue admission and stored snapshots do not mean content is searchable.
 See the [review walkthrough](../../docs/administration-frontend.md#document-catalogue-and-review).

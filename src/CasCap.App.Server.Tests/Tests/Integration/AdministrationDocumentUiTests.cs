@@ -65,6 +65,28 @@ public sealed class AdministrationDocumentUiTests
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task StoredSnapshot_OffersReviewSelectionButNotIndexing(bool excluded)
+    {
+        using var handler = new Handler { Generation = "example-generation", Excluded = excluded };
+        var html = await RenderAsync<DocumentReview>(handler, Parameters(), "?generationId=example-generation");
+        Assert.Contains("Save chunk review", html, StringComparison.Ordinal);
+        Assert.Contains(excluded ? "0 included, 1 excluded" : "1 included, 0 excluded", html, StringComparison.Ordinal);
+        Assert.Contains("Include chunk 1 in future search", html, StringComparison.Ordinal);
+        Assert.Contains("Show chunks", html, StringComparison.Ordinal);
+        Assert.Contains("does not approve indexing", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Approve selected chunks", html, StringComparison.Ordinal);
+        Assert.Equal(excluded, html.Contains("Exclusion reason for chunk 1", StringComparison.Ordinal));
+        if (excluded)
+        {
+            Assert.Contains("Saved review revision 1", html, StringComparison.Ordinal);
+            Assert.Contains("&lt;script&gt;irrelevant&lt;/script&gt;", html, StringComparison.Ordinal);
+        }
+        Assert.All(handler.Requests, request => Assert.StartsWith("GET ", request, StringComparison.Ordinal));
+    }
+
+    [Theory]
     [InlineData(HttpStatusCode.Unauthorized, "Sign in to administer this app")]
     [InlineData(HttpStatusCode.Forbidden, "not assigned")]
     [InlineData(HttpStatusCode.NotFound, "Nothing was found")]
@@ -246,6 +268,8 @@ public sealed class AdministrationDocumentUiTests
 
         public string? Generation { get; init; }
 
+        public bool Excluded { get; init; }
+
         public HttpStatusCode? Failure { get; init; }
 
         public HttpStatusCode? SynchronizationFailure { get; init; }
@@ -334,6 +358,12 @@ public sealed class AdministrationDocumentUiTests
         {
             State = "ReviewRequired",
             GenerationId = Generation,
+            ChunkReview = Excluded ? new()
+            {
+                Revision = 1,
+                RecordedAtUtc = DateTimeOffset.UnixEpoch,
+                Exclusions = [new() { Ordinal = 0, Reason = "<script>irrelevant</script>" }],
+            } : null,
             Sequencer = "0001",
             ETag = "\"example-etag\"",
             SourceSha256 = new('0', 64),
