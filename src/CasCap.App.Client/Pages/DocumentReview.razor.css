@@ -7,3 +7,23 @@
 small {
     overflow-wrap: anywhere;
 }
+
+.source-metadata {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 0.35rem 0.75rem;
+    margin: 0.75rem 0;
+}
+
+.source-metadata dt {
+    font-weight: 700;
+}
+
+.source-metadata dt::after {
+    content: ":";
+}
+
+.source-metadata dd {
+    min-width: 0;
+    margin: 0;
+}

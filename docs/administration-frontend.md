@@ -119,6 +119,11 @@ not that processing has run. **Preview** or **Stored snapshot** appears
 only when the source has a finished, released review-required job. The server rechecks ownership
 and current-source fences for every review operation; a catalogue link is not an authorization grant.
 
+Catalogue technical details and the review's source metadata pair bold labels with their values
+in two columns. Long identifiers, hashes and source sequences wrap inside the value column.
+The raw source state describes admission separately from the preparation job state; a source
+value of `Queued` does not mean that a finished review-required job is still waiting to run.
+
 **Sync documents** requests a durable scan of every configured collection in the app, regardless
 of the catalogue filter. Confirm only after reviewing the warning: confirmed missing originals
 have their stored chunks/review content removed; original blobs are never changed. Disabled or
