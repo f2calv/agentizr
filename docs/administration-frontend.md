@@ -165,15 +165,41 @@ review access, and removing a stored snapshot also removes its selection records
 The additive `DocumentChunkReviews` migration must complete before rolling out this reader/writer.
 It adds a tenant-qualified snapshot key and separate review-history table without rewriting prepared
 content. Apply it only through the externally approved deployment migration step.
-Classification (including authoritative CEFR), manual safety/visual checks and source-provenance gates
-remain prerequisites for any future approval/indexing path. Candidate inclusion is not eligibility.
+
+### Document-Level Readiness Assessment
+
+On **Stored snapshot**, first save a chunk review, then use **Document-level approval**. Explicitly
+classify the language, document type, optional edition and highest CEFR content level. Vocabulary
+lists and exam papers require CEFR; missing CEFR can be saved but remains a blocker.
+Reconfirm provenance, included-content fidelity and safety checks, explain the decision and choose
+whether to request readiness approval or withhold it. Saving requires confirmation.
+
+The assessment is an append-only, authenticated record bound to the exact source, snapshot and
+saved chunk-review revision. Changing that selection marks the assessment stale; another snapshot
+does not inherit it, and source replacement/deletion revokes access. Reassessment copies only
+classification, never attestations or rationale. Unsaved selection and assessment edits are mutually
+exclusive; discard the active draft before editing the other form. Failed saves retain the draft,
+show validation/conflict errors and never retry automatically.
+
+Unchecked gates or an empty included selection block readiness. Device manuals are always blocked
+until figure/caption/source associations are implemented and verified; there is no bypass checkbox.
+**Readiness approved; indexing blocked** is not publication: the job stays `ReviewRequired`, no
+provider is invoked and nothing is embedded or searchable. Classification records a reviewer's
+decision; it does not implement trusted-collection policy or cumulative CEFR retrieval enforcement.
+Those remain separate prerequisites when retrieval is implemented.
+
+The additive `DocumentApprovals` migration must complete externally before deploying this
+reader/writer. Snapshot deletion cascades to its assessment history; originals, preparation
+receipts and immutable snapshot content are unchanged.
+
+Candidate inclusion is not eligibility.
 Future production policy can require review or automate publication for validated trusted collections;
 neither automatic publication nor final indexing approval is implemented by this slice.
 
 These APIs require an actually signed-in assigned administrator even in open Development.
 Machine bearer callers do not qualify; Release hosts do not expose the document APIs.
 There is no upload/replace/delete, original-PDF viewer, editable custom profile/structural decisions
-or semantic approval in this slice. See [ADR 0001](adr-0001-centralized-document-rag.md#incremental-debug-document-catalogue-and-review-workbench)
+or final indexing approval in this slice. See [ADR 0001](adr-0001-centralized-document-rag.md#incremental-debug-document-catalogue-and-review-workbench)
 for local validation versus deployment and remaining acceptance gates.
 
 ## Running Locally

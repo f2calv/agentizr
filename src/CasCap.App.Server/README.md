@@ -290,6 +290,7 @@ Under `/admin/api/apps/{appId}/collections/{collectionId}/documents/{documentId}
 | `POST /generations` | Store or reuse an immutable review-required projection with the observed sequence/ETag, explicit token budgets and optional schema-2 structural review |
 | `GET /generations/{generationId}` | Read an exact generation only while its finished job and source remain current |
 | `PUT /generations/{generationId}/chunk-review` | Append authenticated inclusion/exclusion decisions using the observed source and review revision; never approve indexing |
+| `PUT /generations/{generationId}/approval` | Append readiness classification/attestations bound to the exact saved selection and observed assessment revision; indexing remains denied |
 
 The [service](Services/DocumentReviewAdministrationService.cs) derives the tenant from the
 authorized app and loads source URI, plan and job metadata from the database, never request JSON.
@@ -301,13 +302,13 @@ these management operations, and they make no preparation/provider calls.
 Responses allowlist pages/notes, PDF digest, current sequence/ETag and a versioned projection
 document. They exclude raw provider receipts, usage, deployment coordinates and plan metadata.
 Projection spans remain Markdown offsets, not precise PDF geometry. Review IDs are structural
-decision identities, not authenticated actor records or semantic approvals; approval and its audit
-remain separate work. The [browser workbench](../../docs/administration-frontend.md#document-catalogue-and-review)
+decision identities, not authenticated actor records. Separate assessments carry readiness decisions
+without exposing actor identifiers. The [browser workbench](../../docs/administration-frontend.md#document-catalogue-and-review)
 lists admitted sources, displays escaped Markdown/chunks and confirms storage of the observed
 default-profile preview. Stored snapshots also offer confirmed chunk-selection reviews, counts,
 included/excluded filters and optional exclusion reasons, without editing candidate content.
 It offers no upload, replacement, deletion, original-PDF viewer,
-custom profile/structural editing or approval. See the
+custom profile/structural editing or final indexing approval. See the
 [manual requests](../../requests/document-reviews.http) for the cookie/antiforgery prerequisites.
 
 The additive `DocumentChunkReviews` migration creates `agent_runtime.document_chunk_reviews`
@@ -318,6 +319,18 @@ An identical current retry by the same actor reuses its receipt, including after
 Deletion of a snapshot cascades to its selection records. No snapshot payload, preparation receipt
 or job state is rewritten. Apply the migration externally before rollout; selection remains
 review-required with indexing denied until separate classification, safety and provenance gates pass.
+
+The additive `DocumentApprovals` migration adds `agent_runtime.document_approvals` without rewriting
+existing content. The [assessment store](Services/DocumentPreparationMarkdownStore.Approval.cs)
+uses the same source/admission lock and derives readiness server-side from explicit classification,
+provenance/content/safety attestations and the included selection. Missing CEFR for vocabulary/exam
+material, unchecked gates, withheld approval and all-excluded selections remain blockers.
+Device manuals always remain blocked pending verified visual associations. A changed chunk-review
+revision invalidates the assessment; another snapshot inherits nothing. Identical current retries
+by the same actor reuse the receipt; competing or stale writes return 409. Assessment history
+cascades with snapshot deletion. Apply this migration externally before rollout.
+Readiness never changes the job's `ReviewRequired` state, invokes providers or authorizes indexing.
+Trusted collection classification and retrieval-level CEFR enforcement remain future work.
 
 The [native HTTP acceptance](../CasCap.App.Server.Tests/Tests/Integration/PostgresAdministrationDocumentReviewTests.cs)
 verifies persisted JSONB source resolution, concurrent retries, ownership fences, source revocation,

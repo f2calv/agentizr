@@ -33,6 +33,10 @@ public partial class ReviewProjection(IDialogService dialogService)
     [Parameter]
     public bool Busy { get; set; }
 
+    /// <summary>Gets whether another dirty form prevents selection edits without preventing navigation.</summary>
+    [Parameter]
+    public bool EditingBlocked { get; set; }
+
     /// <summary>Gets the explicit save callback; selection never triggers automatic persistence.</summary>
     [Parameter]
     public EventCallback<IReadOnlyList<DocumentChunkExclusionRequest>> SaveSelection { get; set; }

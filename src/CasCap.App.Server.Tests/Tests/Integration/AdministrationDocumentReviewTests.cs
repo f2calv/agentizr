@@ -178,11 +178,13 @@ public sealed partial class AdministrationDocumentReviewTests : IAsyncLifetime
         using var read = await http.GetAsync(Path(DocumentReviewRoutes.Generation, "missing"), Token);
         using var write = await http.PostAsJsonAsync(Path(DocumentReviewRoutes.Generations), Request(), Token);
         using var selection = await http.PutAsJsonAsync(Path(DocumentReviewRoutes.ChunkReview, "missing"), SelectionRequest(), Token);
+        using var approval = await http.PutAsJsonAsync(Path(DocumentReviewRoutes.Approval, "missing"), ApprovalRequest(), Token);
         Assert.Equal(status, preview.StatusCode);
         Assert.Equal(status, catalogue.StatusCode);
         Assert.Equal(status, read.StatusCode);
         Assert.Equal(status, write.StatusCode);
         Assert.Equal(status, selection.StatusCode);
+        Assert.Equal(status, approval.StatusCode);
         await using var db = _database.CreateDbContext();
         Assert.Empty(await db.DocumentMarkdownGenerations.ToArrayAsync(Token));
     }
@@ -199,8 +201,10 @@ public sealed partial class AdministrationDocumentReviewTests : IAsyncLifetime
             http.DefaultRequestHeaders.Add(AdministrationRoutes.AntiforgeryHeaderName, "invalid");
         using var response = await http.PostAsJsonAsync(Path(DocumentReviewRoutes.Generations), Request(), Token);
         using var selection = await http.PutAsJsonAsync(Path(DocumentReviewRoutes.ChunkReview, "missing"), SelectionRequest(), Token);
+        using var approval = await http.PutAsJsonAsync(Path(DocumentReviewRoutes.Approval, "missing"), ApprovalRequest(), Token);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, selection.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, approval.StatusCode);
         await using var db = _database.CreateDbContext();
         Assert.Empty(await db.DocumentMarkdownGenerations.ToArrayAsync(Token));
     }

@@ -87,3 +87,28 @@ Accept: application/json
     { "ordinal": 0, "reason": "Irrelevant publisher advertisement." }
   ]
 }
+
+### Record document readiness assessment - expected 200, including blocked decisions; 400 invalid, 404 unavailable, 409 stale observation
+# @name recordDocumentApproval
+# @note Appends authenticated assessment history only: no provider calls, embeddings, indexing or publication. Copy the exact source sequence/ETag, saved chunkReview.revision and latest approval.revision (zero if absent). Unchecked gates/missing CEFR remain blocked; device manuals cannot bypass unresolved visual associations. Refresh after an uncertain outcome instead of replaying automatically. Synthetic observations below are not runnable source values.
+PUT {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/{{documentId}}/jobs/{{jobId}}/review/generations/{{generationId}}/approval HTTP/1.1
+Cookie: {{cookie}}
+X-XSRF-TOKEN: {{antiforgery}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "sequencer": "0000000000000001",
+  "eTag": "\"example-etag\"",
+  "chunkReviewRevision": 1,
+  "expectedRevision": 0,
+  "language": "de",
+  "documentType": "Vocabulary",
+  "edition": null,
+  "cefrLevel": "A1",
+  "approvalRequested": false,
+  "provenanceVerified": false,
+  "contentVerified": false,
+  "safetyVerified": false,
+  "notes": "Assessment withheld pending original-source and content checks."
+}

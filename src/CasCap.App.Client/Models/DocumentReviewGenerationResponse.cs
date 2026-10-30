@@ -37,4 +37,8 @@ public sealed record DocumentReviewGenerationResponse
     /// <summary>Gets the latest selection review, separate from the immutable projection and never approval.</summary>
     /// <example>null</example>
     public DocumentChunkReviewResponse? ChunkReview { get; init; }
+
+    /// <summary>Gets the latest version-bound readiness assessment, never indexing activation.</summary>
+    /// <example>null</example>
+    public DocumentApprovalResponse? Approval { get; init; }
 }

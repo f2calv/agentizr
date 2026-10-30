@@ -58,10 +58,13 @@ for provider requirements and the still-pending durable-worker integration.
 | [`DocumentSynchronizationResponse`](Models/DocumentSynchronizationResponse.cs) | Synchronization/processing gates, UTC cron and configured-source progress |
 | [`DocumentSynchronizationSourceResponse`](Models/DocumentSynchronizationSourceResponse.cs) | Safe counts, conflicts, timestamps and failure codes without Blob coordinates |
 | [`DocumentReviewGenerationRequest`](Models/DocumentReviewGenerationRequest.cs) | Observed source revision, token budgets and optional versioned structural decisions |
-| [`DocumentReviewGenerationResponse`](Models/DocumentReviewGenerationResponse.cs) | Current-source pages/notes and versioned heading-aware projection; never approval |
+| [`DocumentReviewGenerationResponse`](Models/DocumentReviewGenerationResponse.cs) | Current-source pages/notes, versioned projection, saved selection and optional readiness assessment; never indexing approval |
 | [`DocumentChunkReviewRequest`](Models/DocumentChunkReviewRequest.cs) | Observed source/review revision and excluded candidate ordinals with optional reasons |
 | [`DocumentChunkReviewResponse`](Models/DocumentChunkReviewResponse.cs) | Saved selection revision/time, separate exclusions and fixed denied indexing approval |
 | [`DocumentChunkSelectionDraft`](Models/DocumentChunkSelectionDraft.cs) | Local inclusion counts, explanations and dirty-state tracking |
+| [`DocumentApprovalRequest`](Models/DocumentApprovalRequest.cs) | Explicit classification/attestations and observed source, selection and assessment revisions |
+| [`DocumentApprovalResponse`](Models/DocumentApprovalResponse.cs) | Current/stale readiness, derived blockers and fixed denied indexing approval |
+| [`DocumentApprovalDraft`](Models/DocumentApprovalDraft.cs) | Mutable assessment form requiring fresh attestations and rationale |
 | [`DefinitionDraft`](Models/DefinitionDraft.cs) | Builds a publication payload that keeps fields the editor does not change |
 
 Definition snapshots, history and evaluation reuse the
@@ -82,7 +85,14 @@ On a stored snapshot, include/exclude candidates, filter the list and save a con
 All candidates start included. Optional exclusion reasons never alter embedding text. Unsaved edits
 warn before navigation; observed review revisions prevent concurrent edits from overwriting decisions.
 Review records remain separate from the immutable snapshot and do not approve indexing.
-Upload/replace/delete, original-PDF viewing, custom budgets/structural editing and approval are not
+After saving a selection, the separate **Document-level approval** form records a confirmed readiness
+assessment. It retains classification but requires fresh attestations/rationale; editing either form
+blocks competing edits, not navigation after an explicit discard confirmation. Source/snapshot and
+selection revisions fence the decision. Missing CEFR for vocabulary/exam papers, unresolved gates
+and empty selections remain blocked; manuals cannot pass the unimplemented visual-association gate.
+Server field validation is shown in the form without losing edits. No readiness decision enables
+indexing, invokes a provider or implements future trusted-collection/CEFR retrieval policy.
+Upload/replace/delete, original-PDF viewing, custom budgets/structural editing and indexing approval are not
 implemented. Catalogue admission and stored snapshots do not mean content is searchable.
 See the [review walkthrough](../../docs/administration-frontend.md#document-catalogue-and-review).
 

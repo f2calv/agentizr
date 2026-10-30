@@ -7,8 +7,8 @@ using System.Text.Json.Serialization;
 
 namespace CasCap.Services;
 
-/// <summary>Manages receipt-derived projections for the authorized app; never downloads, prepares or approves documents.</summary>
-public sealed class DocumentReviewAdministrationService
+/// <summary>Manages receipt-derived review and readiness assessments; never downloads, prepares, embeds or publishes documents.</summary>
+public sealed partial class DocumentReviewAdministrationService
 {
     private readonly IOptions<DocumentPreparationConfig> _config;
     private readonly ITenantContext _tenantContext;
@@ -54,6 +54,7 @@ public sealed class DocumentReviewAdministrationService
             Generation = snapshot is null ? null : Response(source, snapshot, generationId) with
             {
                 ChunkReview = generationId is null ? null : await _markdownStore.ReadChunkReviewAsync(source, generationId, token),
+                Approval = generationId is null ? null : await _markdownStore.ReadApprovalAsync(source, generationId, token),
             },
         };
     }
@@ -79,8 +80,16 @@ public sealed class DocumentReviewAdministrationService
         if (request.Exclusions.Any(item => !ordinals.Contains(item.Ordinal)))
             return new() { ValidationError = "An excluded candidate does not belong to this snapshot." };
         var review = await _markdownStore.StoreChunkReviewAsync(source, generationId, request, _actorContext.ActorId, token);
-        return review is null ? new() { IsConflict = true }
-            : new() { Generation = Response(source, snapshot, generationId) with { ChunkReview = review } };
+        if (review is null)
+            return new() { IsConflict = true };
+        return new()
+        {
+            Generation = Response(source, snapshot, generationId) with
+            {
+                ChunkReview = review,
+                Approval = await _markdownStore.ReadApprovalAsync(source, generationId, token),
+            },
+        };
     }
 
     /// <summary>Appends or reuses a current-source review generation after validating bounded structural decisions.</summary>

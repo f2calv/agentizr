@@ -34,6 +34,9 @@ public sealed class AgentRuntimeDbContext(
     /// <summary>Gets append-only chunk-selection decisions, never indexing approval.</summary>
     public DbSet<DocumentChunkReviewEntity> DocumentChunkReviews => Set<DocumentChunkReviewEntity>();
 
+    /// <summary>Gets append-only document readiness assessments, never indexing activation.</summary>
+    public DbSet<DocumentApprovalEntity> DocumentApprovals => Set<DocumentApprovalEntity>();
+
     /// <inheritdoc/>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -221,6 +224,25 @@ public sealed class AgentRuntimeDbContext(
                 .OnDelete(DeleteBehavior.Cascade).HasConstraintName("fk_document_chunk_reviews_generation");
             entity.HasIndex(item => new { item.TenantId, item.GenerationId })
                 .HasDatabaseName("ix_document_chunk_reviews_tenant_generation");
+        });
+
+        modelBuilder.Entity<DocumentApprovalEntity>(entity =>
+        {
+            entity.ToTable("document_approvals", schema);
+            entity.HasKey(item => new { item.GenerationId, item.Revision }).HasName("pk_document_approvals");
+            entity.Property(item => item.TenantId).HasColumnName("tenant_id").HasMaxLength(200);
+            entity.Property(item => item.GenerationId).HasColumnName("generation_id").HasMaxLength(64);
+            entity.Property(item => item.Revision).HasColumnName("revision");
+            entity.Property(item => item.ChunkReviewRevision).HasColumnName("chunk_review_revision");
+            entity.Property(item => item.ActorId).HasColumnName("actor_id");
+            entity.Property(item => item.AssessmentJson).HasColumnName("assessment_json").HasColumnType("jsonb");
+            entity.Property(item => item.RecordedAtUtc).HasColumnName("recorded_at_utc");
+            entity.HasOne<DocumentMarkdownGenerationEntity>().WithMany()
+                .HasForeignKey(item => new { item.TenantId, item.GenerationId })
+                .HasPrincipalKey(item => new { item.TenantId, item.Id })
+                .OnDelete(DeleteBehavior.Cascade).HasConstraintName("fk_document_approvals_generation");
+            entity.HasIndex(item => new { item.TenantId, item.GenerationId })
+                .HasDatabaseName("ix_document_approvals_tenant_generation");
         });
 
         modelBuilder.Entity<DocumentPreparationGenerationEntity>(entity =>

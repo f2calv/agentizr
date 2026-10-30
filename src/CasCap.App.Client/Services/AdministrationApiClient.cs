@@ -67,6 +67,14 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
             DocumentReviewRoutes.Format(DocumentReviewRoutes.ChunkReview, appId, collectionId, documentId, jobId, generationId),
             request, cancellationToken);
 
+    /// <summary>Records a document readiness assessment with antiforgery and observed revisions; never retries or indexes.</summary>
+    public Task<ApiResult<DocumentReviewGenerationResponse>> RecordDocumentApprovalAsync(
+        string appId, string collectionId, string documentId, string jobId, string generationId,
+        DocumentApprovalRequest request, CancellationToken cancellationToken) =>
+        SendMutationAsync<DocumentReviewGenerationResponse>(HttpMethod.Put,
+            DocumentReviewRoutes.Format(DocumentReviewRoutes.Approval, appId, collectionId, documentId, jobId, generationId),
+            request, cancellationToken);
+
     /// <summary>Gets one page of an app's agents.</summary>
     public Task<ApiResult<AgentSummaryPageResponse>> GetAgentsAsync(
         string appId,
@@ -212,7 +220,7 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
                         ApiStatus.Success,
                         await response.Content.ReadFromJsonAsync<T>(JsonSerializerOptions.Web, cancellationToken)),
                     HttpStatusCode.NoContent => new ApiResult<T>(ApiStatus.Success, typeof(T) == typeof(bool) ? (T)(object)true : default),
-                    HttpStatusCode.BadRequest => new ApiResult<T>(ApiStatus.ValidationFailed, Errors: await ReadProblemAsync(response, cancellationToken)),
+                    HttpStatusCode.BadRequest => await ReadProblemAsync<T>(response, cancellationToken),
                     HttpStatusCode.Unauthorized => new ApiResult<T>(ApiStatus.Unauthorized),
                     HttpStatusCode.Forbidden => new ApiResult<T>(ApiStatus.Forbidden),
                     HttpStatusCode.NotFound => new ApiResult<T>(ApiStatus.NotFound),
@@ -229,18 +237,19 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
         }
     }
 
-    private static async Task<IReadOnlyList<string>> ReadProblemAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    private static async Task<ApiResult<T>> ReadProblemAsync<T>(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         try
         {
             var problem = await response.Content.ReadFromJsonAsync<ProblemPayload>(JsonSerializerOptions.Web, cancellationToken);
-            return problem?.Errors?.SelectMany(error => error.Value).ToArray() is { Length: > 0 } errors
+            IReadOnlyList<string> messages = problem?.Errors?.SelectMany(error => error.Value).ToArray() is { Length: > 0 } errors
                 ? errors
                 : [problem?.Title ?? "The request was rejected."];
+            return new(ApiStatus.ValidationFailed, Errors: messages) { FieldErrors = problem?.Errors };
         }
         catch (JsonException)
         {
-            return ["The request was rejected."];
+            return new(ApiStatus.ValidationFailed, Errors: ["The request was rejected."]);
         }
     }
 

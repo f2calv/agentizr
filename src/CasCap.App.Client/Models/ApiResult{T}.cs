@@ -7,6 +7,9 @@ namespace CasCap.Client.Models;
 /// <param name="Errors">Validation or problem messages returned by the server.</param>
 public sealed record ApiResult<T>(ApiStatus Status, T? Value = default, IReadOnlyList<string>? Errors = null)
 {
+    /// <summary>Gets field-specific server validation messages when Problem Details supplies them.</summary>
+    public IReadOnlyDictionary<string, string[]>? FieldErrors { get; init; }
+
     /// <summary>Gets whether the call succeeded.</summary>
     public bool IsSuccess => Status == ApiStatus.Success;
 }

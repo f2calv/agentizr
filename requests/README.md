@@ -23,7 +23,7 @@ secret. Do not weaken authorization to make an example work.
 | --- | --- | --- |
 | [runtime.http](runtime.http) | Run/stream, sessions, compaction, snapshots, overrides and instructions | `agent.execute` |
 | [definitions.http](definitions.http) | Immutable publication/history, evaluation, activation/rollback and deactivation | `agent.definition.read`, `agent.definition.publish` or `agent.definition.activate`, per action |
-| [document-reviews.http](document-reviews.http) | Debug-only catalogue, synchronization, source preview, immutable snapshots and chunk-selection reviews | Assigned app administrator's session cookie, plus antiforgery on POST/PUT; machine scopes do not qualify |
+| [document-reviews.http](document-reviews.http) | Debug-only catalogue, synchronization, source preview, immutable snapshots, chunk selection and readiness assessments | Assigned app administrator's session cookie, plus antiforgery on POST/PUT; machine scopes do not qualify |
 
 Document-review examples require enabled administration sign-in; preview/storage also requires
 existing finished review-required receipts. The catalogue lists admitted metadata, not every Blob.
@@ -40,6 +40,12 @@ ETag and latest review revision (zero before the first review). It appends authe
 history, preserving the snapshot; exclusions are zero-based candidate ordinals with optional
 500-character reasons. A stale revision/source returns 409. GET the generation after an uncertain
 outcome rather than automatically retrying. Selection never approves indexing or invokes providers.
+
+The approval PUT requires a saved selection and its exact revision, plus the observed assessment
+revision (zero initially). Classification and provenance/content/safety attestations are explicit;
+false checks, missing required CEFR or no included candidates save a blocked assessment. Manuals
+remain blocked pending visual associations. Selection changes require reassessment. No assessment
+publishes embeddings or makes content searchable. The example deliberately withholds readiness.
 
 The synchronization POST applies to all configured collections for the app. It persists/coalesces
 requests and returns 202 with a status Location; use GET to inspect an uncertain outcome rather than

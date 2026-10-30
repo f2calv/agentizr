@@ -16,6 +16,8 @@ public partial class DocumentReview(
     private DocumentReviewProjectionView? _projection;
     private bool _busy;
     private bool _selectionDirty;
+    private bool _approvalDirty;
+    private IReadOnlyDictionary<string, string[]>? _approvalFieldErrors;
 
     /// <summary>Gets or sets the requested app.</summary>
     [Parameter]
@@ -67,6 +69,8 @@ public partial class DocumentReview(
         _writeResult = null;
         _projection = null;
         _selectionDirty = false;
+        _approvalDirty = false;
+        _approvalFieldErrors = null;
         var result = await apiClient.GetDocumentReviewAsync(AppId, CollectionId, DocumentId, JobId, GenerationId, token);
         token.ThrowIfCancellationRequested();
         _result = result;
@@ -87,7 +91,7 @@ public partial class DocumentReview(
     {
         if (_busy)
             return;
-        if (_selectionDirty && await dialogService.ShowMessageBoxAsync("Discard unsaved decisions and refresh?",
+        if ((_selectionDirty || _approvalDirty) && await dialogService.ShowMessageBoxAsync("Discard unsaved decisions and refresh?",
             "Refresh loads the authoritative saved review. Your unsaved local edits will be discarded.",
             yesText: "Discard and refresh", cancelText: "Keep editing") != true)
             return;
@@ -96,7 +100,7 @@ public partial class DocumentReview(
 
     private async Task RecordSelectionAsync(IReadOnlyList<DocumentChunkExclusionRequest> exclusions)
     {
-        if (_busy || _result?.Value is not { GenerationId: { } id } review || _projection is null)
+        if (_busy || _approvalDirty || _result?.Value is not { GenerationId: { } id } review || _projection is null)
             return;
         var selection = _loaded;
         var confirmed = await dialogService.ShowMessageBoxAsync("Save chunk selection review?",
@@ -163,6 +167,39 @@ public partial class DocumentReview(
                 token.ThrowIfCancellationRequested();
                 if (_writeResult is { IsSuccess: true, Value.GenerationId: { } id })
                     navigationManager.NavigateTo(Path(AppId, CollectionId, DocumentId, JobId, id));
+            });
+        }
+        finally
+        {
+            _busy = false;
+        }
+
+    }
+
+    private async Task RecordApprovalAsync(DocumentApprovalRequest request)
+    {
+        if (_busy || _selectionDirty || _result?.Value is not { GenerationId: { } id })
+            return;
+        var selection = _loaded;
+        if (await dialogService.ShowMessageBoxAsync("Save document assessment?",
+            "This records an audited readiness decision bound to the saved chunk review. Unresolved gates remain blocked. No embedding or publication occurs.",
+            yesText: "Save assessment", cancelText: "Cancel") != true || selection != _loaded)
+            return;
+        _busy = true;
+        try
+        {
+            await RunAsync(async token =>
+            {
+                var result = await apiClient.RecordDocumentApprovalAsync(AppId, CollectionId, DocumentId, JobId, id, request, token);
+                _approvalFieldErrors = result.FieldErrors;
+                token.ThrowIfCancellationRequested();
+                _writeResult = result;
+                if (result is { IsSuccess: true, Value: { } saved })
+                {
+                    _result = result;
+                    _projection = DocumentReviewProjectionView.Read(saved.Projection);
+                    _approvalDirty = false;
+                }
             });
         }
         finally

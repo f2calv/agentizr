@@ -37,9 +37,9 @@ else
             <MudSelectItem Value="@Excluded">Excluded chunks</MudSelectItem>
         </MudSelect>
             <MudStack Row="true" Wrap="Wrap.Wrap" Class="my-3">
-                <MudButton ButtonType="ButtonType.Submit" Disabled="@(Busy || Selection is not null && !_draft.IsDirty)"
+                <MudButton ButtonType="ButtonType.Submit" Disabled="@(Busy || EditingBlocked || Selection is not null && !_draft.IsDirty)"
                            Color="Color.Primary" Variant="Variant.Filled">Save chunk review</MudButton>
-                <MudButton OnClick="DiscardAsync" Disabled="@(Busy || !_draft.IsDirty)">Discard unsaved decisions</MudButton>
+                <MudButton OnClick="DiscardAsync" Disabled="@(Busy || EditingBlocked || !_draft.IsDirty)">Discard unsaved decisions</MudButton>
             </MudStack>
             <MudText Typo="Typo.body2" Class="mb-3">
                 Unsaved decisions stay in this page only. All candidates start included; no individual ticking is required.
@@ -59,12 +59,12 @@ else
                 {
                     <MudCheckBox T="bool" Value="@(!_draft.IsExcluded(chunk.Ordinal))"
                                  ValueChanged="@((bool included) => SetIncludedAsync(chunk.Ordinal, included))"
-                                 Disabled="Busy" Label="@($"Include chunk {chunk.Ordinal + 1} in future search")" />
+                                 Disabled="@(Busy || EditingBlocked)" Label="@($"Include chunk {chunk.Ordinal + 1} in future search")" />
                     @if (_draft.IsExcluded(chunk.Ordinal))
                     {
                         <MudTextField T="string" Label="@($"Exclusion reason for chunk {chunk.Ordinal + 1} (optional)")"
                                       Value="@_draft.Reason(chunk.Ordinal)" ValueChanged="@((string? reason) => SetReasonAsync(chunk.Ordinal, reason))"
-                                      MaxLength="500" Disabled="Busy" Class="mb-3" />
+                                      MaxLength="500" Disabled="@(Busy || EditingBlocked)" Class="mb-3" />
                     }
                 }
                 <pre class="projection-text">@chunk.EmbeddingText</pre>

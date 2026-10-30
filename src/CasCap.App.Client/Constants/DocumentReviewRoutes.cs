@@ -15,6 +15,9 @@ public static class DocumentReviewRoutes
     /// <summary>Gets the optimistic-concurrency-protected selection review route for an exact snapshot.</summary>
     public const string ChunkReview = Generation + "/chunk-review";
 
+    /// <summary>Gets the version-bound document readiness assessment route.</summary>
+    public const string Approval = Generation + "/approval";
+
     /// <summary>Escapes all caller-supplied route values.</summary>
     public static string Format(string template, string appId, string collectionId, string documentId, string jobId, string? generationId = null) =>
         AdministrationRoutes.Format(template, appId)

@@ -409,7 +409,7 @@ management authorization, semantic/visual approval, embedding, activation or dep
 ### Protected Document Review Management
 
 [`AdministrationDocumentReviewTests`](Tests/Integration/AdministrationDocumentReviewTests.cs)
-adds **21 methods / 60 Debug-only cases**, tagged `Integration` and `DocumentReviewManagement`.
+adds **29 methods / 97 Debug-only cases**, tagged `Integration` and `DocumentReviewManagement`.
 It uses the actual host, authorization policies, antiforgery, typed browser client and production
 review store with per-case SQLite and synthetic receipts. No identity-provider, Azure, paid-model,
 PostgreSQL service or deployment is contacted.
@@ -426,6 +426,12 @@ The [chunk-review cases](Tests/Integration/AdministrationDocumentReviewTests.Chu
 prove explicit required members, exact revision bounds, snapshot-local exclusions, optional bounded
 notes, authenticated attribution, optimistic concurrency/idempotency and unchanged preparation
 artifacts. Snapshot deletion cascades to review records; source replacement/deletion revokes access.
+The [assessment cases](Tests/Integration/AdministrationDocumentReviewTests.Approval.cs) add
+version-bound readiness and withheld decisions, re-assessment after selection changes, explicit
+classification/CEFR and provenance/content/safety gates, permanently blocked manual visual gates,
+required JSON choices, revision bounds, forged-result rejection, field validation and corrupt
+selection rejection before insertion. No readiness assessment enables indexing or changes snapshot
+content, preparation receipts or job state.
 
 ```powershell
 dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class CasCap.IntegrationTests.AdministrationDocumentReviewTests CasCap.IntegrationTests.AdministrationApiTests CasCap.IntegrationTests.AdministrationSignInTests CasCap.Tests.Integration.DocumentMarkdownGenerationTests
@@ -435,7 +441,7 @@ Before the catalogue additions, this selection passed **94 cases**, zero failed/
 SQLite generation and 21 existing administration cases.
 
 [`PostgresAdministrationDocumentReviewTests`](Tests/Integration/PostgresAdministrationDocumentReviewTests.cs)
-adds **10 methods / 18 Debug-only cases**, also tagged `PostgreSQL`. Both management classes reuse
+adds **12 methods / 22 Debug-only cases**, also tagged `PostgreSQL`. Both management classes reuse
 the [cookie-authenticated host](Tests/Integration/DocumentReviewWebApplicationFactory.cs), with
 per-fixture native databases for this class. Synthetic preparation uses fake providers, not Azure.
 Native coverage verifies JSONB source-plan materialization, eight-way immutable retries, profile
@@ -448,6 +454,10 @@ offline translation and SQLite execution alone did not prove native reader compa
 The [native chunk-review cases](Tests/Integration/PostgresAdministrationDocumentReviewTests.ChunkReview.cs)
 cover fresh schemas, upgrade with existing snapshots, JSONB round-trips, eight concurrent identical
 writes, conflicting decisions and revocation while a real advisory-lock waiter is blocked.
+The [native assessment cases](Tests/Integration/PostgresAdministrationDocumentReviewTests.Approval.cs)
+cover additive upgrade with retained snapshot/selection content, native JSONB retry canonicalization,
+eight identical concurrent assessments, competing decisions and source/selection changes while
+the writer is observed waiting on the shared advisory lock.
 
 After approval, start only the required [local PostgreSQL service](#persistence-test-services),
 preserving existing workloads and volumes, then run:
@@ -485,6 +495,21 @@ Stored-snapshot rendering additionally checks selection controls, counts, filter
 reasons and the explicit indexing block. These static checks do not prove checkbox clicks or dialogs.
 The [selection-draft tests](Tests/Unit/DocumentChunkSelectionDraftTests.cs) add **two methods/cases**
 for default inclusion, edits/restoration, explanations, counts and all-excluded decisions without I/O.
+
+[`DocumentApprovalUiTests`](Tests/Integration/DocumentApprovalUiTests.cs) adds **three methods /
+seven cases** for the saved-selection prerequisite, approved/blocked/stale readiness, escaped
+assessment metadata, the non-bypassable manual gate and server field messages.
+[`DocumentApprovalDraftTests`](Tests/Unit/DocumentApprovalDraftTests.cs) adds **one method/case**
+for fresh attestations/rationale with classification retained and source/selection/revision pinned.
+
+The focused approval selection passed **185 cases**, zero failed/skipped: 97 SQLite HTTP,
+22 native PostgreSQL HTTP, 41 existing document UI, seven assessment UI, one assessment draft,
+eight existing administration API and nine definition UI cases. The restored Release server/client
+build passed with zero warnings/errors. Generated additive SQL was reviewed and EF reported no
+pending model changes. Fixture database count returned to zero; the pre-existing PostgreSQL
+service remained running. No live database migration, provider call, indexing or deployment
+occurred. Assessment-form clicks, navigation dialogs, keyboard and narrow-viewport interaction
+remain browser acceptance work; static rendering does not verify them.
 
 The focused selection of these three classes and the selection-draft class passed **121 cases**:
 60 SQLite HTTP, 18 native PostgreSQL HTTP, 41 rendered UI and two pure draft cases, zero failed/skipped.
@@ -756,7 +781,7 @@ acceptance and deployed assigned-administrator browser checks remain separate ga
 | `OfflineDocumentReview` | 14 Debug-only | Thirteen synthetic export/coverage checks and one separately approved retained-artifact projection without providers or databases |
 | `LiveDocumentPreparation` | 1 Debug-only | Separately approved real-source/provider acceptance with a retained local ledger; disabled by default |
 | `RetainedDocumentReview` | 1 Debug-only | Separately approved migration and protected HTTP storage of reviewed real-document projections in the retained local ledger; disabled by default |
-| `DocumentReviewManagement` | 121 (78 Debug-only) | 60 SQLite HTTP, 18 native PostgreSQL HTTP, 41 synthetic UI and two pure draft cases; all but the draft cases also `Integration` |
+| `DocumentReviewManagement` | 170 (119 Debug-only) | 97 SQLite HTTP, 22 native PostgreSQL HTTP, 48 synthetic UI and three pure draft cases; all but the draft cases also `Integration` |
 | `DocumentSynchronizationManagement` | 13 Debug-only | API-only administrator authorization, safe status and coalesced requests; also `Integration` |
 | `DocumentSynchronization` | 23 Debug-only | SQLite/native PostgreSQL inventory, repair, deletion, migration and takeover contracts |
 | `PreparationProviders` | 22 Debug-only | Real isolated PostgreSQL ledger/recovery and two-host Redis startup/handover; all also `Integration` and `PostgreSQL`, one also `Redis` |

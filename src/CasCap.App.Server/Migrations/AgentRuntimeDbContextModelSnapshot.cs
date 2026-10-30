@@ -324,6 +324,50 @@ namespace CasCap.Migrations
                     b.ToTable("agent_states", "agent_runtime");
                 });
 
+            modelBuilder.Entity("CasCap.Entities.DocumentApprovalEntity", b =>
+                {
+                    b.Property<string>("GenerationId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("generation_id");
+
+                    b.Property<long>("Revision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("revision");
+
+                    b.Property<string>("ActorId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("actor_id");
+
+                    b.Property<string>("AssessmentJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("assessment_json");
+
+                    b.Property<long>("ChunkReviewRevision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("chunk_review_revision");
+
+                    b.Property<DateTimeOffset>("RecordedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at_utc");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("GenerationId", "Revision")
+                        .HasName("pk_document_approvals");
+
+                    b.HasIndex("TenantId", "GenerationId")
+                        .HasDatabaseName("ix_document_approvals_tenant_generation");
+
+                    b.ToTable("document_approvals", "agent_runtime");
+                });
+
             modelBuilder.Entity("CasCap.Entities.DocumentChunkReviewEntity", b =>
                 {
                     b.Property<string>("GenerationId")
@@ -985,6 +1029,17 @@ namespace CasCap.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_agent_run_activities_run");
+                });
+
+            modelBuilder.Entity("CasCap.Entities.DocumentApprovalEntity", b =>
+                {
+                    b.HasOne("CasCap.Entities.DocumentMarkdownGenerationEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "GenerationId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_document_approvals_generation");
                 });
 
             modelBuilder.Entity("CasCap.Entities.DocumentChunkReviewEntity", b =>
