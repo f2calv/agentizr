@@ -116,7 +116,9 @@ but SQL itself does not run the library's typed publication validators.
 
 ## Temporary Change with Optimistic Concurrency
 
-This example requires revision 1 and publishes revision 2 with a fifteen-minute expiry. Change the
+This example requires a verified Information startup baseline and revision 1, and publishes revision
+2 with a fifteen-minute Debug expiry. For a verified Debug startup baseline, use Information instead.
+Other baselines require explicit confirmation of a distinct safe temporary level. Change the
 expected revision deliberately for each later publication. A stale request must fail, not silently
 select a newer revision.
 
@@ -174,8 +176,25 @@ The startup minimum is not necessarily the initial durable revision. Expiry retu
 not to revision one. The probe does not expose accepted durable revision/expiry metadata. If
 temporary Debug equals the startup baseline, expiry leaves the effective controls unchanged and
 the Common monitor need not notify. Unchanged status or apply counts cannot prove that expiry
-was reconciled. Keep temporary publication blocked until independent reader metadata or an
-explicitly agreed alternative closes that evidence gap; do not infer expiry from elapsed time.
+was reconciled. Use the approved distinct-level procedure instead; no Common diagnostics API
+change is required:
+
+1. After the coordinated rollout is healthy, record the immutable image digest and each replica's
+   pod identity, probe process identity, startup minimum and current effective minimum.
+2. Verify both startup baselines agree. For Debug use temporary Information; for Information use
+   temporary Debug. Any other baseline or disagreement requires operator confirmation before
+   publication. Keep revision 2 blocked until rollout readiness and level selection are established.
+3. The designated publisher appends the checked temporary revision with a fifteen-minute expiry.
+   Record its revision, selected level and expiry through the authorized operator connection.
+4. Capture each replica's actual switch transition and corresponding Debug acceptance. When its
+   current minimum already equals the temporary level, record that fact rather than claiming an
+   activation transition; a fresh before/after transition needs a separately approved setup.
+5. After expiry, verify return to the recorded startup minimum and corresponding Debug acceptance
+   on the same pod and probe process identities. Confirm no intervening publication or deployment
+   configuration change occurred. Restarted/replaced replicas do not establish same-process expiry.
+
+This demonstrates bounded effective behavior, not private accepted-revision/fallback status or exact
+internal reconciliation timing. Do not infer expiry solely from elapsed time or apply counts.
 
 ## Acceptance and Live Soak Checklist
 
@@ -190,9 +209,11 @@ explicitly agreed alternative closes that evidence gap; do not infer expiry from
 - [ ] Confirm the live target, scope, migration/publication credentials and rollout authorization.
 - [ ] Apply the owned migration and valid initial snapshot before enabling the host.
 - [ ] Deploy the Debug image through the normal deployment shim and record its immutable digest.
-- [ ] Publish a temporary level change through the selected PostgreSQL MCP connection.
-- [ ] Observe application debug events in the real console/export destination, not just a DTO.
-- [ ] Record replica convergence, unchanged host identity/cache behavior and eventual expiry.
+- [ ] Verify immutable startup baselines and select the approved distinct temporary level.
+- [ ] Publish the checked fifteen-minute revision through the designated operator session.
+- [ ] Capture actual switch/Debug-filter evidence per replica before, during and after expiry.
+- [ ] Confirm return to startup on unchanged pod/process identities, with no intervening publication
+  or deployment configuration change.
 - [ ] Exercise invalid-candidate and dependency-outage behavior in an approved isolated target.
 
 The first live soak does not authorize outage testing. Migration and initial-publication readiness
