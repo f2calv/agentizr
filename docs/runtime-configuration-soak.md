@@ -184,7 +184,9 @@ change is required:
 2. Verify both startup baselines agree. For Debug use temporary Information; for Information use
    temporary Debug. Any other baseline or disagreement requires operator confirmation before
    publication. Keep revision 2 blocked until rollout readiness and level selection are established.
-3. The designated publisher appends the checked temporary revision with a fifteen-minute expiry.
+3. The designated publisher appends the checked temporary revision with the operator-approved
+   expiry window. The completed short activation/expiry check used two minutes, superseding the
+   earlier fifteen-minute proposal; it was not a sustained soak.
    Record its revision, selected level and expiry through the authorized operator connection.
 4. Capture each replica's actual switch transition and corresponding Debug acceptance. When its
    current minimum already equals the temporary level, record that fact rather than claiming an
@@ -196,7 +198,9 @@ change is required:
 This demonstrates bounded effective behavior, not private accepted-revision/fallback status or exact
 internal reconciliation timing. Do not infer expiry solely from elapsed time or apply counts.
 
-## Acceptance and Live Soak Checklist
+## Acceptance and Live Check Checklist
+
+The first six items below describe isolated local validation, not live exporter or cache evidence.
 
 - [x] Debug build uses local source references; normal Release build still compiles.
 - [x] Real PostgreSQL publication changes the effective pipeline minimum, verified by emitted events
@@ -206,20 +210,34 @@ internal reconciliation timing. Do not infer expiry solely from elapsed time or 
 - [x] Focused bootstrap tests reject missing/ambiguous connections and preserve disabled status shape.
 - [x] Isolated PostgreSQL tests prove the effective database override, actual-switch probe and expiry
   to Information or Debug startup baselines, independently of revision one's Warning value.
-- [ ] Confirm the live target, scope, migration/publication credentials and rollout authorization.
-- [ ] Apply the owned migration and valid initial snapshot before enabling the host.
-- [ ] Deploy the Debug image through the normal deployment shim and record its immutable digest.
-- [ ] Verify immutable startup baselines and select the approved distinct temporary level.
-- [ ] Publish the checked fifteen-minute revision through the designated operator session.
-- [ ] Capture actual switch/Debug-filter evidence per replica before, during and after expiry.
-- [ ] Confirm return to startup on unchanged pod/process identities, with no intervening publication
+- [x] Confirm the live target, scope, migration/publication credentials and rollout authorization.
+- [x] Apply the owned migration and valid initial snapshot before enabling the host.
+- [x] Deploy the Debug image through the normal deployment shim and record its immutable digest.
+- [x] Verify immutable startup baselines and select the approved distinct temporary level.
+- [x] Publish the checked two-minute revision through the designated operator session.
+- [x] Capture actual switch/Debug-filter evidence per replica before, during and after expiry.
+- [x] Confirm return to startup on unchanged pod/process identities, with no intervening publication
   or deployment configuration change.
 - [ ] Exercise invalid-candidate and dependency-outage behavior in an approved isolated target.
 
-The first live soak does not authorize outage testing. Migration and initial-publication readiness
-must be verified separately from image rollout; temporary publication remains a later gated action.
+The completed two-replica live check verified Information startup and effective baselines, then
+Debug with filter acceptance and apply count 2, followed by automatic return to Information with
+Debug rejected and apply count 3. Reported application times were approximately 0.74 and 2.63 seconds
+after publication, and 0.74 and 2.62 seconds after expiry. These are probe-reported switch application
+times, not measurements of private reader reconciliation.
+
+Both replicas retained their exact pod/process identities and immutable image, stayed Ready with
+zero restarts and returned HTTP 200 from health checks. The designated publisher confirmed head 2
+and exactly the two preserved journal revisions, with no later publication. Deployment/configuration
+freeze held through the final observation; task-owned loopback helpers were stopped. The freeze
+is released. The provider remains enabled with the expired head retained; no reset publication
+is required. Private deployment identities and detailed evidence remain outside this public guide.
+
+This short check does not prove emitted log delivery, live cache retention, private accepted-revision
+or fallback metadata, exact internal timing, or sustained stability. Outage testing was not authorized
+or performed. Any future publication or deployment requires its own applicable authorization.
 
 Local tests use the Compose `tests` service and isolated per-fixture databases. They do not prove
 the live exporter, Kubernetes replica convergence, pod replacement, a database outage deadline
-or a completed soak. Runtime-reader errors contain sanitized failure types, not configuration
+or a sustained soak. Runtime-reader errors contain sanitized failure types, not configuration
 payloads; inspect rejected records only through an authorized operator connection.
