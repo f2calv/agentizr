@@ -21,6 +21,12 @@ public static class DocumentReviewRoutes
     /// <summary>Gets the read-only, non-authorizing indexing eligibility route.</summary>
     public const string IndexingPreflight = Generation + "/indexing-preflight";
 
+    /// <summary>Gets the separately confirmed durable indexing admission route.</summary>
+    public const string IndexingJobs = Generation + "/indexing-jobs";
+
+    /// <summary>Gets one exact indexing generation's payload-free status.</summary>
+    public const string IndexingJob = IndexingJobs + "/{indexingJobId}";
+
     /// <summary>Escapes all caller-supplied route values.</summary>
     public static string Format(string template, string appId, string collectionId, string documentId, string jobId, string? generationId = null) =>
         AdministrationRoutes.Format(template, appId)

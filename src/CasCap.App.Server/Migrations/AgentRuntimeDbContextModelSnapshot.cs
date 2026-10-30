@@ -53,6 +53,41 @@ namespace CasCap.Migrations
                     b.ToTable("active_agent_definitions", "agent_runtime");
                 });
 
+            modelBuilder.Entity("CasCap.Entities.ActiveDocumentIndexEntity", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("CollectionId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("collection_id");
+
+                    b.Property<string>("DocumentId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("document_id");
+
+                    b.Property<DateTimeOffset>("ActivatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("activated_at_utc");
+
+                    b.Property<string>("JobId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("job_id");
+
+                    b.HasKey("TenantId", "CollectionId", "DocumentId")
+                        .HasName("pk_active_document_indexes");
+
+                    b.HasIndex("TenantId", "CollectionId", "DocumentId", "JobId");
+
+                    b.ToTable("active_document_indexes", "agent_runtime");
+                });
+
             modelBuilder.Entity("CasCap.Entities.AgentDefinitionActivationEntity", b =>
                 {
                     b.Property<long>("Id")
@@ -406,6 +441,197 @@ namespace CasCap.Migrations
                         .HasDatabaseName("ix_document_chunk_reviews_tenant_generation");
 
                     b.ToTable("document_chunk_reviews", "agent_runtime");
+                });
+
+            modelBuilder.Entity("CasCap.Entities.DocumentEmbeddingBatchEntity", b =>
+                {
+                    b.Property<string>("JobId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("job_id");
+
+                    b.Property<int>("Ordinal")
+                        .HasColumnType("integer")
+                        .HasColumnName("ordinal");
+
+                    b.Property<Guid>("ClaimId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("claim_id");
+
+                    b.Property<string>("InputSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("input_sha256");
+
+                    b.Property<long?>("InputTokens")
+                        .HasColumnType("bigint")
+                        .HasColumnName("input_tokens");
+
+                    b.Property<DateTimeOffset?>("ReceivedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at_utc");
+
+                    b.Property<string>("ResultSha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("result_sha256");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("SubmittedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("submitted_at_utc");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("JobId", "Ordinal")
+                        .HasName("pk_document_embedding_batches");
+
+                    b.HasIndex("TenantId", "JobId");
+
+                    b.ToTable("document_embedding_batches", "agent_runtime");
+                });
+
+            modelBuilder.Entity("CasCap.Entities.DocumentIndexingJobEntity", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("AcceptedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("accepted_at_utc");
+
+                    b.Property<string>("ActorId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("actor_id");
+
+                    b.Property<DateTimeOffset?>("ClaimExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("claim_expires_at_utc");
+
+                    b.Property<Guid?>("ClaimId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("claim_id");
+
+                    b.Property<string>("CollectionId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("collection_id");
+
+                    b.Property<int>("CompletedBatches")
+                        .HasColumnType("integer")
+                        .HasColumnName("completed_batches");
+
+                    b.Property<string>("DocumentId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("document_id");
+
+                    b.Property<string>("ExpectedActiveJobId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("expected_active_job_id");
+
+                    b.Property<DateTimeOffset?>("FinishedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("finished_at_utc");
+
+                    b.Property<string>("GenerationId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("generation_id");
+
+                    b.Property<string>("ManifestJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("manifest_json");
+
+                    b.Property<string>("ManifestSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("manifest_sha256");
+
+                    b.Property<int>("MaximumInputTokens")
+                        .HasColumnType("integer")
+                        .HasColumnName("maximum_input_tokens");
+
+                    b.Property<int>("MaximumRequests")
+                        .HasColumnType("integer")
+                        .HasColumnName("maximum_requests");
+
+                    b.Property<int>("PolicyRevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("policy_revision");
+
+                    b.Property<string>("PolicySha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("policy_sha256");
+
+                    b.Property<string>("PreparationJobId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("preparation_job_id");
+
+                    b.Property<long>("ReceivedInputTokens")
+                        .HasColumnType("bigint")
+                        .HasColumnName("received_input_tokens");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("status");
+
+                    b.Property<int>("SubmittedRequests")
+                        .HasColumnType("integer")
+                        .HasColumnName("submitted_requests");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<int>("VectorCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("vector_count");
+
+                    b.HasKey("Id")
+                        .HasName("pk_document_indexing_jobs");
+
+                    b.HasAlternateKey("TenantId", "Id")
+                        .HasName("ak_document_indexing_jobs_tenant_id");
+
+                    b.HasAlternateKey("TenantId", "CollectionId", "DocumentId", "Id")
+                        .HasName("ak_document_indexing_jobs_source_id");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_document_indexing_jobs_status");
+
+                    b.HasIndex("TenantId", "CollectionId", "PolicyRevision")
+                        .HasDatabaseName("ix_document_indexing_jobs_policy");
+
+                    b.HasIndex("TenantId", "CollectionId", "DocumentId", "PreparationJobId");
+
+                    b.ToTable("document_indexing_jobs", "agent_runtime");
                 });
 
             modelBuilder.Entity("CasCap.Entities.DocumentIngestionJobEntity", b =>
@@ -1008,6 +1234,17 @@ namespace CasCap.Migrations
                     b.Navigation("Snapshot");
                 });
 
+            modelBuilder.Entity("CasCap.Entities.ActiveDocumentIndexEntity", b =>
+                {
+                    b.HasOne("CasCap.Entities.DocumentIndexingJobEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CollectionId", "DocumentId", "JobId")
+                        .HasPrincipalKey("TenantId", "CollectionId", "DocumentId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_active_document_indexes_job");
+                });
+
             modelBuilder.Entity("CasCap.Entities.AgentDefinitionActivationEntity", b =>
                 {
                     b.HasOne("CasCap.Entities.AgentDefinitionSnapshotEntity", "Snapshot")
@@ -1051,6 +1288,28 @@ namespace CasCap.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_document_chunk_reviews_generation");
+                });
+
+            modelBuilder.Entity("CasCap.Entities.DocumentEmbeddingBatchEntity", b =>
+                {
+                    b.HasOne("CasCap.Entities.DocumentIndexingJobEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "JobId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_document_embedding_batches_job");
+                });
+
+            modelBuilder.Entity("CasCap.Entities.DocumentIndexingJobEntity", b =>
+                {
+                    b.HasOne("CasCap.Entities.DocumentIngestionJobEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CollectionId", "DocumentId", "PreparationJobId")
+                        .HasPrincipalKey("TenantId", "CollectionId", "DocumentId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_document_indexing_jobs_preparation");
                 });
 
             modelBuilder.Entity("CasCap.Entities.DocumentIngestionJobEntity", b =>

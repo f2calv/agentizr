@@ -291,6 +291,9 @@ Under `/admin/api/apps/{appId}/collections/{collectionId}/documents/{documentId}
 | `GET /generations/{generationId}` | Read an exact generation only while its finished job and source remain current |
 | `PUT /generations/{generationId}/chunk-review` | Append authenticated inclusion/exclusion decisions using the observed source and review revision; never approve indexing |
 | `PUT /generations/{generationId}/approval` | Append readiness classification/attestations bound to the exact saved selection and observed assessment revision; indexing remains denied |
+| `GET /generations/{generationId}/indexing-preflight` | Check exact included inputs against trusted collection/profile policy and observe the active predecessor; never authorize paid work |
+| `POST /generations/{generationId}/indexing-jobs` | Separately confirm manifest, request/token ceilings and observed active predecessor; durably accept with 202 and status Location |
+| `GET /generations/{generationId}/indexing-jobs/{indexingJobId}` | Read payload-free progress and current eligibility/publication, not model-search permission |
 
 The [service](Services/DocumentReviewAdministrationService.cs) derives the tenant from the
 authorized app and loads source URI, plan and job metadata from the database, never request JSON.
@@ -299,7 +302,7 @@ invalid budgets/decisions return 400. Receipt corruption remains a server error,
 fallback. Missing PostgreSQL support returns 501. No Redis or ingestion worker is required for
 these management operations, and they make no preparation/provider calls.
 
-Responses allowlist pages/notes, PDF digest, current sequence/ETag and a versioned projection
+Review-content responses allowlist pages/notes, PDF digest, current sequence/ETag and a versioned projection
 document. They exclude raw provider receipts, usage, deployment coordinates and plan metadata.
 Projection spans remain Markdown offsets, not precise PDF geometry. Review IDs are structural
 decision identities, not authenticated actor records. Separate assessments carry readiness decisions
@@ -330,7 +333,26 @@ revision invalidates the assessment; another snapshot inherits nothing. Identica
 by the same actor reuse the receipt; competing or stale writes return 409. Assessment history
 cascades with snapshot deletion. Apply this migration externally before rollout.
 Readiness never changes the job's `ReviewRequired` state, invokes providers or authorizes indexing.
-Trusted collection classification and retrieval-level CEFR enforcement remain future work.
+Trusted collection classification is checked separately by indexing preflight; retrieval-level
+CEFR enforcement remains future work.
+
+The local Debug [indexing service](Services/DocumentIndexingAdministrationService.cs) owns the
+separate indexing authorization, never an assessment save. `DocumentIndexingConfig.Enabled`
+and `ProcessingEnabled` default false. Explicit Azure deployment/model bindings, tenant credentials
+and ARM verification, or a separately configured local Ollama model tag/digest and native dimensions,
+precede submission intent. The elected ingestion role processes one bounded batch
+per cycle; unresolved submissions are never automatically replayed.
+The [native migration](Migrations/20261030121900_DocumentVectorIndexing.cs) requires an externally
+installed `vector` extension and adds durable jobs, receipts, publication pointers and a SQL-owned
+vector table without an EF vector plugin. Apply it externally and upgrade all source writers
+before enabling processing. This slice is not deployed; it exposes no indexing browser control,
+search endpoint or model knowledge binding. See the [lifecycle contract](../../docs/document-rag-lifecycle.md#local-durable-indexing-implementation)
+for policy authority, receipts, publication conflicts, retirement and logical-versus-financial
+budget limits.
+The [Ollama contract](../../docs/document-rag-lifecycle.md#local-ollama-embeddings) uses installed
+embedding-capable models, not the tenant's chat-model default. It disables truncation, requests
+model unload after each batch, checks tag/digest drift and retains the same review gates.
+It does not download models, start containers, change PDF preparation or enable manual indexing.
 
 The [native HTTP acceptance](../CasCap.App.Server.Tests/Tests/Integration/PostgresAdministrationDocumentReviewTests.cs)
 verifies persisted JSONB source resolution, concurrent retries, ownership fences, source revocation,

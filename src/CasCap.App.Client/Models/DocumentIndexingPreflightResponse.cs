@@ -19,6 +19,10 @@ public sealed record DocumentIndexingPreflightResponse
     /// <example>null</example>
     public string? ManifestSha256 { get; init; }
 
+    /// <summary>Gets the observed publication predecessor for explicit acceptance; it is not proof of current search eligibility.</summary>
+    /// <example>null</example>
+    public string? ObservedActiveJobId { get; init; }
+
     /// <summary>Gets the saved selection revision observed atomically with the assessment.</summary>
     /// <example>1</example>
     public long? ChunkReviewRevision { get; init; }

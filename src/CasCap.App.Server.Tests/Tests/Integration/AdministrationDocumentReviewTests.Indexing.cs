@@ -9,6 +9,15 @@ namespace CasCap.IntegrationTests;
 
 public sealed partial class AdministrationDocumentReviewTests
 {
+    private static DocumentIndexingRequest IndexingRequest() => new()
+    {
+        Confirmed = true,
+        ManifestSha256 = new('0', 64),
+        MaximumRequests = 1,
+        MaximumInputTokens = 100,
+        ExpectedActiveJobId = null,
+    };
+
     [Fact]
     public async Task Indexing_DefaultRemainsDisabledAndNonAuthorizing()
     {

@@ -180,6 +180,8 @@ public sealed partial class AdministrationDocumentReviewTests : IAsyncLifetime
         using var selection = await http.PutAsJsonAsync(Path(DocumentReviewRoutes.ChunkReview, "missing"), SelectionRequest(), Token);
         using var approval = await http.PutAsJsonAsync(Path(DocumentReviewRoutes.Approval, "missing"), ApprovalRequest(), Token);
         using var indexing = await http.GetAsync(Path(DocumentReviewRoutes.IndexingPreflight, "missing"), Token);
+        using var indexingRequest = await http.PostAsJsonAsync(Path(DocumentReviewRoutes.IndexingJobs, "missing"), IndexingRequest(), Token);
+        using var indexingStatus = await http.GetAsync(Path(DocumentReviewRoutes.IndexingJobs, "missing") + "/missing-index", Token);
         Assert.Equal(status, preview.StatusCode);
         Assert.Equal(status, catalogue.StatusCode);
         Assert.Equal(status, read.StatusCode);
@@ -187,6 +189,8 @@ public sealed partial class AdministrationDocumentReviewTests : IAsyncLifetime
         Assert.Equal(status, selection.StatusCode);
         Assert.Equal(status, approval.StatusCode);
         Assert.Equal(status, indexing.StatusCode);
+        Assert.Equal(status, indexingRequest.StatusCode);
+        Assert.Equal(status, indexingStatus.StatusCode);
         await using var db = _database.CreateDbContext();
         Assert.Empty(await db.DocumentMarkdownGenerations.ToArrayAsync(Token));
     }
@@ -204,9 +208,11 @@ public sealed partial class AdministrationDocumentReviewTests : IAsyncLifetime
         using var response = await http.PostAsJsonAsync(Path(DocumentReviewRoutes.Generations), Request(), Token);
         using var selection = await http.PutAsJsonAsync(Path(DocumentReviewRoutes.ChunkReview, "missing"), SelectionRequest(), Token);
         using var approval = await http.PutAsJsonAsync(Path(DocumentReviewRoutes.Approval, "missing"), ApprovalRequest(), Token);
+        using var indexing = await http.PostAsJsonAsync(Path(DocumentReviewRoutes.IndexingJobs, "missing"), IndexingRequest(), Token);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, selection.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, approval.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, indexing.StatusCode);
         await using var db = _database.CreateDbContext();
         Assert.Empty(await db.DocumentMarkdownGenerations.ToArrayAsync(Token));
     }
@@ -366,6 +372,10 @@ public sealed partial class AdministrationDocumentReviewTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotImplemented, write.StatusCode);
         using var indexing = await http.GetAsync(Path(DocumentReviewRoutes.IndexingPreflight, "missing"), Token);
         Assert.Equal(HttpStatusCode.NotImplemented, indexing.StatusCode);
+        using var indexingRequest = await http.PostAsJsonAsync(Path(DocumentReviewRoutes.IndexingJobs, "missing"), IndexingRequest(), Token);
+        using var indexingStatus = await http.GetAsync(Path(DocumentReviewRoutes.IndexingJobs, "missing") + "/missing-index", Token);
+        Assert.Equal(HttpStatusCode.NotImplemented, indexingRequest.StatusCode);
+        Assert.Equal(HttpStatusCode.NotImplemented, indexingStatus.StatusCode);
     }
 
     [Fact]

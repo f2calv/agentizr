@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace CasCap;
 
 /// <summary>PostgreSQL authority for Agent Runtime definitions, state, debugging history and shared Data Protection keys.</summary>
-public sealed class AgentRuntimeDbContext(
+public sealed partial class AgentRuntimeDbContext(
     DbContextOptions<AgentRuntimeDbContext> options) : DbContext(options), IDataProtectionKeyContext
 {
     private const string Schema = "agent_runtime";
@@ -37,6 +37,15 @@ public sealed class AgentRuntimeDbContext(
     /// <summary>Gets append-only document readiness assessments, never indexing activation.</summary>
     public DbSet<DocumentApprovalEntity> DocumentApprovals => Set<DocumentApprovalEntity>();
 
+    /// <summary>Gets separately authorized indexing generations and paid-operation budgets.</summary>
+    public DbSet<DocumentIndexingJobEntity> DocumentIndexingJobs => Set<DocumentIndexingJobEntity>();
+
+    /// <summary>Gets durable embedding submission/receipt metadata.</summary>
+    public DbSet<DocumentEmbeddingBatchEntity> DocumentEmbeddingBatches => Set<DocumentEmbeddingBatchEntity>();
+
+    /// <summary>Gets published corpus pointers, not independent retrieval authorization.</summary>
+    public DbSet<ActiveDocumentIndexEntity> ActiveDocumentIndexes => Set<ActiveDocumentIndexEntity>();
+
     /// <inheritdoc/>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -62,6 +71,7 @@ public sealed class AgentRuntimeDbContext(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         var schema = Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite" ? null : Schema;
+        ConfigureDocumentIndexing(modelBuilder, schema);
 
         modelBuilder.Entity<DocumentSynchronizationEntity>(entity =>
         {

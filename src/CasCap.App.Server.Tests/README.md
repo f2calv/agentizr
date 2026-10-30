@@ -406,10 +406,47 @@ were preserved. The fixture-database count returned to its pre-run baseline with
 unknown databases. No Azure/paid calls, deployed database writes, real-document persistence,
 management authorization, semantic/visual approval, embedding, activation or deployment occurred.
 
+### Durable Indexing And Native Vectors
+
+The [native indexing cases](Tests/Integration/PostgresAdministrationDocumentReviewTests.Embedding.cs)
+exercise durable confirmation/idempotency, multi-batch staging without partial activation,
+write-once receipts, exact vector round-trips, tenant foreign keys, competing publication,
+source/selection revocation while receipt persistence waits for the mutation lock, policy
+supersession, input-token overruns, expired claims and ownership cancellation. An uncertain
+reservation acknowledgement is classified from durable intent, not a local submitted flag.
+The [Azure HTTP cases](Tests/Integration/DocumentEmbeddingHttpTests.cs) use synthetic credentials
+and a fake handler to check exact ARM/deployment/input bindings, API-key/Entra paths and one
+non-retried submission. [Response tests](Tests/Unit/DocumentEmbeddingProviderTests.cs) cover
+indexes, finite nonzero dimensions, native usage, malformed JSON kinds and byte limits.
+The [Ollama HTTP cases](Tests/Integration/DocumentOllamaEmbeddingHttpTests.cs) exercise actual
+provider dispatch, tenant/authority denial before HTTP, installed digest/capability/dimensions,
+local-only metadata, pre/post-submission tag drift, exact inputs, disabled truncation, unload,
+transport failure/cancellation and single-attempt behavior. The
+[Ollama response cases](Tests/Unit/DocumentOllamaEmbeddingProviderTests.cs) check ordered vectors,
+native usage and malformed results. These classes use only fake HTTP and need no running Ollama,
+GPU or model download. Run them with `--filter-class
+CasCap.Tests.Unit.DocumentOllamaEmbeddingProviderTests CasCap.Tests.Integration.DocumentOllamaEmbeddingHttpTests`.
+
+**Prerequisite:** latest PostgreSQL migrations now require the operator-installed `vector`
+extension in every fixture database. Use a disposable pgvector-capable PostgreSQL host and
+install the extension in its test-owned `template1` before fixtures create their databases.
+The ordinary plain-PostgreSQL Compose image does not satisfy this prerequisite. Override
+`ConnectionStrings__PostgreSql` with the approved disposable host's loopback endpoint; do not
+upgrade/recreate an existing service or mutate its template database implicitly. Keep synthetic
+test credentials in the existing configuration chain and set `AppConfig__KeyVaultName=skip`.
+The runtime application must not install extensions.
+
+```powershell
+dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class CasCap.Tests.Unit.DocumentIndexingPlanTests CasCap.Tests.Unit.DocumentIndexingConfigTests CasCap.Tests.Unit.DocumentEmbeddingProviderTests CasCap.Tests.Unit.DocumentOllamaEmbeddingProviderTests CasCap.Tests.Integration.DocumentEmbeddingHttpTests CasCap.Tests.Integration.DocumentOllamaEmbeddingHttpTests CasCap.Tests.Unit.DocumentPreparationModelVerifierTests CasCap.Tests.Integration.DocumentIngestionLeadershipTests CasCap.IntegrationTests.AdministrationDocumentReviewTests CasCap.IntegrationTests.PostgresAdministrationDocumentReviewTests
+```
+
+These are local fake-provider/native-storage checks, not live Azure or model retrieval acceptance.
+The indexing/processing gates remain disabled by default.
+
 ### Protected Document Review Management
 
 [`AdministrationDocumentReviewTests`](Tests/Integration/AdministrationDocumentReviewTests.cs)
-adds **29 methods / 97 Debug-only cases**, tagged `Integration` and `DocumentReviewManagement`.
+covers the Debug-only contract, tagged `Integration` and `DocumentReviewManagement`.
 It uses the actual host, authorization policies, antiforgery, typed browser client and production
 review store with per-case SQLite and synthetic receipts. No identity-provider, Azure, paid-model,
 PostgreSQL service or deployment is contacted.
@@ -441,7 +478,7 @@ Before the catalogue additions, this selection passed **94 cases**, zero failed/
 SQLite generation and 21 existing administration cases.
 
 [`PostgresAdministrationDocumentReviewTests`](Tests/Integration/PostgresAdministrationDocumentReviewTests.cs)
-adds **12 methods / 22 Debug-only cases**, also tagged `PostgreSQL`. Both management classes reuse
+covers the Debug-only native contract, also tagged `PostgreSQL`. Both management classes reuse
 the [cookie-authenticated host](Tests/Integration/DocumentReviewWebApplicationFactory.cs), with
 per-fixture native databases for this class. Synthetic preparation uses fake providers, not Azure.
 Native coverage verifies JSONB source-plan materialization, eight-way immutable retries, profile

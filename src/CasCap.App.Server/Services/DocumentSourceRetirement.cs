@@ -11,6 +11,18 @@ internal static class DocumentSourceRetirement
     public static async Task PurgeAsync(
         AgentRuntimeDbContext db, KnowledgeDocumentEntity document, CancellationToken token)
     {
+        var indexing = db.DocumentIndexingJobs.Where(job => job.DocumentId == document.Id
+            && job.TenantId == document.TenantId && job.CollectionId == document.CollectionId);
+        await db.ActiveDocumentIndexes.Where(item => item.TenantId == document.TenantId
+            && item.CollectionId == document.CollectionId && item.DocumentId == document.Id).ExecuteDeleteAsync(token);
+        if (db.Database.IsNpgsql())
+            await db.Database.ExecuteSqlInterpolatedAsync($"""
+                DELETE FROM agent_runtime.document_index_vectors WHERE tenant_id = {document.TenantId}
+                AND job_id IN (SELECT id FROM agent_runtime.document_indexing_jobs
+                    WHERE tenant_id = {document.TenantId} AND collection_id = {document.CollectionId} AND document_id = {document.Id})
+                """, token);
+        await indexing.ExecuteUpdateAsync(update => update.SetProperty(job => job.Status, DocumentIndexingStates.Revoked)
+            .SetProperty(job => job.ClaimId, (Guid?)null).SetProperty(job => job.ManifestJson, (string?)null), token);
         var jobs = db.DocumentIngestionJobs.Where(job => job.DocumentId == document.Id
             && job.TenantId == document.TenantId && job.CollectionId == document.CollectionId);
         await jobs.Where(job => job.Status == DocumentIngestionStates.Queued

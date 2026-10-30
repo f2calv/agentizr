@@ -148,7 +148,7 @@ public sealed partial class DocumentReviewAdministrationService
         return stored is null ? new() { IsConflict = true } : new() { Generation = Response(source, stored, id) };
     }
 
-    private async Task<DocumentIngestionClaim?> SourceAsync(string collectionId, string documentId, string jobId, CancellationToken token)
+    internal async Task<DocumentIngestionClaim?> SourceAsync(string collectionId, string documentId, string jobId, CancellationToken token)
     {
         await using var db = await _dbContextFactory!.CreateDbContextAsync(token);
         var tenant = _tenantContext.TenantId;

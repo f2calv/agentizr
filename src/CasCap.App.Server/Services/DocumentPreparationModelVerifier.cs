@@ -11,32 +11,39 @@ internal sealed class DocumentPreparationModelVerifier(
     RuntimeEntraCredential runtimeEntraCredential)
 {
     /// <summary>Checks both resources before paid dispatch; metadata authorization failures are not bypassed.</summary>
-    public async Task VerifyAsync(DocumentPreparationPlan plan, CancellationToken cancellationToken)
+    public Task VerifyAsync(DocumentPreparationPlan plan, CancellationToken cancellationToken) =>
+        VerifyAsync(plan.Definition.Provider.Endpoint!, plan.Definition.Provider.ModelName!,
+            plan.Settings.DeploymentResourceId, plan.Settings.ManagementEndpoint,
+            plan.Settings.Model, plan.Settings.ModelRevision, cancellationToken);
+
+    /// <summary>Checks an explicit Azure endpoint/deployment/model binding without submitting model inputs.</summary>
+    public async Task VerifyAsync(Uri providerEndpoint, string deploymentName, string deploymentResourceId,
+        string managementEndpoint, string modelName, string modelRevision, CancellationToken cancellationToken)
     {
         var credential = runtimeEntraCredential.Credential
             ?? throw new InvalidDataException("Deployment verification requires the authorized runtime Azure identity.");
-        var endpoint = new Uri(plan.Settings.ManagementEndpoint);
+        var endpoint = new Uri(managementEndpoint);
         var token = await credential.GetTokenAsync(new TokenRequestContext([new Uri(endpoint, ".default").AbsoluteUri]), cancellationToken);
         using var client = httpClientFactory.CreateClient(nameof(DocumentPreparationModelVerifier));
         client.BaseAddress = endpoint;
         client.Timeout = Timeout.InfiniteTimeSpan;
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Token);
-        var deploymentId = plan.Settings.DeploymentResourceId;
+        var deploymentId = deploymentResourceId;
         var accountId = deploymentId[..deploymentId.LastIndexOf("/deployments/", StringComparison.OrdinalIgnoreCase)];
         using var account = await ReadAsync(client, accountId, cancellationToken);
         using var deployment = await ReadAsync(client, deploymentId, cancellationToken);
         if (!Matches(account.RootElement, "id", accountId, StringComparison.OrdinalIgnoreCase)
             || !Matches(deployment.RootElement, "id", deploymentId, StringComparison.OrdinalIgnoreCase)
-            || !Matches(deployment.RootElement, "name", plan.Definition.Provider.ModelName, StringComparison.OrdinalIgnoreCase)
+            || !Matches(deployment.RootElement, "name", deploymentName, StringComparison.OrdinalIgnoreCase)
             || !account.RootElement.TryGetProperty("properties", out var accountProperties)
             || !deployment.RootElement.TryGetProperty("properties", out var deploymentProperties)
             || !Matches(accountProperties, "provisioningState", "Succeeded")
             || !Matches(deploymentProperties, "provisioningState", "Succeeded")
-            || !EndpointMatches(accountProperties, plan.Definition.Provider.Endpoint!)
+            || !EndpointMatches(accountProperties, providerEndpoint)
             || !deploymentProperties.TryGetProperty("model", out var model)
             || !Matches(model, "format", "OpenAI")
-            || !Matches(model, "name", plan.Settings.Model)
-            || !Matches(model, "version", plan.Settings.ModelRevision))
+            || !Matches(model, "name", modelName)
+            || !Matches(model, "version", modelRevision))
             throw new InvalidDataException("The deployed account, endpoint or model revision differs from the admitted preparation plan.");
     }
 
@@ -47,28 +54,7 @@ internal sealed class DocumentPreparationModelVerifier(
             HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         if (response.StatusCode != HttpStatusCode.OK)
             throw new HttpRequestException("Azure deployment metadata could not be verified.", null, response.StatusCode);
-        if (response.Content.Headers.ContentLength is > 1_048_576)
-            throw new InvalidDataException("Azure deployment metadata exceeded its response limit.");
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var bytes = new MemoryStream();
-        var buffer = new byte[16_384];
-        while (bytes.Length <= 1_048_576)
-        {
-            var read = await stream.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, 1_048_577 - bytes.Length)), cancellationToken);
-            if (read == 0)
-                break;
-            await bytes.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
-        }
-        if (bytes.Length > 1_048_576)
-            throw new InvalidDataException("Azure deployment metadata exceeded its response limit.");
-        try
-        {
-            return JsonDocument.Parse(bytes.GetBuffer().AsMemory(0, (int)bytes.Length));
-        }
-        catch (JsonException)
-        {
-            throw new InvalidDataException("Azure deployment metadata was not valid JSON.");
-        }
+        return await DocumentProviderJson.ReadAsync(response, 1_048_576, cancellationToken);
     }
 
     private static bool EndpointMatches(JsonElement properties, Uri expected) =>

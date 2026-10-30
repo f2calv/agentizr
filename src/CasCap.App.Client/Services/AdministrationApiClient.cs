@@ -58,6 +58,22 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
             DocumentReviewRoutes.Format(DocumentReviewRoutes.IndexingPreflight, appId, collectionId, documentId, jobId, generationId),
             cancellationToken);
 
+    /// <summary>Submits explicit embedding/publication authorization once, with antiforgery and no automatic retry.</summary>
+    public Task<ApiResult<DocumentIndexingJobResponse>> RequestDocumentIndexingAsync(
+        string appId, string collectionId, string documentId, string jobId, string generationId,
+        DocumentIndexingRequest request, CancellationToken cancellationToken) =>
+        SendMutationAsync<DocumentIndexingJobResponse>(HttpMethod.Post,
+            DocumentReviewRoutes.Format(DocumentReviewRoutes.IndexingJobs, appId, collectionId, documentId, jobId, generationId),
+            request, cancellationToken);
+
+    /// <summary>Reads durable indexing progress without exposing inputs, actor identities or provider configuration.</summary>
+    public Task<ApiResult<DocumentIndexingJobResponse>> GetDocumentIndexingJobAsync(
+        string appId, string collectionId, string documentId, string jobId, string generationId, string indexingJobId,
+        CancellationToken cancellationToken) =>
+        GetAsync<DocumentIndexingJobResponse>(
+            DocumentReviewRoutes.Format(DocumentReviewRoutes.IndexingJob, appId, collectionId, documentId, jobId, generationId)
+                .Replace("{indexingJobId}", Uri.EscapeDataString(indexingJobId), StringComparison.Ordinal), cancellationToken);
+
     /// <summary>Stores a source-fenced review generation with antiforgery protection; never retries or approves it.</summary>
     public Task<ApiResult<DocumentReviewGenerationResponse>> StoreDocumentReviewAsync(
         string appId, string collectionId, string documentId, string jobId,

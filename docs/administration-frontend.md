@@ -191,10 +191,12 @@ provider is invoked and nothing is embedded or searchable. Classification record
 decision; it does not implement trusted-collection policy or cumulative CEFR retrieval enforcement.
 Those remain separate prerequisites when retrieval is implemented.
 
-Local Debug development now includes a protected read-only indexing-preflight API and typed client;
-it has no browser control and has not been rolled out. It checks trusted collection policy/profile
-and exact included-input bindings, but always retains `IndexingApproved=false`. See the
-[local preflight contract](document-rag-lifecycle.md#local-preflight-implementation).
+Local Debug development includes protected indexing preflight, explicit budgeted indexing requests
+and status APIs with typed clients. The durable worker uses Azure OpenAI or local Ollama embeddings and native pgvector,
+with complete-generation publication only. These additions have no browser control and have not
+been rolled out; both gates default off. Preflight still retains `IndexingApproved=false`, and saving
+an assessment never queues embeddings. See the [preflight contract](document-rag-lifecycle.md#local-preflight-implementation)
+and [local worker contract](document-rag-lifecycle.md#local-durable-indexing-implementation).
 
 The additive `DocumentApprovals` migration must complete externally before deploying this
 reader/writer. Snapshot deletion cascades to its assessment history; originals, preparation
@@ -202,12 +204,12 @@ receipts and immutable snapshot content are unchanged.
 
 Candidate inclusion is not eligibility.
 Future production policy can require review or automate publication for validated trusted collections;
-neither automatic publication nor final indexing approval is implemented by this slice.
+neither assessment save nor preflight automatically authorizes indexing.
 
 These APIs require an actually signed-in assigned administrator even in open Development.
 Machine bearer callers do not qualify; Release hosts do not expose the document APIs.
 There is no upload/replace/delete, original-PDF viewer, editable custom profile/structural decisions
-or final indexing approval in this slice. See [ADR 0001](adr-0001-centralized-document-rag.md#incremental-debug-document-catalogue-and-review-workbench)
+or browser indexing-authorization control in this slice. See [ADR 0001](adr-0001-centralized-document-rag.md#incremental-debug-document-catalogue-and-review-workbench)
 for local validation versus deployment and remaining acceptance gates.
 
 ## Running Locally

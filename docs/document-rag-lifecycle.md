@@ -1,19 +1,63 @@
 # Document RAG Lifecycle
 
 This guide follows a PDF from upload to retrieval-augmented generation (RAG): a model answering
-with authorized, cited passages from that document. It also proposes the next bounded pgvector
-milestone. [ADR 0001](adr-0001-centralized-document-rag.md) remains the architectural decision
+with authorized, cited passages from that document. It describes local pgvector indexing and
+the remaining retrieval milestone. [ADR 0001](adr-0001-centralized-document-rag.md) remains the architectural decision
 record; this guide does not accept or replace that proposal.
 
 **Current boundary:** admission, preparation, immutable review snapshots, saved chunk selections
-and document-level readiness assessments are implemented in the Debug workflow. Embeddings,
-vector publication, knowledge search and model knowledge bindings are not implemented.
+and document-level readiness assessments are deployed in the Debug workflow. Knowledge search
+and model knowledge bindings are not implemented.
 Saving an assessment does not start indexing or make a document available to a model.
 
-**Local-only next slice:** protected indexing preflight now checks trusted collection policy,
-pinned embedding-profile inputs, saved review revisions and input bounds. It derives a private,
-content-addressed manifest containing only included candidates. This slice is not deployed and
-does not create jobs, call an embedding provider, store vectors or authorize indexing.
+**Local-only indexing:** protected preflight, separately confirmed durable jobs, a non-retrying
+Azure OpenAI and local-model Ollama embedding adapters, native pgvector staging and guarded atomic publication are
+implemented. Both indexing gates default off. This slice is not deployed; no live deployment,
+model digest/dimensions or paid allowance has been activated. The selected Ollama pilot model is
+`qwen3-embedding:4b`; its installed metadata still needs verification. There is no indexing browser control.
+
+## RAG Basics: Why Two Models?
+
+Chunking only divides Markdown into manageable passages. It does not yet turn their meanings into
+numbers. An **embedding model** performs that mathematical conversion: its trained parameters map
+text into a fixed-length list of numbers, called a vector. Related meanings tend to have nearby
+vectors. This is inference, not training the model on the uploaded PDFs.
+
+An **answering/chat model** performs a different job: it reads the user's question and retrieved
+passages, then writes an answer. These models can come from different providers.
+
+| Step | What happens | Component |
+| --- | --- | --- |
+| Prepare | Extract and normalize a PDF into reviewed Markdown | Preparation workflow |
+| Chunk | Divide approved content into passages, preserving headings and provenance | Agentizr |
+| Embed documents | Convert each included passage into a semantic vector | Embedding model, for example `qwen3-embedding:4b` |
+| Store | Keep vectors and their passage/source bindings | PostgreSQL with pgvector |
+| Embed a question | Convert the question into the **same embedding space** | The same pinned embedding model/profile |
+| Retrieve | Find nearby eligible vectors and return their passages | Authorized pgvector search, still planned |
+| Answer | Read the question plus retrieved passages and cite the evidence | Chat model, for example `qwen3.5:9b`; model binding still planned |
+
+For example, “How do I reset this device?” can match a passage describing a factory reset even if
+the wording differs. Vector similarity supplies candidates; it does not prove that the passage is
+correct, authorized, current or sufficient. Review gates, source checks and citations still matter.
+The chat model receives retrieved **text**, not a raw vector, and does not directly browse the database.
+Adding a document updates the knowledge store, not the chat model's weights.
+
+Stored passages and questions must use compatible model identity/revision, dimensions and input
+conventions. Equal vector lengths alone do not make different models compatible. An Azure-produced
+corpus cannot be searched with an Ollama-produced question vector: changing providers/models requires
+re-embedding the corpus under a new profile and publishing a complete replacement generation.
+Vectors still live in pgvector; Ollama is their producer, not a second vector database.
+
+“Local Ollama” means the server named by the tenant-authorized endpoint. It may already run in
+Docker or directly on a machine; this adapter creates neither. The 4B model's quantized weights
+are roughly 2.5 GB, but runtime/context allocations add memory. A 4 GB GPU is not a guaranteed fit,
+especially with a chat model resident too. Start with one input per batch and measure memory/latency
+before increasing it. The adapter requests unload after each embedding batch; this trades reload
+latency for lower idle GPU residency and does not control other callers.
+
+Only the embedding stage gains Ollama support here. PDF preparation may still use Azure services,
+manuals still require verified visual associations, and retrieval/answer integration remains future
+work. Neither adapter means that an end-to-end RAG application has already been deployed.
 
 ## Data Flow
 
@@ -58,15 +102,15 @@ flowchart TD
         Hold -.->|After correction| Selection
     end
 
-    subgraph indexing["4. Proposed indexing and publication"]
+    subgraph indexing["4. Locally implemented indexing and publication"]
         Policy{"Local only: trusted policy, profile and current revisions pass?"}
         Manifest["Local only: exact included-chunk input manifest"]
-        Authorize["Planned: separate indexing confirmation and cost authorization"]
-        IndexJob["Planned: durable indexing job and bounded embedding batches"]
-        Staged[("Planned: inactive complete pgvector generation")]
-        Activate{"Planned: recheck eligibility and atomically activate"}
-        Vectors[("Planned: active eligible vector generation")]
-        IndexFailure["Planned: explicit failure; no partial activation"]
+        Authorize["Local only: separate confirmation and request/token allowance"]
+        IndexJob["Local only: durable indexing job and bounded embedding batches"]
+        Staged[("Local only: inactive complete pgvector generation")]
+        Activate{"Local only: recheck eligibility and atomically activate"}
+        Vectors[("Local only: published pgvector generation")]
+        IndexFailure["Local only: explicit failure; no partial activation"]
         Ready -->|Yes, but not indexing approval| Policy
         Policy -->|No| Hold
         Policy -->|Yes| Manifest --> Authorize --> IndexJob --> Staged --> Activate
@@ -91,9 +135,9 @@ flowchart TD
         Validate -->|Unsupported or invalid answer| Unavailable
     end
 
-    Change["Planned: source, selection, assessment or policy change revokes eligibility"]
+    Change["Local only: source, review or policy change invalidates indexing eligibility"]
     Vectors -.-> Change
-    Change -.->|Query-time checks reject stale generations| Search
+    Change -.->|Planned query-time checks must reject stale generations| Search
     Change -.-> Hold
 
     classDef current fill:#e8f5e9,stroke:#2e7d32,color:#111111
@@ -101,8 +145,8 @@ flowchart TD
     classDef local fill:#f3e5f5,stroke:#6a1b9a,color:#111111
     classDef blocked fill:#fff3e0,stroke:#a64b00,color:#111111
     class Upload,Blob,Event,Sync,Admission,Job,Prepare,Receipts,Snapshot,Selection,Assessment,Ready current
-    class BrowserUpload,Authorize,IndexJob,Staged,Activate,Vectors,Request,Scope,Query,Search,Evidence,Model,Validate,Answer,Change planned
-    class Policy,Manifest local
+    class BrowserUpload,Request,Scope,Query,Search,Evidence,Model,Validate,Answer planned
+    class Policy,Manifest,Authorize,IndexJob,Staged,Activate,Vectors,Change local
     class Hold,PrepareFailure,IndexFailure,Unavailable blocked
 ```
 
@@ -120,9 +164,10 @@ it must not silently authorize paid processing or publication.
 | Selection saved | A reviewer chose which snapshot candidates to include; excluded candidates and the original are not rewritten. | Yes |
 | Readiness approved | The current assessment passes implemented review gates for the exact saved selection. | Yes; the preparation job remains `ReviewRequired` |
 | Indexing preflight eligible | Current saved inputs satisfy configured trusted classification/profile and token bounds; a manifest identity can be derived. | Local only; never paid-operation approval |
-| Indexing authorized | Trusted policy, exact revisions and a separately confirmed processing budget permit embedding. | Planned |
-| Indexed | Every expected included chunk has a compatible vector in a validated, inactive generation. | Planned |
-| Active/searchable | A complete generation is published and remains eligible for an authorized query. | Planned |
+| Indexing authorized | Trusted policy, exact revisions and separately confirmed logical request/token ceilings permit embedding. | Local only; worker gate remains separate |
+| Indexed | Every expected included chunk has a compatible vector in a validated generation. | Local only |
+| Published | A complete generation was atomically selected; its current eligibility must still be checked. | Local only; not a search endpoint |
+| Searchable | An authorized query can obtain eligible passages. | Planned |
 | Available to a model | An opted-in agent has an authorized binding and successfully obtains eligible evidence. | Planned; never implied by upload or approval |
 
 The two initial document assessments were reported to survive browser refresh. That confirms
@@ -181,14 +226,149 @@ to increment a human-maintained revision does not make changed settings hash-ide
 The server reads current source, exact snapshot, latest selection and latest assessment under the
 existing mutation lock. Missing/replaced/deleted sources return 404; unavailable persistence
 returns 501. Unresolved policy, review or input gates return 200 with explicit blockers and no
-manifest identity. An eligible response contains counts/revisions and the manifest hash, never
+manifest identity. A response also reports the observed active-job predecessor, not a search
+authorization. An eligible response contains counts/revisions and the manifest hash, never
 the private input text, provider configuration, review rationale or actor identity.
 
 Every response retains `IndexingApproved=false`. Profile metadata/token counts do not verify
 deployed model identity, credential authorization, storage compatibility, prices or a monetary
-budget. The durable worker must verify those before any separately approved paid operation.
-The manifest is computed, not persisted as an indexing request; future acceptance, execution and
-activation must revalidate it rather than trusting an earlier successful preflight response.
+budget. Preflight computes a manifest without persisting an indexing request. Acceptance,
+execution and activation revalidate it rather than trusting an earlier successful response.
+
+### Local Durable Indexing Implementation
+
+The [indexing administration service](../src/CasCap.App.Server/Services/DocumentIndexingAdministrationService.cs)
+adds these signed-in assigned-administrator operations, with antiforgery on POST and `no-store`:
+
+| Method / generation suffix | Contract |
+| --- | --- |
+| `POST /indexing-jobs` | Confirm the exact manifest hash, logical request/input-token ceilings and explicit observed active job ID/null; return durable 202 with status Location |
+| `GET /indexing-jobs/{indexingJobId}` | Return payload-free state, effective currency/publication, staged count, submission intents and received usage |
+
+Copy `observedActiveJobId` from a fresh preflight into `expectedActiveJobId`. Missing confirmation
+or insufficient ceilings return 400; changed manifests, policy authority, predecessor or retry
+authorization return 409. Identical authorization by the same actor reuses the job without
+granting another paid attempt. Preparation jobs and readiness records are not reopened.
+
+The [store](../src/CasCap.App.Server/Services/DocumentIndexingStore.cs) commits database-time claims
+and paid batch intent before HTTP. Compatible received batches resume without resubmission.
+Expired or interrupted work with unresolved intent becomes `ReconciliationRequired`, even if
+the caller never observed reservation success. There is no automatic replay or reconciliation
+endpoint. Unsubmitted ownership cancellation can safely release back to the queue.
+
+`ProcessingEnabled=false` is separate from `Enabled=false`; enabling preflight does not start
+the worker. The existing elected ingestion loop runs at most one bounded batch per cycle.
+`ProcessingTimeoutSeconds` defaults to 300 and permits 30–900; cleanup has a separate ten-second
+bound. Provider calls are not made while holding a database transaction.
+
+An accepted higher collection-policy revision advances durable authority across replicas;
+older accepted revisions cannot dispatch or publish. Equal-revision/different-profile contents
+conflict. Configuration edits alone are not distributed policy activation.
+
+The [Azure adapter](../src/CasCap.App.Server/Services/DocumentEmbeddingProvider.cs) uses the exact
+tenant provider registration, endpoint allowlist and lazy tenant credentials. An explicit `Azure`
+profile binding supplies endpoint, deployment name/resource ID and management endpoint; ARM
+verification checks the actual account, successful deployment, model and revision before intent.
+The first adapter supports `text-embedding-3-small`/`text-embedding-3-large`, compatible dimensions
+(up to 1536/3072), `cl100k_base` and at most 8192 tokens per input. Batches default to 16 inputs,
+configurable from 1–32. The 2024-10-21 embeddings transport disables redirects and has no retry
+policy; responses are capped at 16 MiB. A persisted claim ID is sent for request correlation,
+not provider deduplication.
+
+Native receipts must have exact indexes/counts, finite nonzero vectors, matching dimensions and
+consistent usage. Request/token allowances are **not a monetary guarantee**: unknown requests may
+have been charged, actual usage can differ, and an overrun cannot be undone. Known valid usage is
+retained even when late/stale responses cannot publish. Do not select pricing or a paid pilot from
+these implementation defaults.
+
+The [migration](../src/CasCap.App.Server/Migrations/20261030121900_DocumentVectorIndexing.cs)
+adds EF-owned jobs, receipts and tenant/source-qualified active pointers. Vector rows are
+deliberately SQL-owned: parameterized native vector DML, not a pgvector EF plugin. Model-drift
+checks do not validate that raw DDL; native migration/round-trip/constraint tests do.
+Every included ordinal, input digest and native dimension is checked before atomic publication;
+a changed predecessor produces `Conflict`, not an overwrite.
+
+Source retirement removes pointers/vector rows and clears private manifests while preserving
+intent, usage and policy audit metadata. Review/policy changes invalidate effective eligibility;
+they do not authorize retrieval through an old pointer. Deploy the migration externally and
+upgrade **all source-writing replicas before enabling processing**. Do not assume an older writer
+knows how to retire these new derivatives. Runtime identities must not install extensions or
+manage schema. The `vector` extension must already exist in every target/test database.
+
+Local validation uses fake Azure HTTP/credentials and an isolated pgvector-capable database.
+It proves application/storage contracts, not actual Azure compatibility, paid outcomes, live
+deployment, search behavior or model access. The disposable test host is removed after validation;
+existing local database services are not upgraded or recreated.
+
+### Local Ollama Embeddings
+
+The [Ollama adapter](../src/CasCap.App.Server/Services/DocumentOllamaEmbeddingProvider.cs) uses
+the same durable jobs, receipts, budgets, staging and atomic pgvector publication as Azure.
+A profile selects exactly one `Azure` or `Ollama` binding. The registered tenant provider must be
+`Ollama` with the exact configured endpoint, and the authority must be allowed by server policy.
+Its chat `ModelName` can remain different; the embedding profile explicitly names its own model.
+This first local adapter supports credential-free endpoints on a trusted network, not API-key/Entra
+proxies or Ollama cloud forwarding.
+
+Before reservation, bounded `/api/tags` and read-only `/api/show` requests require:
+
+- The exact installed model name/tag and full lowercase SHA256 digest, pinned as `ModelRevision`.
+- Local-model metadata, not `remote_host`/`remote_model` forwarding.
+- The `embedding` capability and native embedding dimensions matching the profile.
+
+`POST /api/embed` sends only the exact included `EmbeddingText` array, with `truncate=false` and
+`keep_alive="0"`. Native full dimensions are used; dimensional reduction is not requested.
+The adapter verifies the model tag/digest again immediately before and after submission.
+Observed drift rejects publication. These observations cannot prove a tag was not changed and
+restored between reads: operators must keep installed tags immutable during jobs and must not
+silently replace models behind a load-balanced endpoint. There are no pull/create/copy/delete calls.
+
+Responses require the exact model name, ordered count, finite nonzero vectors and positive native
+`prompt_eval_count`. Metadata is bounded to 1 MiB and embeddings to 16 MiB. The existing cooperative
+deadline, disabled redirects, suppressed HTTP payload logging and no automatic retry apply.
+An interrupted or rejected post-intent operation retains the same conservative reconciliation
+boundary as Azure; local computation is not implicitly free of resource limits.
+
+The snapshot tokenizer measures captured input size; it is **not** Ollama's native tokenizer.
+Its ceilings are admission/packing checks, not a guarantee of Ollama context length or native usage.
+`truncate=false` requires the server to reject an overlong input rather than silently embed a prefix.
+Native aggregate usage is recorded and an overrun prevents activation, but computation already
+performed cannot be undone.
+
+For the selected `qwen3-embedding:4b` pilot, verify the installed digest and dimensions rather than
+copying a chat-model binding. Start with `MaximumBatchInputs=1` for the constrained GPU. This
+**profile-only template**, not a complete enablement configuration, keeps a synthetic digest and
+tokenizer-version placeholder; both must be replaced with observed values:
+
+```json
+{
+  "Id": "local-manual-embedding",
+  "Provider": "local-ollama",
+  "Model": "qwen3-embedding:4b",
+  "ModelRevision": "0000000000000000000000000000000000000000000000000000000000000000",
+  "Dimensions": 2560,
+  "DistanceMetric": "cosine",
+  "TokenizerEncoding": "cl100k_base",
+  "TokenizerVersion": "replace-with-snapshot-tokenizer-version",
+  "MaximumTokensPerInput": 512,
+  "MaximumChunks": 5000,
+  "MaximumTotalTokens": 100000,
+  "MaximumBatchInputs": 1,
+  "Ollama": {
+    "Endpoint": "http://ollama.example.com:11434/"
+  }
+}
+```
+
+The endpoint/provider name are documentation placeholders, not deployment coordinates. Keep
+eligibility/processing off until the real profile, tenant registration, trusted collection policy
+and source readiness are verified. No live Ollama call, download, container or rollout was made
+for this implementation. Device-manual visual gates are unchanged.
+
+See the official [embedding API](https://docs.ollama.com/api/embed),
+[installed-model inventory](https://docs.ollama.com/api/tags),
+[model metadata API](https://docs.ollama.com/api-reference/show-model-details) and
+[Qwen3 embedding models](https://ollama.com/library/qwen3-embedding).
 
 ### Eligibility Authority
 
@@ -233,7 +413,7 @@ Validate returned vector count, dimensions and finite values before accepting a 
 
 Use PostgreSQL/pgvector as the first backend, following
 [ADR D2](adr-0001-centralized-document-rag.md#d2-postgresql-stores-metadata-chunks-and-embeddings).
-Keep originals in Blob Storage and review snapshots immutable. Proposed persistence needs
+Keep originals in Blob Storage and review snapshots immutable. The local implementation uses
 tenant-qualified indexing jobs, batch receipts, generation/profile bindings, vector rows with
 chunk provenance and a guarded active-generation pointer.
 
@@ -302,14 +482,14 @@ telemetry. Use bounded, payload-free outcome/cost/latency diagnostics instead.
 
 ## Proposed Delivery Sequence
 
-Except for the local preflight noted below, these phases remain planned. None grants permission
-for paid/live work.
+Phases 1–3 have a local implementation, not a rollout. Search/model access and a bounded live pilot
+remain planned. None grants permission for paid/live work.
 
 | Phase | Deliverable | Acceptance gate |
 | --- | --- | --- |
-| 1. Policy and profiles | Local preflight and input manifests implemented; durable indexing request and cost authorization still planned | Local checks cover classification bypass, exact revisions, cumulative CEFR and input ceilings; confirmed job acceptance and spending authorization remain outstanding |
-| 2. Durable indexing | Separate job lifecycle, fake embedding provider, batch intent/receipts and inactive generations | Duplicate claims/retries, cancellation, unknown paid outcomes and concurrent revocation cannot double-activate or publish partial data |
-| 3. Native pgvector | Compatible driver/EF mappings, additive migration, exact filtered search and atomic activation | Isolated real-pgvector tests cover fresh/upgrade schema, dimensions, tenant constraints, races, restart recovery and fail-closed eligibility |
+| 1. Policy and profiles | Local preflight, exact manifests and confirmed request/token authorization implemented | Classification bypass, exact revisions, cumulative CEFR, input ceilings and stale authorization checks pass locally |
+| 2. Durable indexing | Local job lifecycle, Azure/Ollama adapters, batch intent/receipts and inactive generations implemented | Duplicate claims/receipts, cancellation, uncertain reservation acknowledgements and unknown paid outcomes cannot automatically replay or publish partial data |
+| 3. Native pgvector | Local parameterized native vectors, additive migration and atomic publication implemented; no ANN or search endpoint | Isolated real-pgvector checks cover fresh/upgrade schema, round-trips, dimensions, tenant constraints, competing publication and concurrent revocation |
 | 4. Protected search | Authorized API with compatible query embedding, cumulative CEFR and bounded cited results | Cross-tenant/collection denial, A1/A2/B1 boundary fixtures, no-match versus failure, citation/source authorization and no payload logging |
 | 5. Bounded live pilot | One eligible approved vocabulary source and explicit embedding/query budget | Separately approved calls; expected included chunks only; excluded chunks absent; real citations and revocation verified without changing originals |
 | 6. Opt-in model use | Versioned knowledge bindings and evaluation through actual runtime paths | Grounding, abstention, prompt-injection resistance, history retention and streaming tested; strict tutoring separately gated on output validation |

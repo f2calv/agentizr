@@ -11,6 +11,7 @@ public static partial class AppHost
     {
 #if DEBUG
         AddDocumentIngestionConfiguration(builder);
+        AddDocumentIndexingConfiguration(builder);
         var database = builder.Configuration.GetSection(DatabaseConfig.ConfigurationSectionName).Get<DatabaseConfig>();
         var caching = builder.Configuration.GetSection(CachingConfig.ConfigurationSectionName).Get<CachingConfig>();
         if (string.IsNullOrWhiteSpace(database?.ConnectionString))
@@ -44,6 +45,12 @@ public static partial class AppHost
         builder.Services.AddScoped<DocumentPreparationOperationStore>();
         builder.Services.AddScoped<DocumentPreparationModelVerifier>();
         builder.Services.AddScoped<IDocumentPreparationProvider, DocumentPreparationProvider>();
+        builder.Services.AddScoped<IDocumentEmbeddingProvider, DocumentEmbeddingProvider>();
+        builder.Services.AddScoped<DocumentOllamaEmbeddingProvider>();
+        builder.Services.TryAddScoped<DocumentIndexingStore>();
+        builder.Services.AddScoped<DocumentIndexingProcessingService>();
+        builder.Services.AddHttpClient(nameof(DocumentEmbeddingProvider))
+            .RemoveAllLoggers().ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         builder.Services.AddScoped<HybridDocumentProcessor>();
         builder.Services.AddScoped<PdfDocumentProcessor>();
         builder.Services.TryAddScoped<IDocumentProcessor, DocumentPreparationProcessor>();
@@ -70,5 +77,13 @@ public static partial class AppHost
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IConfigureOptions<DocumentIngestionConfig>>(
             new ConfigureFromConfigurationOptions<DocumentIngestionConfig>(
                 builder.Configuration.GetSection(DocumentIngestionConfig.ConfigurationSectionName))));
+
+    private static void AddDocumentIndexingConfiguration(WebApplicationBuilder builder)
+    {
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IConfigureOptions<DocumentIndexingConfig>>(
+            new ConfigureFromConfigurationOptions<DocumentIndexingConfig>(
+                builder.Configuration.GetSection(DocumentIndexingConfig.ConfigurationSectionName))));
+        builder.Services.AddOptionsWithValidateOnStart<DocumentIndexingConfig>().ValidateDataAnnotations();
+    }
 #endif
 }

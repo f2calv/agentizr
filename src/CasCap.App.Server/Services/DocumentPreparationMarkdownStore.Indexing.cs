@@ -12,6 +12,23 @@ internal sealed partial class DocumentPreparationMarkdownStore
         await using var db = await dbContextFactory.CreateDbContextAsync(token);
         await using var transaction = await db.Database.BeginTransactionAsync(token);
         await DocumentIngestionTransactions.LockAsync(db, token);
+        var review = await ReadIndexingReviewAsync(db, source, generationId, token);
+        if (review is null)
+            return null;
+        var result = DocumentIndexingPlanBuilder.Build(settings, review);
+        var activeJobId = await db.ActiveDocumentIndexes.AsNoTracking().Where(item => item.TenantId == source.TenantId
+            && item.CollectionId == source.CollectionId && item.DocumentId == source.DocumentId).Select(item => item.JobId).SingleOrDefaultAsync(token);
+        result = result with { Response = result.Response with { ObservedActiveJobId = activeJobId } };
+        if (!await DocumentIngestionTransactions.CurrentReviewSource(db, source).AnyAsync(token))
+            return null;
+        await transaction.CommitAsync(token);
+        return result;
+    }
+
+    /// <summary>Reads exact review inputs inside the caller's source/selection mutation transaction.</summary>
+    public async Task<DocumentIndexingReview?> ReadIndexingReviewAsync(
+        AgentRuntimeDbContext db, DocumentIngestionClaim source, string generationId, CancellationToken token)
+    {
         if (!await DocumentIngestionTransactions.CurrentReviewSource(db, source).AnyAsync(token))
             return null;
         var generation = await db.DocumentMarkdownGenerations.AsNoTracking().SingleOrDefaultAsync(item =>
@@ -30,10 +47,6 @@ internal sealed partial class DocumentPreparationMarkdownStore
         DocumentChunkReviewResponse? selection = selectionRecord is null ? null : ChunkReviewResponse(selectionRecord);
         var approval = approvalRecord is null ? null : ApprovalResponse(
             approvalRecord, selectionRecord, snapshot.Projection.Chunks.Select(chunk => chunk.Ordinal).ToHashSet());
-        var result = DocumentIndexingPlanBuilder.Build(settings, new(source, generationId, snapshot, selection, approval));
-        if (!await DocumentIngestionTransactions.CurrentReviewSource(db, source).AnyAsync(token))
-            return null;
-        await transaction.CommitAsync(token);
-        return result;
+        return new(source, generationId, snapshot, selection, approval);
     }
 }

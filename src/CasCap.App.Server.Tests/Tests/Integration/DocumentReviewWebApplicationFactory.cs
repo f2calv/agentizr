@@ -41,10 +41,12 @@ internal sealed class DocumentReviewWebApplicationFactory(
             });
             services.RemoveAll<IDbContextFactory<AgentRuntimeDbContext>>();
             services.RemoveAll<DocumentPreparationMarkdownStore>();
+            services.RemoveAll<DocumentIndexingStore>();
             if (database is not null)
             {
                 services.AddSingleton(database);
                 services.AddScoped<DocumentPreparationMarkdownStore>();
+                services.AddScoped<DocumentIndexingStore>();
             }
             services.AddAuthentication("Bearer").AddScheme<AuthenticationSchemeOptions, MachineHandler>("Bearer", _ => { });
         });

@@ -1734,8 +1734,37 @@ this does not prove full RAG processing.
   without warnings/errors; isolated fixture databases were removed. This is local implementation
   evidence only: preflight is disabled by default, is not deployed, always retains
   `IndexingApproved=false`, and neither persists jobs nor invokes embeddings, writes vectors or
-  activates retrieval. Paid-operation authorization, durable indexing and native pgvector storage
-  remain unimplemented; these PostgreSQL checks do not prove a vector adapter.
+  activates retrieval. These original preflight checks alone do not prove a vector adapter;
+  the subsequent local worker/storage slice is recorded below.
+- [x] Implement the local Debug durable indexing worker and pgvector publication boundary:
+  separately confirmed exact manifests/request-token allowances, durable intent and write-once
+  usage receipts, database-time claims, no automatic replay of unresolved submissions, current
+  source/review/policy fences and guarded complete-generation activation. The
+  [worker contract](document-rag-lifecycle.md#local-durable-indexing-implementation) records
+  the Azure adapter, accepted-policy authority, logical-versus-financial limits and disabled
+  defaults. Native vectors use parameterized SQL with an explicitly SQL-owned vector table,
+  while EF owns jobs/receipts/pointers. The
+  [additive migration](../src/CasCap.App.Server/Migrations/20261030121900_DocumentVectorIndexing.cs)
+  requires the operator-installed extension; runtime identities gain no schema privileges.
+  Local checks use synthetic Azure HTTP/credentials and a separate disposable pgvector host,
+  not paid/live providers. The final focused selection passes **241 tests, zero failures/skips**,
+  including the observed publication predecessor, multi-batch completeness, actual revocation
+  lock races, conflicting publication and uncertain reservation acknowledgement. The Debug test
+  build and Release server/client build pass; Release has zero warnings/errors. EF reports no
+  pending model changes; native migration/round-trip/constraint checks cover the SQL-owned table.
+  The disposable host and all fixture databases were removed; the existing database service
+  remained running. Hooks and privacy scanning, including new files, pass.
+  No rollout, actual embedding deployment/model/allowance selection,
+  search API, model binding or browser indexing control is implied.
+- [x] Add a local-model Ollama embedding path using the same durable indexing/publication boundary.
+  Exactly one provider binding is required; installed model tag/digest, embedding capability,
+  native dimensions and tenant/endpoint authority are verified. Exact included inputs use native
+  `/api/embed` without truncation, cloud forwarding, model-management calls or automatic replay.
+  The selected pilot is `qwen3-embedding:4b`, distinct from an answering model; its real endpoint,
+  digest/dimensions, GPU fit and retrieval quality remain unverified. The
+  [Ollama contract](document-rag-lifecycle.md#local-ollama-embeddings) records tokenizer limits,
+  tag immutability and unload behavior. Offline/fake-HTTP checks cover Azure preservation and the
+  Ollama contract. No live calls, downloads, container startup, rollout or visual-gate bypass occurs.
 - [ ] After accepting the managed/PDF-only/hybrid quality contract, deliver the
   [built-in preparation agent](#built-in-document-preparation-agent) through versioned tenant-local
   definitions and the durable worker. Verify actual runtime PDF/structured-output behavior,

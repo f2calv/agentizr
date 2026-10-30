@@ -77,6 +77,29 @@ GET {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/
 Cookie: {{cookie}}
 Accept: application/json
 
+### Request indexing - template remains unconfirmed (expected 400); eligible confirmed authorization returns 202
+# @name requestDocumentIndexing
+# @note Local-only, not deployed. A confirmed request durably authorizes exact included text to leave for Azure embeddings when the separately enabled worker runs, and permits complete-generation publication. Logical request/token ceilings are not a monetary guarantee. Copy observedActiveJobId from fresh preflight (use a quoted ID instead of null when present); choose explicit ceilings and confirmation only after paid authorization. Unknown submissions are never automatically replayed. These safe defaults do not authorize a paid call.
+POST {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/{{documentId}}/jobs/{{jobId}}/review/generations/{{generationId}}/indexing-jobs HTTP/1.1
+Cookie: {{cookie}}
+X-XSRF-TOKEN: {{antiforgery}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "manifestSha256": "{{preflightDocumentIndexing.response.body.$.manifestSha256}}",
+  "confirmed": false,
+  "maximumRequests": 2,
+  "maximumInputTokens": 100000,
+  "expectedActiveJobId": null
+}
+
+### Read an accepted indexing job - expected 200, or 404 after source/ownership loss; run only after an authorized 202
+# @name getDocumentIndexingJob
+GET {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/{{documentId}}/jobs/{{jobId}}/review/generations/{{generationId}}/indexing-jobs/{{requestDocumentIndexing.response.body.$.id}} HTTP/1.1
+Cookie: {{cookie}}
+Accept: application/json
+
 ### Record chunk selection review - expected 200; 400 invalid, 404 unavailable snapshot, 409 stale observation
 # @name recordDocumentChunkReview
 # @note Appends authenticated review history only; never approves indexing or invokes providers. Copy the exact snapshot's sequence/ETag and latest chunkReview.revision (zero if absent). The placeholders below are not real source observations. Refresh after an uncertain outcome; do not replay automatically.

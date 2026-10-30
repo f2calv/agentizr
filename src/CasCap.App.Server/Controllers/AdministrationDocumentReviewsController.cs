@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CasCap.Controllers;
 
-/// <summary>Exposes source-fenced review projections only to signed-in administrators of the selected app.</summary>
+/// <summary>Exposes source-fenced review and explicit indexing authorization to signed-in assigned administrators.</summary>
 [ApiController]
 [Tags("Administration")]
 [Authorize(Policy = AdministrationPolicies.AppAdministrator)]
@@ -20,6 +20,43 @@ namespace CasCap.Controllers;
 [ProducesResponseType(StatusCodes.Status501NotImplemented)]
 public sealed class AdministrationDocumentReviewsController : ControllerBase
 {
+    /// <inheritdoc cref="DocumentIndexingAdministrationService.AcceptAsync"/>
+    [HttpPost(DocumentReviewRoutes.IndexingJobs, Name = "RequestDocumentIndexing")]
+    [RequestSizeLimit(16_384)]
+    public async Task<Results<Accepted<DocumentIndexingJobResponse>, NotFound, Conflict, ValidationProblem, StatusCodeHttpResult>> RequestIndexingAsync(
+        [StringLength(200, MinimumLength = 1)] string collectionId,
+        [StringLength(128, MinimumLength = 1)] string documentId,
+        [StringLength(128, MinimumLength = 1)] string jobId,
+        [StringLength(128, MinimumLength = 1)] string generationId,
+        [FromBody] DocumentIndexingRequest request,
+        [FromServices] DocumentIndexingAdministrationService indexingSvc,
+        CancellationToken cancellationToken) =>
+        (await indexingSvc.AcceptAsync(collectionId, documentId, jobId, generationId, request, cancellationToken)) switch
+        {
+            { IsSupported: false } => TypedResults.StatusCode(StatusCodes.Status501NotImplemented),
+            { IsConflict: true } => TypedResults.Conflict(),
+            { ValidationError: { } error } => TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request)] = [error] }),
+            { Job: { } job } => TypedResults.Accepted($"{Request.PathBase}{Request.Path}/{Uri.EscapeDataString(job.Id)}", job),
+            _ => TypedResults.NotFound(),
+        };
+
+    /// <inheritdoc cref="DocumentIndexingAdministrationService.ReadAsync"/>
+    [HttpGet(DocumentReviewRoutes.IndexingJob, Name = "GetDocumentIndexingJob")]
+    public async Task<Results<Ok<DocumentIndexingJobResponse>, NotFound, StatusCodeHttpResult>> ReadIndexingAsync(
+        [StringLength(200, MinimumLength = 1)] string collectionId,
+        [StringLength(128, MinimumLength = 1)] string documentId,
+        [StringLength(128, MinimumLength = 1)] string jobId,
+        [StringLength(128, MinimumLength = 1)] string generationId,
+        [StringLength(64, MinimumLength = 1)] string indexingJobId,
+        [FromServices] DocumentIndexingAdministrationService indexingSvc,
+        CancellationToken cancellationToken) =>
+        (await indexingSvc.ReadAsync(collectionId, documentId, jobId, generationId, indexingJobId, cancellationToken)) switch
+        {
+            { IsSupported: false } => TypedResults.StatusCode(StatusCodes.Status501NotImplemented),
+            { Job: { } job } => TypedResults.Ok(job),
+            _ => TypedResults.NotFound(),
+        };
+
     /// <inheritdoc cref="DocumentReviewAdministrationService.PreflightIndexingAsync"/>
     [HttpGet(DocumentReviewRoutes.IndexingPreflight, Name = "PreflightDocumentIndexing")]
     public async Task<Results<Ok<DocumentIndexingPreflightResponse>, NotFound, StatusCodeHttpResult>> PreflightIndexingAsync(

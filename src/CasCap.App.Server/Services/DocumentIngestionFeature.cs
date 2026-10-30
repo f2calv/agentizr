@@ -59,7 +59,10 @@ internal sealed class DocumentIngestionFeature(
             var processed = config.Value.ProcessingEnabled
                 && await scope.ServiceProvider.GetRequiredService<DocumentIngestionProcessingService>()
                     .ProcessOneAsync(ownershipToken);
-            if (!received && !processed && !synchronized)
+            ownershipToken.ThrowIfCancellationRequested();
+            var indexed = scope.ServiceProvider.GetRequiredService<IOptions<DocumentIndexingConfig>>().Value.ProcessingEnabled
+                && await scope.ServiceProvider.GetRequiredService<DocumentIndexingProcessingService>().ProcessOneAsync(ownershipToken);
+            if (!received && !processed && !synchronized && !indexed)
                 await Task.Delay(TimeSpan.FromMilliseconds(config.Value.PollIntervalMs), timeProvider, ownershipToken);
         }
         ownershipToken.ThrowIfCancellationRequested();
