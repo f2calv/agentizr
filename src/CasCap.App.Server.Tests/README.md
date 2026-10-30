@@ -46,17 +46,21 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | `ConfigurationProviderCredentialStoreTests` | 2 | 5 | Verifies the runtime's Entra credential is offered only to a tenant's opted-in providers |
 | `SessionCompactionConfigTests` | 3 | 6 | Verifies per-provider compaction resolution (tenant override, runtime entry, defaults) and startup validation |
 | `LiveAgentRuntimeSmokeTests` | 1 | 1 | Opt-in authenticated run, streaming, session inspection and cleanup against a complete live runtime |
-| `RuntimeLoggingTests` (Debug only) | 1 | 1 | Real PostgreSQL publications change the Serilog pipeline and forwarded logs without losing a process-cache sentinel; category overrides remain intact |
+| `RuntimeLoggingTests` (Debug only) | 1 | 2 | Real PostgreSQL verifies application database-name override, actual-switch status, forwarding, category overrides, cache retention and expiry to Information or Debug startup baselines |
+| `RuntimeLoggingBootstrapTests` (Debug only) | 4 | 6 | Offline bootstrap selection, missing/ambiguous connection rejection, normalized application target and unchanged disabled HTTP status shape |
 | **Runtime baseline subtotal** | **147** | **225** | Excludes Debug-only logging; role/ingestion additions are listed separately below |
 
-The runtime logging soak is Debug-only. Run that case with:
+The runtime logging soak is Debug-only. Run its focused cases with:
 
 ```powershell
-dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class CasCap.Tests.Integration.RuntimeLoggingTests
+dotnet test --project src\CasCap.App.Server.Tests --configuration Debug `
+  --filter-class CasCap.Tests.Integration.RuntimeLoggingTests `
+  --filter-class CasCap.Tests.Integration.RuntimeLoggingBootstrapTests
 ```
 
-Observed targeted Debug results: the logging soak case passed against real PostgreSQL, and all
-nine existing endpoint smoke cases passed with runtime configuration disabled. This does not claim
+Observed targeted Debug results: all eight logging/bootstrap cases passed, including two against
+real PostgreSQL. Previously, nine existing endpoint smoke cases passed with runtime configuration
+disabled. This does not claim
 a complete Debug or Release suite run. The default Release CI path does not execute this provisional
 Debug-only application case; the reusable providers' acceptance suite is wired into their own CI.
 

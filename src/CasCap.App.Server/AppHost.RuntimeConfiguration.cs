@@ -1,8 +1,6 @@
 using CasCap.Common.Configuration.PostgreSql.Extensions;
 using CasCap.Common.Configuration.Runtime.Models;
-using CasCap.RuntimeConfiguration.Models;
 using CasCap.RuntimeConfiguration.Services;
-using Npgsql;
 using Serilog.Core;
 using Serilog.Events;
 
@@ -23,19 +21,19 @@ public static partial class AppHost
             ?? LogEventLevel.Information;
         if (!Enum.IsDefined(minimumLevel))
             throw new InvalidOperationException("The deployment logging minimum must be a defined Serilog level.");
-        var connection = new NpgsqlConnectionStringBuilder(settings.ConnectionString)
-        {
-            GssEncryptionMode = GssEncryptionMode.Disable,
-        };
+        var database = settings.ApplicationDatabaseReuseEnabled
+            ? builder.Configuration.GetSection(DatabaseConfig.ConfigurationSectionName).Get<DatabaseConfig>() ?? new()
+            : new DatabaseConfig { ConnectionString = settings.ConnectionString };
         builder.Services.AddPostgresRuntimeConfiguration(
             new RuntimeConfigurationOptions
             {
                 Scope = new RuntimeConfigurationScope(settings.Application, builder.Environment.EnvironmentName),
                 ContractId = "logging",
                 RefreshInterval = TimeSpan.FromMilliseconds(settings.RefreshIntervalMs),
-            }, connection.ConnectionString, new RuntimeLoggingControls { MinimumLevel = minimumLevel });
+            }, EffectiveDatabaseConnectionString(database), new RuntimeLoggingControls { MinimumLevel = minimumLevel });
         var levelSwitch = new LoggingLevelSwitch(minimumLevel);
         builder.Services.AddSingleton(levelSwitch);
+        builder.Services.AddSingleton<RuntimeLoggingProbe>();
         builder.Services.AddHostedService<RuntimeLoggingService>();
         return levelSwitch;
     }

@@ -20,14 +20,22 @@ public static partial class AppHost
             return false;
         }
 
+        builder.Services.AddDbContextFactory<AgentRuntimeDbContext>(options => options.UseNpgsql(EffectiveDatabaseConnectionString(config)));
+        builder.Services.AddScoped<AgentRuntimeDatabaseMigrator>();
+        return true;
+    }
+
+    /// <summary>Resolves the shared application target without losing its database-name override.</summary>
+    internal static string EffectiveDatabaseConnectionString(DatabaseConfig config)
+    {
+        if (string.IsNullOrWhiteSpace(config.ConnectionString))
+            throw new InvalidOperationException("The selected application database connection is required.");
         var connection = new NpgsqlConnectionStringBuilder(config.ConnectionString)
         {
             GssEncryptionMode = GssEncryptionMode.Disable,
         };
         if (!string.IsNullOrWhiteSpace(config.DatabaseName))
             connection.Database = config.DatabaseName;
-        builder.Services.AddDbContextFactory<AgentRuntimeDbContext>(options => options.UseNpgsql(connection.ConnectionString));
-        builder.Services.AddScoped<AgentRuntimeDatabaseMigrator>();
-        return true;
+        return connection.ConnectionString;
     }
 }

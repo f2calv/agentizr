@@ -12,10 +12,7 @@ public static partial class AppHost
         // Validates Razor component endpoints only; administration controllers use their own antiforgery filter.
         app.UseAntiforgery();
 
-        app.MapGet("/status", () => Results.Ok(new
-        {
-            Service = "agentizr"
-        }));
+        MapStatusEndpoint(app);
         var controllers = app.MapControllers();
         if (!tenantAuthenticationEnabled && app.Environment.IsDevelopment())
         {
@@ -27,5 +24,28 @@ public static partial class AppHost
             });
         }
         app.MapHealthChecks("/healthz");
+    }
+
+    /// <summary>Maps baseline status with payload-free logging evidence only for an enabled Debug soak.</summary>
+    internal static void MapStatusEndpoint(WebApplication app)
+    {
+#if DEBUG
+        var probe = app.Services.GetService<CasCap.RuntimeConfiguration.Services.RuntimeLoggingProbe>();
+#endif
+        app.MapGet("/status", () =>
+        {
+#if DEBUG
+            if (probe is not null)
+                return Results.Ok(new
+                {
+                    Service = "agentizr",
+                    RuntimeLogging = probe.ReadStatus(),
+                });
+#endif
+            return Results.Ok(new
+            {
+                Service = "agentizr",
+            });
+        });
     }
 }

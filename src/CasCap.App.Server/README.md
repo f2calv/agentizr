@@ -511,6 +511,12 @@ to Debug/local-source builds; normal Release builds remain unchanged and reject 
 the unpublished feature. The root deployment script already selects Debug and its sibling project
 references. No configuration store is contacted unless the soak is explicitly enabled.
 
+`RuntimeConfigurationConfig.ApplicationDatabaseReuseEnabled` explicitly reuses the normalized
+application database/account, including the database-name override, instead of requiring a second
+connection secret. An enabled Debug soak adds payload-free actual-switch evidence to `/status`;
+disabled and Release status shapes stay unchanged. Read the soak guide's expiry-evidence limitation
+before publishing a temporary level change.
+
 `AppConfig` provides safe defaults for the telemetry meter prefix and service name. Set `AppConfig__OtlpExporterEndpoint` to enable OTLP export; leaving it unset disables the shared telemetry registration.
 
 `AgentRuntimeConfig` binds from `CasCap:AgentRuntimeConfig`. Definitions are grouped under `Tenants`,

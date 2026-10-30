@@ -3,6 +3,7 @@ using CasCap.Common.Configuration.PostgreSql;
 using CasCap.Common.Configuration.PostgreSql.Services;
 using CasCap.IntegrationTests;
 using CasCap.RuntimeConfiguration.Models;
+using CasCap.RuntimeConfiguration.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,7 @@ using Serilog;
 using Serilog.Core;
 using Serilog.Events;
 using System.Collections.Concurrent;
+using System.Text.Json;
 
 namespace CasCap.Tests.Integration;
 
@@ -23,8 +25,10 @@ namespace CasCap.Tests.Integration;
 [Collection(HostIntegrationCollection.Name)]
 public sealed class RuntimeLoggingTests(PostgreSqlFixture postgres) : IClassFixture<PostgreSqlFixture>
 {
-    [Fact]
-    public async Task Reload_ControlsPipelineAndForwardingWithoutReplacingHost()
+    [Theory]
+    [InlineData(LogEventLevel.Information)]
+    [InlineData(LogEventLevel.Debug)]
+    public async Task Reload_ControlsPipelineAndForwardingWithoutReplacingHost(LogEventLevel startupMinimumLevel)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -35,9 +39,14 @@ public sealed class RuntimeLoggingTests(PostgreSqlFixture postgres) : IClassFixt
         {
             ["CasCap:RuntimeConfigurationConfig:Enabled"] = "true",
             ["CasCap:RuntimeConfigurationConfig:Application"] = $"test-{Guid.NewGuid():N}",
-            ["CasCap:RuntimeConfigurationConfig:ConnectionString"] = postgres.ConnectionString,
+            ["CasCap:RuntimeConfigurationConfig:ApplicationDatabaseReuseEnabled"] = "true",
+            ["CasCap:DatabaseConfig:ConnectionString"] = new Npgsql.NpgsqlConnectionStringBuilder(postgres.ConnectionString)
+            {
+                Database = "deliberately_wrong_database",
+            }.ConnectionString,
+            ["CasCap:DatabaseConfig:DatabaseName"] = new Npgsql.NpgsqlConnectionStringBuilder(postgres.ConnectionString).Database,
             ["CasCap:RuntimeConfigurationConfig:RefreshIntervalMs"] = "100",
-            ["Serilog:MinimumLevel:Default"] = "Information",
+            ["Serilog:MinimumLevel:Default"] = startupMinimumLevel.ToString(),
         });
         var levelSwitch = AppHost.AddRuntimeLogging(builder);
         Assert.NotNull(levelSwitch);
@@ -58,14 +67,29 @@ public sealed class RuntimeLoggingTests(PostgreSqlFixture postgres) : IClassFixt
         var sentinel = Guid.NewGuid();
         cache.Set("sentinel", sentinel);
         app.MapGet("/sentinel", () => cache.Get<Guid>("sentinel"));
+        AppHost.MapStatusEndpoint(app);
         await app.StartAsync(TestContext.Current.CancellationToken);
         using var client = app.GetTestClient();
+        var probe = app.Services.GetRequiredService<RuntimeLoggingProbe>();
+        var initial = probe.ReadStatus();
+        Assert.Equal(startupMinimumLevel.ToString(), initial.StartupMinimumLevel);
+        Assert.Equal("Warning", initial.EffectiveMinimumLevel);
+        Assert.False(initial.ProbeDebugEnabled);
+        Assert.True(initial.ApplyCount >= 1);
+        Assert.NotNull(initial.LastAppliedAtUtc);
+        var status = await client.GetFromJsonAsync<JsonElement>("/status", TestContext.Current.CancellationToken);
+        Assert.Equal(2, status.EnumerateObject().Count());
+        Assert.Equal("agentizr", status.GetProperty("service").GetString());
+        var runtimeStatus = status.GetProperty("runtimeLogging");
+        Assert.Equal(6, runtimeStatus.EnumerateObject().Count());
+        Assert.Equal(initial.InstanceId, runtimeStatus.GetProperty("instanceId").GetGuid());
+        Assert.Equal("Warning", runtimeStatus.GetProperty("effectiveMinimumLevel").GetString());
         var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger(CaptureProvider.Category);
         Assert.False(logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug));
         await store.PublishAsync(new RuntimeLoggingControls { MinimumLevel = LogEventLevel.Debug }, 1,
             "test-operator", "Enable debugging", cancellationToken: TestContext.Current.CancellationToken);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        deadline.CancelAfter(TimeSpan.FromSeconds(10));
+        deadline.CancelAfter(TimeSpan.FromSeconds(20));
         while (!logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
             await Task.Delay(25, deadline.Token);
         logger.LogDebug("Runtime soak marker");
@@ -75,6 +99,24 @@ public sealed class RuntimeLoggingTests(PostgreSqlFixture postgres) : IClassFixt
         Assert.False(app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Microsoft.AspNetCore.Test")
             .IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug));
         Assert.Equal(sentinel, await client.GetFromJsonAsync<Guid>("/sentinel", TestContext.Current.CancellationToken));
+        var applied = probe.ReadStatus();
+        Assert.Equal(initial.InstanceId, applied.InstanceId);
+        Assert.Equal("Debug", applied.EffectiveMinimumLevel);
+        Assert.True(applied.ProbeDebugEnabled);
+        Assert.True(applied.ApplyCount > initial.ApplyCount);
+        await store.PublishAsync(new RuntimeLoggingControls { MinimumLevel = LogEventLevel.Verbose }, 2,
+            "test-operator", "Expired controls restore startup, not revision one",
+            expiresAtUtc: TimeProvider.System.GetUtcNow().AddSeconds(5),
+            cancellationToken: TestContext.Current.CancellationToken);
+        while (probe.ReadStatus().EffectiveMinimumLevel != "Verbose")
+            await Task.Delay(25, deadline.Token);
+        while (probe.ReadStatus().EffectiveMinimumLevel != startupMinimumLevel.ToString())
+            await Task.Delay(25, deadline.Token);
+        var expired = probe.ReadStatus();
+        Assert.Equal(initial.InstanceId, expired.InstanceId);
+        Assert.Equal(startupMinimumLevel.ToString(), expired.StartupMinimumLevel);
+        Assert.Equal(startupMinimumLevel == LogEventLevel.Debug, expired.ProbeDebugEnabled);
+        Assert.True(expired.ApplyCount > applied.ApplyCount);
         await app.StopAsync(TestContext.Current.CancellationToken);
     }
 

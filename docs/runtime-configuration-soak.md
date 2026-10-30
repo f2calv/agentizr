@@ -42,6 +42,26 @@ The contract identifier is `logging`, version 1. The PostgreSQL target may be st
 existing application database; the independently migrated `cascap_config` schema owns
 only configuration records. Supplying the same connection does not merge contexts or migrations.
 
+For explicitly approved reuse of the existing application account, omit the independent connection
+and set `ApplicationDatabaseReuseEnabled` to `true`. This uses the same normalized application
+connection as persistence, including `DatabaseConfig.DatabaseName`; copying the original secret
+could otherwise select a different database. Both connection modes selected, neither selected,
+or a missing application connection fail startup. Never duplicate the resolved connection into
+tracked settings.
+
+```json
+{
+  "CasCap": {
+    "RuntimeConfigurationConfig": {
+      "Enabled": true,
+      "Application": "example-application",
+      "ApplicationDatabaseReuseEnabled": true,
+      "RefreshIntervalMs": 5000
+    }
+  }
+}
+```
+
 Optional `RefreshIntervalMs` defaults to 5000, with supported values from 100 to 3600000.
 The startup baseline is the deployment's Serilog default minimum; category overrides stay unchanged.
 The [typed contract](../src/CasCap.App.Server/RuntimeConfiguration/Models/RuntimeLoggingControls.cs)
@@ -54,6 +74,10 @@ owns a disposable subscription and updates a per-host pipeline switch, not the c
 Confirm the exact database and application/environment scope with the operator before any live
 migration, SQL write, restart or deployment. Keep migration, operator and SELECT-only runtime
 permissions separate; prevent runtime identities from editing/deleting journal entries.
+The approved first-soak exception may reuse the existing application account after schema and
+initial-revision verification. That account retains its application privileges: this is a shared-
+privilege tradeoff, not SELECT-only enforcement or a new credential. Least-privilege separation
+remains the production recommendation.
 
 Apply the configuration context's reviewed migration externally. From the application repository,
 using a migration connection already supplied securely in the current process:
@@ -133,6 +157,26 @@ To restore earlier content manually before expiry, append another full snapshot 
 set `restored_from_revision` to the historical source and advance the head in the same checked
 transaction. Never move the head backward or UPDATE an existing journal payload.
 
+## Payload-Free Replica Evidence
+
+Only an enabled Debug soak adds `runtimeLogging` to the existing `/status` response. Disabled and
+Release responses retain their existing shape. Retain the deployment's existing ingress/access
+controls. Query each replica directly through an approved operator path rather than assuming
+load-balanced requests reach both.
+
+The [probe](../src/CasCap.App.Server/RuntimeConfiguration/Services/RuntimeLoggingProbe.cs) reports a
+random process identity, immutable startup minimum, current actual pipeline switch minimum,
+actual Debug acceptance for the probe category, monitor apply count and last-apply UTC time.
+It emits no log event and includes no connection, revision payload, user or document content;
+therefore restrictive log levels cannot hide its evidence. Category overrides remain effective.
+
+The startup minimum is not necessarily the initial durable revision. Expiry returns to startup,
+not to revision one. The probe does not expose accepted durable revision/expiry metadata. If
+temporary Debug equals the startup baseline, expiry leaves the effective controls unchanged and
+the Common monitor need not notify. Unchanged status or apply counts cannot prove that expiry
+was reconciled. Keep temporary publication blocked until independent reader metadata or an
+explicitly agreed alternative closes that evidence gap; do not infer expiry from elapsed time.
+
 ## Acceptance and Live Soak Checklist
 
 - [x] Debug build uses local source references; normal Release build still compiles.
@@ -140,6 +184,9 @@ transaction. Never move the head backward or UPDATE an existing journal payload.
   and forwarding to an additional Microsoft logging provider.
 - [x] Deployment-owned category overrides and the same process-memory cache sentinel are preserved.
 - [x] Existing endpoint smoke tests pass while the feature is disabled.
+- [x] Focused bootstrap tests reject missing/ambiguous connections and preserve disabled status shape.
+- [x] Isolated PostgreSQL tests prove the effective database override, actual-switch probe and expiry
+  to Information or Debug startup baselines, independently of revision one's Warning value.
 - [ ] Confirm the live target, scope, migration/publication credentials and rollout authorization.
 - [ ] Apply the owned migration and valid initial snapshot before enabling the host.
 - [ ] Deploy the Debug image through the normal deployment shim and record its immutable digest.
@@ -147,6 +194,9 @@ transaction. Never move the head backward or UPDATE an existing journal payload.
 - [ ] Observe application debug events in the real console/export destination, not just a DTO.
 - [ ] Record replica convergence, unchanged host identity/cache behavior and eventual expiry.
 - [ ] Exercise invalid-candidate and dependency-outage behavior in an approved isolated target.
+
+The first live soak does not authorize outage testing. Migration and initial-publication readiness
+must be verified separately from image rollout; temporary publication remains a later gated action.
 
 Local tests use the Compose `tests` service and isolated per-fixture databases. They do not prove
 the live exporter, Kubernetes replica convergence, pod replacement, a database outage deadline
