@@ -74,7 +74,7 @@ configuration chain, never tracked examples. Machine bearer tokens never grant e
 6. Durable commit is shown as **activation pending**, not acknowledgement from all replicas.
    Temporary expiry returns to the immutable startup baseline, not the previous journal revision.
 
-The [server wiring](../src/CasCap.App.Server/AppHost.RuntimeConfiguration.Management.cs) uses the
+The [server wiring](../src/CasCap.Backend/Extensions/WebApplicationBuilderExtensions.RuntimeConfiguration.Management.cs) uses the
 existing named administration cookie for all three Common view/edit/publish policies. Unknown
 identities receive 403, absent cookie authentication receives 401, and an unavailable authority does
 not reset the accepted runtime value. The optional bootstrap controller is absent when disabled.

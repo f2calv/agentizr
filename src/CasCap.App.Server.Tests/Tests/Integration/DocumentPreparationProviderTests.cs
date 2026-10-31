@@ -1,5 +1,4 @@
 #if DEBUG
-using CasCap.Tests.Unit;
 using CasCap.Common.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -20,7 +19,7 @@ public sealed class DocumentPreparationProviderTests
     [InlineData(true, true)]
     public async Task ActualWorkerAdapterUsesPinnedSchemaAndTenantCredentials(bool forgedTenant, bool selection)
     {
-        using var handler = new DocumentPreparationAgentTemplateTests.PreparationHandler { ExpectedCredential = "synthetic-key-a" };
+        using var handler = new DocumentPreparationHttpHandler { ExpectedCredential = "synthetic-key-a" };
         using var client = new HttpClient(handler);
         var clients = new Clients(client);
         var credentials = new RuntimeEntraCredential(() => null);

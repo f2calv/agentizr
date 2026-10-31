@@ -55,7 +55,7 @@ In Development, `/` opens the [administration frontend](docs/administration-fron
 sign-in.
 Debug builds can additionally embed the [typed runtime logging editor](docs/runtime-configuration-management.md)
 behind explicitly configured host-wide operator permissions.
-Before running an agent, add the [Development configuration](src/CasCap.App.Server/README.md#configuration-examples)
+Before running an agent, add the [Development configuration](src/CasCap.Backend/README.md#configuration-examples)
 and start its model provider. A health response does not verify provider, database or Redis readiness.
 Outside Development, PostgreSQL and JWT tenancy are mandatory; Redis is an optional cache.
 
@@ -97,13 +97,15 @@ and `OpenAI`; there is no dedicated Azure AI Foundry provider implementation.
 
 | Component | Purpose | Delivery |
 | --- | --- | --- |
-| [CasCap.App.Server](src/CasCap.App.Server/README.md) | Execution, sessions, definition administration, the administration frontend host and optional status MCP endpoint | ASP.NET Core application |
+| [CasCap.App.Server](src/CasCap.App.Server/README.md) | Runtime lifecycle, role composition and administration frontend shell | ASP.NET Core application |
+| [CasCap.Backend](src/CasCap.Backend/README.md) | Execution orchestration, administration, HTTP/MCP adapters, document processing and EF persistence | Internal .NET 10 library |
 | [CasCap.App.Client](src/CasCap.App.Client/README.md) | Browser administration frontend and its API contracts | Blazor WebAssembly client served by the server |
 | [CasCap.AgentRuntime.Client](src/CasCap.AgentRuntime.Client/README.md) | Typed execution and administration clients | Packable .NET 10 library |
 | [CasCap.AgentRuntime.Contracts](src/CasCap.AgentRuntime.Contracts/README.md) | Version 1 wire DTOs | Packable .NET 10 library |
 | [CasCap.AgentRuntime.Execution](src/CasCap.AgentRuntime.Execution/README.md) | Model clients, tools, delegation and history reduction | Internal project |
 | [CasCap.AgentRuntime.Evaluation](src/CasCap.AgentRuntime.Evaluation/README.md) | Fixture tools, grading and recording for definition evaluation | Internal project |
 | [CasCap.App.Server.Tests](src/CasCap.App.Server.Tests/README.md) | Protocol, tenancy, state and persistence coverage | Contributor tests; external cases need opt-in/setup |
+| [CasCap.Backend.Tests](src/CasCap.Backend.Tests/README.md) | Application unit tests and offline migration/model discovery | Contributor tests; retained-document review is opt-in |
 | [CasCap.AgentRuntime.Execution.Tests](src/CasCap.AgentRuntime.Execution.Tests/README.md) | Provider, tool, compaction and grading coverage | Contributor tests; local model cases are opt-in |
 | [agentizr chart](charts/agentizr/README.md) | Runtime and external migration workloads | Helm umbrella chart |
 | [agentizr-dashboards](charts/agentizr-dashboards/README.md) | Execution health dashboard | Bundled Helm subchart |
@@ -112,7 +114,7 @@ and `OpenAI`; there is no dedicated Azure AI Foundry provider implementation.
 
 Configuration uses the shared hosting configuration chain, including optional local JSON,
 user secrets, environment variables and optional Key Vault. See the
-[host configuration reference](src/CasCap.App.Server/README.md#configuration) for names and examples.
+[host configuration reference](src/CasCap.Backend/README.md#configuration) for names and examples.
 `AppConfig` supplies public-safe telemetry defaults in code.
 
 `AgentRuntimeConfig` provides a read-only Development bootstrap adapter. Outside Development,

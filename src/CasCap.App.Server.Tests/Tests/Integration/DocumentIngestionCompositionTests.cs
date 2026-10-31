@@ -43,8 +43,8 @@ public sealed class DocumentIngestionCompositionTests
         builder.Services.AddDbContextFactory<AgentRuntimeDbContext>(options => options.UseSqlite("Data Source=:memory:"));
         if (registered)
             builder.Services.AddScoped<IDocumentProcessor, UnusedProcessor>();
-        AppHost.AddDocumentIngestionConfiguration(builder);
-        AppHost.AddIngestion(builder, runtimeEnabled: true);
+        CasCap.Extensions.WebApplicationBuilderExtensions.AddDocumentIngestionConfiguration(builder);
+        CasCap.Extensions.WebApplicationBuilderExtensions.AddAgentRuntimeIngestion(builder, runtimeEnabled: true);
         if (!valid)
             builder.Services.RemoveAll<IDocumentProcessor>();
         using var provider = builder.Services.BuildServiceProvider(new ServiceProviderOptions

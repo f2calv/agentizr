@@ -1,4 +1,5 @@
 using CasCap.Constants;
+using CasCap.Extensions;
 
 namespace CasCap;
 
@@ -20,13 +21,8 @@ public static partial class AppHost
             ? configured with { EnabledFeatures = FeatureNames.Migrate }
             : configured;
 
-    private static async Task RunDatabaseMigrationAsync(
+    private static Task RunDatabaseMigrationAsync(
         IServiceProvider services,
         CancellationToken cancellationToken)
-    {
-        await using var scope = services.CreateAsyncScope();
-        await scope.ServiceProvider
-            .GetRequiredService<AgentRuntimeDatabaseMigrator>()
-            .MigrateAsync(cancellationToken);
-    }
+        => services.MigrateAgentRuntimeDatabaseAsync(cancellationToken);
 }

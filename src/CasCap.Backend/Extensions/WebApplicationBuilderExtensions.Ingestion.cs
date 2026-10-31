@@ -2,12 +2,15 @@ using CasCap.Common.Extensions;
 using CasCap.Constants;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-namespace CasCap;
+namespace CasCap.Extensions;
 
 /// <summary>Registers the elected ingestion role independently from runtime endpoints.</summary>
-public static partial class AppHost
+public static partial class WebApplicationBuilderExtensions
 {
-    internal static void AddIngestion(WebApplicationBuilder builder, bool runtimeEnabled)
+    /// <summary>Registers the elected ingestion role and validates its prerequisites.</summary>
+    /// <param name="builder">Application builder.</param>
+    /// <param name="runtimeEnabled">Whether the runtime role already registered shared services.</param>
+    public static void AddAgentRuntimeIngestion(this WebApplicationBuilder builder, bool runtimeEnabled)
     {
 #if DEBUG
         AddDocumentIngestionConfiguration(builder);

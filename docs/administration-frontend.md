@@ -33,7 +33,7 @@ sequenceDiagram
 
 The work is split across three parts:
 
-- **The host** ([`CasCap.App.Server`](../src/CasCap.App.Server/README.md)) serves an HTML shell from
+- **The host** ([`CasCap.App.Server`](../src/CasCap.Backend/README.md)) serves an HTML shell from
   `Components/App.razor`, the client's static assets and the JSON API. It owns sign-in, the session
   cookie, authorization and every validation rule.
 - **The downloaded client** ([`CasCap.App.Client`](../src/CasCap.App.Client/README.md)) is
@@ -249,7 +249,7 @@ and ingestion status in this frontend, backed by private Azure Blob Storage and 
 processing. Upload/replace/delete and provisioning controls remain unimplemented; the Debug frontend
 already offers an admitted-source catalogue, review workbench and synchronization panel.
 
-A Debug-only [protected review API](../src/CasCap.App.Server/README.md#protected-review-management)
+A Debug-only [protected review API](../src/CasCap.Backend/README.md#protected-review-management)
 and typed administration-client methods now preview/store/read existing receipt-derived review
 generations. They require a signed-in assigned app administrator and antiforgery protection, not
 open Development access. These controls do not approve indexing. Synchronization has local HTTP

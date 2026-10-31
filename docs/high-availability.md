@@ -169,7 +169,7 @@ last-committed-state recovery and interrupted-run archival without automatically
 ## HTTP API Boundary
 
 Execution and definition administration use
-[thin controllers](../src/CasCap.App.Server/README.md#public-surface), which map typed service
+[thin controllers](../src/CasCap.Backend/README.md#public-surface), which map typed service
 outcomes to HTTP results. API services own DTO projection and streaming orchestration.
 Route constants, authorization policies,
 session locking and conflict responses are shared across replicas. Streaming still waits for

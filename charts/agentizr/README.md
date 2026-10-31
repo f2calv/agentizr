@@ -76,7 +76,7 @@ Only the example above adds Argo CD hook annotations; they are not defaulted by 
 The workload dependency owns the underlying Deployment/Job, environment and Secret-reference
 contract. Both processes need PostgreSQL and valid non-Development authentication configuration;
 only the runtime uses optional Redis caching. Configure allowed callers, provider/tool authorities and private
-provider credentials using the [host configuration reference](../../src/CasCap.App.Server/README.md#configuration).
+provider credentials using the [host configuration reference](../../src/CasCap.Backend/README.md#configuration).
 The migration Job applies schema only; publish and activate initial agent definitions separately.
 
 The chart does not install PostgreSQL, Redis, a model server, Grafana or a telemetry collector.

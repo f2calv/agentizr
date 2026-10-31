@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace CasCap.Extensions;
 
 /// <summary>Registers the controller API baseline, tenant permission policies and app administration.</summary>
-public static class ServiceCollectionExtensions
+public static partial class ServiceCollectionExtensions
 {
     /// <summary>
     /// Adds controller validation, session-conflict handling, separate runtime/control-plane policies and the
@@ -16,7 +16,8 @@ public static class ServiceCollectionExtensions
         services.AddExceptionHandler<AgentSessionConflictHandler>();
         services.AddHealthChecks();
         services.AddControllers(options =>
-            options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true);
+            options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true)
+            .AddApplicationPart(typeof(Controllers.AgentRuntimeController).Assembly);
         services.AddScoped<AgentRuntimeApiService>();
         services.AddScoped(services => new AgentDefinitionApiService(
             services.GetRequiredService<AgentDefinitionAdministrationService>()));

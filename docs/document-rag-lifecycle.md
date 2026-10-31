@@ -193,7 +193,7 @@ snapshot and selection revision, with an authenticated audit record.
 
 These are readiness gates, not permission to embed. See the
 [assessment contract](../src/CasCap.App.Client/Models/DocumentApprovalRequest.cs) and
-[server persistence rules](../src/CasCap.App.Server/Services/DocumentPreparationMarkdownStore.Approval.cs).
+[server persistence rules](../src/CasCap.Backend/Services/DocumentPreparationMarkdownStore.Approval.cs).
 
 ## Proposed Indexing Contract
 
@@ -209,7 +209,7 @@ The [typed client](../src/CasCap.App.Client/Services/AdministrationApiClient.cs)
 [request collection](../requests/document-reviews.http) expose the check; there is no new browser
 button or live rollout in this slice.
 
-Configure [DocumentIndexingConfig](../src/CasCap.App.Server/Models/_DocumentIndexingConfig.cs)
+Configure [DocumentIndexingConfig](../src/CasCap.Backend/Models/_DocumentIndexingConfig.cs)
 under `CasCap:DocumentIndexingConfig`. It defaults to `Enabled=false`, with empty `Profiles` and
 `Collections`; no model is implicitly chosen. Enabled preflight requires:
 
@@ -237,7 +237,7 @@ execution and activation revalidate it rather than trusting an earlier successfu
 
 ### Local Durable Indexing Implementation
 
-The [indexing administration service](../src/CasCap.App.Server/Services/DocumentIndexingAdministrationService.cs)
+The [indexing administration service](../src/CasCap.Backend/Services/DocumentIndexingAdministrationService.cs)
 adds these signed-in assigned-administrator operations, with antiforgery on POST and `no-store`:
 
 | Method / generation suffix | Contract |
@@ -250,7 +250,7 @@ or insufficient ceilings return 400; changed manifests, policy authority, predec
 authorization return 409. Identical authorization by the same actor reuses the job without
 granting another paid attempt. Preparation jobs and readiness records are not reopened.
 
-The [store](../src/CasCap.App.Server/Services/DocumentIndexingStore.cs) commits database-time claims
+The [store](../src/CasCap.Backend/Services/DocumentIndexingStore.cs) commits database-time claims
 and paid batch intent before HTTP. Compatible received batches resume without resubmission.
 Expired or interrupted work with unresolved intent becomes `ReconciliationRequired`, even if
 the caller never observed reservation success. There is no automatic replay or reconciliation
@@ -265,7 +265,7 @@ An accepted higher collection-policy revision advances durable authority across 
 older accepted revisions cannot dispatch or publish. Equal-revision/different-profile contents
 conflict. Configuration edits alone are not distributed policy activation.
 
-The [Azure adapter](../src/CasCap.App.Server/Services/DocumentEmbeddingProvider.cs) uses the exact
+The [Azure adapter](../src/CasCap.Backend/Services/DocumentEmbeddingProvider.cs) uses the exact
 tenant provider registration, endpoint allowlist and lazy tenant credentials. An explicit `Azure`
 profile binding supplies endpoint, deployment name/resource ID and management endpoint; ARM
 verification checks the actual account, successful deployment, model and revision before intent.
@@ -281,7 +281,7 @@ have been charged, actual usage can differ, and an overrun cannot be undone. Kno
 retained even when late/stale responses cannot publish. Do not select pricing or a paid pilot from
 these implementation defaults.
 
-The [migration](../src/CasCap.App.Server/Migrations/20261030121900_DocumentVectorIndexing.cs)
+The [migration](../src/CasCap.Backend/Migrations/20261030121900_DocumentVectorIndexing.cs)
 adds EF-owned jobs, receipts and tenant/source-qualified active pointers. Vector rows are
 deliberately SQL-owned: parameterized native vector DML, not a pgvector EF plugin. Model-drift
 checks do not validate that raw DDL; native migration/round-trip/constraint tests do.
@@ -302,7 +302,7 @@ existing local database services are not upgraded or recreated.
 
 ### Local Ollama Embeddings
 
-The [Ollama adapter](../src/CasCap.App.Server/Services/DocumentOllamaEmbeddingProvider.cs) uses
+The [Ollama adapter](../src/CasCap.Backend/Services/DocumentOllamaEmbeddingProvider.cs) uses
 the same durable jobs, receipts, budgets, staging and atomic pgvector publication as Azure.
 A profile selects exactly one `Azure` or `Ollama` binding. The registered tenant provider must be
 `Ollama` with the exact configured endpoint, and the authority must be allowed by server policy.
@@ -391,11 +391,11 @@ conflicting requests explicitly. Saving an assessment must continue to make no p
 
 Create a separate indexing workflow; do not reopen the finished preparation job or repeat PDF
 extraction to obtain embeddings. Reuse the proven ownership, database-time, deadline and mutation
-fences in the [preparation job service](../src/CasCap.App.Server/Services/DocumentIngestionJobService.cs)
-and [transaction helpers](../src/CasCap.App.Server/Services/DocumentIngestionTransactions.cs).
+fences in the [preparation job service](../src/CasCap.Backend/Services/DocumentIngestionJobService.cs)
+and [transaction helpers](../src/CasCap.Backend/Services/DocumentIngestionTransactions.cs).
 
 Use the reviewed heading-aware snapshot and its saved included ordinals, not the older
-[page-local chunk entity](../src/CasCap.App.Server/Entities/DocumentTextChunkEntity.cs).
+[page-local chunk entity](../src/CasCap.Backend/Entities/DocumentTextChunkEntity.cs).
 Define and hash the exact embedding input, including approved heading context; keep review rationale,
 actor identities and usage metadata out of that input. Preserve original chunk and source provenance.
 
@@ -443,7 +443,7 @@ releasing results, and define the handling of in-flight model responses and reta
 
 For a failed same-source rebuild, retain the previous active generation only if it is independently
 still current and authorized. Do not retain revoked evidence merely to avoid an empty result.
-Current [source admission](../src/CasCap.App.Server/Services/DocumentIngestionInboxService.cs) retires
+Current [source admission](../src/CasCap.Backend/Services/DocumentIngestionInboxService.cs) retires
 derived state on replacement/deletion; it is not a full independently authorized source-version
 lineage. Serving an older source after replacement needs explicit lineage and retention work first.
 Application rollback must not implicitly reactivate stale corpus data.

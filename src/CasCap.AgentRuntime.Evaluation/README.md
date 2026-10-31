@@ -126,7 +126,7 @@ rather than bind `AIConfig` or `AgentEvaluationConfig` to construct an in-proces
 
 ## Documentation
 
-- [Host endpoint and configuration reference](../CasCap.App.Server/README.md)
+- [Host endpoint and configuration reference](../CasCap.Backend/README.md)
 - [Execution infrastructure](../CasCap.AgentRuntime.Execution/README.md)
 - [Evaluation and execution test inventory](../CasCap.AgentRuntime.Execution.Tests/README.md)
 - [License](../../LICENSE)

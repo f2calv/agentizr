@@ -1,8 +1,8 @@
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-namespace CasCap;
+namespace CasCap.Extensions;
 
-public static partial class AppHost
+public static partial class WebApplicationBuilderExtensions
 {
     private static void AddDocumentReviews(WebApplicationBuilder builder, bool databaseEnabled)
     {

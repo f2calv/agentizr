@@ -1,9 +1,13 @@
-namespace CasCap;
+namespace CasCap.Extensions;
 
 /// <summary>Maps the HTTP endpoint baseline.</summary>
-public static partial class AppHost
+public static partial class WebApplicationExtensions
 {
-    private static void MapEndpoints(WebApplication app, bool tenantAuthenticationEnabled, bool administrationEnabled)
+    /// <summary>Applies runtime middleware and maps API, status and health endpoints.</summary>
+    /// <param name="app">Built application.</param>
+    /// <param name="tenantAuthenticationEnabled">Whether machine authentication is enabled.</param>
+    /// <param name="administrationEnabled">Whether administration authentication is enabled.</param>
+    public static void MapAgentRuntimeEndpoints(this WebApplication app, bool tenantAuthenticationEnabled, bool administrationEnabled)
     {
         app.UseExceptionHandler();
         if (tenantAuthenticationEnabled || administrationEnabled)

@@ -38,7 +38,7 @@ public static partial class AppHost
 
             // Logging
 #if DEBUG
-            var runtimeLoggingSwitch = runtimeEnabled ? AddRuntimeLogging(builder) : null;
+            var runtimeLoggingSwitch = runtimeEnabled ? builder.AddAgentRuntimeLogging() : null;
             var logger = SerilogWebApplicationBuilderExtensions.InitializeSerilog(builder,
                 configureLogger: configuration =>
                 {
@@ -58,21 +58,21 @@ public static partial class AppHost
             builder.InitializeOpenTelemetry(appConfig, applicationMetadata);
 
             // Web API registration
-            var tenantAuthenticationEnabled = runtimeEnabled && AddWebApi(builder);
+            var tenantAuthenticationEnabled = runtimeEnabled && builder.AddAgentRuntimeWebApi();
             if (runtimeEnabled)
-                AddFeatures(builder, tenantAuthenticationEnabled);
+                builder.AddAgentRuntimeFeatures(tenantAuthenticationEnabled);
             else
-                AddDatabase(builder, required: true);
-            var administrationEnabled = runtimeEnabled && AddAdministration(builder);
+                builder.AddAgentRuntimeDatabase(required: true);
+            var administrationEnabled = runtimeEnabled && builder.AddAgentRuntimeAdministration();
 #if DEBUG
             if (runtimeEnabled)
-                AddRuntimeLoggingManagement(builder);
+                builder.AddAgentRuntimeLoggingManagement();
 #endif
             if (runtimeEnabled)
                 AddFrontend(builder);
-            var mcpEnabled = runtimeEnabled && AddMcp(builder, migrateOnly);
+            var mcpEnabled = runtimeEnabled && builder.AddAgentRuntimeMcp(migrateOnly);
             if (features.Contains(FeatureNames.Ingestion))
-                AddIngestion(builder, runtimeEnabled);
+                builder.AddAgentRuntimeIngestion(runtimeEnabled);
             if (builder.Services.Any(descriptor => descriptor.ServiceType == typeof(IBgFeature)))
                 builder.Services.AddFeatureFlagService(features);
 
@@ -90,8 +90,8 @@ public static partial class AppHost
                 // Endpoint mapping
                 if (runtimeEnabled)
                 {
-                    MapEndpoints(app, tenantAuthenticationEnabled, administrationEnabled);
-                    MapMcp(app, mcpEnabled);
+                    app.MapAgentRuntimeEndpoints(tenantAuthenticationEnabled, administrationEnabled);
+                    app.MapAgentRuntimeMcp(mcpEnabled);
                     MapFrontend(app, administrationEnabled);
                 }
                 else

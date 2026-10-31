@@ -120,9 +120,9 @@ public sealed class RuntimeLoggingManagementTests(RuntimeLoggingPostgreSqlFixtur
         builder.Services.AddAuthentication("Bearer")
             .AddScheme<AuthenticationSchemeOptions, HeaderAuthenticationHandler>("Bearer", _ => { })
             .AddScheme<AuthenticationSchemeOptions, HeaderAuthenticationHandler>(AdministrationAuthenticationSchemes.Cookie, _ => { });
-        AppHost.AddRuntimeLogging(builder);
-        AppHost.AddRuntimeLoggingManagement(builder);
-        builder.Services.AddControllers().AddApplicationPart(typeof(AppHost).Assembly);
+        CasCap.Extensions.WebApplicationBuilderExtensions.AddAgentRuntimeLogging(builder);
+        CasCap.Extensions.WebApplicationBuilderExtensions.AddAgentRuntimeLoggingManagement(builder);
+        builder.Services.AddControllers().AddApplicationPart(typeof(CasCap.Extensions.WebApplicationBuilderExtensions).Assembly);
         var app = builder.Build();
         await using (var db = await app.Services.GetRequiredService<IDbContextFactory<CasCap.Common.Configuration.PostgreSql.RuntimeConfigurationDbContext>>()
             .CreateDbContextAsync(TestContext.Current.CancellationToken))

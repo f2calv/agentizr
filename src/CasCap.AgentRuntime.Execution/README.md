@@ -214,7 +214,7 @@ Keep a longer stable prefix between trims:
 ```
 
 Target and trigger accept `1`–`1000`, with trigger at least target. `Off` suppresses notifications,
-not reduction. The [host configuration examples](../CasCap.App.Server/README.md#configuration-examples)
+not reduction. The [host configuration examples](../CasCap.Backend/README.md#configuration-examples)
 show where these objects belong in provider-keyed runtime and tenant settings.
 
 ## Dependencies

@@ -4,14 +4,17 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 
-namespace CasCap;
+namespace CasCap.Extensions;
 
 /// <summary>Registers human administration: shared Data Protection keys, antiforgery and OIDC cookie sign-in.</summary>
-public static partial class AppHost
+public static partial class WebApplicationBuilderExtensions
 {
     private const string DataProtectionApplicationName = "agentizr";
 
-    private static bool AddAdministration(WebApplicationBuilder builder)
+    /// <summary>Registers shared keys, antiforgery and optional administration authentication.</summary>
+    /// <param name="builder">Application builder.</param>
+    /// <returns>Whether administration authentication is enabled.</returns>
+    public static bool AddAgentRuntimeAdministration(this WebApplicationBuilder builder)
     {
         // Every replica and compatible release must share keys, or cookies and antiforgery tokens fail on the next pod.
         var dataProtection = builder.Services.AddDataProtection().SetApplicationName(DataProtectionApplicationName);

@@ -36,7 +36,7 @@ public sealed class RuntimeLoggingBootstrapTests
             ["CasCap:RuntimeConfigurationConfig:ConnectionString"] = reuse
                 ? null : "Host=localhost;Port=1;Database=independent_database;Username=example",
         });
-        Assert.NotNull(AppHost.AddRuntimeLogging(builder));
+        Assert.NotNull(CasCap.Extensions.WebApplicationBuilderExtensions.AddAgentRuntimeLogging(builder));
         await using var app = builder.Build();
         var options = app.Services.GetRequiredService<RuntimeConfigurationOptions>();
         Assert.Equal("example-application", options.Scope.Application);
@@ -47,7 +47,7 @@ public sealed class RuntimeLoggingBootstrapTests
         var runtimeConnection = new NpgsqlConnectionStringBuilder(runtime.Database.GetConnectionString());
         var applicationConfig = builder.Configuration.GetSection(DatabaseConfig.ConfigurationSectionName).Get<DatabaseConfig>();
         Assert.NotNull(applicationConfig);
-        var applicationConnection = new NpgsqlConnectionStringBuilder(AppHost.EffectiveDatabaseConnectionString(applicationConfig));
+        var applicationConnection = new NpgsqlConnectionStringBuilder(CasCap.Extensions.WebApplicationBuilderExtensions.EffectiveDatabaseConnectionString(applicationConfig));
         Assert.Equal(expectedDatabase, runtimeConnection.Database);
         Assert.Equal("application_database", applicationConnection.Database);
         Assert.Equal(GssEncryptionMode.Disable, runtimeConnection.GssEncryptionMode);
@@ -70,7 +70,7 @@ public sealed class RuntimeLoggingBootstrapTests
             ["CasCap:RuntimeConfigurationConfig:ApplicationDatabaseReuseEnabled"] = reuse.ToString(),
             ["CasCap:RuntimeConfigurationConfig:ConnectionString"] = connection,
         });
-        Assert.Throws<ValidationException>(() => AppHost.AddRuntimeLogging(builder));
+        Assert.Throws<ValidationException>(() => CasCap.Extensions.WebApplicationBuilderExtensions.AddAgentRuntimeLogging(builder));
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public sealed class RuntimeLoggingBootstrapTests
         using var configuration = builder.Configuration;
         builder.Configuration["CasCap:RuntimeConfigurationConfig:ApplicationDatabaseReuseEnabled"] = "true";
         builder.Configuration["CasCap:DatabaseConfig:ConnectionString"] = null;
-        Assert.Throws<InvalidOperationException>(() => AppHost.AddRuntimeLogging(builder));
+        Assert.Throws<InvalidOperationException>(() => CasCap.Extensions.WebApplicationBuilderExtensions.AddAgentRuntimeLogging(builder));
     }
 
     [Fact]
@@ -88,10 +88,10 @@ public sealed class RuntimeLoggingBootstrapTests
     {
         var builder = CreateBuilder();
         builder.Configuration["CasCap:RuntimeConfigurationConfig:Enabled"] = "false";
-        Assert.Null(AppHost.AddRuntimeLogging(builder));
+        Assert.Null(CasCap.Extensions.WebApplicationBuilderExtensions.AddAgentRuntimeLogging(builder));
         Assert.DoesNotContain(builder.Services, descriptor => descriptor.ServiceType == typeof(RuntimeLoggingProbe));
         await using var app = builder.Build();
-        AppHost.MapStatusEndpoint(app);
+        CasCap.Extensions.WebApplicationExtensions.MapStatusEndpoint(app);
         await app.StartAsync(TestContext.Current.CancellationToken);
         using var client = app.GetTestClient();
         var status = await client.GetFromJsonAsync<JsonElement>("/status", TestContext.Current.CancellationToken);

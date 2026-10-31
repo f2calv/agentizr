@@ -1,12 +1,15 @@
 using CasCap.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 
-namespace CasCap;
+namespace CasCap.Extensions;
 
 /// <summary>Registers the HTTP API baseline.</summary>
-public static partial class AppHost
+public static partial class WebApplicationBuilderExtensions
 {
-    private static bool AddWebApi(WebApplicationBuilder builder)
+    /// <summary>Registers the runtime API and validates optional tenant authentication.</summary>
+    /// <param name="builder">Application builder.</param>
+    /// <returns>Whether tenant authentication is enabled.</returns>
+    public static bool AddAgentRuntimeWebApi(this WebApplicationBuilder builder)
     {
         builder.Services.AddAgentRuntimeApi();
         builder.Services.AddHttpContextAccessor();

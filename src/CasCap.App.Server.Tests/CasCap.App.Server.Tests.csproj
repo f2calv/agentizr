@@ -24,6 +24,8 @@
   <ItemGroup>
     <ProjectReference Include="..\CasCap.AgentRuntime.Client\CasCap.AgentRuntime.Client.csproj" />
     <ProjectReference Include="..\CasCap.App.Server\CasCap.App.Server.csproj" />
+    <ProjectReference Include="..\CasCap.Backend\CasCap.Backend.csproj" />
+    <Compile Include="..\CasCap.Backend.Tests\Tests\*.cs" Link="Tests\%(Filename)%(Extension)" />
     <ProjectReference Include="..\..\..\CasCap.Common\src\CasCap.Common.Testing\CasCap.Common.Testing.csproj" Condition="'$(Configuration)' == 'Debug'" />
   </ItemGroup>
 

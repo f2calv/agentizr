@@ -1,14 +1,17 @@
 # CasCap.App.Server.Tests
 
-Unit, in-memory protocol, PostgreSQL/Redis integration and opt-in live-runtime tests for
-`CasCap.App.Server`. Most cases are credential-free; PostgreSQL and Redis cases require the local Compose services and the
+Host, frontend, in-memory protocol, PostgreSQL/Redis integration and opt-in live-runtime tests for
+`CasCap.App.Server`. Application unit coverage lives in
+[CasCap.Backend.Tests](../CasCap.Backend.Tests/README.md); browser draft unit tests remain here.
+Most cases are credential-free; PostgreSQL and Redis cases require the local Compose services and the
 live cases require explicitly configured deployment credentials.
 
 ## Purpose
 
 Protocol tests launch the real application through `WebApplicationFactory<Program>` with scripted
-execution or evaluation substitutes. Unit tests cover orchestration, authentication, metrics and
-state; PostgreSQL integration cases exercise isolated per-fixture databases on reusable Compose services.
+execution or evaluation substitutes. PostgreSQL integration cases exercise isolated per-fixture
+databases on reusable Compose services. Shared helper sources are linked from Backend.Tests without
+referencing its test executable.
 
 ## Tests
 
@@ -24,34 +27,15 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | `AgentRuntimeProtocolTests` | 9 | 12 | Verifies typed-client execution, streaming, DTO/JSON validation problems, session controls and instruction disclosure |
 | `AgentDefinitionAdministrationProtocolTests` | 13 | 23 | Verifies publication Location, evaluation/activation, rollback, deactivation, audit attribution, policy/credential rejection, conflicts and bounded query binding |
 | `TenantSecurityStartupTests` | 8 | 12 | Verifies anonymous rejection, policy separation on all runtime and administration controller actions, the setup page shown instead of an unusable frontend, required JWT/PostgreSQL and optional Redis in Production |
-| `AgentExecutionCoordinatorTests` | 7 | 12 | Verifies execution/session orchestration, stateless isolation and effective read policy, all six rejected session mutations and the actual HTTP 409 problem response |
-| `DocumentPreparationAgentTemplateTests` | 3 | 3 | Verifies the authoritative built-in instructions, bounded secret-free template, editor preservation and actual runtime execution without discovery tools, time context, overrides, persisted sessions or content history |
-| `AgentRuntimeBuiltInToolsTests` | 3 | 5 | Verifies root runtime tools, reachable delegation metadata, tenant-local time formatting and opt-out |
-| `AgentRuntimeMetricsTests` | 5 | 5 | Verifies execution and bounded HA dimensions, ownership balance, duration and conflict outcomes |
-| `CommonAgentExecutorTests` | 7 | 7 | Verifies tool composition/discovery, unreachable-source fallback and per-round-trip history projection without binary content |
-| `AgentDefinitionEvaluatorTests` | 4 | 6 | Verifies fixture-backed delegation grading, failed tool selection and answers, pass-rate thresholds, and request validation |
-| `TenantStateIsolationTests` | 2 | 2 | Verifies process-local tenant isolation and collision-free keys |
-| `AgentSessionLockTests` | 3 | 5 | Verifies fail-fast Development ownership, resource isolation, cancellation and idempotent release |
 | `AgentSessionConflictTests` | 1 | 8 | Verifies all session mutation routes return HTTP 409 on overlap, including streaming before headers |
 | `PostgresAgentStateTests` | 8 | 8 | Durable state/cache recovery, isolation, revisions, connection-loss fencing, two-host contention and real-operation HA metric privacy/balance |
 | `AgentRunHistoryTests` | 4 | 7 | Durable messages/tools, redaction/binary exclusion, success/failure/cancellation, interruption recovery, opt-in and archive preservation after reset |
-| `AdministrationAccessTests` | 5 | 14 | Verifies configuration-only administrator assignment, that an assignment alone never creates an app, open-Development conditions and route-selected administration tenancy |
-| `AdministrationSetupServiceTests` | 3 | 5 | Verifies setup pages report setting status without values, encode request input and detect ignored forwarded HTTPS |
-| `AuthenticatedTenantContextTests` | 4 | 4 | Verifies caller-derived tenant identity, missing/unmapped caller rejection, and opaque Redis keys |
-| `AgentRuntimeAuthorizationTests` | 4 | 6 | Verifies delegated scopes, application roles, and caller-to-tenant mapping validation |
-| `PostgresAgentDefinitionStoreTests` | 5 | 5 | Verifies immutable publication, active-version changes, duplicate rejection, history, tenant isolation, paged agent discovery and stale active-version conflicts |
 | `PostgresAgentDefinitionStoreIntegrationTests` | 9 | 9 | Against real PostgreSQL: migrations, `jsonb` storage and round trip, sequential and concurrent duplicate-version conflicts, advisory-lock-serialised concurrent activation, the tenant-scoped activation lock, audited deactivation, tenant isolation, discovery queries and stale active-version conflicts |
-| `CachedAgentDefinitionStoreTests` | 3 | 3 | Verifies immutable payload caching, pointer invalidation across activation/deactivation and absolute expiry before authoritative reload |
-| `ConfigurationMcpCredentialStoreTests` | 2 | 2 | Verifies tenant-scoped Authorization resolution and shared Basic credential fallback |
-| `ConfigurationProviderCredentialStoreTests` | 2 | 5 | Verifies the runtime's Entra credential is offered only to a tenant's opted-in providers |
-| `SessionCompactionConfigTests` | 3 | 6 | Verifies per-provider compaction resolution (tenant override, runtime entry, defaults) and startup validation |
 | `LiveAgentRuntimeSmokeTests` | 1 | 1 | Opt-in authenticated run, streaming, session inspection and cleanup against a complete live runtime |
 | `RuntimeLoggingTests` (Debug only) | 1 | 2 | Real PostgreSQL verifies application database-name override, actual-switch status, forwarding, category overrides, cache retention and expiry to Information or Debug startup baselines |
 | `RuntimeLoggingBootstrapTests` (Debug only) | 4 | 6 | Offline bootstrap selection, missing/ambiguous connection rejection, normalized application target and unchanged disabled HTTP status shape |
 | `RuntimeLoggingManagementTests` (Debug only) | 2 | 5 | Named cookie/operator authorization, JSON antiforgery, read/preview/publish through isolated PostgreSQL and actual reader changes |
 | `RuntimeLoggingUiTests` (Debug only) | 3 | 6 | Actual WASM page/RCL rendering, typed levels, exact revisions, read-only loading, failure states and compatible browser-neutral wire DTO |
-| `RuntimeLoggingAuthorizationTests` (Debug only) | 3 | 9 | Explicit host-wide grants, mutually exclusive grant validation and disabled bootstrap-controller discovery |
-| **Runtime baseline subtotal** | **147** | **225** | Excludes Debug-only logging; role/ingestion additions are listed separately below |
 
 The runtime logging soak is Debug-only. Run its focused cases with:
 
@@ -81,9 +65,6 @@ These additional role/ingestion tests are separate from the runtime baseline inv
 
 | Class | Methods | Cases | Scope |
 | --- | ---: | ---: | --- |
-| `FeatureConfigTests` | 3 | 11 | Default, normalization, duplicate, unknown, empty and incompatible finite-role selections; Debug and Release |
-| `DocumentIngestionConfigTests` | 7 | 23 | Synthetic source/queue configuration, canonical HTTPS endpoints, visibility, processing/sync deadlines and recurring five-field calendars |
-| `DocumentIngestionAdmissionTests` | 9 | 20 | Commit-before-ack, infrastructure/argument failures, cancellation, malformed envelopes, source isolation and sequencer normalization |
 | `DocumentIngestionInboxTests` | 16 | 19 | SQLite admission, disabled/missing processors, terminal outcomes, exact retry delay/attempt limit, expired and replaced claims, supersession, cancellation, deadline cleanup and unknown faults |
 | `DocumentIngestionLeadershipTests` | 3 | 4 | Fake-runner ownership, cancellation on loss, gated processing resolution and clock-driven startup/hourly durable synchronization |
 | `DocumentIngestionCompositionTests` | 1 | 4 | Real local/hybrid-router DI, idempotent API/ingestion source binding, disabled/enabled gates, explicitly removed processor rejection and test substitution; no transport starts |
@@ -154,9 +135,6 @@ vocabulary; they need no network, credentials, live documents or external servic
 
 | Class | Methods | Cases | Scope |
 | --- | ---: | ---: | --- |
-| `DocumentChunkingTests` | 5 | 15 | Actual token limits and overlap, exact German/emoji/CJK coverage, scalar boundaries, advancing windows, per-call profile identity/JSON and cancellation |
-| `DocumentPreparationConfigTests` | 3 | 6 | Default resource limits, invalid caps and nested chunking validation |
-| `PdfDocumentPreparationTests` | 15 | 21 | Generated PDF extraction/page attribution, independent per-call settings, exact byte/page/text/chunk thresholds, malformed/encrypted/no-text rejection, borrowed/current-position/nonseekable streams, bounded reads, cancellation and propagated I/O failures |
 | **Preparation subtotal** | **23** | **42** | Local preparation only, not an ingestion processor or persisted search generation |
 
 Run just this group from the repository root:
@@ -176,9 +154,9 @@ solution built with zero warnings/errors; neither check ran the complete applica
 
 | Class | Methods | Cases | Scope |
 | --- | ---: | ---: | --- |
-| [`DocumentMarkdownChunkingTests`](Tests/Unit/DocumentMarkdownChunkingTests.cs) | 17 | 30 | Debug-only synthetic heading projection, tagged `MarkdownChunking` |
-| [`DocumentMarkdownReviewTests`](Tests/Unit/DocumentMarkdownReviewTests.cs) | 10 | 32 | Explicit source-role exclusions, unchanged provenance, atomic blocks, audit/identity, stale/invalid annotation rejection; tagged `MarkdownChunking` |
-| [`DocumentMarkdownStructureTests`](Tests/Unit/DocumentMarkdownStructureTests.cs) | 10 | 33 | Reviewed heading levels, paragraph promotion, layout/relational distinction, column-major entries, empty/additional cells, exact Unicode/inline spans, atomic budgets and invalid decisions; tagged `MarkdownChunking` |
+| [`DocumentMarkdownChunkingTests`](../CasCap.Backend.Tests/Tests/Unit/DocumentMarkdownChunkingTests.cs) | 17 | 30 | Debug-only synthetic heading projection, tagged `MarkdownChunking` |
+| [`DocumentMarkdownReviewTests`](../CasCap.Backend.Tests/Tests/Unit/DocumentMarkdownReviewTests.cs) | 10 | 32 | Explicit source-role exclusions, unchanged provenance, atomic blocks, audit/identity, stale/invalid annotation rejection; tagged `MarkdownChunking` |
+| [`DocumentMarkdownStructureTests`](../CasCap.Backend.Tests/Tests/Unit/DocumentMarkdownStructureTests.cs) | 10 | 33 | Reviewed heading levels, paragraph promotion, layout/relational distinction, column-major entries, empty/additional cells, exact Unicode/inline spans, atomic budgets and invalid decisions; tagged `MarkdownChunking` |
 | **Projection subtotal** | **37** | **95** | Synthetic, Debug-only; no provider or database access |
 
 Synthetic Markdown covers ATX/Setext ancestry,
@@ -203,7 +181,7 @@ a Unicode scalar that exceeds the soft budget must still fit when the remaining 
 
 | Class | Methods | Cases | Scope |
 | --- | ---: | ---: | --- |
-| [`DocumentPreparationOfflineReviewTests`](Tests/Unit/DocumentPreparationOfflineReviewTests.cs) | 8 | 14 | Thirteen synthetic export/coverage cases plus one separately gated local-artifact check; tagged `OfflineDocumentReview` |
+| [`DocumentPreparationOfflineReviewTests`](../CasCap.Backend.Tests/Tests/Unit/DocumentPreparationOfflineReviewTests.cs) | 8 | 14 | Thirteen synthetic export/coverage cases plus one separately gated local-artifact check; tagged `OfflineDocumentReview` |
 
 The local-artifact case reads only the existing export's encoded transcription elements, never its
 managed drafts or annotation lists. It verifies PDF SHA-256 pins, original page selections and
@@ -246,7 +224,7 @@ failed check, with rejection evidence retained rather than a larger-budget retry
 For an explicitly approved annotation run, additionally set
 `CASCAP_DOCUMENT_REVIEW_ANNOTATIONS` to an absolute private directory containing
 `source-1.review.json` and `source-2.review.json`, then use a fresh output directory.
-Each file follows the [versioned source-review contract](../CasCap.App.Server/Models/DocumentMarkdownSourceReview.cs)
+Each file follows the [versioned source-review contract](../CasCap.Backend/Models/DocumentMarkdownSourceReview.cs)
 (current schema 2, including explicit `exclusions`, `headings` and `layoutTables` collections),
 not a text-matching cleanup rule. Without this optional directory, the original unannotated
 projection remains available. No review identity or source path is inferred from document text.
@@ -318,7 +296,7 @@ The shared library is exercised with an SDK-client test double; the library's se
 verify actual SDK HTTP requests through an offline handler. Neither suite accesses live storage.
 
 ```powershell
-dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter-class '*DocumentBlobDownloadTests' '*DocumentIngestionCompositionTests'
+dotnet test --project src\CasCap.Backend.Tests --configuration Debug --filter-class '*DocumentBlobDownloadTests' '*DocumentIngestionCompositionTests'
 ```
 
 The current download/composition selection has 25 cases: 21 download and four composition cases,
@@ -419,13 +397,13 @@ supersession, input-token overruns, expired claims and ownership cancellation. A
 reservation acknowledgement is classified from durable intent, not a local submitted flag.
 The [Azure HTTP cases](Tests/Integration/DocumentEmbeddingHttpTests.cs) use synthetic credentials
 and a fake handler to check exact ARM/deployment/input bindings, API-key/Entra paths and one
-non-retried submission. [Response tests](Tests/Unit/DocumentEmbeddingProviderTests.cs) cover
+non-retried submission. [Response tests](../CasCap.Backend.Tests/Tests/Unit/DocumentEmbeddingProviderTests.cs) cover
 indexes, finite nonzero dimensions, native usage, malformed JSON kinds and byte limits.
 The [Ollama HTTP cases](Tests/Integration/DocumentOllamaEmbeddingHttpTests.cs) exercise actual
 provider dispatch, tenant/authority denial before HTTP, installed digest/capability/dimensions,
 local-only metadata, pre/post-submission tag drift, exact inputs, disabled truncation, unload,
 transport failure/cancellation and single-attempt behavior. The
-[Ollama response cases](Tests/Unit/DocumentOllamaEmbeddingProviderTests.cs) check ordered vectors,
+[Ollama response cases](../CasCap.Backend.Tests/Tests/Unit/DocumentOllamaEmbeddingProviderTests.cs) check ordered vectors,
 native usage and malformed results. These classes use only fake HTTP and need no running Ollama,
 GPU or model download. Run them with `--filter-class
 CasCap.Tests.Unit.DocumentOllamaEmbeddingProviderTests CasCap.Tests.Integration.DocumentOllamaEmbeddingHttpTests`.
@@ -691,9 +669,9 @@ an isolated SQLite database and fake HTTP/providers; they never start a live wor
 | --- | ---: | ---: | --- |
 | [`DocumentHybridPreparationTests`](Tests/Integration/DocumentHybridPreparationTests.cs) | 17 | 31 | Real admission/PDF processing, pinned plans, selected original pages and source limits, single-submission receipts, exact claim/tenant fences, foreign keys, cancellation-time accounting, expired-intent blocking, managed GET resume, recorded-response reuse and review-only heading projection excluding annotations/usage |
 | [`DocumentPreparationProviderTests`](Tests/Integration/DocumentPreparationProviderTests.cs) | 1 | 4 | Actual worker adapter, framework executor and SDK with fake HTTP: worker-local tenant credentials, selected physical-page authorization/schema, output ceiling, no ambient HTTP tenancy or definition re-resolution |
-| [`DocumentPreparationModelVerifierTests`](Tests/Unit/DocumentPreparationModelVerifierTests.cs) | 3 | 12 | Bounded read-only ARM requests, exact account/endpoint/deployment/model/revision binding, redacted failure, oversized metadata and pre-cancellation |
-| [`DocumentPreparationPlanTests`](Tests/Unit/DocumentPreparationPlanTests.cs) | 1 | 17 | Explicit budgets, distinct physical-page selections and supported stateless, secret-free, exact-schema Azure Responses authorization |
-| [`DocumentPreparationCandidateTests`](Tests/Unit/DocumentPreparationCandidateTests.cs) | 2 | 12 | Markdown whitespace/entity projection without receipt mutation, encoded preview content, separate/collapsed changes, conditional page uncertainties and no inline usage |
+| [`DocumentPreparationModelVerifierTests`](../CasCap.Backend.Tests/Tests/Unit/DocumentPreparationModelVerifierTests.cs) | 3 | 12 | Bounded read-only ARM requests, exact account/endpoint/deployment/model/revision binding, redacted failure, oversized metadata and pre-cancellation |
+| [`DocumentPreparationPlanTests`](../CasCap.Backend.Tests/Tests/Unit/DocumentPreparationPlanTests.cs) | 1 | 17 | Explicit budgets, distinct physical-page selections and supported stateless, secret-free, exact-schema Azure Responses authorization |
+| [`DocumentPreparationCandidateTests`](../CasCap.Backend.Tests/Tests/Unit/DocumentPreparationCandidateTests.cs) | 2 | 12 | Markdown whitespace/entity projection without receipt mutation, encoded preview content, separate/collapsed changes, conditional page uncertainties and no inline usage |
 | **Hybrid subtotal** | **24** | **76** | Local implementation proof, not PostgreSQL concurrency, Azure access, document fidelity or invoice reconciliation |
 
 ```powershell
@@ -798,7 +776,7 @@ receipts are reused, unknown submissions stay blocked despite late receipts, and
 remain `ReviewRequired` without chunks or searchable activation. Native token counts round-trip exactly;
 these checks neither estimate currency nor reconcile an invoice.
 
-Agentizr owns the [preparation definition](../CasCap.App.Server/Constants/DocumentPreparationAgentTemplate.cs);
+Agentizr owns the [preparation definition](../CasCap.Backend/Constants/DocumentPreparationAgentTemplate.cs);
 tests consume that contract rather than a second prompt or inference client. Its admin-catalogue
 template is unconfigured: select a tenant-authorized Azure OpenAI provider/model and explicitly
 publish/activate a tenant-local version before binding a source. The worker pins that immutable
@@ -894,88 +872,13 @@ only when testing a local runtime with authentication disabled.
 
 ```text
 Tests/
-├── AgentDefinitionTestData.cs
-├── DocumentHybridPreparationTestData.cs
-├── DocumentIngestionTestData.cs
-├── DocumentPreparationReviewRenderer.cs
-├── DocumentPreparationTestData.cs
-├── ScriptedEvaluationAgentFactory.cs
-├── Integration/
-│   ├── AdministrationApiTests.cs
-│   ├── AdministrationComponentTestRenderer.cs
-│   ├── AdministrationDocumentReviewTests.cs
-│   ├── AdministrationDocumentSynchronizationTests.cs
-│   ├── AdministrationDocumentUiTests.cs
-│   ├── AdministrationDefinitionUiTests.cs
-│   ├── AdministrationReplicaTests.cs
-│   ├── AdministrationSignInTests.cs
-│   ├── AdministrationSignInWebApplicationFactory.cs
-│   ├── AdministrationTestClient.cs
-│   ├── AgentizrMcpEndpointTests.cs
-│   ├── AgentizrWebApplicationFactory.cs
-│   ├── AgentDefinitionAdministrationProtocolTests.cs
-│   ├── AgentDefinitionAdministrationWebApplicationFactory.cs
-│   ├── AgentRuntimeProtocolTests.cs
-│   ├── AgentSessionConflictTests.cs
-│   ├── EndpointSmokeTests.cs
-│   ├── DocumentIngestionInboxTests.cs
-│   ├── DocumentIngestionLeadershipTests.cs
-│   ├── DocumentIngestionHostIntegrationTests.cs
-│   ├── DocumentHybridPreparationTests.cs
-│   ├── DocumentMarkdownGenerationTests.cs
-│   ├── DocumentPreparationLiveAcceptanceTests.cs
-│   ├── DocumentPreparationPersistenceTests.cs
-│   ├── DocumentPreparationProviderTests.cs
-│   ├── DocumentReviewWebApplicationFactory.cs
-│   ├── HostIntegrationCollection.cs
-│   ├── McpAgentizrWebApplicationFactory.cs
-│   ├── PostgreSqlFixture.cs
-│   ├── PostgresAgentDefinitionStoreIntegrationTests.cs
-│   ├── PostgresAdministrationDocumentReviewTests.cs
-│   ├── PostgresDocumentPreparationIntegrationTests.cs
-│   ├── PostgresDocumentMarkdownGenerationTests.cs
-│   ├── PostgresDocumentPreparationPersistenceTests.cs
-│   ├── AgentRunHistoryTests.cs
-│   ├── PostgresAgentStateTests.cs
-│   ├── RedisStateFixture.cs
-│   ├── RetainedDocumentReviewAcceptanceTests.cs
-│   └── TenantSecurityStartupTests.cs
-├── Local/
-│   ├── LiveAgentRuntimeSmokeTests.cs
-│   ├── LiveAgentRuntimeTestSettings.cs
-│   ├── LocalAgentRuntimeFactAttribute.cs
-│   └── LocalAgentRuntimeTestEnvironment.cs
-└── Unit/
-    ├── AdministrationAccessTests.cs
-    ├── AdministrationSetupServiceTests.cs
-    ├── DefinitionVersionSuggestionTests.cs
-    ├── AgentDefinitionEvaluatorTests.cs
-    ├── AgentRuntimeAuthorizationTests.cs
-    ├── AgentRuntimeBuiltInToolsTests.cs
-    ├── AgentRuntimeMetricsTests.cs
-    ├── AuthenticatedTenantContextTests.cs
-    ├── AgentExecutionCoordinatorTests.cs
-    ├── AgentSessionLockTests.cs
-    ├── CachedAgentDefinitionStoreTests.cs
-    ├── ConfigurationMcpCredentialStoreTests.cs
-    ├── ConfigurationProviderCredentialStoreTests.cs
-    ├── CommonAgentExecutorTests.cs
-    ├── DocumentPreparationAgentTemplateTests.cs
-    ├── DocumentPreparationCandidateTests.cs
-    ├── DocumentPreparationOfflineReviewTests.cs
-    ├── DocumentIngestionAdmissionTests.cs
-    ├── DocumentIngestionConfigTests.cs
-    ├── DocumentMarkdownChunkingTests.cs
-    ├── DocumentMarkdownReviewTests.cs
-    ├── DocumentMarkdownStructureTests.cs
-    ├── DocumentPreparationModelVerifierTests.cs
-    ├── DocumentPreparationPlanTests.cs
-    ├── FeatureConfigTests.cs
-    ├── InMemoryDistributedCache.cs
-    ├── PostgresAgentDefinitionStoreTests.cs
-    ├── SessionCompactionConfigTests.cs
-    └── TenantStateIsolationTests.cs
+├── Integration/   # Real host, frontend, PostgreSQL/Redis and provider coverage
+├── Local/         # Explicitly enabled deployed-runtime smoke tests
+└── Unit/          # Browser drafts: version suggestion, approval and chunk selection
 ```
+
+Application unit tests live in [Backend.Tests](../CasCap.Backend.Tests/README.md).
+Root fixture/helper sources are linked from that project, not copied or referenced as a test executable.
 
 ## Run
 
@@ -1002,10 +905,7 @@ $env:AppConfig__KeyVaultName = 'skip'
 dotnet test --project src\CasCap.App.Server.Tests\CasCap.App.Server.Tests.csproj --configuration Debug --filter-not-trait 'Category=PostgreSQL' 'Category=Redis' 'Category=Local Agent Runtime'
 ```
 
-Observed after document-harness cleanup: **421 passed, zero failed/skipped**. The execution-library
-offline selection also passed **145 cases**; the shared Azure layout transport passed **330 cases**
-across .NET 8/9/10. The full Debug and Release solutions build without warnings/errors.
-PostgreSQL, Redis and live/provider tests were excluded, not validated.
+Backend unit coverage belongs to the separate [Backend.Tests](../CasCap.Backend.Tests/README.md) project. To select matching cases across both projects, use the appropriate repository solution with `dotnet test --solution`, rather than assuming this host-test project contains all application unit tests.
 
 ## Dependencies
 

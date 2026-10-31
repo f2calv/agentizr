@@ -4,12 +4,14 @@ using CasCap.Constants;
 using CasCap.RuntimeConfiguration.Services;
 using Microsoft.AspNetCore.Authorization;
 
-namespace CasCap;
+namespace CasCap.Extensions;
 
 /// <summary>Opts the Debug host into explicitly authorized, host-wide logging management.</summary>
-public static partial class AppHost
+public static partial class WebApplicationBuilderExtensions
 {
-    internal static void AddRuntimeLoggingManagement(WebApplicationBuilder builder)
+    /// <summary>Registers the explicitly authorized Debug logging administration surface.</summary>
+    /// <param name="builder">Application builder.</param>
+    public static void AddAgentRuntimeLoggingManagement(this WebApplicationBuilder builder)
     {
         var settings = builder.Configuration.GetSection("CasCap:RuntimeConfigurationConfig")
             .Get<RuntimeConfigurationConfig>() ?? new();

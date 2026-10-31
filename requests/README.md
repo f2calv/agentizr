@@ -75,5 +75,5 @@ Success responses use JSON except empty 204 mutations. Automatic validation erro
 409 responses use Problem Details. Requests containing deliberate failures are titled accordingly.
 Manual/static inspection does not establish any live response or authentication behavior.
 
-See the [HTTP contract](../src/CasCap.App.Server/README.md) and
+See the [HTTP contract](../src/CasCap.Backend/README.md) and
 [HA failure boundaries](../docs/high-availability.md) before using mutations.

@@ -1,12 +1,16 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
-namespace CasCap;
+namespace CasCap.Extensions;
 
 /// <summary>Registers shared persistence independently of web and worker roles.</summary>
-public static partial class AppHost
+public static partial class WebApplicationBuilderExtensions
 {
-    private static bool AddDatabase(WebApplicationBuilder builder, bool required)
+    /// <summary>Registers the runtime database factory and finite migration service.</summary>
+    /// <param name="builder">Application builder.</param>
+    /// <param name="required">Whether missing PostgreSQL configuration prevents startup.</param>
+    /// <returns>Whether persistence is configured.</returns>
+    public static bool AddAgentRuntimeDatabase(this WebApplicationBuilder builder, bool required)
     {
         builder.Services.AddOptionsWithValidateOnStart<DatabaseConfig>()
             .BindConfiguration(DatabaseConfig.ConfigurationSectionName)

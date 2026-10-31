@@ -1,13 +1,16 @@
 using CasCap.Common.Extensions;
 using CasCap.Common.Models;
 
-namespace CasCap;
+namespace CasCap.Extensions;
 
 /// <summary>Registers application-level host services.</summary>
-public static partial class AppHost
+public static partial class WebApplicationBuilderExtensions
 {
-    private static void AddFeatures(
-        WebApplicationBuilder builder,
+    /// <summary>Registers runtime execution, definition administration and shared prerequisites.</summary>
+    /// <param name="builder">Application builder.</param>
+    /// <param name="tenantAuthenticationEnabled">Whether caller identity is authenticated.</param>
+    public static void AddAgentRuntimeFeatures(
+        this WebApplicationBuilder builder,
         bool tenantAuthenticationEnabled)
     {
         builder.Services.AddOptionsWithValidateOnStart<AgentRuntimeConfig>()
@@ -27,7 +30,7 @@ public static partial class AppHost
         if (redisEnabled)
             builder.Services.AddCasCapCaching(builder.Configuration);
 
-        var postgresEnabled = AddDatabase(builder, !builder.Environment.IsDevelopment());
+        var postgresEnabled = builder.AddAgentRuntimeDatabase(!builder.Environment.IsDevelopment());
         AddDocumentReviews(builder, postgresEnabled);
 
         if (tenantAuthenticationEnabled)

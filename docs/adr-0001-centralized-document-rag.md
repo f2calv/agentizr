@@ -46,15 +46,15 @@ Issue #73 was closed at the user's request after this proposal was drafted; PR #
 
 ### Current Agentizr Baseline
 
-- [Persistence](persistence.md) and [AgentRuntimeDbContext](../src/CasCap.App.Server/AgentRuntimeDbContext.cs)
+- [Persistence](persistence.md) and [AgentRuntimeDbContext](../src/CasCap.Backend/AgentRuntimeDbContext.cs)
   establish PostgreSQL as durable authority and Redis as optional, disposable caching.
-- [Host registration](../src/CasCap.App.Server/AppHost.Features.cs) wires PostgreSQL stores,
+- [Host registration](../src/CasCap.Backend/Extensions/WebApplicationBuilderExtensions.Features.cs) wires PostgreSQL stores,
   tenant context, runtime execution, session serialization and evaluation.
-- [AuthenticatedTenantContext](../src/CasCap.App.Server/Services/AuthenticatedTenantContext.cs)
+- [AuthenticatedTenantContext](../src/CasCap.Backend/Services/AuthenticatedTenantContext.cs)
   maps validated caller claims to an allowed tenant. An application is the administration tenant
-  boundary; [AdministrationAccessService](../src/CasCap.App.Server/Services/AdministrationAccessService.cs)
+  boundary; [AdministrationAccessService](../src/CasCap.Backend/Services/AdministrationAccessService.cs)
   separately authorizes human administrators.
-- [AgentDefinition](../src/CasCap.App.Server/Models/AgentDefinition.cs),
+- [AgentDefinition](../src/CasCap.Backend/Models/AgentDefinition.cs),
   [AgentConfig](../src/CasCap.AgentRuntime.Execution/Models/_AgentConfig.cs) and
   [IAgentRuntimeClient](../src/CasCap.AgentRuntime.Client/Abstractions/IAgentRuntimeClient.cs)
   currently have no dedicated document-ingestion or knowledge-retrieval contract.
@@ -66,7 +66,7 @@ Issue #73 was closed at the user's request after this proposal was drafted; PR #
 - The adjacent `CasCap.Api.Azure.EventGrid` checkout now has a reusable `BlobStorageEventReader`
   and normalized `BlobStorageEvent` model. These local APIs are not yet published packages.
   There is still no shared subscriber or provisioning API; Agentizr owns queue admission.
-- [Role selection](../src/CasCap.App.Server/Models/_FeatureConfig.cs) and
+- [Role selection](../src/CasCap.Backend/Models/_FeatureConfig.cs) and
   [host composition](../src/CasCap.App.Server/AppHost.cs) now separate API, ingestion and migration
   responsibilities. This is one application host, not three independently built services.
 
@@ -170,7 +170,7 @@ The service derives tenant identity from the existing trusted context, never fro
 model-generated tool argument or query parameter. Human administration continues through the
 existing configured administrator assignment, cookie policy and antiforgery protection.
 Define separate machine permissions for knowledge read/search and knowledge mutation; the
-existing [permissions](../src/CasCap.App.Server/Constants/AgentRuntimePermissions.cs) do not grant
+existing [permissions](../src/CasCap.Backend/Constants/AgentRuntimePermissions.cs) do not grant
 these capabilities today. `agent.execute` must not implicitly authorize document management.
 Internal retrieval uses the resolved tenant and agent collection allowlist.
 
@@ -299,7 +299,7 @@ tokens including reasoning. Existing managed results are reused without new Docu
 analysis. This is a quality experiment, not a production provider or an accepted upload method.
 
 The contract now owned by the
-[built-in definition](../src/CasCap.App.Server/Constants/DocumentPreparationAgentTemplate.cs) requires
+[built-in definition](../src/CasCap.Backend/Constants/DocumentPreparationAgentTemplate.cs) requires
 faithful transcription without summarizing, translating, simplifying language or correcting the
 author's spelling. Prefer ordinary Markdown over HTML. Simple two-column pairs may become
 hyphenated list items when every source value, header and wrapped/multiple example remains
@@ -336,9 +336,9 @@ fidelity acceptance or authorization to change defaults, enable processing or ex
 The proposed production LLM-assisted path uses Agentizr's own agent runtime, not a separate
 application-specific prompt runner. Ship a reusable built-in document-preparation definition
 template, then publish and explicitly activate immutable tenant-local versions through the
-existing [definition administration](../src/CasCap.App.Server/Services/AgentDefinitionAdministrationService.cs)
+existing [definition administration](../src/CasCap.Backend/Services/AgentDefinitionAdministrationService.cs)
 contract. Reuse the tenant-qualified
-[AgentDefinition](../src/CasCap.App.Server/Models/AgentDefinition.cs) model rather than introducing
+[AgentDefinition](../src/CasCap.Backend/Models/AgentDefinition.cs) model rather than introducing
 a privileged global agent that can read every application's documents. Template installation
 must not silently activate chargeable processing or overwrite an administrator's selected version.
 The opt-in template/runtime foundation and Debug durable worker binding are implemented locally,
@@ -378,7 +378,7 @@ gated on provider-backed checks and semantic-quality acceptance.
 
 Implementation boundary:
 
-- [x] Ship the [preparation template](../src/CasCap.App.Server/Constants/DocumentPreparationAgentTemplate.cs)
+- [x] Ship the [preparation template](../src/CasCap.Backend/Constants/DocumentPreparationAgentTemplate.cs)
   through the authorized provider catalogue and new-agent editor. It has no provider registration,
   endpoint or model selected; publication and activation remain explicit tenant-local operations.
 - [x] Add an opt-in [Responses adapter](../src/CasCap.AgentRuntime.Execution/Extensions/AgentExtensions.Responses.cs)
@@ -397,20 +397,20 @@ Implementation boundary:
 - [x] Validate the local foundation with 62 focused synthetic/offline tests (25 execution-library
   and 37 host/template/editor cases) and clean Release host/frontend builds. These checks do not
   contact a provider, install/activate definitions, prove document fidelity or enable ingestion.
-- [x] Add the Debug [hybrid worker](../src/CasCap.App.Server/Services/HybridDocumentProcessor.cs)
-  and [admission plan](../src/CasCap.App.Server/Services/DocumentPreparationPlanService.cs).
+- [x] Add the Debug [hybrid worker](../src/CasCap.Backend/Services/HybridDocumentProcessor.cs)
+  and [admission plan](../src/CasCap.Backend/Services/DocumentPreparationPlanService.cs).
   Pin the exact active tenant-local snapshot, explicit model/revision/resource binding and paid
   budgets in the inbox transaction. Old/null plans retain local PDF processing. Before each new
   paid stage, verify tenant credentials/current endpoint policy and read-only account/deployment
   metadata; a model/endpoint mismatch authorizes no paid intent.
-- [x] Persist [single-submission intents and receipts](../src/CasCap.App.Server/Services/DocumentPreparationOperationStore.cs)
+- [x] Persist [single-submission intents and receipts](../src/CasCap.Backend/Services/DocumentPreparationOperationStore.cs)
   for managed analysis and each physical page. Resume managed receipts with GET only and reuse
   captured model responses, including malformed/incomplete responses and their usage. An intent
   without a receipt becomes `ReconciliationRequired`, never permission for another POST.
   Bind logical identity to original bytes, physical page, draft, plan and copier version; retain
   the first submitted derived-PDF digest separately because PDF writer metadata is nondeterministic.
   Late bounded audit writes cannot complete an expired/deleted/superseded job.
-- [x] Execute the actual [runtime adapter](../src/CasCap.App.Server/Services/DocumentPreparationProvider.cs)
+- [x] Execute the actual [runtime adapter](../src/CasCap.Backend/Services/DocumentPreparationProvider.cs)
   with immutable worker-local tenancy, a page-specific strict schema, output ceilings and request
   deadlines. Validate exact fields/page/model/completion and native counters locally. Retain
   candidates as `ReviewRequired`, without chunks, embeddings or searchable activation.
@@ -569,9 +569,9 @@ not PDF coordinates, and model-reordered text cannot be assigned invented precis
 When only page provenance is established, expose a page citation and report region mapping as
 unavailable; require accurate region mappings for features that promise highlighting.
 
-The current [chunk entity](../src/CasCap.App.Server/Entities/DocumentTextChunkEntity.cs) already records
+The current [chunk entity](../src/CasCap.Backend/Entities/DocumentTextChunkEntity.cs) already records
 generation ownership, physical page and normalized extracted-text offsets; the
-[generation store](../src/CasCap.App.Server/Services/DocumentPreparationStoreService.cs) records source
+[generation store](../src/CasCap.Backend/Services/DocumentPreparationStoreService.cs) records source
 hash/ETag. Neither supplies the proposed structured-block/region/figure mapping or heading projection.
 Retain immutable originals for the supported citation lifetime. Citation routes identify an opaque
 document/version/page/region and reauthorize reads; a viewer can implement page navigation and
@@ -813,7 +813,7 @@ authorized profile/generation; original and normalized content remain independen
 ### D4a: Queue Transport Is Replaceable Without Weakening Delivery
 
 Use the application-owned
-[`IDocumentIngestionEventQueue`](../src/CasCap.App.Server/Abstractions/IDocumentIngestionEventQueue.cs)
+[`IDocumentIngestionEventQueue`](../src/CasCap.Backend/Abstractions/IDocumentIngestionEventQueue.cs)
 with bounded receive, opaque receipt/lease, lease renewal,
 acknowledgement, delayed retry/release and durable poison disposition. Expose cancellation and
 recognized failure states; keep Azure/Redis SDK message types out of the ingestion use case.
@@ -828,7 +828,7 @@ for queue transport, but its current
 [AzQueueStorageBase](https://github.com/f2calv/CasCap.Api.Azure/blob/main/src/CasCap.Api.Azure.Storage/Services/Base/AzQueueStorageBase.cs)
 deletes received messages before the caller commits application work and logs malformed bodies.
 It cannot directly implement durable inbox admission. The local
-[Azure adapter](../src/CasCap.App.Server/Services/AzureDocumentIngestionQueue.cs) therefore uses SDK
+[Azure adapter](../src/CasCap.Backend/Services/AzureDocumentIngestionQueue.cs) therefore uses SDK
 receive/update/delete operations explicitly, via the shared storage dependency. A reusable leased
 consumer can move into that library when another consumer needs the same contract; do not change
 the existing destructive helper's behavior implicitly.
@@ -867,7 +867,7 @@ serves every role; no separate entrypoint, Dockerfile or worker image is introdu
 The ingestion PoC currently requires Debug sibling-project references. Release explicitly rejects
 that selection until the new shared APIs are published and its package path is validated.
 
-The [ingestion feature](../src/CasCap.App.Server/Services/DocumentIngestionFeature.cs) delegates lease
+The [ingestion feature](../src/CasCap.Backend/Services/DocumentIngestionFeature.cs) delegates lease
 acquisition, loss, awaited cleanup and reacquisition to the shared `ILeadershipRunner`, not a custom
 Redlock loop. Use a stable installation-qualified `LeadershipResource` identical on all ingestion
 replicas, never a pod-specific name. `CachingConfig.RemoteCache.IsEnabled`,
@@ -877,7 +877,7 @@ Leadership loss cancels receive, database work, acknowledgement and idle waits t
 token, including processing attempts. Only the owner's callback starts ingestion. This is coordination, not exactly-once execution
 or downstream fencing.
 
-The [inbox](../src/CasCap.App.Server/Services/DocumentIngestionInboxService.cs) uses a PostgreSQL
+The [inbox](../src/CasCap.Backend/Services/DocumentIngestionInboxService.cs) uses a PostgreSQL
 transaction-scoped advisory lock to serialize all admissions, claims and outcomes in this PoC, plus deterministic event
 receipts and tenant/collection-qualified document identity. This deliberately favors simplicity over
 parallel throughput. Per-blob hexadecimal sequencers reject stale notifications; deleted immutable
@@ -891,7 +891,7 @@ awaiting a processor, **not extracted, embedded or searchable**; `Deleted` is a 
 `Ignored` records stale/superseded work.
 
 The local
-[job lifecycle](../src/CasCap.App.Server/Services/DocumentIngestionJobService.cs) claims one current
+[job lifecycle](../src/CasCap.Backend/Services/DocumentIngestionJobService.cs) claims one current
 source revision transactionally, with a unique attempt ID, persisted attempt count and deadline.
 PostgreSQL supplies deadline time after acquiring the same admission lock; SQLite tests use an
 injected clock. `Processing` transitions to `Completed`, `RetryPending` or `Failed`. Three attempts
@@ -900,10 +900,10 @@ An enabled polling owner moves expired attempts to a retry due 30 seconds after 
 terminal failure at the attempt limit; there is no exact failover-time promise. Unknown faults
 escape to host supervision rather than being silently classified as transient.
 
-[Processing orchestration](../src/CasCap.App.Server/Services/DocumentIngestionProcessingService.cs)
+[Processing orchestration](../src/CasCap.Backend/Services/DocumentIngestionProcessingService.cs)
 is explicitly gated by `ProcessingEnabled=false`. Startup rejects enabling it without a real
-[`IDocumentProcessor`](../src/CasCap.App.Server/Abstractions/IDocumentProcessor.cs). The Debug role now
-registers [PdfDocumentProcessor](../src/CasCap.App.Server/Services/PdfDocumentProcessor.cs) for
+[`IDocumentProcessor`](../src/CasCap.Backend/Abstractions/IDocumentProcessor.cs). The Debug role now
+registers [PdfDocumentProcessor](../src/CasCap.Backend/Services/PdfDocumentProcessor.cs) for
 conditional download, bounded preparation and durable staging, not a no-op or a searchable indexer.
 `ProcessingTimeoutSeconds=300` (range 30-900)
 cancels cooperative attempts. Shutdown/ownership loss aborts rather than drains the active attempt,
@@ -914,7 +914,7 @@ never detached. The database still rejects completion after the durable deadline
 Completion/retry requires the current unexpired claim and latest nondeleted source revision under
 the admission lock. Delete/newer-create admission revokes active and retry claims. This protects
 job bookkeeping and
-[prepared-output persistence](../src/CasCap.App.Server/Services/DocumentPreparationStoreService.cs),
+[prepared-output persistence](../src/CasCap.Backend/Services/DocumentPreparationStoreService.cs),
 **not external effects or a future searchable-generation activation**.
 `Completed` is processor completion, not searchability; document state remains admission-only.
 `ClaimLost` leaves job state unchanged for admission supersession or deadline recovery.
@@ -943,11 +943,11 @@ handoff is complete. The existing admission-only deployment includes none of thi
 Event Grid remains the fast path, but events created before subscription provisioning cannot
 bootstrap the document catalogue. Choose repeatable synchronization of trusted source containers
 against durable document/jobs rather than a one-off import or replaying transient queue contents.
-The [synchronizer](../src/CasCap.App.Server/Services/DocumentSynchronizationService.cs) now supports
+The [synchronizer](../src/CasCap.Backend/Services/DocumentSynchronizationService.cs) now supports
 durable per-source requests, owner-startup execution and an hourly UTC cron request. A manual
 application-scoped administrator request must use that same persisted path so a standby HTTP
 replica never starts a competing local inventory. The Debug
-[administration API](../src/CasCap.App.Server/Controllers/AdministrationDocumentSynchronizationController.cs)
+[administration API](../src/CasCap.Backend/Controllers/AdministrationDocumentSynchronizationController.cs)
 and [Documents panel](../src/CasCap.App.Client/Components/DocumentSynchronizationPanel.razor)
 now implement that path. The administrator confirms app-wide synchronization across all configured
 collections, including removal of derived content for confirmed missing originals. Requests return
@@ -955,7 +955,7 @@ collections, including removal of derived content for confirmed missing original
 Safe status includes counts, conflicts, timestamps and failure codes, never container coordinates.
 Processing remains a separate gate; registering missing PDFs does not itself produce previews.
 
-The [inventory adapter](../src/CasCap.App.Server/Services/AzureDocumentBlobInventory.cs) pages PDFs
+The [inventory adapter](../src/CasCap.Backend/Services/AzureDocumentBlobInventory.cs) pages PDFs
 and verifies current metadata using the runtime identity. Missing jobs and eligible zero-attempt
 preparation bindings can be repaired without generating pretend storage events, resetting attempts
 or calling paid providers. A synchronized same-ETag source ignores delayed create notifications;
@@ -963,7 +963,7 @@ revision replacement revokes earlier work. Immutable deleted source names are no
 
 Absence is authoritative only after a complete listing and an individual `BlobNotFound`. Failed
 or partial listings, missing containers, permissions and transport failures cannot trigger cleanup.
-The [retirement helper](../src/CasCap.App.Server/Services/DocumentSourceRetirement.cs) removes
+The [retirement helper](../src/CasCap.Backend/Services/DocumentSourceRetirement.cs) removes
 implemented text and Markdown projections, clears receipt result content, invalidates active/pending
 jobs and preserves source tombstones plus usage audit. Database source/claim and synchronization
 run/deadline fences prevent stale writers from republishing. Future vector/index adapters must
@@ -986,7 +986,7 @@ and real-document browser quality acceptance remain outstanding.
 
 The authorized [Debug deployment](../deploy.ps1) built source `ba53b5c` using sibling project
 references, including the shared coalescing schedule runner consumed by the
-[owned worker](../src/CasCap.App.Server/Services/DocumentIngestionFeature.cs).
+[owned worker](../src/CasCap.Backend/Services/DocumentIngestionFeature.cs).
 The EF model-drift check passed. The published ARM64 image index is
 `sha256:5957f967d84cab214bf45f3258e5d7d9869c74e113f17e261e3a1d79f16ca0f3`;
 the chart remains `1.2.0`, without chart publication, a package release or a GitHub release.
@@ -1115,9 +1115,9 @@ manual-answering agents when evaluation shows the model skips necessary searches
 bindings do not retrieve. A caller may narrow permitted collections but never broaden them.
 
 Wire execution, delegation, streaming, evaluation and session reconstruction consistently through
-the existing [executor](../src/CasCap.App.Server/Services/CommonAgentExecutor.cs),
-[session codec](../src/CasCap.App.Server/Services/CommonAgentSessionCodec.cs) and
-[evaluation factory](../src/CasCap.App.Server/Services/EvaluationAgentFactory.cs).
+the existing [executor](../src/CasCap.Backend/Services/CommonAgentExecutor.cs),
+[session codec](../src/CasCap.Backend/Services/CommonAgentSessionCodec.cs) and
+[evaluation factory](../src/CasCap.Backend/Services/EvaluationAgentFactory.cs).
 Validate the API against the pinned framework version rather than assuming current documentation
 matches the installed package.
 
@@ -1191,7 +1191,7 @@ proposed gates, not measured results.
   and relational duplicate/stale/delete/tenant tests. Focused credential-free execution is recorded
   in the [test README](../src/CasCap.App.Server.Tests/README.md#document-ingestion-poc).
 - [x] Scaffold the additive
-  [DocumentIngestionAdmission migration](../src/CasCap.App.Server/Migrations/20261025123301_DocumentIngestionAdmission.cs)
+  [DocumentIngestionAdmission migration](../src/CasCap.Backend/Migrations/20261025123301_DocumentIngestionAdmission.cs)
   for source state and event/job receipts. Rebuilt EF tooling reports no pending model changes;
   reviewed offline SQL adds only the two tables, their constraints/indexes and migration history.
   It does not install pgvector or store chunks/vectors. External application is still required.
@@ -1555,7 +1555,7 @@ benchmark (`1b080ae`) milestones. The new commits have not been pushed or releas
 
 | Local commit | Completed capability | Source evidence |
 | --- | --- | --- |
-| `e371628` | Bounded strict Responses execution, stateless session policy and an unconfigured preparation template | [Responses adapter](../src/CasCap.AgentRuntime.Execution/Extensions/AgentExtensions.Responses.cs), [session controls](../src/CasCap.App.Server/Services/AgentSessionControlService.cs), [template](../src/CasCap.App.Server/Constants/DocumentPreparationAgentTemplate.cs) |
+| `e371628` | Bounded strict Responses execution, stateless session policy and an unconfigured preparation template | [Responses adapter](../src/CasCap.AgentRuntime.Execution/Extensions/AgentExtensions.Responses.cs), [session controls](../src/CasCap.Backend/Services/AgentSessionControlService.cs), [template](../src/CasCap.Backend/Constants/DocumentPreparationAgentTemplate.cs) |
 | `c0a2e7f` | Unused-version suggestions, confirmed optional activation, selected-version actions and preparation-template authoring | [Definition editor](../src/CasCap.App.Client/Pages/DefinitionEditor.razor.cs), [agent details](../src/CasCap.App.Client/Pages/AgentDetails.razor.cs), [administration walkthrough](administration-frontend.md#publish-versus-activate) |
 
 **Deployed versus committed:** The earlier Debug frontend rollout verified the version-suggestion,
@@ -1569,7 +1569,7 @@ Runtime availability does not replace bounded paid-provider and document-quality
 **Endpoint scope:** Only the Azure-hosted definition required the subscription/endpoint switch;
 definitions using local models remain unchanged. Preserve provider registrations, model selection
 and rollback snapshots. Agentizr's configured PostgreSQL
-[definition store](../src/CasCap.App.Server/Services/PostgresAgentDefinitionStore.cs) remains authoritative;
+[definition store](../src/CasCap.Backend/Services/PostgresAgentDefinitionStore.cs) remains authoritative;
 never edit historical JSONB to perform cutover. Use the existing authenticated browser
 [publication and activation workflow](administration-frontend.md#publish-versus-activate), which
 guards the observed active version. The machine
@@ -1622,7 +1622,7 @@ Event Grid retry lifetime and successfully queued message lifetime are separate 
 
 Message TTL must be explicit at each producer, including Event Grid delivery, poison sending and
 operator replay; it is not a queue-wide resource setting. The current
-[poison-send adapter](../src/CasCap.App.Server/Services/AzureDocumentIngestionQueue.cs) omits TTL,
+[poison-send adapter](../src/CasCap.Backend/Services/AzureDocumentIngestionQueue.cs) omits TTL,
 so its default seven-day expiry does not yet meet the agreed policy. Implement and verify that
 application-side setting before declaring retention ready. See
 [Event Grid queue delivery lifetime](https://learn.microsoft.com/en-us/azure/event-grid/delivery-properties#configure-time-to-live-on-outgoing-events-to-azure-storage-queues)
@@ -1646,7 +1646,7 @@ or removal of the dead-letter original. This is a proven operator procedure, not
 automatic application replay feature or proof of application deduplication.
 
 Supply these values privately to
-[`DocumentIngestionConfig`](../src/CasCap.App.Server/Models/_DocumentIngestionConfig.cs), under
+[`DocumentIngestionConfig`](../src/CasCap.Backend/Models/_DocumentIngestionConfig.cs), under
 `CasCap:DocumentIngestionConfig` (environment variables use `__` between path segments):
 
 | Field | Handoff contract |
@@ -1701,7 +1701,7 @@ this does not prove full RAG processing.
 - [x] Select stable managed libraries and bounded offline preparation defaults: `PdfPig` 0.1.16,
   `Microsoft.ML.Tokenizers` 2.0.1 and its `Data.Cl100kBase` 2.0.1 vocabulary package. These are
   Debug-only dependencies; tokenization runs offline without downloading model data.
-  [PDF preparation](../src/CasCap.App.Server/Services/PdfDocumentPreparationService.cs) uses
+  [PDF preparation](../src/CasCap.Backend/Services/PdfDocumentPreparationService.cs) uses
   PdfPig's content-order extraction, not raw `page.Text`.
 - [ ] Select the multilingual embedding profile, live upload/download policy, rights/retention,
   quotas and target hardware before embedding/indexing real document contents (R3, R7).
@@ -1744,7 +1744,7 @@ this does not prove full RAG processing.
   the Azure adapter, accepted-policy authority, logical-versus-financial limits and disabled
   defaults. Native vectors use parameterized SQL with an explicitly SQL-owned vector table,
   while EF owns jobs/receipts/pointers. The
-  [additive migration](../src/CasCap.App.Server/Migrations/20261030121900_DocumentVectorIndexing.cs)
+  [additive migration](../src/CasCap.Backend/Migrations/20261030121900_DocumentVectorIndexing.cs)
   requires the operator-installed extension; runtime identities gain no schema privileges.
   Local checks use synthetic Azure HTTP/credentials and a separate disposable pgvector host,
   not paid/live providers. The final focused selection passes **241 tests, zero failures/skips**,
@@ -1781,7 +1781,7 @@ this does not prove full RAG processing.
   across .NET 8/9/10. Debug and Release solution builds pass without warnings/errors.
   The real administration catalogue and template tests verify that Agentizr ships the Azure OpenAI
   preparation definition without installing or activating it. EF reports no model drift; the additive
-  [hybrid-operation migration](../src/CasCap.App.Server/Migrations/20261027125842_DocumentHybridPreparationOperations.cs)
+  [hybrid-operation migration](../src/CasCap.Backend/Migrations/20261027125842_DocumentHybridPreparationOperations.cs)
   and offline SQL add the nullable admission plan, operation ledger and constraints, without seeds
   or destructive upgrade operations. The migration passed disposable provider-test databases and
   was subsequently applied through the deployed PreSync migration job; application rollback should retain the expanded
@@ -1829,7 +1829,7 @@ this does not prove full RAG processing.
 - [x] Implement offline PDF preparation using synthetic documents: 25 MiB source cap, 200 pages,
   two million extracted UTF-16 characters and 5,000 chunks; defaults are 512 actual tokens with
   at most 64-token overlap. Startup limits and per-call chunk settings are validated.
-  [Chunking](../src/CasCap.App.Server/Services/DocumentChunkingService.cs) preserves page numbers,
+  [Chunking](../src/CasCap.Backend/Services/DocumentChunkingService.cs) preserves page numbers,
   exact extracted-text offsets and Unicode scalar boundaries; the captured profile includes
   algorithm, encoding, library versions and token budgets. Oversized, malformed, encrypted and
   wholly no-text inputs have explicit outcomes, with no partial chunks on rejection; mixed
@@ -1851,7 +1851,7 @@ this does not prove full RAG processing.
   output; roll back application code while retaining the additive schema instead.
 - [x] Prove bounded conditional downloads from every deployed runtime replica on 2026-10-27.
   A temporary runner invoked the deployed
-  [download service](../src/CasCap.App.Server/Services/DocumentBlobDownloadService.cs), with each
+  [download service](../src/CasCap.Backend/Services/DocumentBlobDownloadService.cs), with each
   runtime container's existing configuration, Key Vault bootstrap and credential; no alternate
   downloader or local identity substituted for pod access. For one existing PDF in each configured
   source, the complete stream matched the metadata length within the 25 MiB bound and had a PDF
@@ -1906,7 +1906,7 @@ this does not prove full RAG processing.
   a new profile identity.
 - [x] Implement the bounded offline/review `markdown-headings` component with Markdig 1.5.0,
   explicit target/maximum/overlap and a versioned parser/tokenizer/prefix profile.
-  [Synthetic chunking tests](../src/CasCap.App.Server.Tests/Tests/Unit/DocumentMarkdownChunkingTests.cs)
+  [Synthetic chunking tests](../src/CasCap.Backend.Tests/Tests/Unit/DocumentMarkdownChunkingTests.cs)
   cover ancestor-to-leaf continuation prefixes, sibling transitions, contiguous/missing pages,
   headingless input, code fences, separate heading/body source spans and complete-input token
   bounds including scalar-safe Unicode. Thirty new cases plus 15 page-local regressions pass.
@@ -1916,7 +1916,7 @@ this does not prove full RAG processing.
   warnings/errors. The gated exporter now emits review-only chunk JSON/HTML on a future explicitly
   authorized run; the retained six-page paid evidence was not replayed or regenerated.
 - [x] Validate the six retained normalized transcriptions offline on 2026-10-28 using the
-  [shared chunker and local-artifact check](../src/CasCap.App.Server.Tests/Tests/Unit/DocumentPreparationOfflineReviewTests.cs),
+  [shared chunker and local-artifact check](../src/CasCap.Backend.Tests/Tests/Unit/DocumentPreparationOfflineReviewTests.cs),
   without new extraction/provider calls or database access. The manual's physical pages 2/3/6 yield
   **27 chunks, 12-481 complete-input tokens each**; vocabulary pages 6/7/12 yield
   **10 chunks, 11-504 tokens each**, with the unchanged 512-token ceiling and zero fragmented
@@ -1947,8 +1947,8 @@ this does not prove full RAG processing.
   Acceptance of these findings/policy does not approve the current chunks or resolve heading,
   entry/table, visual and retrieval-quality gates.
 - [x] Implement the bounded
-  [whole-block source-review contract](../src/CasCap.App.Server/Models/DocumentMarkdownSourceReview.cs)
-  and [projection enforcement](../src/CasCap.App.Server/Services/DocumentChunkingService.MarkdownReview.cs).
+  [whole-block source-review contract](../src/CasCap.Backend/Models/DocumentMarkdownSourceReview.cs)
+  and [projection enforcement](../src/CasCap.Backend/Services/DocumentChunkingService.MarkdownReview.cs).
   The initial schema-version-1 reviews bind exact page Markdown; retain role/range/reason audit,
   source offsets and block ordinals without rewriting receipts. Profile version 2 and a source/profile/
   review-bound result identity prevent confusing projections with different review decisions.
@@ -1964,8 +1964,8 @@ this does not prove full RAG processing.
   embedded or activated. At that boundary heading/entry/table/visual semantic approval remained open;
   the archived schema-1 evidence is not reinterpreted by the current contract below.
 - [x] Verify original manual pages 2/3 and vocabulary pages 7/12, then implement explicit
-  [heading/layout decisions](../src/CasCap.App.Server/Services/DocumentChunkingService.MarkdownStructure.cs)
-  with [synthetic structural regressions](../src/CasCap.App.Server.Tests/Tests/Unit/DocumentMarkdownStructureTests.cs).
+  [heading/layout decisions](../src/CasCap.Backend/Services/DocumentChunkingService.MarkdownStructure.cs)
+  with [synthetic structural regressions](../src/CasCap.Backend.Tests/Tests/Unit/DocumentMarkdownStructureTests.cs).
   Current review schema 2 requires separate exclusion, heading and layout-table collections;
   profile version 3 and the exact review identity fence this new projection. The original source
   remains unchanged; archived schema-1 decisions require a newly issued review rather than
@@ -1996,14 +1996,14 @@ this does not prove full RAG processing.
   Fitting list items and structured blocks stay whole; only oversized paragraphs currently split.
   Oversized tables, entries and code/blockquote blocks fail explicitly for review rather
   than unsafe token slicing. The
-  [colocated implementation deferral](../src/CasCap.App.Server/Services/DocumentChunkingService.Markdown.cs)
+  [colocated implementation deferral](../src/CasCap.Backend/Services/DocumentChunkingService.Markdown.cs)
   records the validated subdivision gate. Keep extraction-quality acceptance separate from
   synthetic block tests, and persist the approved projection through the generation fence before
   embedding or activation.
 - [x] Add explicit review-required Markdown-generation storage from validated durable receipts,
   separate from page-local prepared chunks and from approval. The Debug-only
-  [store](../src/CasCap.App.Server/Services/DocumentPreparationMarkdownStore.cs) retains a versioned
-  [snapshot](../src/CasCap.App.Server/Models/DocumentMarkdownReviewGeneration.cs) with original
+  [store](../src/CasCap.Backend/Services/DocumentPreparationMarkdownStore.cs) retains a versioned
+  [snapshot](../src/CasCap.Backend/Models/DocumentMarkdownReviewGeneration.cs) with original
   source/plan hashes, receipt references, normalized page Markdown, separate notes, profile,
   reviewed roles/structure and heading/cell/body spans. No PDF coordinates are invented.
   Finished review-required job/current source fences govern writes and reads, not released claim
@@ -2039,7 +2039,7 @@ this does not prove full RAG processing.
   baseline. The task-started PostgreSQL service was stopped immediately and existing workloads/
   volumes preserved. No deployed database migration, paid call, real-document persistence,
   management authorization, semantic/visual approval, embedding or activation is established.
-- [x] Wire the Debug-only [protected review-management API](../src/CasCap.App.Server/Controllers/AdministrationDocumentReviewsController.cs)
+- [x] Wire the Debug-only [protected review-management API](../src/CasCap.Backend/Controllers/AdministrationDocumentReviewsController.cs)
   and [typed administration client](../src/CasCap.App.Client/Services/AdministrationApiClient.cs).
   Existing configured app administrators act as reviewers through the administration cookie;
   a separate authenticated-reviewer policy denies anonymous Development and machine bearer access.
@@ -2114,7 +2114,7 @@ this does not prove full RAG processing.
   the trusted cumulative CEFR policy in retrieval/source-expansion queries, including missing/invalid
   levels, mixed-level sources, forged tool filters, alternate backends and cache isolation.
   Prove zero higher-level passages reach A1 context and that A2 can retrieve both A1 and A2 (R2, R4).
-- [x] Add a Debug-only [Blob download adapter](../src/CasCap.App.Server/Services/DocumentBlobDownloadService.cs)
+- [x] Add a Debug-only [Blob download adapter](../src/CasCap.Backend/Services/DocumentBlobDownloadService.cs)
   using `CasCap.Api.Azure.Storage`, not an application-owned replacement. The shared library now
   accepts an existing container client without provisioning and offers ETag-conditional streaming
   reads. Agentizr rechecks the claim's tenant/collection/container binding and canonical location,
@@ -2172,7 +2172,7 @@ block deploying a non-searchable review-only API.
   This does not exercise an OIDC issuer, deployed ingress or real-user sign-in.
 - [x] Check Debug and Release models against the current migration snapshot and inspect offline
   upgrade SQL. Both report no drift. The
-  [review-generation migration](../src/CasCap.App.Server/Migrations/20261028120307_DocumentMarkdownReviewGenerations.cs)
+  [review-generation migration](../src/CasCap.Backend/Migrations/20261028120307_DocumentMarkdownReviewGenerations.cs)
   creates its table, source/job foreign key and index without changing existing rows. It has been
   applied first to approved local fixture/retained databases; the authorized deployed migration
   is recorded below.
@@ -2218,9 +2218,9 @@ On 2026-10-29 the owner explicitly authorized this slice while deployed administ
 remained blocked at ingress authentication. It does not complete Phase 2's upload/storage/search
 requirement or replace that acceptance gate.
 
-- [x] Add an app-scoped [admitted-source catalogue](../src/CasCap.App.Server/Controllers/AdministrationDocumentsController.cs)
+- [x] Add an app-scoped [admitted-source catalogue](../src/CasCap.Backend/Controllers/AdministrationDocumentsController.cs)
   with exact collection filtering and bounded pagination. The
-  [metadata query](../src/CasCap.App.Server/Services/DocumentCatalogueAdministrationService.cs)
+  [metadata query](../src/CasCap.Backend/Services/DocumentCatalogueAdministrationService.cs)
   derives tenancy from authorization, returns current-job/review availability and a stored-generation
   identity, and excludes source URIs, plans, receipts and content payloads. Cookie-only administrator
   policies and no-store behavior match the existing review API; these endpoints remain Debug-only.

@@ -10,7 +10,7 @@ It requires separate explicit host-wide operator authorization; opening it never
 ## Build and Deployment Boundary
 
 The thin [entrypoint](../src/CasCap.App.Server/Program.cs) delegates to
-[AppHost](../src/CasCap.App.Server/AppHost.cs). The [runtime registration](../src/CasCap.App.Server/AppHost.RuntimeConfiguration.cs)
+[AppHost](../src/CasCap.App.Server/AppHost.cs). The [runtime registration](../src/CasCap.Backend/Extensions/WebApplicationBuilderExtensions.RuntimeConfiguration.cs)
 uses sibling project references in Debug; [Dockerfile.Debug](../Dockerfile.Debug) copies those
 dependencies into its build context.
 
@@ -67,9 +67,9 @@ tracked settings.
 
 Optional `RefreshIntervalMs` defaults to 5000, with supported values from 100 to 3600000.
 The startup baseline is the deployment's Serilog default minimum; category overrides stay unchanged.
-The [typed contract](../src/CasCap.App.Server/RuntimeConfiguration/Models/RuntimeLoggingControls.cs)
+The [typed contract](../src/CasCap.AgentRuntime.Contracts/RuntimeConfiguration/RuntimeLoggingControls.cs)
 contains only `MinimumLevel`, using a defined Serilog level such as `"Information"` or `"Debug"`.
-The [monitor consumer](../src/CasCap.App.Server/RuntimeConfiguration/Services/RuntimeLoggingService.cs)
+The [monitor consumer](../src/CasCap.Backend/RuntimeConfiguration/Services/RuntimeLoggingService.cs)
 owns a disposable subscription and updates a per-host pipeline switch, not the console-only switch.
 
 ## Provision Before Enabling
@@ -169,7 +169,7 @@ Release responses retain their existing shape. Retain the deployment's existing 
 controls. Query each replica directly through an approved operator path rather than assuming
 load-balanced requests reach both.
 
-The [probe](../src/CasCap.App.Server/RuntimeConfiguration/Services/RuntimeLoggingProbe.cs) reports a
+The [probe](../src/CasCap.Backend/RuntimeConfiguration/Services/RuntimeLoggingProbe.cs) reports a
 random process identity, immutable startup minimum, current actual pipeline switch minimum,
 actual Debug acceptance for the probe category, monitor apply count and last-apply UTC time.
 It emits no log event and includes no connection, revision payload, user or document content;

@@ -49,7 +49,7 @@ public sealed class RuntimeLoggingTests(RuntimeLoggingPostgreSqlFixture postgres
             ["CasCap:RuntimeConfigurationConfig:RefreshIntervalMs"] = "100",
             ["Serilog:MinimumLevel:Default"] = startupMinimumLevel.ToString(),
         });
-        var levelSwitch = AppHost.AddRuntimeLogging(builder);
+        var levelSwitch = CasCap.Extensions.WebApplicationBuilderExtensions.AddAgentRuntimeLogging(builder);
         Assert.NotNull(levelSwitch);
         var sink = new CaptureSink();
         using var forwarded = new CaptureProvider();
@@ -68,7 +68,7 @@ public sealed class RuntimeLoggingTests(RuntimeLoggingPostgreSqlFixture postgres
         var sentinel = Guid.NewGuid();
         cache.Set("sentinel", sentinel);
         app.MapGet("/sentinel", () => cache.Get<Guid>("sentinel"));
-        AppHost.MapStatusEndpoint(app);
+        CasCap.Extensions.WebApplicationExtensions.MapStatusEndpoint(app);
         await app.StartAsync(TestContext.Current.CancellationToken);
         using var client = app.GetTestClient();
         var probe = app.Services.GetRequiredService<RuntimeLoggingProbe>();

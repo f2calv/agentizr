@@ -90,7 +90,7 @@ public sealed class DocumentPreparationAgentTemplateTests
                 ReasoningEffort = Microsoft.Extensions.AI.ReasoningEffort.Low,
             },
         };
-        using var handler = new PreparationHandler();
+        using var handler = new DocumentPreparationHttpHandler();
         using var client = new HttpClient(handler);
         using var services = new ServiceCollection().BuildServiceProvider();
         var tenant = new TestTenantContext();
@@ -164,25 +164,4 @@ public sealed class DocumentPreparationAgentTemplateTests
             ValueTask.FromResult<string?>(null);
     }
 
-    internal sealed class PreparationHandler : HttpMessageHandler
-    {
-        public string? Body { get; private set; }
-        public string? ExpectedCredential { get; init; }
-
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            if (ExpectedCredential is not null)
-                Assert.Equal(ExpectedCredential, request.Headers.Authorization?.Parameter);
-            Body = await request.Content!.ReadAsStringAsync(cancellationToken);
-            return new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("""
-                    {"id":"resp_synthetic","object":"response","created_at":1,"status":"completed","model":"synthetic-model",
-                    "output":[{"type":"message","id":"msg_synthetic","status":"completed","role":"assistant",
-                    "content":[{"type":"output_text","text":"{\"page\":7,\"markdown\":\"synthetic\",\"changes\":[],\"uncertainties\":[]}","annotations":[]}]}],
-                    "usage":{"input_tokens":10,"output_tokens":5,"total_tokens":15}}
-                    """, System.Text.Encoding.UTF8, "application/json"),
-            };
-        }
-    }
 }

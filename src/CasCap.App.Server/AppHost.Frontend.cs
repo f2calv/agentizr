@@ -1,5 +1,5 @@
-using CasCap.Client.Constants;
 using CasCap.Components;
+using CasCap.Extensions;
 
 namespace CasCap;
 
@@ -9,19 +9,16 @@ public static partial class AppHost
     private static void AddFrontend(WebApplicationBuilder builder)
     {
         builder.Services.AddRazorComponents().AddInteractiveWebAssemblyComponents();
-        builder.Services.AddSingleton(services => new AdministrationSetupService(
-            services.GetRequiredService<IOptions<AdministrationConfig>>(),
-            services.GetRequiredService<IOptions<TenantAuthenticationConfig>>(),
-            services.GetRequiredService<IHostEnvironment>()));
+        builder.Services.AddAgentRuntimeFrontendSetup();
     }
 
     // Served only where administrators can use it: with sign-in enabled, or in open Development. Elsewhere,
     // page navigations get a setup page explaining the missing configuration.
     private static void MapFrontend(WebApplication app, bool administrationEnabled)
     {
-        if (!administrationEnabled && !app.Services.GetRequiredService<AdministrationAccessService>().IsOpenDevelopmentAccess)
+        if (!app.HasAgentRuntimeFrontendAccess(administrationEnabled))
         {
-            app.MapFallback(WriteFrontendUnavailableAsync);
+            app.MapFallback(context => context.WriteAgentRuntimeFrontendUnavailableAsync());
             return;
         }
         if (app.Environment.IsDevelopment())
@@ -32,19 +29,4 @@ public static partial class AppHost
             .AddAdditionalAssemblies(typeof(Client.Routes).Assembly);
     }
 
-    private static Task WriteFrontendUnavailableAsync(HttpContext context)
-    {
-        var request = context.Request;
-        // API and protocol clients keep a plain 404; only page navigations get the explanation.
-        if (!(HttpMethods.IsGet(request.Method) || HttpMethods.IsHead(request.Method))
-            || request.Path.StartsWithSegments("/api")
-            || request.Path.StartsWithSegments(AdministrationRoutes.Prefix)
-            || request.Path.StartsWithSegments("/mcp"))
-        {
-            context.Response.StatusCode = StatusCodes.Status404NotFound;
-            return Task.CompletedTask;
-        }
-        var page = context.RequestServices.GetRequiredService<AdministrationSetupService>().RenderFrontendUnavailablePage(request);
-        return Results.Content(page, "text/html; charset=utf-8", statusCode: StatusCodes.Status404NotFound).ExecuteAsync(context);
-    }
 }
