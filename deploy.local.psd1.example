@@ -5,7 +5,7 @@
     ChartPath         = 'charts/agentizr'
     ChartRepository   = 'f2calv/charts/agentizr'
     NoCommit          = $true
-    MigrationProject  = 'src/CasCap.App.Server'
+    MigrationProject  = 'src/CasCap.Data'
     MigrationContext  = 'AgentRuntimeDbContext'
     MigrationConnectionStringEnvironmentVariable = 'CasCap__DatabaseConfig__ConnectionString'
 }

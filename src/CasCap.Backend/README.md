@@ -2,7 +2,8 @@
 
 The internal .NET 10 application backend for agentizr. It owns execution orchestration, definition
 administration, HTTP/MCP adapters, document processing, Development configuration adapters and
-EF Core persistence. The [server](../CasCap.App.Server/README.md) owns lifecycle and the browser shell.
+persistence policy. The [server](../CasCap.App.Server/README.md) owns lifecycle and the browser shell;
+[Data](../CasCap.Data/README.md) owns the EF Core model and migrations.
 
 This nonpackable library retains the existing `CasCap` namespaces. It depends on the specialized
 [Execution](../CasCap.AgentRuntime.Execution/README.md) and
@@ -19,8 +20,10 @@ ingestion and finite-migration role selection. Controllers are registered from t
 [explicitly](Extensions/ServiceCollectionExtensions.cs). Backend services remain internal except
 for existing application contracts; friend access is limited to backend and server test assemblies.
 
-The [context](AgentRuntimeDbContext.cs), migrations and snapshot share this assembly, so default EF
-migration discovery follows the context. A separate `CasCap.Data` extraction remains unimplemented.
+The [context](../CasCap.Data/AgentRuntimeDbContext.cs), migrations, snapshot and design-time factory
+share the Data assembly, so default EF migration discovery follows that context. Database
+registration, finite migration execution, tenant policy, cache consistency and transaction
+orchestration remain here.
 [Backend tests](../CasCap.Backend.Tests/README.md) cover services and offline migration/model discovery;
 [server tests](../CasCap.App.Server.Tests/README.md) cover the actual application host.
 
@@ -363,7 +366,7 @@ and `ProcessingEnabled` default false. Explicit Azure deployment/model bindings,
 and ARM verification, or a separately configured local Ollama model tag/digest and native dimensions,
 precede submission intent. The elected ingestion role processes one bounded batch
 per cycle; unresolved submissions are never automatically replayed.
-The [native migration](Migrations/20261030121900_DocumentVectorIndexing.cs) requires an externally
+The [native migration](../CasCap.Data/Migrations/20261030121900_DocumentVectorIndexing.cs) requires an externally
 installed `vector` extension and adds durable jobs, receipts, publication pointers and a SQL-owned
 vector table without an EF vector plugin. Apply it externally and upgrade all source writers
 before enabling processing. This slice is not deployed; it exposes no indexing browser control,

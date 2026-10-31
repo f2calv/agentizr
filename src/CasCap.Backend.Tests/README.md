@@ -50,7 +50,8 @@ Debug-only document and logging cases are absent from Release where guarded by `
 | `TenantStateIsolationTests` | 2 | 2 |
 | `PersistenceModelTests` | 1 | 1 |
 
-`PersistenceModelTests` initializes only design-time model/migration metadata: it does not connect
+`PersistenceModelTests` verifies the [Data assembly](../CasCap.Data/README.md) independently of
+backend controllers and initializes only design-time model/migration metadata: it does not connect
 to PostgreSQL or apply migrations. Provider-backed and `WebApplicationFactory<Program>` checks
 remain in [Server.Tests](../CasCap.App.Server.Tests/README.md).
 

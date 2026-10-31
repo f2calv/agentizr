@@ -2,12 +2,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CasCap.Tests.Integration;
 
-/// <summary>Verifies backend migration discovery and snapshot consistency without database access.</summary>
+/// <summary>Verifies persistence migration discovery and snapshot consistency without database access.</summary>
 [Trait("Category", "Integration")]
 public sealed class PersistenceModelTests
 {
     [Fact]
-    public void BackendAssembly_PreservesMigrationsAndModel()
+    public void DataAssembly_PreservesMigrationsAndModel()
     {
         using var context = new AgentRuntimeDbContextDesignTimeFactory().CreateDbContext([]);
         string[] expected =
@@ -28,7 +28,8 @@ public sealed class PersistenceModelTests
             "20261030121900_DocumentVectorIndexing",
         ];
 
-        Assert.Equal("CasCap.Backend", typeof(AgentRuntimeDbContext).Assembly.GetName().Name);
+        Assert.Equal("CasCap.Data", typeof(AgentRuntimeDbContext).Assembly.GetName().Name);
+        Assert.NotSame(typeof(AgentRuntimeDbContext).Assembly, typeof(CasCap.Controllers.AgentRuntimeController).Assembly);
         Assert.Equal(expected, context.Database.GetMigrations());
         Assert.False(context.Database.HasPendingModelChanges());
     }

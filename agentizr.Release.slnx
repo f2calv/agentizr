@@ -14,6 +14,7 @@
     <Project Path="src/CasCap.App.Server/CasCap.App.Server.csproj" />
     <Project Path="src/CasCap.App.Server.Tests/CasCap.App.Server.Tests.csproj" />
     <Project Path="src/CasCap.Backend/CasCap.Backend.csproj" />
+    <Project Path="src/CasCap.Data/CasCap.Data.csproj" />
     <Project Path="src/CasCap.Backend.Tests/CasCap.Backend.Tests.csproj" />
     <Project Path="src/CasCap.AgentRuntime.Execution/CasCap.AgentRuntime.Execution.csproj" />
     <Project Path="src/CasCap.AgentRuntime.Evaluation/CasCap.AgentRuntime.Evaluation.csproj" />

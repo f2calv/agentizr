@@ -46,7 +46,7 @@ Issue #73 was closed at the user's request after this proposal was drafted; PR #
 
 ### Current Agentizr Baseline
 
-- [Persistence](persistence.md) and [AgentRuntimeDbContext](../src/CasCap.Backend/AgentRuntimeDbContext.cs)
+- [Persistence](persistence.md) and [AgentRuntimeDbContext](../src/CasCap.Data/AgentRuntimeDbContext.cs)
   establish PostgreSQL as durable authority and Redis as optional, disposable caching.
 - [Host registration](../src/CasCap.Backend/Extensions/WebApplicationBuilderExtensions.Features.cs) wires PostgreSQL stores,
   tenant context, runtime execution, session serialization and evaluation.
@@ -569,7 +569,7 @@ not PDF coordinates, and model-reordered text cannot be assigned invented precis
 When only page provenance is established, expose a page citation and report region mapping as
 unavailable; require accurate region mappings for features that promise highlighting.
 
-The current [chunk entity](../src/CasCap.Backend/Entities/DocumentTextChunkEntity.cs) already records
+The current [chunk entity](../src/CasCap.Data/Entities/DocumentTextChunkEntity.cs) already records
 generation ownership, physical page and normalized extracted-text offsets; the
 [generation store](../src/CasCap.Backend/Services/DocumentPreparationStoreService.cs) records source
 hash/ETag. Neither supplies the proposed structured-block/region/figure mapping or heading projection.
@@ -1191,7 +1191,7 @@ proposed gates, not measured results.
   and relational duplicate/stale/delete/tenant tests. Focused credential-free execution is recorded
   in the [test README](../src/CasCap.App.Server.Tests/README.md#document-ingestion-poc).
 - [x] Scaffold the additive
-  [DocumentIngestionAdmission migration](../src/CasCap.Backend/Migrations/20261025123301_DocumentIngestionAdmission.cs)
+  [DocumentIngestionAdmission migration](../src/CasCap.Data/Migrations/20261025123301_DocumentIngestionAdmission.cs)
   for source state and event/job receipts. Rebuilt EF tooling reports no pending model changes;
   reviewed offline SQL adds only the two tables, their constraints/indexes and migration history.
   It does not install pgvector or store chunks/vectors. External application is still required.
@@ -1744,7 +1744,7 @@ this does not prove full RAG processing.
   the Azure adapter, accepted-policy authority, logical-versus-financial limits and disabled
   defaults. Native vectors use parameterized SQL with an explicitly SQL-owned vector table,
   while EF owns jobs/receipts/pointers. The
-  [additive migration](../src/CasCap.Backend/Migrations/20261030121900_DocumentVectorIndexing.cs)
+  [additive migration](../src/CasCap.Data/Migrations/20261030121900_DocumentVectorIndexing.cs)
   requires the operator-installed extension; runtime identities gain no schema privileges.
   Local checks use synthetic Azure HTTP/credentials and a separate disposable pgvector host,
   not paid/live providers. The final focused selection passes **241 tests, zero failures/skips**,
@@ -1781,7 +1781,7 @@ this does not prove full RAG processing.
   across .NET 8/9/10. Debug and Release solution builds pass without warnings/errors.
   The real administration catalogue and template tests verify that Agentizr ships the Azure OpenAI
   preparation definition without installing or activating it. EF reports no model drift; the additive
-  [hybrid-operation migration](../src/CasCap.Backend/Migrations/20261027125842_DocumentHybridPreparationOperations.cs)
+  [hybrid-operation migration](../src/CasCap.Data/Migrations/20261027125842_DocumentHybridPreparationOperations.cs)
   and offline SQL add the nullable admission plan, operation ledger and constraints, without seeds
   or destructive upgrade operations. The migration passed disposable provider-test databases and
   was subsequently applied through the deployed PreSync migration job; application rollback should retain the expanded
@@ -2172,7 +2172,7 @@ block deploying a non-searchable review-only API.
   This does not exercise an OIDC issuer, deployed ingress or real-user sign-in.
 - [x] Check Debug and Release models against the current migration snapshot and inspect offline
   upgrade SQL. Both report no drift. The
-  [review-generation migration](../src/CasCap.Backend/Migrations/20261028120307_DocumentMarkdownReviewGenerations.cs)
+  [review-generation migration](../src/CasCap.Data/Migrations/20261028120307_DocumentMarkdownReviewGenerations.cs)
   creates its table, source/job foreign key and index without changing existing rows. It has been
   applied first to approved local fixture/retained databases; the authorized deployed migration
   is recorded below.

@@ -95,7 +95,8 @@ public sealed class EndpointSmokeTests(AgentizrWebApplicationFactory factory)
             var action = Assert.IsType<ControllerActionDescriptor>(
                 endpoint.Metadata.GetMetadata<ControllerActionDescriptor>());
             Assert.Equal("CasCap.Controllers", action.ControllerTypeInfo.Namespace);
-            Assert.Same(typeof(AgentRuntimeDbContext).Assembly, action.ControllerTypeInfo.Assembly);
+            Assert.Same(typeof(CasCap.Controllers.AgentRuntimeController).Assembly, action.ControllerTypeInfo.Assembly);
+            Assert.NotSame(typeof(AgentRuntimeDbContext).Assembly, action.ControllerTypeInfo.Assembly);
             Assert.NotSame(typeof(Program).Assembly, action.ControllerTypeInfo.Assembly);
             Assert.NotNull(endpoint.Metadata.GetMetadata<IEndpointSummaryMetadata>());
             Assert.NotNull(endpoint.Metadata.GetMetadata<IAllowAnonymous>());

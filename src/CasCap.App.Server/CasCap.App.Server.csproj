@@ -12,10 +12,6 @@
     <ProjectReference Include="..\CasCap.App.Client\CasCap.App.Client.csproj" />
     <ProjectReference Include="..\CasCap.Backend\CasCap.Backend.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>

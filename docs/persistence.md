@@ -5,6 +5,11 @@ committed sessions, snapshots, overrides or debugging history. Storage is behind
 session, override and definition abstractions; there is no configurable framework for reversing
 the roles of PostgreSQL and Redis.
 
+[CasCap.Data](../src/CasCap.Data/README.md) owns the EF Core context, entities, design-time factory
+and migrations. [CasCap.Backend](../src/CasCap.Backend/README.md) owns tenant-qualified reads/writes,
+session locks, transaction orchestration and cache policy; the executable host retains finite
+migration lifecycle ownership.
+
 ## What Is Stored
 
 All tables live in the `agent_runtime` schema.

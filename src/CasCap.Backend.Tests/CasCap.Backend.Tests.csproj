@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CasCap.Backend\CasCap.Backend.csproj" />
+    <ProjectReference Include="..\CasCap.Data\CasCap.Data.csproj" />
     <ProjectReference Include="..\CasCap.AgentRuntime.Client\CasCap.AgentRuntime.Client.csproj" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />

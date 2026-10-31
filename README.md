@@ -98,7 +98,8 @@ and `OpenAI`; there is no dedicated Azure AI Foundry provider implementation.
 | Component | Purpose | Delivery |
 | --- | --- | --- |
 | [CasCap.App.Server](src/CasCap.App.Server/README.md) | Runtime lifecycle, role composition and administration frontend shell | ASP.NET Core application |
-| [CasCap.Backend](src/CasCap.Backend/README.md) | Execution orchestration, administration, HTTP/MCP adapters, document processing and EF persistence | Internal .NET 10 library |
+| [CasCap.Backend](src/CasCap.Backend/README.md) | Execution orchestration, administration, HTTP/MCP adapters, document processing and persistence policy | Internal .NET 10 library |
+| [CasCap.Data](src/CasCap.Data/README.md) | EF Core context, entities, migrations and shared Data Protection key model | Internal .NET 10 persistence library |
 | [CasCap.App.Client](src/CasCap.App.Client/README.md) | Browser administration frontend and its API contracts | Blazor WebAssembly client served by the server |
 | [CasCap.AgentRuntime.Client](src/CasCap.AgentRuntime.Client/README.md) | Typed execution and administration clients | Packable .NET 10 library |
 | [CasCap.AgentRuntime.Contracts](src/CasCap.AgentRuntime.Contracts/README.md) | Version 1 wire DTOs | Packable .NET 10 library |

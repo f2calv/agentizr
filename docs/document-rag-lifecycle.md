@@ -281,7 +281,7 @@ have been charged, actual usage can differ, and an overrun cannot be undone. Kno
 retained even when late/stale responses cannot publish. Do not select pricing or a paid pilot from
 these implementation defaults.
 
-The [migration](../src/CasCap.Backend/Migrations/20261030121900_DocumentVectorIndexing.cs)
+The [migration](../src/CasCap.Data/Migrations/20261030121900_DocumentVectorIndexing.cs)
 adds EF-owned jobs, receipts and tenant/source-qualified active pointers. Vector rows are
 deliberately SQL-owned: parameterized native vector DML, not a pgvector EF plugin. Model-drift
 checks do not validate that raw DDL; native migration/round-trip/constraint tests do.
@@ -395,7 +395,7 @@ fences in the [preparation job service](../src/CasCap.Backend/Services/DocumentI
 and [transaction helpers](../src/CasCap.Backend/Services/DocumentIngestionTransactions.cs).
 
 Use the reviewed heading-aware snapshot and its saved included ordinals, not the older
-[page-local chunk entity](../src/CasCap.Backend/Entities/DocumentTextChunkEntity.cs).
+[page-local chunk entity](../src/CasCap.Data/Entities/DocumentTextChunkEntity.cs).
 Define and hash the exact embedding input, including approved heading context; keep review rationale,
 actor identities and usage metadata out of that input. Preserve original chunk and source provenance.
 

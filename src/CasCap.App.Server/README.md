@@ -26,13 +26,13 @@ ownership and expose only the wiring needed by the host.
 ## Persistence
 
 The context, design-time factory and migrations live in
-[CasCap.Backend](../CasCap.Backend/README.md). Runtime migration uses the same application image and
+[CasCap.Data](../CasCap.Data/README.md). Runtime migration uses the same application image and
 external finite role; PostgreSQL schema and migration identifiers remain unchanged.
 
-For offline EF tooling, select the backend as the migration project and this host as startup:
+For offline EF tooling, select Data as both migration and startup project without initializing this host:
 
 ```powershell
-dotnet ef migrations list --project src\CasCap.Backend --startup-project src\CasCap.App.Server --no-connect
+dotnet ef migrations list --project src\CasCap.Data --startup-project src\CasCap.Data --no-connect
 ```
 
 Run from the repository root with the repository's tool manifest restored. Applying migrations or
