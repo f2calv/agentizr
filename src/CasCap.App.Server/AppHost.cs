@@ -72,6 +72,7 @@ public static partial class AppHost
 
             // Build
             await using var app = builder.Build();
+            var exitState = app.Services.GetApplicationExitState();
 
             if (logger.IsEnabled(LogLevel.Information))
                 logger.LogInformation("{ClassName} starting", nameof(AppHost));
@@ -95,7 +96,7 @@ public static partial class AppHost
 
                 // Run
                 await app.RunAsync();
-                return app.Services.GetApplicationExitCode();
+                return exitState.ExitCode;
             }
         }
         catch (Exception exception) when (exception is not OperationCanceledException and not TaskCanceledException)
