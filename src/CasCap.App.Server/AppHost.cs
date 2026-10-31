@@ -12,7 +12,7 @@ public static partial class AppHost
     /// <summary>Bootstraps and runs the application.</summary>
     /// <param name="args">Command-line arguments forwarded from the entry point.</param>
     /// <param name="entryAssembly">Entry assembly used for configuration and user-secrets resolution.</param>
-    /// <returns>The process exit code.</returns>
+    /// <returns>The process exit code: zero after normal shutdown, or one after an unexpected fault.</returns>
     public static async Task<int> RunAsync(string[] args, Assembly entryAssembly)
     {
         SerilogExtensions.GetBootstrapLogger();
@@ -24,6 +24,7 @@ public static partial class AppHost
 
             // Host builder
             var builder = WebApplication.CreateBuilder(configurationArgs);
+            builder.Services.AddApplicationExitState();
 
             // Configuration
             var (appConfig, applicationMetadata) = builder.InitializeConfiguration(entryAssembly);
@@ -100,12 +101,13 @@ public static partial class AppHost
 
                 // Run
                 await app.RunAsync();
+                return app.Services.GetApplicationExitCode();
             }
         }
         catch (Exception exception) when (exception is not OperationCanceledException and not TaskCanceledException)
         {
             Log.Fatal(exception, "{AppName} terminated unexpectedly", AppDomain.CurrentDomain.FriendlyName);
-            throw new InvalidOperationException("Application host terminated unexpectedly.", exception);
+            return 1;
         }
         finally
         {
