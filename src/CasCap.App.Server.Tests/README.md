@@ -14,7 +14,7 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 
 | Class | Method count | Test-case count | Description |
 | --- | ---: | ---: | --- |
-| `EndpointSmokeTests` | 5 | 9 | Verifies status and health endpoints, the frontend shell without capturing API routes, disabled MCP, all 19 named runtime controller actions and inferred API response metadata |
+| `EndpointSmokeTests` | 6 | 10 | Verifies lifecycle timeout binding, status/health endpoints, the frontend shell without capturing API routes, disabled MCP, all 19 named runtime controller actions and inferred API response metadata |
 | `AdministrationApiTests` | 7 | 8 | Verifies open-Development app, agent and provider discovery including the built-in Azure OpenAI preparation definition, guarded activation conflicts, enum names, editor drafts that keep unedited fields, required antiforgery tokens and redirect-free rejection of unknown apps |
 | `AdministrationDefinitionUiTests` | 5 | 9 | Static component rendering against synthetic HTTP responses verifies template discovery without mutations, selected-version actions, active pointers outside history, suggested versions and opt-in activation; typed-client checks cover hidden version collisions and lookup errors |
 | `DefinitionVersionSuggestionTests` | 2 | 7 | Verifies unused UTC date-and-revision suggestions, occupied revisions, gaps, custom identifiers and culture independence |

@@ -64,6 +64,7 @@ Only the example above adds Argo CD hook annotations; they are not defaulted by 
 | Value | Default | Purpose |
 | --- | --- | --- |
 | `runtime.replicaCount` | `0` | Enable the long-running HTTP workload |
+| `runtime.terminationGracePeriodSeconds` | `90` | Exceeds the 60-second application shutdown budget |
 | `migrate.replicaCount` | `0` | Enable the external migration Job |
 | `runtime.image.tag`, `migrate.image.tag` | empty | Explicitly select the runtime image version for both workloads |
 | `runtime.resources` | 50m/128Mi requests; 500m/512Mi limits | Runtime CPU and memory |

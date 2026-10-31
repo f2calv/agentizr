@@ -23,11 +23,11 @@ public static partial class AppHost
 
             // Host builder
             var builder = WebApplication.CreateBuilder(configurationArgs);
-            builder.Services.AddApplicationExitState();
 
             // Configuration
             var (appConfig, applicationMetadata) = builder.InitializeConfiguration(entryAssembly);
             builder.Configuration.AddCommandLine(configurationArgs);
+            builder.Services.AddApplicationHostLifecycle(builder.Configuration);
             var selected = ApplyMigrationOverride(
                 builder.Configuration.GetSection(FeatureConfig.ConfigurationSectionName)
                     .Get<FeatureConfig>() ?? new FeatureConfig(),

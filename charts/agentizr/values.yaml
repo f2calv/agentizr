@@ -9,6 +9,7 @@ dashboards:
 
 runtime:
   replicaCount: 0
+  terminationGracePeriodSeconds: 90
   fullnameOverride: agentizr
   image:
     repository: ghcr.io/f2calv/agentizr

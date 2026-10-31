@@ -553,6 +553,8 @@ disabled and Release status shapes stay unchanged. Read the soak guide's expiry-
 before publishing a temporary level change.
 
 `AppConfig` provides safe defaults for the telemetry meter prefix and service name. Set `AppConfig__OtlpExporterEndpoint` to enable OTLP export; leaving it unset disables the shared telemetry registration.
+`HostLifecycleConfig` binds from `CasCap:HostLifecycleConfig`; the base application uses a
+60-second graceful shutdown timeout and the runtime chart grants a 90-second termination period.
 
 `AgentRuntimeConfig` binds from `CasCap:AgentRuntimeConfig`. Definitions are grouped under `Tenants`,
 each with an explicit `DefinitionVersion`, provider dictionary, and agent dictionary. The tracked

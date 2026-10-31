@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Hosting;
 
 namespace CasCap.IntegrationTests;
 
@@ -14,6 +15,17 @@ namespace CasCap.IntegrationTests;
 public sealed class EndpointSmokeTests(AgentizrWebApplicationFactory factory)
     : IClassFixture<AgentizrWebApplicationFactory>
 {
+    [Fact]
+    public void HostLifecycle_UsesConfiguredShutdownTimeout()
+    {
+        var config = factory.Services.GetRequiredService<IOptions<HostLifecycleConfig>>().Value;
+
+        Assert.Equal(60_000, config.ShutdownTimeoutMs);
+        Assert.Equal(
+            TimeSpan.FromMilliseconds(config.ShutdownTimeoutMs),
+            factory.Services.GetRequiredService<IOptions<HostOptions>>().Value.ShutdownTimeout);
+    }
+
     [Theory]
     [InlineData("/status")]
     [InlineData("/healthz")]
