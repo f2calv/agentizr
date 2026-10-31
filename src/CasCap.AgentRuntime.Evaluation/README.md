@@ -120,9 +120,8 @@ required-tool, forbidden-tool and side-effect checks. `RecordingChatClient` and
 `AgentEvaluationReport` provide request recording, Wilson intervals and file-based reporting for
 internal evaluation callers; these reports are not an HTTP endpoint output.
 
-`AgentEvaluationHarness` is an obsolete (`AGENTIZR0001`) configuration-based model-matrix helper,
-not the runtime's definition evaluation path. New integrations should use the administration API
-rather than bind `AIConfig` or `AgentEvaluationConfig` to construct an in-process harness.
+Use the administration API to evaluate stored definitions; this project does not expose a
+configuration-based model-matrix runner.
 
 ## Documentation
 

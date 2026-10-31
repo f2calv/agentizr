@@ -12,7 +12,7 @@ public sealed record InstructionVariant
     /// <summary>The variant evaluated as the reference point for every scenario.</summary>
     public static InstructionVariant Baseline { get; } = new() { Name = "baseline", Notes = "Instructions as shipped." };
 
-    /// <summary>Short, unique name used in reports and in <see cref="AgentEvaluationConfig.InstructionVariants"/>.</summary>
+    /// <summary>Short, unique name used in reports.</summary>
     public required string Name { get; init; }
 
     /// <summary>What the variant changes and why.</summary>

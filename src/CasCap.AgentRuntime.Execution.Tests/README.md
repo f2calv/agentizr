@@ -34,11 +34,11 @@ produce the inventory below; counts come from attributes and expanded `[InlineDa
 | `AgentRunScopeTests` | 9 | 11 | Depth nesting, activity callback inheritance without inheriting the root structured-response observer, shared/thread-safe attachments, drain semantics and scoped tool failures |
 | `AgentTypeRegistryTests` | 11 | 11 | Registry lookup, ambiguous-name rejection, DI and assembly indexing, tool resolution via registry |
 | `AgentEvaluationGradingTests` | 7 | 18 | Number, phrase, anchored-pattern and combined answer checks, required/forbidden/side-effect grading, Wilson intervals |
-| `AgentEvaluationToolTests` | 10 | 16 | Tool classification and filtering, fixture and sandbox responses, variant descriptions and schemas, harness tool assembly and provider availability |
+| `AgentEvaluationToolTests` | 7 | 10 | Tool classification and filtering, fixture and sandbox responses, variant descriptions and schemas |
 | `AgentEvaluationReportTests` | 5 | 7 | Per-cell and cross-model summaries, speed ratios, session files, visible-thinking detection |
 | `LlamaCppIntegrationTests` | 4 | 4 | Opt-in real text, streaming, multimodal, and framework-session inference against local llama.cpp |
 | `SessionLatencyBenchmarkTests` | 2 | 2 | Opt-in time-to-first-token, total latency and input tokens by session size for llama.cpp and Azure OpenAI, uncompacted versus reduced history |
-| **Total** | **102** | **151** | Source-declared cases |
+| **Total** | **99** | **145** | Source-declared cases |
 
 ## Trait Categories
 

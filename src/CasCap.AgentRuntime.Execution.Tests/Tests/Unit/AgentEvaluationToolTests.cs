@@ -1,11 +1,10 @@
-using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json;
 
 namespace CasCap.AgentRuntime.Execution.Tests.Unit;
 
 /// <summary>
 /// Tests for the evaluation tool surface: catalog classification and filtering, fixture tools, variants,
-/// harness tool assembly and the MCP prompt contract.
+/// and model-facing parameter schemas.
 /// </summary>
 [Trait("Category", "Agent Evaluation")]
 public class AgentEvaluationToolTests
@@ -117,53 +116,6 @@ public class AgentEvaluationToolTests
 
         Assert.Throws<InvalidOperationException>(() => variant.RewriteSchema("get_order_status", GetTool("get_order_status").JsonSchema));
     }
-
-    [Theory]
-    [InlineData("Edge", null)]
-    [InlineData("AzureNoCredential", "no Entra ID credential or ApiKey configured")]
-    [InlineData("OpenAINoKey", "no ApiKey configured")]
-    [InlineData("Missing", "not defined in CasCap:AIConfig:Providers")]
-    public void Harness_GetUnavailableReason(string providerKey, string? expected) =>
-        Assert.Equal(expected, CreateHarness().GetUnavailableReason(providerKey));
-
-    [Fact]
-    public void Harness_GetOfferedTools_WrapsServiceAndDelegationTools()
-    {
-        var harness = CreateHarness();
-        var hidden = new ToolSurfaceVariant { Name = "hidden", HiddenTools = ["list_orders"] };
-
-        var orderTools = harness.GetOfferedTools("OrderAgent", hidden);
-        var frontTools = harness.GetOfferedTools("FrontAgent");
-
-        Assert.DoesNotContain(orderTools, t => t.Name == "list_orders");
-        Assert.Contains(orderTools, t => t.Name == "cancel_order" && t.Disposition == ToolDisposition.SideEffect);
-        var delegation = Assert.Single(frontTools);
-        Assert.Equal("invoke_order_agent", delegation.Name);
-        Assert.Equal(ToolDisposition.Delegation, delegation.Disposition);
-    }
-
-    [Fact]
-    public void Harness_GetKnownToolNames_IncludesDelegationAndCandidates()
-    {
-        var candidate = new ToolSurfaceVariant
-        {
-            Name = "candidate",
-            CandidateTools = new Dictionary<string, AIFunction[]>
-            {
-                ["OrderAgent"] = [AIFunctionFactory.Create(() => (object?)null, "get_order_eta", "Estimated delivery time.")],
-            },
-        };
-
-        var known = CreateHarness().GetKnownToolNames([candidate]);
-
-        Assert.Contains("get_order_status", known);
-        Assert.Contains("invoke_front_agent", known);
-        Assert.Contains("get_order_eta", known);
-    }
-
-    private static AgentEvaluationHarness CreateHarness() =>
-        new(NullLoggerFactory.Instance, AgentEvaluationTestData.CreateAIConfig(nameof(OrderMcpQueryService)), Catalog,
-            typeof(AgentEvaluationToolTests).Assembly);
 
     private static AIFunction GetTool(string toolName) => Catalog.GetAllTools().Single(t => t.Name == toolName);
 

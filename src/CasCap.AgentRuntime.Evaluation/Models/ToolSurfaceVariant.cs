@@ -16,7 +16,7 @@ public sealed record ToolSurfaceVariant
     /// <summary>The variant evaluated as the reference point for every scenario.</summary>
     public static ToolSurfaceVariant Baseline { get; } = new() { Name = "baseline", Notes = "Tools as shipped." };
 
-    /// <summary>Short, unique name used in reports and in <see cref="AgentEvaluationConfig.ToolSurfaceVariants"/>.</summary>
+    /// <summary>Short, unique name used in reports.</summary>
     public required string Name { get; init; }
 
     /// <summary>What the variant changes and why.</summary>

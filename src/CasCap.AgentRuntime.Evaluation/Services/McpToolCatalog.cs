@@ -61,7 +61,7 @@ public sealed class McpToolCatalog(
     /// </summary>
     /// <param name="serviceProvider">Resolves backing services only if a tool is invoked unwrapped.</param>
     /// <param name="agentConfig">The agent whose tool sources are resolved.</param>
-    /// <param name="endpointToolsMapped">See <see cref="AgentEvaluationConfig.EndpointToolsMapped"/>.</param>
+    /// <param name="endpointToolsMapped">Whether endpoint tool sources are mapped to in-process tools of the same names.</param>
     /// <param name="logger">Receives tool filter diagnostics.</param>
     /// <exception cref="InvalidOperationException">A source names an unknown service or a missing tool.</exception>
     public List<AIFunction> GetServiceTools(IServiceProvider serviceProvider, AgentConfig agentConfig,
