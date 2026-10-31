@@ -19,8 +19,7 @@ public static partial class AppHost
 
         try
         {
-            var migrateArgument = args.Contains("--migrate", StringComparer.Ordinal);
-            var configurationArgs = args.Where(arg => arg != "--migrate").ToArray();
+            var (configurationArgs, migrateArgument) = ParseMigrationMode(args);
 
             // Host builder
             var builder = WebApplication.CreateBuilder(configurationArgs);
@@ -29,10 +28,10 @@ public static partial class AppHost
             // Configuration
             var (appConfig, applicationMetadata) = builder.InitializeConfiguration(entryAssembly);
             builder.Configuration.AddCommandLine(configurationArgs);
-            var selected = builder.Configuration.GetSection(FeatureConfig.ConfigurationSectionName)
-                .Get<FeatureConfig>() ?? new FeatureConfig();
-            if (migrateArgument)
-                selected = selected with { EnabledFeatures = FeatureNames.Migrate };
+            var selected = ApplyMigrationOverride(
+                builder.Configuration.GetSection(FeatureConfig.ConfigurationSectionName)
+                    .Get<FeatureConfig>() ?? new FeatureConfig(),
+                migrateArgument);
             var features = selected.GetEnabledFeatures();
             var migrateOnly = features.Contains(FeatureNames.Migrate);
             var runtimeEnabled = features.Contains(FeatureNames.Agentizr);
@@ -78,12 +77,7 @@ public static partial class AppHost
                 logger.LogInformation("{ClassName} starting", nameof(AppHost));
 
             if (migrateOnly)
-            {
-                await using var scope = app.Services.CreateAsyncScope();
-                await scope.ServiceProvider
-                    .GetRequiredService<AgentRuntimeDatabaseMigrator>()
-                    .MigrateAsync(CancellationToken.None);
-            }
+                await RunDatabaseMigrationAsync(app.Services, CancellationToken.None);
             else
             {
                 // Endpoint mapping
