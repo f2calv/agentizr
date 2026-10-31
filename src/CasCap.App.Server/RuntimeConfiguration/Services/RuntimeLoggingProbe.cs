@@ -33,20 +33,22 @@ public sealed class RuntimeLoggingProbe(
     /// <summary>Applies an accepted monitor value to the same switch the pipeline consumes.</summary>
     internal void Apply(RuntimeLoggingControls value)
     {
+        var minimumLevel = value.MinimumLevel switch
+        {
+            RuntimeLoggingLevel.Verbose => LogEventLevel.Verbose,
+            RuntimeLoggingLevel.Debug => LogEventLevel.Debug,
+            RuntimeLoggingLevel.Information => LogEventLevel.Information,
+            RuntimeLoggingLevel.Warning => LogEventLevel.Warning,
+            RuntimeLoggingLevel.Error => LogEventLevel.Error,
+            RuntimeLoggingLevel.Fatal => LogEventLevel.Fatal,
+            _ => throw new InvalidOperationException("The accepted logging minimum must be a defined level."),
+        };
+        var appliedAtUtc = timeProvider.GetUtcNow();
         lock (_lock)
         {
-            levelSwitch.MinimumLevel = value.MinimumLevel switch
-            {
-                RuntimeLoggingLevel.Verbose => LogEventLevel.Verbose,
-                RuntimeLoggingLevel.Debug => LogEventLevel.Debug,
-                RuntimeLoggingLevel.Information => LogEventLevel.Information,
-                RuntimeLoggingLevel.Warning => LogEventLevel.Warning,
-                RuntimeLoggingLevel.Error => LogEventLevel.Error,
-                RuntimeLoggingLevel.Fatal => LogEventLevel.Fatal,
-                _ => throw new InvalidOperationException("The accepted logging minimum must be a defined level."),
-            };
+            levelSwitch.MinimumLevel = minimumLevel;
             _applyCount++;
-            _lastAppliedAtUtc = timeProvider.GetUtcNow();
+            _lastAppliedAtUtc = appliedAtUtc;
         }
     }
 }

@@ -2,7 +2,8 @@
 namespace CasCap.RuntimeConfiguration.Services;
 
 /// <summary>Applies standard monitor changes to this host's actual Serilog pipeline switch.</summary>
-public sealed class RuntimeLoggingService(
+public sealed partial class RuntimeLoggingService(
+    ILogger<RuntimeLoggingService> logger,
     IOptionsMonitor<RuntimeLoggingControls> config,
     RuntimeLoggingProbe runtimeLoggingProbe
 ) : IHostedService, IDisposable
@@ -15,8 +16,16 @@ public sealed class RuntimeLoggingService(
     {
         lock (_lock)
         {
-            _subscription = config.OnChange(runtimeLoggingProbe.Apply);
-            runtimeLoggingProbe.Apply(config.CurrentValue);
+            _subscription = config.OnChange((value, _) => ApplyChange(value));
+            try
+            {
+                runtimeLoggingProbe.Apply(config.CurrentValue);
+            }
+            catch
+            {
+                Dispose();
+                throw;
+            }
         }
         return Task.CompletedTask;
     }
@@ -31,4 +40,18 @@ public sealed class RuntimeLoggingService(
     /// <inheritdoc/>
     public void Dispose() => Interlocked.Exchange(ref _subscription, null)?.Dispose();
 
+    private void ApplyChange(RuntimeLoggingControls value)
+    {
+        try
+        {
+            runtimeLoggingProbe.Apply(value);
+        }
+        catch (Exception ex)
+        {
+            LogApplyFailed(logger, ex);
+        }
+    }
+
+    [LoggerMessage(LogLevel.Error, "Runtime logging configuration change was rejected; retaining the last valid logging state")]
+    private static partial void LogApplyFailed(ILogger logger, Exception exception);
 }

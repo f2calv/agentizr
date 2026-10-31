@@ -1,4 +1,5 @@
 #if DEBUG
+using CasCap.AgentRuntime.Contracts.RuntimeConfiguration;
 using CasCap.Common.Configuration.Runtime.Models;
 using CasCap.IntegrationTests;
 using CasCap.Models;
@@ -8,7 +9,11 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Npgsql;
+using Serilog.Core;
+using Serilog.Events;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 
@@ -95,6 +100,53 @@ public sealed class RuntimeLoggingBootstrapTests
         await app.StopAsync(TestContext.Current.CancellationToken);
     }
 
+    [Fact]
+    public async Task ReloadFailure_RetainsLastValidState()
+    {
+        var monitor = new MutableOptionsMonitor<RuntimeLoggingControls>(new()
+        {
+            MinimumLevel = RuntimeLoggingLevel.Warning,
+        });
+        var levelSwitch = new LoggingLevelSwitch(LogEventLevel.Information);
+        var probe = new RuntimeLoggingProbe(
+            NullLogger<RuntimeLoggingProbe>.Instance,
+            TimeProvider.System,
+            levelSwitch);
+        using var service = new RuntimeLoggingService(
+            NullLogger<RuntimeLoggingService>.Instance,
+            monitor,
+            probe);
+        await service.StartAsync(TestContext.Current.CancellationToken);
+        var valid = probe.ReadStatus();
+
+        monitor.Set(new RuntimeLoggingControls { MinimumLevel = (RuntimeLoggingLevel)int.MaxValue });
+
+        var retained = probe.ReadStatus();
+        Assert.Equal("Warning", retained.EffectiveMinimumLevel);
+        Assert.Equal(valid.ApplyCount, retained.ApplyCount);
+        Assert.Equal(valid.LastAppliedAtUtc, retained.LastAppliedAtUtc);
+    }
+
+    [Fact]
+    public async Task InitialApplyFailure_FailsStartup()
+    {
+        var monitor = new MutableOptionsMonitor<RuntimeLoggingControls>(new()
+        {
+            MinimumLevel = (RuntimeLoggingLevel)int.MaxValue,
+        });
+        var probe = new RuntimeLoggingProbe(
+            NullLogger<RuntimeLoggingProbe>.Instance,
+            TimeProvider.System,
+            new LoggingLevelSwitch(LogEventLevel.Information));
+        using var service = new RuntimeLoggingService(
+            NullLogger<RuntimeLoggingService>.Instance,
+            monitor,
+            probe);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.StartAsync(TestContext.Current.CancellationToken));
+    }
+
     private static WebApplicationBuilder CreateBuilder()
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Production" });
@@ -109,6 +161,32 @@ public sealed class RuntimeLoggingBootstrapTests
             ["Serilog:MinimumLevel:Default"] = "Information",
         });
         return builder;
+    }
+
+    private sealed class MutableOptionsMonitor<T>(T currentValue) : IOptionsMonitor<T>
+    {
+        private Action<T, string?>? _listener;
+
+        public T CurrentValue { get; private set; } = currentValue;
+
+        public T Get(string? name) => CurrentValue;
+
+        public IDisposable OnChange(Action<T, string?> listener)
+        {
+            _listener = listener;
+            return new Subscription(() => _listener = null);
+        }
+
+        public void Set(T value)
+        {
+            CurrentValue = value;
+            _listener?.Invoke(value, null);
+        }
+
+        private sealed class Subscription(Action dispose) : IDisposable
+        {
+            public void Dispose() => dispose();
+        }
     }
 }
 #endif
