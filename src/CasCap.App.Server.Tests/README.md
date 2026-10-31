@@ -48,18 +48,21 @@ state; PostgreSQL integration cases exercise isolated per-fixture databases on r
 | `LiveAgentRuntimeSmokeTests` | 1 | 1 | Opt-in authenticated run, streaming, session inspection and cleanup against a complete live runtime |
 | `RuntimeLoggingTests` (Debug only) | 1 | 2 | Real PostgreSQL verifies application database-name override, actual-switch status, forwarding, category overrides, cache retention and expiry to Information or Debug startup baselines |
 | `RuntimeLoggingBootstrapTests` (Debug only) | 4 | 6 | Offline bootstrap selection, missing/ambiguous connection rejection, normalized application target and unchanged disabled HTTP status shape |
+| `RuntimeLoggingManagementTests` (Debug only) | 2 | 5 | Named cookie/operator authorization, JSON antiforgery, read/preview/publish through isolated PostgreSQL and actual reader changes |
+| `RuntimeLoggingUiTests` (Debug only) | 3 | 6 | Actual WASM page/RCL rendering, typed levels, exact revisions, read-only loading, failure states and compatible browser-neutral wire DTO |
+| `RuntimeLoggingAuthorizationTests` (Debug only) | 3 | 9 | Explicit host-wide grants, mutually exclusive grant validation and disabled bootstrap-controller discovery |
 | **Runtime baseline subtotal** | **147** | **225** | Excludes Debug-only logging; role/ingestion additions are listed separately below |
 
 The runtime logging soak is Debug-only. Run its focused cases with:
 
 ```powershell
 dotnet test --project src\CasCap.App.Server.Tests --configuration Debug `
-  --filter-class CasCap.Tests.Integration.RuntimeLoggingTests `
-  --filter-class CasCap.Tests.Integration.RuntimeLoggingBootstrapTests
+  --filter-class '*RuntimeLogging*'
 ```
 
-Observed targeted Debug results: all eight logging/bootstrap cases passed, including two against
-real PostgreSQL. Previously, nine existing endpoint smoke cases passed with runtime configuration
+Observed targeted Debug results: all 28 logging/bootstrap/editor cases passed. Logging fixtures
+apply only the real Common configuration migrations, without unrelated application/vector schema.
+Previously, nine existing endpoint smoke cases passed with runtime configuration
 disabled. This does not claim
 a complete Debug or Release suite run. The default Release CI path does not execute this provisional
 Debug-only application case; the reusable providers' acceptance suite is wired into their own CI.

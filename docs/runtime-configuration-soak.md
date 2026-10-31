@@ -4,6 +4,9 @@ This opt-in Debug slice exercises the unpublished CasCap.Common runtime/PostgreS
 through agentizr's actual Serilog pipeline. Immutable deployment settings, sinks, credentials,
 category overrides and tenant definitions remain outside the runtime contract.
 
+The Debug frontend now embeds an optional [typed logging editor](runtime-configuration-management.md).
+It requires separate explicit host-wide operator authorization; opening it never publishes.
+
 ## Build and Deployment Boundary
 
 The thin [entrypoint](../src/CasCap.App.Server/Program.cs) delegates to

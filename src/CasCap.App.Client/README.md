@@ -17,6 +17,7 @@ the API fit together.
 | Route | Page |
 | --- | --- |
 | `/` | Apps the administrator may manage, with caller applications and agent counts |
+| `/runtime-configuration` | Optional Debug-only typed host logging editor, requiring explicit host-wide operator rights |
 | `/apps/{appId}` | Paged, searchable agents, including inactive and never-activated ones |
 | `/apps/{appId}/providers` | Provider registrations and the definition policy, read-only |
 | `/apps/{appId}/agents/{agentName}` | Versions, the selected snapshot, activation audit, activate, roll back and deactivate |
@@ -38,6 +39,12 @@ See the [template walkthrough](../../docs/administration-frontend.md#built-in-do
 for provider requirements and the still-pending durable-worker integration.
 
 ## Public Surface
+
+The [Debug logging editor](../../docs/runtime-configuration-management.md) embeds the Common RCL
+using browser-safe contracts and the existing same-origin administration cookie. Management is
+off by default; tenant-admin assignments grant no host-wide rights without explicit operator approval.
+It previews before confirmed publication, preserves exact revisions and labels commit as activation
+pending. Opening the page is read-only; the page and RCL dependency are excluded from Release.
 
 | Type | Purpose |
 | --- | --- |

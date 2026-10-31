@@ -19,4 +19,14 @@
     <PackageReference Include="MudBlazor" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <ProjectReference Include="..\..\..\CasCap.Common\src\CasCap.Common.Configuration.Blazor\CasCap.Common.Configuration.Blazor.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(Configuration)' != 'Debug'">
+    <Compile Remove="Pages\RuntimeLoggingSettings.razor.cs" />
+    <Content Remove="Pages\RuntimeLoggingSettings.razor" />
+    <RazorComponent Remove="Pages\RuntimeLoggingSettings.razor" />
+  </ItemGroup>
+
 </Project>

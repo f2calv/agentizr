@@ -35,7 +35,16 @@ public sealed class RuntimeLoggingProbe(
     {
         lock (_lock)
         {
-            levelSwitch.MinimumLevel = value.MinimumLevel;
+            levelSwitch.MinimumLevel = value.MinimumLevel switch
+            {
+                RuntimeLoggingLevel.Verbose => LogEventLevel.Verbose,
+                RuntimeLoggingLevel.Debug => LogEventLevel.Debug,
+                RuntimeLoggingLevel.Information => LogEventLevel.Information,
+                RuntimeLoggingLevel.Warning => LogEventLevel.Warning,
+                RuntimeLoggingLevel.Error => LogEventLevel.Error,
+                RuntimeLoggingLevel.Fatal => LogEventLevel.Fatal,
+                _ => throw new InvalidOperationException("The accepted logging minimum must be a defined level."),
+            };
             _applyCount++;
             _lastAppliedAtUtc = timeProvider.GetUtcNow();
         }

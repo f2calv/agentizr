@@ -53,6 +53,8 @@ dotnet run --project src\CasCap.App.Server\CasCap.App.Server.csproj --configurat
 The tracked defaults start an empty host: `/status` identifies it and `/healthz` reports host health.
 In Development, `/` opens the [administration frontend](docs/administration-frontend.md) without
 sign-in.
+Debug builds can additionally embed the [typed runtime logging editor](docs/runtime-configuration-management.md)
+behind explicitly configured host-wide operator permissions.
 Before running an agent, add the [Development configuration](src/CasCap.App.Server/README.md#configuration-examples)
 and start its model provider. A health response does not verify provider, database or Redis readiness.
 Outside Development, PostgreSQL and JWT tenancy are mandatory; Redis is an optional cache.

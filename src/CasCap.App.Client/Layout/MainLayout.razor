@@ -9,6 +9,10 @@
     <MudAppBar Elevation="1">
         <MudLink Href="/" Color="Color.Inherit" Typo="Typo.h6" Underline="Underline.None">agentizr administration</MudLink>
         <MudSpacer />
+        @if (RuntimeLoggingAvailable)
+        {
+            <MudLink Href="@RuntimeLoggingRoutes.Page" Color="Color.Inherit" Class="mr-4">Runtime logging</MudLink>
+        }
         <SessionStatus />
     </MudAppBar>
     <MudMainContent>

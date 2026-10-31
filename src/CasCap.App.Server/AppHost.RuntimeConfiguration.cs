@@ -30,7 +30,11 @@ public static partial class AppHost
                 Scope = new RuntimeConfigurationScope(settings.Application, builder.Environment.EnvironmentName),
                 ContractId = "logging",
                 RefreshInterval = TimeSpan.FromMilliseconds(settings.RefreshIntervalMs),
-            }, EffectiveDatabaseConnectionString(database), new RuntimeLoggingControls { MinimumLevel = minimumLevel });
+            }, EffectiveDatabaseConnectionString(database), new RuntimeLoggingControls
+            {
+                MinimumLevel = Enum.Parse<RuntimeLoggingLevel>(minimumLevel.ToString()),
+            });
+        builder.Services.AddSingleton(settings);
         var levelSwitch = new LoggingLevelSwitch(minimumLevel);
         builder.Services.AddSingleton(levelSwitch);
         builder.Services.AddSingleton<RuntimeLoggingProbe>();

@@ -1,5 +1,6 @@
 #if DEBUG
 using CasCap.Common.Configuration.PostgreSql;
+using CasCap.AgentRuntime.Contracts.RuntimeConfiguration;
 using CasCap.Common.Configuration.PostgreSql.Services;
 using CasCap.IntegrationTests;
 using CasCap.RuntimeConfiguration.Models;
@@ -23,7 +24,7 @@ namespace CasCap.Tests.Integration;
 [Trait("Category", "Integration")]
 [Trait("Category", "PostgreSQL")]
 [Collection(HostIntegrationCollection.Name)]
-public sealed class RuntimeLoggingTests(PostgreSqlFixture postgres) : IClassFixture<PostgreSqlFixture>
+public sealed class RuntimeLoggingTests(RuntimeLoggingPostgreSqlFixture postgres) : IClassFixture<RuntimeLoggingPostgreSqlFixture>
 {
     [Theory]
     [InlineData(LogEventLevel.Information)]
@@ -61,7 +62,7 @@ public sealed class RuntimeLoggingTests(PostgreSqlFixture postgres) : IClassFixt
             .CreateDbContextAsync(TestContext.Current.CancellationToken))
             await db.Database.MigrateAsync(TestContext.Current.CancellationToken);
         var store = app.Services.GetRequiredService<PostgresRuntimeConfigurationStore<RuntimeLoggingControls>>();
-        await store.PublishAsync(new RuntimeLoggingControls { MinimumLevel = LogEventLevel.Warning }, 0,
+        await store.PublishAsync(new RuntimeLoggingControls { MinimumLevel = RuntimeLoggingLevel.Warning }, 0,
             "test-operator", "Initial publication", cancellationToken: TestContext.Current.CancellationToken);
         var cache = app.Services.GetRequiredService<IMemoryCache>();
         var sentinel = Guid.NewGuid();
@@ -86,7 +87,7 @@ public sealed class RuntimeLoggingTests(PostgreSqlFixture postgres) : IClassFixt
         Assert.Equal("Warning", runtimeStatus.GetProperty("effectiveMinimumLevel").GetString());
         var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger(CaptureProvider.Category);
         Assert.False(logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug));
-        await store.PublishAsync(new RuntimeLoggingControls { MinimumLevel = LogEventLevel.Debug }, 1,
+        await store.PublishAsync(new RuntimeLoggingControls { MinimumLevel = RuntimeLoggingLevel.Debug }, 1,
             "test-operator", "Enable debugging", cancellationToken: TestContext.Current.CancellationToken);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         deadline.CancelAfter(TimeSpan.FromSeconds(20));
@@ -104,7 +105,7 @@ public sealed class RuntimeLoggingTests(PostgreSqlFixture postgres) : IClassFixt
         Assert.Equal("Debug", applied.EffectiveMinimumLevel);
         Assert.True(applied.ProbeDebugEnabled);
         Assert.True(applied.ApplyCount > initial.ApplyCount);
-        await store.PublishAsync(new RuntimeLoggingControls { MinimumLevel = LogEventLevel.Verbose }, 2,
+        await store.PublishAsync(new RuntimeLoggingControls { MinimumLevel = RuntimeLoggingLevel.Verbose }, 2,
             "test-operator", "Expired controls restore startup, not revision one",
             expiresAtUtc: TimeProvider.System.GetUtcNow().AddSeconds(5),
             cancellationToken: TestContext.Current.CancellationToken);

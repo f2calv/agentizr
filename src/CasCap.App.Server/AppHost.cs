@@ -64,6 +64,10 @@ public static partial class AppHost
             else
                 AddDatabase(builder, required: true);
             var administrationEnabled = runtimeEnabled && AddAdministration(builder);
+#if DEBUG
+            if (runtimeEnabled)
+                AddRuntimeLoggingManagement(builder);
+#endif
             if (runtimeEnabled)
                 AddFrontend(builder);
             var mcpEnabled = runtimeEnabled && AddMcp(builder, migrateOnly);
