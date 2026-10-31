@@ -66,7 +66,6 @@ public static partial class AppHost
         builder.Services.AddScoped<DocumentIngestionJobService>();
         builder.Services.AddScoped<DocumentIngestionProcessingService>();
         builder.Services.AddSingleton<IBgFeature, DocumentIngestionFeature>();
-        builder.Services.AddFeatureFlagService(new HashSet<string>([FeatureNames.Ingestion], StringComparer.OrdinalIgnoreCase));
 #else
         throw new InvalidOperationException("The ingestion PoC requires Debug source references until its shared APIs are published.");
 #endif

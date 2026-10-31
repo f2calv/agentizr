@@ -73,6 +73,8 @@ public static partial class AppHost
             var mcpEnabled = runtimeEnabled && AddMcp(builder, migrateOnly);
             if (features.Contains(FeatureNames.Ingestion))
                 AddIngestion(builder, runtimeEnabled);
+            if (builder.Services.Any(descriptor => descriptor.ServiceType == typeof(IBgFeature)))
+                builder.Services.AddFeatureFlagService(features);
 
             // Build
             await using var app = builder.Build();
