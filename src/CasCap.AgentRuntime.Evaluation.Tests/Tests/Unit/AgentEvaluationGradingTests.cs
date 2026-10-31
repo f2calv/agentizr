@@ -1,8 +1,8 @@
-namespace CasCap.AgentRuntime.Execution.Tests.Unit;
+namespace CasCap.AgentRuntime.Evaluation.Tests.Unit;
 
-/// <summary>Tests for answer expectations, grading and the Wilson score interval.</summary>
+/// <summary>Tests for deterministic answer expectations and tool-call grading.</summary>
 [Trait("Category", "Agent Evaluation")]
-public class AgentEvaluationGradingTests
+public sealed class AgentEvaluationGradingTests
 {
     [Theory]
     [InlineData("There are 5 lights on.", 5d, 0d, true)]
@@ -34,18 +34,6 @@ public class AgentEvaluationGradingTests
     public void AnswerExpectation_Matches_AnchorsToEntity(string answer, bool satisfied) =>
         Assert.Equal(satisfied, AnswerExpectation.Matches(@"order 42 (?:has|is) shipped", "says order 42 shipped")
             .IsSatisfiedBy(answer));
-
-    [Theory]
-    [InlineData(5, 5, 0.566, 1.0)]
-    [InlineData(0, 5, 0.0, 0.434)]
-    [InlineData(3, 5, 0.231, 0.882)]
-    public void WilsonInterval(int successes, int trials, double lower, double upper)
-    {
-        var (Lower, Upper) = AgentEvaluationReport.WilsonInterval(successes, trials);
-
-        Assert.Equal(lower, Lower, 0.001);
-        Assert.Equal(upper, Upper, 0.001);
-    }
 
     [Fact]
     public void Grade_FailsMissingToolAndSideEffect()

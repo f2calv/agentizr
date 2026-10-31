@@ -107,7 +107,8 @@ and `OpenAI`; there is no dedicated Azure AI Foundry provider implementation.
 | [CasCap.AgentRuntime.Evaluation](src/CasCap.AgentRuntime.Evaluation/README.md) | Fixture tools, grading and recording for definition evaluation | Internal project |
 | [CasCap.App.Server.Tests](src/CasCap.App.Server.Tests/README.md) | Protocol, tenancy, state and persistence coverage | Contributor tests; external cases need opt-in/setup |
 | [CasCap.Backend.Tests](src/CasCap.Backend.Tests/README.md) | Application unit tests and offline migration/model discovery | Contributor tests; retained-document review is opt-in |
-| [CasCap.AgentRuntime.Execution.Tests](src/CasCap.AgentRuntime.Execution.Tests/README.md) | Provider, tool, compaction and grading coverage | Contributor tests; local model cases are opt-in |
+| [CasCap.AgentRuntime.Execution.Tests](src/CasCap.AgentRuntime.Execution.Tests/README.md) | Provider, tool and compaction coverage | Contributor tests; local model cases are opt-in |
+| [CasCap.AgentRuntime.Evaluation.Tests](src/CasCap.AgentRuntime.Evaluation.Tests/README.md) | Offline grading, sandbox and synthetic report coverage | Credential-free contributor tests |
 | [agentizr chart](charts/agentizr/README.md) | Runtime and external migration workloads | Helm umbrella chart |
 | [agentizr-dashboards](charts/agentizr-dashboards/README.md) | Execution health dashboard | Bundled Helm subchart |
 

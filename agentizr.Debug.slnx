@@ -17,6 +17,7 @@
     <Project Path="src/CasCap.Data/CasCap.Data.csproj" />
     <Project Path="src/CasCap.Backend.Tests/CasCap.Backend.Tests.csproj" />
     <Project Path="src/CasCap.AgentRuntime.Execution/CasCap.AgentRuntime.Execution.csproj" />
+    <Project Path="src/CasCap.AgentRuntime.Evaluation.Tests/CasCap.AgentRuntime.Evaluation.Tests.csproj" />
     <Project Path="src/CasCap.AgentRuntime.Evaluation/CasCap.AgentRuntime.Evaluation.csproj" />
     <Project Path="src/CasCap.AgentRuntime.Execution.Tests/CasCap.AgentRuntime.Execution.Tests.csproj" />
   </Folder>

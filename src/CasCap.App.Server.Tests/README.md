@@ -13,6 +13,20 @@ execution or evaluation substitutes. PostgreSQL integration cases exercise isola
 databases on reusable Compose services. Shared helper sources are linked from Backend.Tests without
 referencing its test executable.
 
+For fixture-backed protocol tests, explicitly disable Key Vault during host bootstrap. From the
+repository root, use the existing skip sentinel in the test process environment:
+
+```powershell
+$env:AppConfig__KeyVaultName = 'skip'
+dotnet test --project src\CasCap.App.Server.Tests\CasCap.App.Server.Tests.csproj --configuration Debug `
+  --filter-class CasCap.IntegrationTests.AgentDefinitionAdministrationProtocolTests
+Remove-Item Env:\AppConfig__KeyVaultName
+```
+
+Configuration is loaded before the scripted evaluation substitute is registered. The sentinel
+prevents an inherited vault setting from triggering remote discovery or invalid placeholder URI
+parsing; it does not disable the runtime's evaluation or activation checks.
+
 ## Tests
 
 | Class | Method count | Test-case count | Description |

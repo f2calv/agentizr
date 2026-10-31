@@ -1,9 +1,9 @@
 using System.Text.Json.Serialization;
 
-namespace CasCap.AgentRuntime.Evaluation.Extensions;
+namespace CasCap.AgentRuntime.Evaluation.Tests.Extensions;
 
 /// <summary>Aggregates evaluation runs and renders them as Markdown and JSON Lines.</summary>
-public static class AgentEvaluationReport
+internal static class AgentEvaluationReport
 {
     private static readonly JsonSerializerOptions JsonLinesOptions = new()
     {

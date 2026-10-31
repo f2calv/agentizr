@@ -13,7 +13,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CasCap.AgentRuntime.Execution\CasCap.AgentRuntime.Execution.csproj" />
-    <ProjectReference Include="..\CasCap.AgentRuntime.Evaluation\CasCap.AgentRuntime.Evaluation.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)'=='Release'">

@@ -2,12 +2,10 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <!-- Internal wiring of the in-process-hosting leftovers awaiting removal. -->
-    <NoWarn>$(NoWarn);AGENTIZR0001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CasCap.AgentRuntime.Execution\CasCap.AgentRuntime.Execution.csproj" />
+    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
   </ItemGroup>
 
 </Project>

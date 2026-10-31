@@ -1,9 +1,21 @@
-namespace CasCap.AgentRuntime.Execution.Tests.Unit;
+namespace CasCap.AgentRuntime.Evaluation.Tests.Unit;
 
 /// <summary>Tests for evaluation reports: cross-model summaries, session files and visible-thinking detection.</summary>
 [Trait("Category", "Agent Evaluation")]
-public class AgentEvaluationReportTests
+public sealed class AgentEvaluationReportTests
 {
+    [Theory]
+    [InlineData(5, 5, 0.566, 1.0)]
+    [InlineData(0, 5, 0.0, 0.434)]
+    [InlineData(3, 5, 0.231, 0.882)]
+    public void WilsonInterval(int successes, int trials, double lower, double upper)
+    {
+        var (Lower, Upper) = AgentEvaluationReport.WilsonInterval(successes, trials);
+
+        Assert.Equal(lower, Lower, 0.001);
+        Assert.Equal(upper, Upper, 0.001);
+    }
+
     [Fact]
     public void Summarise_GroupsRunsAndCountsPasses()
     {
@@ -69,9 +81,9 @@ public class AgentEvaluationReportTests
     [InlineData("<think></think>There are 5.", 0)]
     [InlineData("There are 5.", 0)]
     public void CountReasoningCharacters_DetectsThinkBlocks(string text, int expected) =>
-        Assert.Equal(expected, RecordingChatClient.CountReasoningCharacters([new TextContent(text)]));
+        Assert.Equal(expected, ReasoningContentCounter.CountCharacters([new TextContent(text)]));
 
     [Fact]
     public void CountReasoningCharacters_CountsReasoningContent() =>
-        Assert.Equal(8, RecordingChatClient.CountReasoningCharacters([new TextReasoningContent("thinking"), new TextContent("5")]));
+        Assert.Equal(8, ReasoningContentCounter.CountCharacters([new TextReasoningContent("thinking"), new TextContent("5")]));
 }

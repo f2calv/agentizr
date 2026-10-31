@@ -1,7 +1,7 @@
-namespace CasCap.AgentRuntime.Evaluation.Models;
+namespace CasCap.AgentRuntime.Evaluation.Tests.Models;
 
 /// <summary>Aggregated outcome of every repetition of one scenario, model and variant combination.</summary>
-public sealed record AgentEvaluationSummary
+internal sealed record AgentEvaluationSummary
 {
     /// <summary>The scenario identifier.</summary>
     public required string ScenarioId { get; init; }

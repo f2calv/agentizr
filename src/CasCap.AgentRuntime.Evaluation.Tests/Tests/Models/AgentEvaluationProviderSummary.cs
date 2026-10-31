@@ -1,7 +1,7 @@
-namespace CasCap.AgentRuntime.Evaluation.Models;
+namespace CasCap.AgentRuntime.Evaluation.Tests.Models;
 
 /// <summary>One model's results across every scenario and variant of a test session, for cross-model comparison.</summary>
-public sealed record AgentEvaluationProviderSummary
+internal sealed record AgentEvaluationProviderSummary
 {
     /// <summary>The provider key.</summary>
     public required string ProviderKey { get; init; }

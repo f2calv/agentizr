@@ -1,13 +1,11 @@
-using System.Text.Json;
-
-namespace CasCap.AgentRuntime.Execution.Tests.Unit;
+namespace CasCap.AgentRuntime.Evaluation.Tests.Unit;
 
 /// <summary>
 /// Tests for the evaluation tool surface: catalog classification and filtering, fixture tools, variants,
 /// and model-facing parameter schemas.
 /// </summary>
 [Trait("Category", "Agent Evaluation")]
-public class AgentEvaluationToolTests
+public sealed class AgentEvaluationToolTests
 {
     [McpServerToolType]
     public sealed class OrderMcpQueryService
@@ -38,7 +36,7 @@ public class AgentEvaluationToolTests
     [Fact]
     public void McpToolCatalog_GetServiceTools_AppliesFilters()
     {
-        var agentConfig = AgentEvaluationTestData.CreateAIConfig(nameof(OrderMcpQueryService)).Agents["OrderAgent"] with
+        var agentConfig = AgentEvaluationTestData.CreateAgentConfig(nameof(OrderMcpQueryService)) with
         {
             Tools = [new ToolSource { Service = nameof(OrderMcpQueryService), ExcludeTools = ["cancel_order"] }],
         };
@@ -86,6 +84,43 @@ public class AgentEvaluationToolTests
 
         Assert.True(Assert.IsType<JsonElement>(result).TryGetProperty("error", out _));
         Assert.False(Assert.Single(recorder.ToolCalls).FixtureFound);
+    }
+
+    [Theory]
+    [InlineData(ToolDisposition.Query)]
+    [InlineData(ToolDisposition.SideEffect)]
+    public async Task FixtureToolFunction_NeverInvokesExternalTools(ToolDisposition disposition)
+    {
+        var calls = 0;
+        var inner = AIFunctionFactory.Create(() => ++calls, "external_tool");
+        var recorder = new EvaluationRecorder();
+        var tool = new FixtureToolFunction(inner, "agent", disposition, _ => 42, recorder);
+
+        var result = await tool.InvokeAsync([], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, calls);
+        var call = Assert.Single(recorder.ToolCalls);
+        Assert.Equal(disposition, call.Disposition);
+        var response = Assert.IsType<JsonElement>(result);
+        if (disposition is ToolDisposition.Query)
+            Assert.Equal(42, response.GetInt32());
+        else
+            Assert.False(response.GetProperty("accepted").GetBoolean());
+    }
+
+    [Fact]
+    public async Task FixtureToolFunction_PassesThroughRuntimeReadOnlyTools()
+    {
+        var calls = 0;
+        var inner = AIFunctionFactory.Create(() => ++calls, "runtime_state");
+        var recorder = new EvaluationRecorder();
+        var tool = new FixtureToolFunction(inner, "agent", ToolDisposition.Delegation, null, recorder);
+
+        var result = await tool.InvokeAsync([], TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, calls);
+        Assert.Equal(1, Assert.IsType<JsonElement>(result).GetInt32());
+        Assert.Equal(ToolDisposition.Delegation, Assert.Single(recorder.ToolCalls).Disposition);
     }
 
     [Fact]

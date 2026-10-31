@@ -1,8 +1,7 @@
-namespace CasCap.AgentRuntime.Evaluation.Services;
+namespace CasCap.AgentRuntime.Evaluation.Tests.Services;
 
 /// <summary>
-/// Builds an agent's production tool surface from its <see cref="AgentConfig.Tools"/> sources, without
-/// resolving or starting any of the services behind the tools.
+/// Builds a deferred in-process tool surface for offline assertions without resolving its backing services.
 /// </summary>
 /// <param name="toolTypes">Types whose <see cref="McpServerToolAttribute"/> methods become tools.</param>
 /// <param name="queryPrefixes">
@@ -12,12 +11,10 @@ namespace CasCap.AgentRuntime.Evaluation.Services;
 /// <exception cref="ArgumentException">Two tool types share a simple name.</exception>
 /// <remarks>
 /// Service sources use the same <see cref="AgentExtensions.CreateToolsFromServiceProvider(IServiceProvider, Type, bool)"/>
-/// and <see cref="AgentExtensions.FilterTools"/> path as <see cref="AgentExtensions.CreateToolsForAgent"/>, with
-/// deferred resolution so no backing service is needed. Endpoint sources are ignored by
-/// <see cref="AgentExtensions.CreateToolsForAgent"/>; when requested they are mapped onto the in-process tools
-/// of the same names, which assumes the remote MCP endpoint serves the same tool classes.
+/// and <see cref="AgentExtensions.FilterTools"/> path as production service tools, with
+/// deferred resolution so no backing service is needed. Endpoint and agent sources are not included.
 /// </remarks>
-public sealed class McpToolCatalog(
+internal sealed class McpToolCatalog(
     IEnumerable<Type> toolTypes,
     IEnumerable<string>? queryPrefixes = null)
 {
@@ -26,14 +23,6 @@ public sealed class McpToolCatalog(
 
     /// <summary>Read-only tool-name prefixes used when a tool carries no <see cref="McpServerToolAttribute.ReadOnly"/> annotation.</summary>
     public static IReadOnlyList<string> DefaultQueryPrefixes { get; } = ["get_", "list_", "search_", "test_", "validate_"];
-
-    /// <summary>Simple names of every MCP tool type in the catalog.</summary>
-    public IReadOnlyCollection<string> ToolTypeNames => _toolTypes.Keys;
-
-    /// <summary>Creates a catalog of every <see cref="McpServerToolTypeAttribute"/> type in the given assemblies.</summary>
-    /// <param name="assemblies">Assemblies to scan.</param>
-    public static McpToolCatalog FromAssemblies(params Assembly[] assemblies) =>
-        new(assemblies.SelectMany(a => a.GetTypes()).Where(t => t.GetCustomAttribute<McpServerToolTypeAttribute>() is not null));
 
     /// <summary>
     /// Classifies a tool: delegation tools are named <c>invoke_*</c>; a tool is a query when it is annotated
@@ -55,17 +44,12 @@ public sealed class McpToolCatalog(
         _toolTypes.Values.SelectMany(t => CreateTools(serviceProvider ?? EmptyServiceProvider.Instance, t));
 
     /// <summary>
-    /// Returns the Service tools of an agent after include and exclude filtering, as
-    /// <see cref="AgentExtensions.CreateToolsForAgent"/> offers them, optionally followed by its Endpoint tools.
-    /// Agent (delegation) sources are not included.
+    /// Returns the service tools of an agent after include and exclude filtering.
     /// </summary>
     /// <param name="serviceProvider">Resolves backing services only if a tool is invoked unwrapped.</param>
     /// <param name="agentConfig">The agent whose tool sources are resolved.</param>
-    /// <param name="endpointToolsMapped">Whether endpoint tool sources are mapped to in-process tools of the same names.</param>
-    /// <param name="logger">Receives tool filter diagnostics.</param>
     /// <exception cref="InvalidOperationException">A source names an unknown service or a missing tool.</exception>
-    public List<AIFunction> GetServiceTools(IServiceProvider serviceProvider, AgentConfig agentConfig,
-        bool endpointToolsMapped = false, ILogger? logger = null)
+    public List<AIFunction> GetServiceTools(IServiceProvider serviceProvider, AgentConfig agentConfig)
     {
         var tools = new List<AIFunction>();
         foreach (var source in agentConfig.Tools.Where(s => s.Service is not null))
@@ -73,14 +57,9 @@ public sealed class McpToolCatalog(
             if (!_toolTypes.TryGetValue(source.Service!, out var type))
                 throw new InvalidOperationException(
                     $"Agent '{agentConfig.Name}' references unknown tool service '{source.Service}'.");
-            tools.AddRange(AgentExtensions.FilterTools(CreateTools(serviceProvider, type), source, logger)
+            tools.AddRange(AgentExtensions.FilterTools(CreateTools(serviceProvider, type), source)
                 .Cast<AIFunction>());
         }
-
-        if (endpointToolsMapped)
-            foreach (var source in agentConfig.Tools.Where(s => s.Endpoint is not null))
-                tools.AddRange(AgentExtensions.FilterTools(GetAllTools(serviceProvider), source, logger)
-                    .Cast<AIFunction>());
 
         return [.. tools
             .GroupBy(t => t.Name, StringComparer.Ordinal)

@@ -1,12 +1,12 @@
-namespace CasCap.AgentRuntime.Evaluation.Models;
+namespace CasCap.AgentRuntime.Evaluation.Tests.Models;
 
 /// <summary>The outcome of one scenario run against one model, instruction variant and tool surface variant.</summary>
-public sealed record AgentEvaluationRun
+internal sealed record AgentEvaluationRun
 {
     /// <summary>The scenario identifier.</summary>
     public required string ScenarioId { get; init; }
 
-    /// <summary>The provider key from <c>CasCap:AIConfig:Providers</c>.</summary>
+    /// <summary>The synthetic provider key used by the reporting fixture.</summary>
     public required string ProviderKey { get; init; }
 
     /// <summary>The model or deployment name.</summary>

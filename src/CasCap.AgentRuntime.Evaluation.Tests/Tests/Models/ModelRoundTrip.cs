@@ -1,4 +1,4 @@
-namespace CasCap.AgentRuntime.Evaluation.Models;
+namespace CasCap.AgentRuntime.Evaluation.Tests.Models;
 
 /// <summary>
 /// One request to the model and its response — a single step of an agent's tool-calling loop.
@@ -18,7 +18,7 @@ namespace CasCap.AgentRuntime.Evaluation.Models;
 /// Characters of visible thinking in the response — reasoning content or <c>&lt;think&gt;</c> blocks. Non-zero on an edge
 /// model means thinking is switched on, which multiplies latency.
 /// </param>
-public sealed record ModelRoundTrip(
+internal sealed record ModelRoundTrip(
     string AgentKey,
     TimeSpan Elapsed,
     int MessageCount,
