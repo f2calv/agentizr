@@ -4,7 +4,9 @@ The administration frontend lets an operator discover apps, inspect providers, m
 agent definitions and review admitted documents in a browser. It is a Blazor Web App that runs its components only in the
 browser with WebAssembly, served and protected by the same host as the runtime API.
 
-## Service Architecture
+## Runtime Scenarios
+
+### Sign-In and Definition Publication
 
 ```mermaid
 sequenceDiagram

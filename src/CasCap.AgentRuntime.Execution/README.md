@@ -93,7 +93,7 @@ or approve fidelity. See the [preparation-agent decision](../../docs/adr-0001-ce
 | --- | --- |
 | `AgentType` | `AzureOpenAI`, `Ollama`, `OpenAI` |
 
-## Service Architecture
+## Components
 
 The host resolves tenant ownership and persistence; this project constructs the framework agent,
 provider client and history reducer used for one run:
