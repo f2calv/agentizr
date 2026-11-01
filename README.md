@@ -152,23 +152,31 @@ state for single-process work. Production requires JWT and PostgreSQL. See
 
 Set `AppConfig__OtlpExporterEndpoint` to an OTLP gRPC endpoint to enable OpenTelemetry export. When it is unset, the shared hosting library skips OpenTelemetry registration.
 
-## Service Architecture
+## System Context
+
+agentizr is one runtime that applications call to execute tenant-scoped agents, and that operators
+use to publish agent definitions. The [architecture drilldown](docs/architecture.md) opens this box
+into its containers and components.
+
+```mermaid
+flowchart LR
+    classDef system fill:#dbeafe,stroke:#1d4ed8,color:#1e3a8a
+    classDef person fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef external fill:#fef3c7,stroke:#d97706,color:#78350f
+
+    app([Consuming application]):::person -->|"run API, JWT"| agentizr[agentizr<br/>multi-tenant agent runtime]:::system
+    operator([Operator]):::person -->|"administration UI and API"| agentizr
+    idp[Identity provider]:::external -.->|"issues tokens"| app
+    agentizr -->|"chat completions"| models[Model providers<br/>OpenAI-compatible, Azure OpenAI, Ollama]:::external
+    agentizr -->|"tool calls"| mcp[Remote MCP servers]:::external
+    blob[Azure Blob Storage<br/>and event queue]:::external -->|"document events"| agentizr
+    agentizr -->|"embeddings, preparation"| ai[Embedding and document AI providers]:::external
+    agentizr -->|"OTLP"| otel[Telemetry backend]:::external
+    agentizr -->|"provider and MCP credentials"| secrets[Private configuration provider]:::external
+```
 
 Execution callers and definition administrators use separate permissions. PostgreSQL owns
 definitions, runtime state and optional debugging history; Redis caches payloads, not credentials.
-
-```mermaid
-graph LR
-    classDef owned fill:#dbeafe,stroke:#3b82f6,color:#1e3a8a
-    classDef external fill:#fef3c7,stroke:#d97706,color:#78350f
-    Client([Application or typed client]) --> Runtime[Agent Runtime]:::owned
-    Admin([Definition administrator]) --> Runtime
-    Runtime --> Definitions[(PostgreSQL definitions, state and history)]:::external
-    Runtime --> State[(Redis payload cache)]:::external
-    Runtime --> Model[Model provider]:::external
-    Runtime --> Tools[MCP and in-process tools]:::external
-    Runtime --> Credentials[Private credential provider]:::external
-```
 
 ## Runtime Boundaries
 
@@ -247,6 +255,8 @@ application chart. It is enabled by default and can be disabled with `dashboards
 
 ## Documentation
 
+- [Architecture](docs/architecture.md): containers, runtime host components, the code map and the
+  execute-run scenario.
 - [Administration Frontend](docs/administration-frontend.md): how the browser client, the host and
   the administration API fit together, sign-in, and publish versus activate.
 - [High Availability](docs/high-availability.md): session ownership, definition freshness, failure
