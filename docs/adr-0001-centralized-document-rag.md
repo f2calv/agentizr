@@ -1,14 +1,12 @@
 # ADR 0001: Centralize Multi-Application Document RAG In Agentizr
 
-**Status:** Proposed; elected Debug admission is deployed and enabled for a controlled soak;
-document processing and paid preparation remain disabled.
-The built-in preparation-agent runtime is deployed but no preparation definition was activated.
-The Debug review-only API and its schema are deployed; real assigned-administrator OIDC acceptance
-remains pending. The first document catalogue/review workbench is deployed in the Debug artifact;
-authorized real-document browser review still requires a prepared test source and administrator acceptance.
-Repeatable source synchronization and its administrator panel are deployed and enabled; the
-ownership-startup scan admitted the previously missing source without enabling preparation.
-**Date:** 2026-10-25.
+**Status:** Proposed. Debug admission, preparation, source synchronization, chunk review and
+document readiness have deployed acceptance evidence recorded below; the owner confirmed saved
+reviews and assessments survived refresh. Durable Azure/Ollama embedding and pgvector publication
+have local implementation evidence, not verified live activation. Saved readiness does not authorize
+indexing. Device manuals remain blocked by the unimplemented verified visual-association gate.
+Protected retrieval and model knowledge bindings remain outstanding.
+**Date:** 2026-11-01.
 **Scope:** Blazor document management, Azure Blob/Event Grid ingestion and tenant-isolated RAG.
 **Canonical record:** This document. Related issues are historical context or implementation tracking,
 not independently maintained copies of this proposal.
@@ -243,6 +241,14 @@ answering models need not imply different indexes. The local preparation API acc
 token/overlap settings and captures an immutable preparation profile; a changed profile requires a
 new generation rather than mixing old and new chunks. Its current `cl100k_base` tokenizer is a PoC
 choice, not a compatibility claim for an unspecified local or hosted embedding model.
+
+For the first Ollama pilot, retain `qwen3-embedding:4b` as the selected embedding-model candidate,
+independent of the answering model. Prefer an available 12 GB GPU-backed authorized Ollama
+endpoint over the constrained 4 GB workstation GPU, subject to measured memory and latency.
+This is an operational recommendation, not a guaranteed fit or an infrastructure decision:
+verify the installed model digest, native dimensions and workload-network reachability first.
+Keep endpoint coordinates in private configuration; both locations use the same pgvector backend.
+Changing model/profile requires a complete replacement corpus, not mixed embedding spaces.
 
 #### Selectable Document Preparation
 
@@ -2258,6 +2264,64 @@ requirement or replace that acceptance gate.
   semantic approval and search activation through their separately reviewed contracts.
   The current catalogue lists admitted database sources, not every Blob or completed indexing.
 
+### Embedding Pilot Handover (2026-11-01)
+
+The release train is being handled separately. Resume implementation on the feature branch
+established by that work once its package/dependency and checkout changes have settled; this
+handover neither creates a branch nor authorizes a release, deployment or provider submission.
+Historical local test counts above precede subsequent refactoring and dependency updates and
+must not be treated as validation of the post-release checkout.
+
+Proceed through the following gates in order:
+
+- [ ] **Re-establish the baseline after the release train.** Confirm the active branch, resolved
+  dependencies, actual role registrations and Debug/Release support. With separate test approval,
+  rerun focused adapter, eligibility and native publication checks against isolated storage.
+  Preserve concurrent changes and existing services; do not enable workers while the baseline
+  or source-writing replicas are changing.
+- [ ] **Verify the execution target without document submission.** Prefer the available 12 GB
+  GPU-backed Ollama endpoint for the selected `qwen3-embedding:4b` pilot; the 4 GB workstation is
+  a fallback only after measured fit. Verify exact tenant registration/authority, reachability
+  from the intended worker, local embedding capability, full model digest and native dimensions.
+  Keep model tags immutable during jobs. Model downloads or new GPU/container provisioning
+  require separate authorization. Start with one input per batch; record peak GPU memory,
+  CPU fallback and batch/load latency rather than assuming model weight size proves fit.
+- [ ] **Verify schema and deployment readiness.** Confirm `vector` and the additive indexing
+  migration on the target database, then verify the intended worker artifact and all source-writing
+  replicas support derivative retirement. Apply missing schema externally under separate
+  authorization; leave eligibility/processing disabled until these checks pass. A successful
+  local build or installed extension alone does not prove worker deployment.
+- [ ] **Read back one exact saved review and preflight.** Prefer an eligible reviewed vocabulary
+  document as the first pilot. Confirm current source/snapshot, included/excluded ordinals,
+  assessment revision, trusted policy/profile, manifest hash and observed publication predecessor.
+  A successful assessment save proves persistence, not readiness, indexing or search availability.
+  The manual source is not an eligible shortcut: implement and verify figure/caption/source
+  associations before attempting device-manual indexing, without relabeling it to bypass policy.
+- [ ] **Authorize one bounded embedding/publication job.** Select exactly one Azure or Ollama
+  profile and separately confirm request/token ceilings and the observed predecessor. Coordinate
+  a short deployment/configuration freeze with other sessions during the pilot. Verify received
+  native usage, exact included-vector count/dimensions/provenance, excluded-chunk absence and
+  atomic complete-generation publication; partial or uncertain work must not activate or replay.
+  Record timings and resource use without document/query content in telemetry.
+- [ ] **Close the pilot before broadening it.** Read back durable job/receipt/publication state,
+  report any reconciliation requirement and restore the agreed processing/configuration state.
+  Do not delete audit history or drop schema for application rollback. Release the coordinated
+  freeze explicitly; publication alone does not authorize retrieval or further submissions.
+
+Embedding production is separate from the answering model: Azure can produce vectors for an
+Azure-profile corpus, while Ollama produces vectors for its own pinned profile. Future query
+embeddings must match the stored profile even if a different provider supplies the chat model.
+Both paths retain Agentizr's tenant-qualified pgvector storage and review/publication fences.
+The [beginner explanation](document-rag-lifecycle.md#rag-basics-why-two-models),
+[worker contract](document-rag-lifecycle.md#local-durable-indexing-implementation) and
+[Ollama constraints](document-rag-lifecycle.md#local-ollama-embeddings) provide the detailed contracts.
+
+After storage/publication acceptance, deliver protected exact search with query-profile binding,
+server-side tenant/collection/current-eligibility filters and bounded cited passages. Then integrate
+opt-in model knowledge bindings and evaluate grounded answers/abstention against the no-retrieval
+baseline. These are distinct milestones: an embedding pilot is not an end-to-end RAG demonstration.
+The Phase 3 checklist remains the authority for consumer acceptance.
+
 ### Phase 3: Integrate Agents And Onboard Consumers
 
 - [ ] Agents in both initial scenarios answer questions requiring indexed evidence, cite the correct
@@ -2282,7 +2346,7 @@ requirement or replace that acceptance gate.
 - [ ] Apply additive migrations externally, onboard one collection per consumer, then expand.
   Roll back application integration by disabling retrieval without dropping source data/schema.
   Retain only policy-permitted previous generations for explicit corpus rollback (R3, R6).
-- [ ] Keep Agentizr implementation on the current feature branch. Use
+- [ ] Keep Agentizr implementation on the agreed post-release feature branch. Use
   [deploy.ps1](../deploy.ps1) for initial Debug deployments with the needed adjacent shared-library
   `ProjectReference` paths, including Azure library changes. Verify the Debug image's actual
   dependencies and live blob-to-answer flow; Release package validation is a later distinct gate.
@@ -2322,6 +2386,9 @@ requirement or replace that acceptance gate.
   substitutes for source rights, tenant authorization or separate teaching-language policy.
 - What ingestion/search quotas, retention windows and latency SLO fit measured corpus growth and
   target hardware? These must be resolved before production acceptance.
+- Verify whether the preferred 12 GB GPU execution target has capacity for the embedding pilot
+  alongside existing workloads, and measure whether per-batch model unloading makes reload latency
+  unacceptable. Reconsider residency/batching only with explicit resource and replay bounds.
 - Does a consumer need user-private documents or licensed cross-application sharing? Design explicit
   ACLs/licensing and revocation before admitting either, rather than weakening tenant isolation.
 - Evaluate the optional Azure AI Search target, another vector service or Redis search if PostgreSQL contention,
