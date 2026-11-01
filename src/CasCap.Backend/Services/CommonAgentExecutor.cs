@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace CasCap.Services;
 
@@ -218,7 +219,7 @@ internal sealed class CommonAgentExecutor(
             {
                 AddUniqueTools(
                     tools,
-                    await CreateRemoteToolsAsync(source, tools, mcpCredentialStore, toolLeases, logger, cancellationToken),
+                    await CreateRemoteToolsAsync(definition.Agent.Name, source, tools, mcpCredentialStore, toolLeases, logger, cancellationToken),
                     "remote MCP tools",
                     logger);
                 continue;
@@ -241,7 +242,13 @@ internal sealed class CommonAgentExecutor(
     /// Connects to a remote MCP source with its tenant credential and returns the tools the definition may use.
     /// The client is added to <paramref name="toolLeases" /> for disposal after the run.
     /// </summary>
+    /// <remarks>
+    /// Every returned remote tool sends <paramref name="agentName"/> as
+    /// <see cref="McpToolCallMetaKeys.AgentName"/> in its call <c>_meta</c>, so a server can tell a person
+    /// which agent asked, for example when a high-impact tool needs their approval.
+    /// </remarks>
     internal static async ValueTask<IEnumerable<AITool>> CreateRemoteToolsAsync(
+        string agentName,
         ToolSource source,
         IReadOnlyCollection<AITool> composedTools,
         IMcpCredentialStore mcpCredentialStore,
@@ -277,7 +284,8 @@ internal sealed class CommonAgentExecutor(
             return CreateUnavailableTools(source, composedTools);
         }
         toolLeases.Add(client);
-        return SelectRemoteTools(remoteTools, source, composedTools, IsReadOnlyRemoteTool, logger);
+        var taggedTools = remoteTools.Select(tool => tool.WithMeta(new JsonObject { [McpToolCallMetaKeys.AgentName] = agentName }));
+        return SelectRemoteTools(taggedTools, source, composedTools, IsReadOnlyRemoteTool, logger);
     }
 
     /// <summary>

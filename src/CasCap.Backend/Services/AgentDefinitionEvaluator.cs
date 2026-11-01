@@ -221,6 +221,7 @@ internal sealed class AgentDefinitionEvaluator(
             {
                 Add(
                     await CommonAgentExecutor.CreateRemoteToolsAsync(
+                        definition.Agent.Name,
                         source,
                         tools,
                         mcpCredentialStore,

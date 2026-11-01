@@ -75,6 +75,7 @@ public sealed class CommonAgentExecutorTests
         var leases = new List<IAsyncDisposable>();
 
         var tools = (await CommonAgentExecutor.CreateRemoteToolsAsync(
+            "Test Agent",
             source,
             [CreateTool("get_agents")],
             null!,

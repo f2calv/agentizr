@@ -657,6 +657,10 @@ passes the resulting Authorization header only to the per-run MCP transport. A `
 without a `Parameter` is built from the runtime's shared `CasCap:ApiAuthConfig` username and
 password.
 
+Every remote MCP tool call carries the calling agent's display name in its `_meta` under
+`McpToolCallMetaKeys.AgentName` (`agentizr/agent-name`), so a server can show a person which agent
+asked, for example in an approval prompt. The value is informational; servers must not authorize on it.
+
 Provider API keys resolve the same way from `AgentRuntimeConfig:Tenants:{tenant}:Providers:{name}:ApiKey`.
 A tenant can instead list a provider name in `AgentRuntimeConfig:Tenants:{tenant}:EntraIdProviders`,
 which authenticates that Azure OpenAI provider with the runtime's own Microsoft Entra identity (the
