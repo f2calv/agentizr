@@ -74,7 +74,8 @@ x-agentizr: &agentizr
   restart: unless-stopped
 
 x-postgres: &postgres
-  image: postgres:18-alpine
+  #pgvector build of PostgreSQL 18; document indexing requires the vector extension.
+  image: pgvector/pgvector:pg18
   env_file:
     - path: .env.example
     - path: .env
@@ -102,6 +103,7 @@ services:
       - 127.0.0.1:5432:5432
     volumes:
       - postgres_data:/var/lib/postgresql
+      - ./.docker/postgres-init:/docker-entrypoint-initdb.d:ro
 
   redis:
     <<: *redis

@@ -161,6 +161,10 @@ docker compose stop postgres redis
 
 The PostgreSQL fixture creates a random per-fixture database, migrates it, and drops only that
 generated database at teardown. Redis tests use random tenant-qualified keys, never `FLUSHDB`.
+The Compose PostgreSQL service uses the pgvector image and installs the `vector` extension in its
+database and in `template1`, so fixture databases satisfy the document-indexing migration. The
+initialisation script runs only when the volume is empty; an older local volume needs
+`CREATE EXTENSION vector` in both databases, or a fresh volume.
 Tests do not automatically start or stop
 containers. No per-run ad hoc containers are needed. If tests are killed before teardown, their
 generated `agentizr_test_*` databases may remain for manual inspection/cleanup.
@@ -171,7 +175,8 @@ it also removes the development/provider volumes in this Compose project.
 ## Deployment
 
 Apply additive EF migrations through the existing external migration job before rollout, never in
-each application pod. Use PostgreSQL backups and restrict database roles. A Redis outage is a cache
+each application pod. The document-indexing migration requires the operator-installed `vector`
+extension in the target database and stops with an error when it is missing. Use PostgreSQL backups and restrict database roles. A Redis outage is a cache
 miss/fallback, not a reason to accept Redis-only writes. PostgreSQL is required outside Development;
 without it, only the explicitly single-process Development adapters are available.
 
