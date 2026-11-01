@@ -55,6 +55,8 @@ In Development, `/` opens the [administration frontend](docs/administration-fron
 sign-in.
 Debug builds can additionally embed the [typed runtime logging editor](docs/runtime-configuration-management.md)
 behind explicitly configured host-wide operator permissions.
+Document ingestion and preparation are still in development and run only in Debug builds; a Release
+build rejects the `Ingestion` feature at startup.
 Before running an agent, add the [Development configuration](src/CasCap.Backend/README.md#configuration-examples)
 and start its model provider. A health response does not verify provider, database or Redis readiness.
 Outside Development, PostgreSQL and JWT tenancy are mandatory; Redis is an optional cache.
