@@ -1,6 +1,6 @@
 # CasCap.AgentRuntime.Evaluation
 
-Internal .NET 10 fixture, grading and recording infrastructure for agentizr definition evaluation.
+Internal .NET 10 fixture-backed tool sandboxing and deterministic grading for definition evaluation.
 Administrators evaluate immutable definitions through the runtime API or typed administration client,
 without executing the definition's external tool actions.
 
@@ -114,19 +114,21 @@ flowchart LR
 
 ## Internal Components
 
-`FixtureToolFunction` preserves model-facing schemas while recording and answering tool calls.
-`EvaluationRecorder` collects calls and request data; `AgentEvaluationGrader` applies answer,
-required-tool, forbidden-tool and side-effect checks. `RecordingChatClient` and
-`AgentEvaluationReport` provide request recording, Wilson intervals and file-based reporting for
-internal evaluation callers; these reports are not an HTTP endpoint output.
+[`FixtureToolFunction`](Services/FixtureToolFunction.cs) preserves model-facing schemas while
+recording and answering tool calls. [`EvaluationRecorder`](Services/EvaluationRecorder.cs) collects
+tool calls; [`AgentEvaluationGrader`](Extensions/AgentEvaluationGrader.cs) applies answer,
+required-tool, forbidden-tool and side-effect checks using
+[`AgentEvaluationScenario`](Models/AgentEvaluationScenario.cs) and
+[`AnswerExpectation`](Models/AnswerExpectation.cs).
 
-`AgentEvaluationHarness` is an obsolete (`AGENTIZR0001`) configuration-based model-matrix helper,
-not the runtime's definition evaluation path. New integrations should use the administration API
-rather than bind `AIConfig` or `AgentEvaluationConfig` to construct an in-process harness.
+The production library depends on Microsoft.Extensions.AI.Abstractions, not the Execution module
+or test support. Configured model execution, tool discovery and activation policy belong to Backend.
+Synthetic reports and schema-override helpers belong to the
+[Evaluation test suite](../CasCap.AgentRuntime.Evaluation.Tests/README.md).
 
 ## Documentation
 
-- [Host endpoint and configuration reference](../CasCap.App.Server/README.md)
+- [Host endpoint and configuration reference](../CasCap.Backend/README.md)
 - [Execution infrastructure](../CasCap.AgentRuntime.Execution/README.md)
-- [Evaluation and execution test inventory](../CasCap.AgentRuntime.Execution.Tests/README.md)
+- [Evaluation test inventory](../CasCap.AgentRuntime.Evaluation.Tests/README.md)
 - [License](../../LICENSE)

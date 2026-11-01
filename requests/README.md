@@ -23,6 +23,35 @@ secret. Do not weaken authorization to make an example work.
 | --- | --- | --- |
 | [runtime.http](runtime.http) | Run/stream, sessions, compaction, snapshots, overrides and instructions | `agent.execute` |
 | [definitions.http](definitions.http) | Immutable publication/history, evaluation, activation/rollback and deactivation | `agent.definition.read`, `agent.definition.publish` or `agent.definition.activate`, per action |
+| [document-reviews.http](document-reviews.http) | Debug-only catalogue, synchronization, source preview, immutable snapshots, chunk selection and readiness assessments | Assigned app administrator's session cookie, plus antiforgery on POST/PUT; machine scopes do not qualify |
+
+Document-review examples require enabled administration sign-in; preview/storage also requires
+existing finished review-required receipts. The catalogue lists admitted metadata, not every Blob.
+Acquire the administrator cookie outside these examples. Fetch the session, retain its
+antiforgery cookie and matching request token, then set the private cookie header/token variables;
+never paste them into tracked files or chat. Use URL-safe app/collection/document/job/generation
+identifiers. The POST source sequence and ETag must be copied as correctly escaped JSON strings from
+the authorized preview. Set the generation variable from the resulting Location. Storage without
+configured PostgreSQL returns 501; these endpoints are absent in Release. No manual request has
+been executed as part of static example validation.
+
+The chunk-review PUT targets an exact stored generation and sends its observed source sequence,
+ETag and latest review revision (zero before the first review). It appends authenticated selection
+history, preserving the snapshot; exclusions are zero-based candidate ordinals with optional
+500-character reasons. A stale revision/source returns 409. GET the generation after an uncertain
+outcome rather than automatically retrying. Selection never approves indexing or invokes providers.
+
+The approval PUT requires a saved selection and its exact revision, plus the observed assessment
+revision (zero initially). Classification and provenance/content/safety attestations are explicit;
+false checks, missing required CEFR or no included candidates save a blocked assessment. Manuals
+remain blocked pending visual associations. Selection changes require reassessment. No assessment
+publishes embeddings or makes content searchable. The example deliberately withholds readiness.
+
+The synchronization POST applies to all configured collections for the app. It persists/coalesces
+requests and returns 202 with a status Location; use GET to inspect an uncertain outcome rather than
+automatically resubmitting. A confirmed missing original removes stored chunks/review content,
+but original blobs are unchanged. Disabled/unmapped synchronization returns 501. This operation
+does not enable processing, call paid providers or make documents searchable.
 
 Separate token variables support least-privilege identities. Publish/activate also require a
 validated actor identifier. An invalid or missing identity is not a resource-not-found result;
@@ -46,5 +75,5 @@ Success responses use JSON except empty 204 mutations. Automatic validation erro
 409 responses use Problem Details. Requests containing deliberate failures are titled accordingly.
 Manual/static inspection does not establish any live response or authentication behavior.
 
-See the [HTTP contract](../src/CasCap.App.Server/README.md) and
+See the [HTTP contract](../src/CasCap.Backend/README.md) and
 [HA failure boundaries](../docs/high-availability.md) before using mutations.

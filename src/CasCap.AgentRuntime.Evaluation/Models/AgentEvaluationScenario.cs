@@ -12,7 +12,7 @@ public sealed record AgentEvaluationScenario
     /// <summary>Stable kebab-case identifier used as the theory data row and in reports.</summary>
     public required string Id { get; init; }
 
-    /// <summary>Key into <c>CasCap:AIConfig:Agents</c> of the agent that receives the question.</summary>
+    /// <summary>Name of the stored agent definition that receives the question.</summary>
     public required string AgentKey { get; init; }
 
     /// <summary>The user message, phrased the way a real user would send it.</summary>
@@ -33,22 +33,6 @@ public sealed record AgentEvaluationScenario
     /// <summary>Whether calling any <see cref="ToolDisposition.SideEffect"/> tool fails the run.</summary>
     /// <remarks>Defaults to <see langword="true"/>: a question must never switch, move, unlock or send anything.</remarks>
     public bool SideEffectsForbidden { get; init; } = true;
-
-    /// <summary>
-    /// Responses keyed by model-facing tool name. The delegate receives the model's arguments and returns an
-    /// object of the tool's real return type, which is serialized exactly as the real tool result would be.
-    /// </summary>
-    public IReadOnlyDictionary<string, Func<AIFunctionArguments, object?>> ToolResponses { get; init; }
-        = new Dictionary<string, Func<AIFunctionArguments, object?>>();
-
-    /// <summary>Instruction variants compared for this scenario; the first is the asserted baseline.</summary>
-    public IReadOnlyList<InstructionVariant> InstructionVariants { get; init; } = [InstructionVariant.Baseline];
-
-    /// <summary>Tool surface variants compared for this scenario; the first is the asserted baseline.</summary>
-    public IReadOnlyList<ToolSurfaceVariant> ToolSurfaceVariants { get; init; } = [ToolSurfaceVariant.Baseline];
-
-    /// <summary>Why the scenario exists and what a failure would suggest.</summary>
-    public string Notes { get; init; } = string.Empty;
 
     /// <inheritdoc/>
     public override string ToString() => Id;

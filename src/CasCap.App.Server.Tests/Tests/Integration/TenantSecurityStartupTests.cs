@@ -13,14 +13,12 @@ namespace CasCap.IntegrationTests;
 public sealed class TenantSecurityStartupTests
 {
     [Fact]
-    public void ProductionWithoutTenantAuthentication_IsRejected()
+    public async Task ProductionWithoutTenantAuthentication_IsRejected()
     {
-        using var factory = new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(builder => builder.UseEnvironment("Production"));
+        var (exitCode, fatal) = await RunRejectedStartupAsync("Production", new Dictionary<string, string?>());
 
-        var exception = Assert.ThrowsAny<Exception>(factory.CreateClient);
-
-        Assert.Contains("JWT tenant authentication is required", exception.ToString(), StringComparison.Ordinal);
+        Assert.Equal(1, exitCode);
+        Assert.Contains("JWT tenant authentication is required", fatal, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -48,6 +46,34 @@ public sealed class TenantSecurityStartupTests
             TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("GET", "/", true)]
+    [InlineData("GET", "/apps/test", true)]
+    [InlineData("GET", "/api/v1/unknown", false)]
+    [InlineData("GET", "/admin/api/unknown", false)]
+    [InlineData("POST", "/", false)]
+    public async Task FrontendWithoutAdministration_ExplainsTheConfigurationGap(string method, string path, bool expectPage)
+    {
+        using var factory = CreateAuthenticatedFactory("Development");
+        using var client = factory.CreateClient();
+
+        using var response = await client.SendAsync(new HttpRequestMessage(new HttpMethod(method), path), TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(expectPage, response.Content.Headers.ContentType?.MediaType == "text/html");
+        if (expectPage)
+        {
+            Assert.Contains("CasCap:AdministrationConfig:Enabled", body, StringComparison.Ordinal);
+            Assert.Contains("TenantAuthenticationConfig is also disabled", body, StringComparison.Ordinal);
+            Assert.Contains("https://localhost/signin-oidc", body, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Empty(body);
+        }
     }
 
     [Fact]
@@ -78,7 +104,11 @@ public sealed class TenantSecurityStartupTests
         };
 
         Assert.Equal(19, protectedEndpoints.Count(endpoint => !AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
+#if DEBUG
+        Assert.Equal(22, protectedEndpoints.Count(endpoint => AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
+#else
         Assert.Equal(11, protectedEndpoints.Count(endpoint => AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
+#endif
         // Session description, sign-in and sign-out must be reachable before an administrator signs in.
         Assert.Equal(3, sessionEndpoints.Length);
         Assert.All(sessionEndpoints, endpoint => Assert.Empty(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()));
@@ -91,7 +121,11 @@ public sealed class TenantSecurityStartupTests
                 : expectedDefinitionPolicies.GetValueOrDefault(name, AgentRuntimePolicies.Execute);
             var policies = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()
                 .Select(metadata => metadata.Policy).OfType<string>();
-            Assert.Equal(expectedPolicy, Assert.Single(policies));
+            var documentAdministration = endpoint.Metadata.GetMetadata<ControllerActionDescriptor>()!.ControllerName is
+                "AdministrationDocuments" or "AdministrationDocumentReviews" or "AdministrationDocumentSynchronization";
+            string[] expectedPolicies = documentAdministration
+                ? [expectedPolicy, AdministrationPolicies.AuthenticatedDocumentReviewer] : [expectedPolicy];
+            Assert.Equal(expectedPolicies.Order(StringComparer.Ordinal), policies.Order(StringComparer.Ordinal));
             Assert.Null(endpoint.Metadata.GetMetadata<IAllowAnonymous>());
         });
     }
@@ -99,21 +133,33 @@ public sealed class TenantSecurityStartupTests
     [Fact]
     public void DevelopmentWithoutTenantCallerMappings_IsRejected()
     {
-        using var factory = new TenantSecurityWebApplicationFactory("Development", includeTenantMappings: false);
+        // The rule is a start-time options validation. A host that fails it is torn down before the
+        // factory can surface the validation exception, so evaluate the host's registered validators.
+        using var factory = CreateAuthenticatedFactory("Development");
+        var config = new TenantAuthenticationConfig
+        {
+            Enabled = true,
+            Authority = "https://identity.example.com",
+            Audience = "agentizr",
+            TenantCallers = new() { ["test"] = [] },
+        };
 
-        var exception = Assert.ThrowsAny<Exception>(factory.CreateClient);
+        var failures = factory.Services.GetServices<IValidateOptions<TenantAuthenticationConfig>>()
+            .Select(validator => validator.Validate(Options.DefaultName, config))
+            .Where(result => result.Failed)
+            .SelectMany(result => result.Failures ?? []);
 
-        Assert.Contains("Tenant caller mappings", exception.ToString(), StringComparison.Ordinal);
+        Assert.Contains(failures, failure => failure.Contains("Tenant caller mappings", StringComparison.Ordinal));
     }
 
     [Fact]
-    public void ProductionWithoutPostgreSql_IsRejected()
+    public async Task ProductionWithoutPostgreSql_IsRejected()
     {
-        using var factory = CreateAuthenticatedFactory("Production");
+        var (exitCode, fatal) = await RunRejectedStartupAsync(
+            "Production", TenantSecurityWebApplicationFactory.StartupEnvironment(includeTenantMappings: true, includePostgres: false));
 
-        var exception = Assert.ThrowsAny<Exception>(factory.CreateClient);
-
-        Assert.Contains("PostgreSQL Agent Runtime definitions are required", exception.ToString(), StringComparison.Ordinal);
+        Assert.Equal(1, exitCode);
+        Assert.Contains("PostgreSQL Agent Runtime definitions are required", fatal, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -128,14 +174,86 @@ public sealed class TenantSecurityStartupTests
     private static WebApplicationFactory<Program> CreateAuthenticatedFactory(string environment) =>
         new TenantSecurityWebApplicationFactory(environment, includeTenantMappings: true);
 
+    /// <summary>
+    /// Runs the real entry point for a configuration that must be rejected during startup.
+    /// </summary>
+    /// <remarks>
+    /// <c>AppHost.RunAsync</c> logs a startup failure as fatal and returns exit code 1, so the rejection
+    /// reason is asserted from the captured fatal event rather than an exception surfaced through
+    /// <see cref="WebApplicationFactory{TEntryPoint}"/>. The collection disables parallelization, so
+    /// replacing process-wide environment variables and the static Serilog logger is safe.
+    /// </remarks>
+    private static async Task<(int ExitCode, string Fatal)> RunRejectedStartupAsync(
+        string environment, IReadOnlyDictionary<string, string?> variables)
+    {
+        var startupEnvironment = new Dictionary<string, string?>(variables, StringComparer.Ordinal)
+        {
+            ["AppConfig__KeyVaultName"] = IAzureAuthConfig.SkipKeyVaultSentinel,
+        };
+        var previous = startupEnvironment.Keys.ToDictionary(key => key, Environment.GetEnvironmentVariable, StringComparer.Ordinal);
+        // Initialize the one-time bootstrap logger first so RunAsync cannot replace the capturing logger.
+        Serilog.SerilogExtensions.GetBootstrapLogger();
+        var sink = new FatalEventSink();
+        Serilog.Log.Logger = new Serilog.LoggerConfiguration().WriteTo.Sink(sink).CreateLogger();
+        // A failure after Build() is logged by the host's own Serilog console pipeline, which replaces the
+        // static logger, so console output is captured as well.
+        using var console = new StringWriter();
+        var (standardOutput, standardError) = (Console.Out, Console.Error);
+        Console.SetOut(console);
+        Console.SetError(console);
+        foreach (var (key, value) in startupEnvironment)
+            Environment.SetEnvironmentVariable(key, value);
+        try
+        {
+            var exitCode = await AppHost.RunAsync(["--environment", environment], typeof(Program).Assembly)
+                .WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+            return (exitCode, sink.Fatal + console);
+        }
+        finally
+        {
+            Console.SetOut(standardOutput);
+            Console.SetError(standardError);
+            foreach (var (key, value) in previous)
+                Environment.SetEnvironmentVariable(key, value);
+        }
+    }
+
+    private sealed class FatalEventSink : Serilog.Core.ILogEventSink
+    {
+        private readonly System.Text.StringBuilder _fatal = new();
+
+        public string Fatal
+        {
+            get
+            {
+                lock (_fatal)
+                    return _fatal.ToString();
+            }
+        }
+
+        public void Emit(Serilog.Events.LogEvent logEvent)
+        {
+            if (logEvent.Level != Serilog.Events.LogEventLevel.Fatal)
+                return;
+            lock (_fatal)
+                _fatal.AppendLine(logEvent.Exception?.ToString() ?? logEvent.RenderMessage());
+        }
+    }
+
     private sealed class TenantSecurityWebApplicationFactory(
         string environment,
         bool includeTenantMappings,
         bool includePostgres = false) : WebApplicationFactory<Program>
     {
         private readonly IReadOnlyDictionary<string, string?> _startupEnvironment =
+            StartupEnvironment(includeTenantMappings, includePostgres);
+
+        /// <summary>Builds the process environment for a tenant-authenticated host.</summary>
+        /// <remarks>Key Vault is skipped so workstation <c>AppConfig</c> variables cannot reach a real vault.</remarks>
+        public static Dictionary<string, string?> StartupEnvironment(bool includeTenantMappings, bool includePostgres) =>
             new Dictionary<string, string?>
             {
+                ["AppConfig__KeyVaultName"] = IAzureAuthConfig.SkipKeyVaultSentinel,
                 ["CasCap__DatabaseConfig__ConnectionString"] = includePostgres
                     ? PersistenceTestSettings.PostgreSql
                     : null,

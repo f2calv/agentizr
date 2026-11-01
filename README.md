@@ -53,12 +53,16 @@ dotnet run --project src\CasCap.App.Server\CasCap.App.Server.csproj --configurat
 The tracked defaults start an empty host: `/status` identifies it and `/healthz` reports host health.
 In Development, `/` opens the [administration frontend](docs/administration-frontend.md) without
 sign-in.
-Before running an agent, add the [Development configuration](src/CasCap.App.Server/README.md#configuration-examples)
+Debug builds can additionally embed the [typed runtime logging editor](docs/runtime-configuration-management.md)
+behind explicitly configured host-wide operator permissions.
+Document ingestion and preparation are still in development and run only in Debug builds; a Release
+build rejects the `Ingestion` feature at startup.
+Before running an agent, add the [Development configuration](src/CasCap.Backend/README.md#configuration-examples)
 and start its model provider. A health response does not verify provider, database or Redis readiness.
 Outside Development, PostgreSQL and JWT tenancy are mandatory; Redis is an optional cache.
 
 For local persistence debugging and integration-test infrastructure, use the
-[Compose storage/test profiles](docs/persistence.md#local-development-and-tests). They do not
+[Compose dependencies](docker-compose.yml) and [persistence setup](docs/persistence.md#local-development-and-tests). They do not
 require a GPU or model downloads.
 
 ### Local AI Provider Profiles
@@ -78,12 +82,12 @@ docker compose --profile ollama up
 docker compose --profile all up
 ```
 
-The single Agent Runtime is exposed at <http://localhost:5090>. Run
-`llamacpp` or `ollama` to select a provider through the existing agent route.
-llama.cpp is exposed at <http://localhost:11434>; Ollama uses <http://localhost:11435>. On small
+See the [Compose header](docker-compose.yml) for endpoints and startup behavior. Run
+`llamacpp` or `ollama` to select a provider through the existing agent route. The runtime waits
+for the selected model provider; Ollama also completes model initialization first. On small
 GPUs, run only one provider profile at a time. Debug project references require adjacent
 `CasCap.Common` and `CasCap.Api.Azure` checkouts; Compose mounts them read-only and builds in its
-container-local workspace. Model and NuGet caches use named volumes.
+container-local workspace.
 
 Agent definitions currently select one provider. Runtime overrides may change model and instructions,
 but the run API does not accept an arbitrary provider selector. Switching providers for one logical
@@ -95,14 +99,18 @@ and `OpenAI`; there is no dedicated Azure AI Foundry provider implementation.
 
 | Component | Purpose | Delivery |
 | --- | --- | --- |
-| [CasCap.App.Server](src/CasCap.App.Server/README.md) | Execution, sessions, definition administration, the administration frontend host and optional status MCP endpoint | ASP.NET Core application |
+| [CasCap.App.Server](src/CasCap.App.Server/README.md) | Runtime lifecycle, role composition and administration frontend shell | ASP.NET Core application |
+| [CasCap.Backend](src/CasCap.Backend/README.md) | Execution orchestration, administration, HTTP/MCP adapters, document processing and persistence policy | Internal .NET 10 library |
+| [CasCap.Data](src/CasCap.Data/README.md) | EF Core context, entities, migrations and shared Data Protection key model | Internal .NET 10 persistence library |
 | [CasCap.App.Client](src/CasCap.App.Client/README.md) | Browser administration frontend and its API contracts | Blazor WebAssembly client served by the server |
 | [CasCap.AgentRuntime.Client](src/CasCap.AgentRuntime.Client/README.md) | Typed execution and administration clients | Packable .NET 10 library |
 | [CasCap.AgentRuntime.Contracts](src/CasCap.AgentRuntime.Contracts/README.md) | Version 1 wire DTOs | Packable .NET 10 library |
 | [CasCap.AgentRuntime.Execution](src/CasCap.AgentRuntime.Execution/README.md) | Model clients, tools, delegation and history reduction | Internal project |
 | [CasCap.AgentRuntime.Evaluation](src/CasCap.AgentRuntime.Evaluation/README.md) | Fixture tools, grading and recording for definition evaluation | Internal project |
 | [CasCap.App.Server.Tests](src/CasCap.App.Server.Tests/README.md) | Protocol, tenancy, state and persistence coverage | Contributor tests; external cases need opt-in/setup |
-| [CasCap.AgentRuntime.Execution.Tests](src/CasCap.AgentRuntime.Execution.Tests/README.md) | Provider, tool, compaction and grading coverage | Contributor tests; local model cases are opt-in |
+| [CasCap.Backend.Tests](src/CasCap.Backend.Tests/README.md) | Application unit tests and offline migration/model discovery | Contributor tests; retained-document review is opt-in |
+| [CasCap.AgentRuntime.Execution.Tests](src/CasCap.AgentRuntime.Execution.Tests/README.md) | Provider, tool and compaction coverage | Contributor tests; local model cases are opt-in |
+| [CasCap.AgentRuntime.Evaluation.Tests](src/CasCap.AgentRuntime.Evaluation.Tests/README.md) | Offline grading, sandbox and synthetic report coverage | Credential-free contributor tests |
 | [agentizr chart](charts/agentizr/README.md) | Runtime and external migration workloads | Helm umbrella chart |
 | [agentizr-dashboards](charts/agentizr-dashboards/README.md) | Execution health dashboard | Bundled Helm subchart |
 
@@ -110,7 +118,7 @@ and `OpenAI`; there is no dedicated Azure AI Foundry provider implementation.
 
 Configuration uses the shared hosting configuration chain, including optional local JSON,
 user secrets, environment variables and optional Key Vault. See the
-[host configuration reference](src/CasCap.App.Server/README.md#configuration) for names and examples.
+[host configuration reference](src/CasCap.Backend/README.md#configuration) for names and examples.
 `AppConfig` supplies public-safe telemetry defaults in code.
 
 `AgentRuntimeConfig` provides a read-only Development bootstrap adapter. Outside Development,
@@ -146,23 +154,31 @@ state for single-process work. Production requires JWT and PostgreSQL. See
 
 Set `AppConfig__OtlpExporterEndpoint` to an OTLP gRPC endpoint to enable OpenTelemetry export. When it is unset, the shared hosting library skips OpenTelemetry registration.
 
-## Service Architecture
+## System Context
+
+agentizr is one runtime that applications call to execute tenant-scoped agents, and that operators
+use to publish agent definitions. The [architecture drilldown](docs/architecture.md) opens this box
+into its containers and components.
+
+```mermaid
+flowchart LR
+    classDef system fill:#dbeafe,stroke:#1d4ed8,color:#1e3a8a
+    classDef person fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef external fill:#fef3c7,stroke:#d97706,color:#78350f
+
+    app([Consuming application]):::person -->|"run API, JWT"| agentizr[agentizr<br/>multi-tenant agent runtime]:::system
+    operator([Operator]):::person -->|"administration UI and API"| agentizr
+    idp[Identity provider]:::external -.->|"issues tokens"| app
+    agentizr -->|"chat completions"| models[Model providers<br/>OpenAI-compatible, Azure OpenAI, Ollama]:::external
+    agentizr -->|"tool calls"| mcp[Remote MCP servers]:::external
+    blob[Azure Blob Storage<br/>and event queue]:::external -->|"document events"| agentizr
+    agentizr -->|"embeddings, preparation"| ai[Embedding and document AI providers]:::external
+    agentizr -->|"OTLP"| otel[Telemetry backend]:::external
+    agentizr -->|"provider and MCP credentials"| secrets[Private configuration provider]:::external
+```
 
 Execution callers and definition administrators use separate permissions. PostgreSQL owns
 definitions, runtime state and optional debugging history; Redis caches payloads, not credentials.
-
-```mermaid
-graph LR
-    classDef owned fill:#dbeafe,stroke:#3b82f6,color:#1e3a8a
-    classDef external fill:#fef3c7,stroke:#d97706,color:#78350f
-    Client([Application or typed client]) --> Runtime[Agent Runtime]:::owned
-    Admin([Definition administrator]) --> Runtime
-    Runtime --> Definitions[(PostgreSQL definitions, state and history)]:::external
-    Runtime --> State[(Redis payload cache)]:::external
-    Runtime --> Model[Model provider]:::external
-    Runtime --> Tools[MCP and in-process tools]:::external
-    Runtime --> Credentials[Private credential provider]:::external
-```
 
 ## Runtime Boundaries
 
@@ -191,19 +207,26 @@ explicit execution commands. The server suite includes Docker-backed PostgreSQL 
 opt-in live-runtime case; it is not entirely credential-free.
 
 The container build/deploy wrappers additionally require PowerShell 7.4+, Docker and the shared
-`container-workflows` scripts, installed as a Copilot skill or available in the adjacent central
+`containers-workflows` scripts, installed as a Copilot skill or available in the adjacent central
 `.github` checkout. Build the Debug image with adjacent project references:
 
 ```powershell
 .\build.ps1
 ```
 
-Copy `deploy.local.psd1.example` to the gitignored `deploy.local.psd1`, set the private GitOps
-repository and Application path, then publish the Debug image and chart and patch that Application:
+Copy `deploy.local.psd1.example` to the gitignored `deploy.local.psd1` and set the private GitOps
+repository and Application path. The example enables the EF model-drift preflight and leaves
+GitOps changes uncommitted. Preview before an explicitly authorized deployment:
 
 ```powershell
-.\deploy.ps1 -Chart
+.\deploy.ps1 -WhatIf
+.\deploy.ps1 -Chart -NoCommit
 ```
+
+The second command publishes a Debug image and chart and patches the Application; it is not a
+dry run. `-NoCommit` prevents GitOps commit/push, not publication or manifest edits.
+Do not pass a live database connection merely to check model drift: the design-time factory
+can use a non-routable connection because this check does not apply schema.
 
 The chart's `migrate` alias runs `agentizr --migrate` as an external Job; the
 [chart example](charts/agentizr/README.md#usage) shows Argo CD PreSync annotations.
@@ -234,6 +257,8 @@ application chart. It is enabled by default and can be disabled with `dashboards
 
 ## Documentation
 
+- [Architecture](docs/architecture.md): containers, runtime host components, the code map and the
+  execute-run scenario.
 - [Administration Frontend](docs/administration-frontend.md): how the browser client, the host and
   the administration API fit together, sign-in, and publish versus activate.
 - [High Availability](docs/high-availability.md): session ownership, definition freshness, failure

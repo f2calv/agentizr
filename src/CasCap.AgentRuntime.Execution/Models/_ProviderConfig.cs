@@ -27,6 +27,9 @@ public record ProviderConfig
     /// </summary>
     public ReasoningEffort? ReasoningEffort { get; init; }
 
+    /// <summary>Uses the OpenAI Responses API instead of Chat Completions. Supported for OpenAI and Azure OpenAI.</summary>
+    public bool UseResponsesApi { get; init; }
+
     /// <summary>
     /// API key for providers that require key-based authentication (e.g. <see cref="AgentType.OpenAI"/>).
     /// Should be populated via user secrets or Key Vault rather than stored in plain-text configuration.

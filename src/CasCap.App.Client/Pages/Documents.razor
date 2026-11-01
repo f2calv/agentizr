@@ -1,0 +1,92 @@
+@page "/apps/{AppId}/documents"
+@inherits CancellableComponentBase
+
+<PageTitle>Documents · @AppId · agentizr</PageTitle>
+
+<MudBreadcrumbs Items="Breadcrumbs" />
+<MudText Typo="Typo.h4" HtmlTag="h1">Documents in @AppId</MudText>
+<MudAlert Severity="Severity.Info" Class="my-4">
+    PDFs are discovered in Blob Storage first, then prepared separately for review.
+    This Debug catalogue lists registered documents, not everything in Blob Storage.
+    Neither a completed storage scan nor a prepared preview means a document is searchable.
+    Upload, replacement, deletion and approval are not available in this slice.
+</MudAlert>
+<MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="my-4">
+    <MudTextField T="string" Value="_collectionInput" ValueChanged="CollectionChanged" Label="Exact collection ID"
+                  DebounceInterval="400" Immediate="true" Clearable="true" />
+    <MudButton OnClick="ReloadAsync" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Refresh">Refresh</MudButton>
+</MudStack>
+
+<DocumentSynchronizationPanel AppId="@AppId" RefreshVersion="_refreshVersion" />
+
+<MudText Typo="Typo.h6" HtmlTag="h2">Documents and preview readiness</MudText>
+
+@if (_result is null)
+{
+    <MudProgressLinear Indeterminate="true" aria-label="Loading documents" />
+}
+else if (!_result.IsSuccess)
+{
+    <PageState Status="_result.Status" Errors="_result.Errors" OnRetry="ReloadAsync" />
+}
+else if (_result.Value is not { Items.Count: > 0 } page)
+{
+    <MudAlert Severity="Severity.Info">No admitted documents were found on this page. Clear the collection filter or return to page one.</MudAlert>
+}
+else
+{
+    <MudSimpleTable Hover="true" Dense="true">
+        <thead>
+            <tr>
+                <th>Document</th>
+                <th>Collection</th>
+                <th>Preparation</th>
+                <th>Preview</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var document in page.Items)
+            {
+                <tr @key="(document.DocumentId, document.JobId)">
+                    <td class="document-name">@document.FileName</td>
+                    <td>@document.CollectionId</td>
+                    <td>@PreparationLabel(document)</td>
+                    <td>
+                        @if (document.CanReview && document.JobId is { } jobId)
+                        {
+                            <MudLink Href="@DocumentReview.Path(AppId, document.CollectionId, document.DocumentId, jobId)">Preview</MudLink>
+                            @if (document.StoredGenerationId is { } generationId)
+                            {
+                                <MudLink Class="ml-3" Href="@DocumentReview.Path(AppId, document.CollectionId, document.DocumentId, jobId, generationId)">Stored snapshot</MudLink>
+                            }
+                        }
+                        else
+                        {
+                            <span>@PreviewLabel(document)</span>
+                        }
+                    </td>
+                    <td>
+                        <details>
+                            <summary>Technical details</summary>
+                            <dl class="document-identifiers">
+                                <dt>Document ID</dt><dd>@document.DocumentId</dd>
+                                <dt>Source state</dt><dd>@document.SourceState</dd>
+                                <dt>Job ID</dt><dd>@(document.JobId ?? "None")</dd>
+                                <dt>Job state</dt><dd>@(document.JobState ?? "None")</dd>
+                            </dl>
+                        </details>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </MudSimpleTable>
+}
+@if (PageCount > 1)
+{
+    <MudPagination Count="PageCount" Selected="Page" SelectedChanged="PageChanged" Class="mt-4" />
+}
+@if (Page > 1)
+{
+    <MudButton OnClick="() => PageChanged(1)" Class="mt-4">First page</MudButton>
+}

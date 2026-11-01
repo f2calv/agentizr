@@ -1,0 +1,144 @@
+### Agentizr Debug-only document review management
+### Requires a signed-in assigned app administrator; bearer tokens and anonymous Development access do not qualify.
+### Configure the private cookie header (administration and antiforgery cookies) and matching request token outside this file.
+
+@baseUrl = {{$dotenv AGENTIZR_BASE_URL}}
+@cookie = {{$dotenv AGENTIZR_ADMIN_COOKIE}}
+@antiforgery = {{$dotenv AGENTIZR_ADMIN_ANTIFORGERY_TOKEN}}
+@appId = {{$dotenv AGENTIZR_APP_ID}}
+@collectionId = {{$dotenv AGENTIZR_REVIEW_COLLECTION_ID}}
+@documentId = {{$dotenv AGENTIZR_REVIEW_DOCUMENT_ID}}
+@jobId = {{$dotenv AGENTIZR_REVIEW_JOB_ID}}
+@generationId = {{$dotenv AGENTIZR_REVIEW_GENERATION_ID}}
+
+### Get session and antiforgery request token - expected 200, sign-in state must be authenticated
+# @name getReviewSession
+GET {{baseUrl}}/admin/api/session HTTP/1.1
+Cookie: {{cookie}}
+Accept: application/json
+
+### List admitted source metadata and current review links - expected 200; no Blob enumeration
+# @name getDocumentCatalogue
+GET {{baseUrl}}/admin/api/apps/{{appId}}/documents?collection={{collectionId}}&page=1&pageSize=25 HTTP/1.1
+Cookie: {{cookie}}
+Accept: application/json
+
+### Read configured source synchronization progress - expected 200 or 501 when storage is unavailable
+# @name getDocumentSynchronization
+GET {{baseUrl}}/admin/api/apps/{{appId}}/documents/synchronization HTTP/1.1
+Cookie: {{cookie}}
+Accept: application/json
+
+### Request synchronization for all configured collections in this app - expected 202 with status Location
+# @name requestDocumentSynchronization
+# @note Persists coalesced requests for the elected worker. A completed inventory may remove chunks/review content for confirmed missing originals. Does not alter blobs, enable processing or call paid providers. Check status after an uncertain response rather than automatically retrying. Disabled, unmapped or unavailable storage returns 501.
+POST {{baseUrl}}/admin/api/apps/{{appId}}/documents/synchronization HTTP/1.1
+Cookie: {{cookie}}
+X-XSRF-TOKEN: {{antiforgery}}
+Content-Type: application/json
+Accept: application/json
+
+{}
+
+### Preview current validated source and default heading-aware chunks - expected 200 or 404
+# @name previewDocumentReview
+GET {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/{{documentId}}/jobs/{{jobId}}/review HTTP/1.1
+Cookie: {{cookie}}
+Accept: application/json
+
+### Store review-required generation - expected 201 with Location; 400 invalid, 404 absent, 409 stale source
+# @name storeDocumentReview
+# @note Persists an immutable review generation from existing receipts. No provider call or content approval occurs. Replace both concurrency fields with the approved preview's exact JSON strings; these placeholders do not identify a real source.
+POST {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/{{documentId}}/jobs/{{jobId}}/review/generations HTTP/1.1
+Cookie: {{cookie}}
+X-XSRF-TOKEN: {{antiforgery}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "sequencer": "0000000000000001",
+  "eTag": "\"example-etag\"",
+  "maximumTokensPerChunk": 512,
+  "targetTokensPerChunk": 384,
+  "overlapTokens": 64,
+  "review": null
+}
+
+### Read exact stored generation while its source is current - expected 200 or 404
+# @name getDocumentReviewGeneration
+GET {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/{{documentId}}/jobs/{{jobId}}/review/generations/{{generationId}} HTTP/1.1
+Cookie: {{cookie}}
+Accept: application/json
+
+### Preflight indexing inputs - expected 200 with eligibility/blockers; 404 unavailable source/snapshot, 501 unavailable storage
+# @name preflightDocumentIndexing
+# @note Read-only local Debug slice, not yet deployed: derives a metadata-only manifest identity under current source/review fences. Does not create jobs, call providers, store vectors or grant indexing approval. Missing trusted collection/profile configuration remains explicitly blocked.
+GET {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/{{documentId}}/jobs/{{jobId}}/review/generations/{{generationId}}/indexing-preflight HTTP/1.1
+Cookie: {{cookie}}
+Accept: application/json
+
+### Request indexing - template remains unconfirmed (expected 400); eligible confirmed authorization returns 202
+# @name requestDocumentIndexing
+# @note Local-only, not deployed. A confirmed request durably authorizes exact included text to leave for Azure embeddings when the separately enabled worker runs, and permits complete-generation publication. Logical request/token ceilings are not a monetary guarantee. Copy observedActiveJobId from fresh preflight (use a quoted ID instead of null when present); choose explicit ceilings and confirmation only after paid authorization. Unknown submissions are never automatically replayed. These safe defaults do not authorize a paid call.
+POST {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/{{documentId}}/jobs/{{jobId}}/review/generations/{{generationId}}/indexing-jobs HTTP/1.1
+Cookie: {{cookie}}
+X-XSRF-TOKEN: {{antiforgery}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "manifestSha256": "{{preflightDocumentIndexing.response.body.$.manifestSha256}}",
+  "confirmed": false,
+  "maximumRequests": 2,
+  "maximumInputTokens": 100000,
+  "expectedActiveJobId": null
+}
+
+### Read an accepted indexing job - expected 200, or 404 after source/ownership loss; run only after an authorized 202
+# @name getDocumentIndexingJob
+GET {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/{{documentId}}/jobs/{{jobId}}/review/generations/{{generationId}}/indexing-jobs/{{requestDocumentIndexing.response.body.$.id}} HTTP/1.1
+Cookie: {{cookie}}
+Accept: application/json
+
+### Record chunk selection review - expected 200; 400 invalid, 404 unavailable snapshot, 409 stale observation
+# @name recordDocumentChunkReview
+# @note Appends authenticated review history only; never approves indexing or invokes providers. Copy the exact snapshot's sequence/ETag and latest chunkReview.revision (zero if absent). The placeholders below are not real source observations. Refresh after an uncertain outcome; do not replay automatically.
+PUT {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/{{documentId}}/jobs/{{jobId}}/review/generations/{{generationId}}/chunk-review HTTP/1.1
+Cookie: {{cookie}}
+X-XSRF-TOKEN: {{antiforgery}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "sequencer": "0000000000000001",
+  "eTag": "\"example-etag\"",
+  "expectedRevision": 0,
+  "exclusions": [
+    { "ordinal": 0, "reason": "Irrelevant publisher advertisement." }
+  ]
+}
+
+### Record document readiness assessment - expected 200, including blocked decisions; 400 invalid, 404 unavailable, 409 stale observation
+# @name recordDocumentApproval
+# @note Appends authenticated assessment history only: no provider calls, embeddings, indexing or publication. Copy the exact source sequence/ETag, saved chunkReview.revision and latest approval.revision (zero if absent). Unchecked gates/missing CEFR remain blocked; device manuals cannot bypass unresolved visual associations. Refresh after an uncertain outcome instead of replaying automatically. Synthetic observations below are not runnable source values.
+PUT {{baseUrl}}/admin/api/apps/{{appId}}/collections/{{collectionId}}/documents/{{documentId}}/jobs/{{jobId}}/review/generations/{{generationId}}/approval HTTP/1.1
+Cookie: {{cookie}}
+X-XSRF-TOKEN: {{antiforgery}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "sequencer": "0000000000000001",
+  "eTag": "\"example-etag\"",
+  "chunkReviewRevision": 1,
+  "expectedRevision": 0,
+  "language": "de",
+  "documentType": "Vocabulary",
+  "edition": null,
+  "cefrLevel": "A1",
+  "approvalRequested": false,
+  "provenanceVerified": false,
+  "contentVerified": false,
+  "safetyVerified": false,
+  "notes": "Assessment withheld pending original-source and content checks."
+}

@@ -9,12 +9,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Update="appsettings.Test.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="appsettings.Test.json" CopyToOutputDirectory="Always" Condition="Exists('appsettings.Test.json')" />
+    <None Update="appsettings.Tests.Local.json" CopyToOutputDirectory="Always" Condition="Exists('appsettings.Tests.Local.json')" CopyToPublishDirectory="Never" Pack="false" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
     <PackageReference Include="xunit.v3" />
   </ItemGroup>
@@ -22,6 +24,10 @@
   <ItemGroup>
     <ProjectReference Include="..\CasCap.AgentRuntime.Client\CasCap.AgentRuntime.Client.csproj" />
     <ProjectReference Include="..\CasCap.App.Server\CasCap.App.Server.csproj" />
+    <ProjectReference Include="..\CasCap.Backend\CasCap.Backend.csproj" />
+    <ProjectReference Include="..\CasCap.Data\CasCap.Data.csproj" />
+    <Compile Include="..\CasCap.Backend.Tests\Tests\*.cs" Link="Tests\%(Filename)%(Extension)" />
+    <ProjectReference Include="..\..\..\CasCap.Common\src\CasCap.Common.Testing\CasCap.Common.Testing.csproj" Condition="'$(Configuration)' == 'Debug'" />
   </ItemGroup>
 
   <!-- The server's gitignored Local tier holds private deployment settings; host tests stay credential-free. -->

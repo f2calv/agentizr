@@ -2,9 +2,8 @@
 # agentizr local infrastructure and AI providers
 # =============================================================================
 #
-# Default: docker compose up -d starts PostgreSQL (15432) and Redis (16379).
-# Tests: docker compose --profile tests up -d postgres-tests redis-tests
-#   Dedicated PostgreSQL (15433) and Redis (16380); never use development data.
+# Default: docker compose up -d --wait starts PostgreSQL (5432) and Redis (6379).
+# Tests use these services with per-run databases/keys; never flush shared data.
 # One Agent Runtime exposes provider-specific agent definitions. Profiles choose
 # which local provider containers start:
 #
@@ -20,6 +19,11 @@
 #   Agent Runtime : http://localhost:5090
 #   llama.cpp     : http://localhost:11434  [llama-cpp profile]
 #   Ollama        : http://localhost:11435  [ollama profile]
+#   PostgreSQL    : localhost:5432
+#   Redis         : localhost:6379
+# Provider profiles use configuration-backed definitions and in-memory state unless explicitly
+# configured for PostgreSQL. Starting the database does not select the persistence adapter.
+# Private Local settings are excluded from the copied demo workspace.
 # =============================================================================
 
 x-agentizr-environment: &agentizr-environment
@@ -50,7 +54,7 @@ x-agentizr-environment: &agentizr-environment
   CasCap__AgentRuntimeConfig__Tenants__default__Agents__ollama__Instructions: You are a concise local development assistant.
 
 x-agentizr: &agentizr
-  image: mcr.microsoft.com/dotnet/sdk:10.0@sha256:e70cdb7f80b0348f5cb85f19a8f670fca061f033d57eed12fa003d58b0e06317
+  image: mcr.microsoft.com/dotnet/sdk:10.0
   working_dir: /workspace/agentizr
   command:
     - /bin/sh
@@ -58,7 +62,7 @@ x-agentizr: &agentizr
     - |
       set -eu
       mkdir -p /workspace/agentizr /workspace/CasCap.Common /workspace/CasCap.Api.Azure
-      (cd /source/agentizr && tar --exclude=.git --exclude=.vs --exclude=bin --exclude=obj --exclude=deps -cf - .) | tar -xf - -C /workspace/agentizr
+      (cd /source/agentizr && tar --exclude=.git --exclude=.vs --exclude=bin --exclude=obj --exclude=deps --exclude='appsettings.Local*.json' --exclude=appsettings.Tests.Local.json --exclude=.env --exclude='.env.*' --exclude=.secrets -cf - .) | tar -xf - -C /workspace/agentizr
       (cd /source/CasCap.Common && tar --exclude=.git --exclude=.vs --exclude=bin --exclude=obj -cf - .) | tar -xf - -C /workspace/CasCap.Common
       (cd /source/CasCap.Api.Azure && tar --exclude=.git --exclude=.vs --exclude=bin --exclude=obj -cf - .) | tar -xf - -C /workspace/CasCap.Api.Azure
       exec dotnet run --project src/CasCap.App.Server/CasCap.App.Server.csproj --configuration Debug --no-launch-profile
@@ -70,7 +74,8 @@ x-agentizr: &agentizr
   restart: unless-stopped
 
 x-postgres: &postgres
-  image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+  #pgvector build of PostgreSQL 18; document indexing requires the vector extension.
+  image: pgvector/pgvector:pg18
   env_file:
     - path: .env.example
     - path: .env
@@ -83,7 +88,7 @@ x-postgres: &postgres
   restart: unless-stopped
 
 x-redis: &redis
-  image: redis:8.2-alpine@sha256:98561ce71de3f1126e799d127a7700e8057264c9ae34cb12e662ff4d6fbefd3f
+  image: redis:8-alpine
   healthcheck:
     test: [ "CMD", "redis-cli", "ping" ]
     interval: 5s
@@ -95,47 +100,39 @@ services:
   postgres:
     <<: *postgres
     ports:
-      - 127.0.0.1:15432:5432
+      - 127.0.0.1:5432:5432
     volumes:
       - postgres_data:/var/lib/postgresql
+      - ./.docker/postgres-init:/docker-entrypoint-initdb.d:ro
 
   redis:
     <<: *redis
     ports:
-      - 127.0.0.1:16379:6379
+      - 127.0.0.1:6379:6379
     volumes:
       - redis_data:/data
-
-  postgres-tests:
-    <<: *postgres
-    profiles: [ tests ]
-    ports:
-      - 127.0.0.1:15433:5432
-    volumes:
-      - postgres_tests_data:/var/lib/postgresql
-
-  redis-tests:
-    <<: *redis
-    profiles: [ tests ]
-    ports:
-      - 127.0.0.1:16380:6379
-    volumes:
-      - redis_tests_data:/data
 
   agentizr:
     <<: *agentizr
     profiles: [ llama-cpp, ollama, all ]
     ports:
-      - 5090:8080
+      - 127.0.0.1:5090:8080
     environment:
       <<: *agentizr-environment
+    depends_on:
+      llama-cpp-ready:
+        condition: service_completed_successfully
+        required: false
+      ollama-init:
+        condition: service_completed_successfully
+        required: false
 
   llama-cpp:
     profiles: [ llama-cpp, all ]
-    # Upstream's server-cuda tag is moving; pin its multi-architecture digest for reproducibility.
+    # Upstream has no versioned CUDA release tag; retain this verified digest exception.
     image: ghcr.io/ggml-org/llama.cpp:server-cuda@sha256:fff6185edd2fbc4093aa5970bf6db53ed11c283e3a1c52a3e244cf27047264f4
     ports:
-      - 11434:8080
+      - 127.0.0.1:11434:8080
     volumes:
       - llama_cpp_models:/models
       - ./.docker/llama-cpp-models.ini:/config/models.ini:ro
@@ -161,11 +158,33 @@ services:
               capabilities: [ gpu ]
     restart: unless-stopped
 
+  llama-cpp-ready:
+    image: alpine:3
+    profiles: [llama-cpp, all]
+    restart: "no"
+    depends_on:
+      llama-cpp:
+        condition: service_started
+    command:
+      - sh
+      - -ec
+      - |
+        attempt=0
+        until wget -q -T 2 -O /dev/null http://llama-cpp:8080/health; do
+          attempt=$$((attempt + 1))
+          if [ "$$attempt" -ge 300 ]; then
+            echo "Model provider readiness timed out" >&2
+            exit 1
+          fi
+          sleep 2
+        done
+
   ollama:
     profiles: [ ollama, all ]
-    image: ollama/ollama:0.34.4@sha256:8262851b2846b87c649eddf3e76beb270c52f4d1bc94559f47efde16b0841551
+    # Upstream publishes no :0 major alias; retain this verified release tag.
+    image: ollama/ollama:0.34.4
     ports:
-      - 11435:11434
+      - 127.0.0.1:11435:11434
     volumes:
       - ollama_models:/root/.ollama
     environment:
@@ -188,7 +207,8 @@ services:
 
   ollama-init:
     profiles: [ ollama, all ]
-    image: ollama/ollama:0.34.4@sha256:8262851b2846b87c649eddf3e76beb270c52f4d1bc94559f47efde16b0841551
+    # Same verified release as the server; no :0 major alias exists.
+    image: ollama/ollama:0.34.4
     depends_on:
       ollama:
         condition: service_healthy
@@ -202,6 +222,4 @@ volumes:
   nuget_packages:
   ollama_models:
   postgres_data:
-  postgres_tests_data:
   redis_data:
-  redis_tests_data:

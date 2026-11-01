@@ -1,17 +1,17 @@
 namespace CasCap.AgentRuntime.Evaluation.Services;
 
 /// <summary>
-/// Wraps a real application tool so the model sees its production name and schema while the harness controls
+/// Wraps a real application tool so the model sees its production name and schema while the evaluator controls
 /// what it returns and records every call.
 /// </summary>
 /// <remarks>
 /// Query tools return the scenario fixture. Side-effect tools are never executed: the call is recorded and a
-/// sandbox acknowledgement returned. Delegation tools run the sub-agent, which the harness built with the
-/// same fixtures and recorder.
+/// sandbox acknowledgement returned. Delegation passes through to the inner function: the production
+/// evaluator uses it only for runtime-owned read-only tools, while actual agent delegation returns fixtures.
 /// </remarks>
 /// <param name="innerFunction">The real tool, whose schema and serializer options are preserved.</param>
 /// <param name="agentKey">The agent offered the tool.</param>
-/// <param name="disposition">How the harness treats a call.</param>
+/// <param name="disposition">How the evaluator treats a call.</param>
 /// <param name="responder">The scenario fixture, or <see langword="null"/> when the scenario did not anticipate the tool.</param>
 /// <param name="recorder">The run's recorder.</param>
 /// <param name="descriptionOverride">A variant description, or <see langword="null"/> to keep the shipped one.</param>
@@ -39,7 +39,7 @@ public sealed class FixtureToolFunction(
         ["error"] = "No data is available from this tool.",
     };
 
-    /// <summary>How the harness treats a call.</summary>
+    /// <summary>How the evaluator treats a call.</summary>
     public ToolDisposition Disposition => disposition;
 
     /// <inheritdoc/>

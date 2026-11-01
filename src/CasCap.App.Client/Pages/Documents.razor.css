@@ -1,0 +1,28 @@
+.document-name,
+.document-identifiers {
+    overflow-wrap: anywhere;
+}
+
+.document-name {
+    max-width: 28rem;
+}
+
+.document-identifiers {
+    display: grid;
+    grid-template-columns: max-content minmax(12ch, 1fr);
+    gap: 0.35rem 0.75rem;
+    margin: 0.5rem 0;
+}
+
+.document-identifiers dt {
+    font-weight: 700;
+}
+
+.document-identifiers dt::after {
+    content: ":";
+}
+
+.document-identifiers dd {
+    min-width: 0;
+    margin: 0;
+}

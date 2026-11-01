@@ -14,6 +14,7 @@ public partial class AgentDetails(
     private string? _loadedVersion;
     private ApiResult<IReadOnlyList<AgentDefinitionHistoryItemResponse>>? _history;
     private ApiResult<IReadOnlyList<AgentDefinitionActivationResponse>>? _activations;
+    private ApiResult<AgentDefinitionSnapshotResponse>? _active;
     private ApiResult<AgentDefinitionSnapshotResponse>? _selected;
     private ProviderCatalogueResponse? _catalogue;
     private bool _busy;
@@ -30,11 +31,12 @@ public partial class AgentDetails(
     [SupplyParameterFromQuery(Name = "version")]
     public string? Version { get; set; }
 
-    private string? ActiveVersion => _history?.Value?.FirstOrDefault(item => item.IsActive)?.DefinitionVersion;
+    private string? ActiveVersion => _active?.Value?.DefinitionVersion;
 
     private string? SelectedVersion => Version ?? ActiveVersion ?? _history?.Value?.FirstOrDefault()?.DefinitionVersion;
 
-    private bool CanChange => !_busy && _catalogue?.PublicationSupported == true;
+    private bool CanChange => !_busy && _catalogue?.PublicationSupported == true
+        && _active is { IsSuccess: true } or { Status: ApiStatus.NotFound };
 
     private string AgentPath => Agents.AgentPath(AppId, AgentName);
 
@@ -68,12 +70,15 @@ public partial class AgentDetails(
         {
             _history = null;
             _selected = null;
+            _active = null;
             var history = apiClient.GetHistoryAsync(AppId, AgentName, cancellationToken);
             var activations = apiClient.GetActivationsAsync(AppId, AgentName, cancellationToken);
             var catalogue = apiClient.GetProvidersAsync(AppId, cancellationToken);
+            var active = apiClient.GetActiveAsync(AppId, AgentName, cancellationToken);
             _history = await history;
             _activations = await activations;
             _catalogue = (await catalogue).Value;
+            _active = await active;
             await LoadSelectedCoreAsync(cancellationToken);
         },
         renew: true);

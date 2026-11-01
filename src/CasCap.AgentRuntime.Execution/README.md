@@ -41,6 +41,35 @@ definitions and separately resolved credentials into this execution layer.
 | `ProviderConfig` | AI provider infrastructure config — `Type` (`AgentType`), `Endpoint`, `ModelName`, `ReasoningEffort`, `ApiKey` |
 | `SessionCompactionConfig` | Provider compaction policy — `TargetMessageCount`, `TriggerMessageCount`, `Notification` (`CompactionNotificationMode`) |
 
+### Structured Responses
+
+[`ProviderConfig.UseResponsesApi`](Models/_ProviderConfig.cs) opts OpenAI/Azure OpenAI into
+Responses instead of the unchanged Chat Completions default. Azure requires an HTTPS root endpoint;
+the adapter appends `openai/v1/` and uses the `https://ai.azure.com/.default` audience for Entra.
+The supplied HTTP transport is retained, provider storage/background execution are disabled and
+SDK retries are zero. No paid POST is automatically replayed.
+
+[`AgentConfig`](Models/_AgentConfig.cs) adds `MaximumOutputTokens` and `JsonOutput` (schema name
+and JSON schema). Strict JSON output currently requires Responses and complete, non-streaming
+responses. The adapter explicitly sets strict mode, checks the provider's authoritative completion
+status and rejects malformed JSON. Structured source text bypasses the reasoning-markup filter.
+A caller can lower, but cannot raise, the configured Responses output ceiling.
+
+An optional awaited `CreateAgent` structured-response observer receives the explicit
+[`AgentStructuredResponse`](Models/AgentStructuredResponse.cs) text, completion, model/response
+identifiers and reported usage **before** JSON/completion validation. This lets a host persist paid
+receipts for malformed/incomplete responses without enabling conversation history. It is not a
+generic activity callback and is not inherited by delegated child scopes. Persistence, bounds,
+authorization and ambiguous-outcome recovery remain the host's responsibility; observer failures
+propagate rather than permitting silent continuation.
+
+The host honors `IncludeRuntimeContext=false` to omit its discovery tools and time context, and
+`Stateless=true` to bypass its own session overrides, conversation storage and content-bearing run
+history. Configured tools are separate: a tool-free definition must also leave `Tools` empty.
+The host rejects session mutations/override updates for stateless definitions with HTTP 409.
+These fields do not authorize a document, validate page provenance, persist paid-request receipts,
+or approve fidelity. See the [preparation-agent decision](../../docs/adr-0001-centralized-document-rag.md#built-in-document-preparation-agent).
+
 ### Models
 
 | Type | Description |
@@ -64,7 +93,7 @@ definitions and separately resolved credentials into this execution layer.
 | --- | --- |
 | `AgentType` | `AzureOpenAI`, `Ollama`, `OpenAI` |
 
-## Service Architecture
+## Components
 
 The host resolves tenant ownership and persistence; this project constructs the framework agent,
 provider client and history reducer used for one run:
@@ -185,7 +214,7 @@ Keep a longer stable prefix between trims:
 ```
 
 Target and trigger accept `1`–`1000`, with trigger at least target. `Off` suppresses notifications,
-not reduction. The [host configuration examples](../CasCap.App.Server/README.md#configuration-examples)
+not reduction. The [host configuration examples](../CasCap.Backend/README.md#configuration-examples)
 show where these objects belong in provider-keyed runtime and tenant settings.
 
 ## Dependencies

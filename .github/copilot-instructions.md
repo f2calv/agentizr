@@ -35,7 +35,7 @@ Everything below is specific to this repository.
   Never substitute cache-fill locking or local-cache invalidation for session coordination.
 - Keep debugging history separate from resumable state; reset and compaction must not remove it.
   Persist only explicit message/tool/usage projections, never credentials, headers or raw framework
-  results. Use the Compose tests profile and isolated per-run databases/key namespaces for local
+  results. Use the root Compose services and isolated per-run databases/key namespaces for local
   persistence integration tests.
 - Apply EF migrations externally. Never use `HasData` for runtime definitions or other mutable,
   tenant-owned data.

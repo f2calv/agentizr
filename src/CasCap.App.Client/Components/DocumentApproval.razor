@@ -1,0 +1,113 @@
+<MudText Typo="Typo.h5" HtmlTag="h2" Class="mt-6">Document assessment and readiness</MudText>
+<MudAlert Severity="Severity.Info" Class="my-3">
+    This records readiness only. Nothing here embeds, indexes or publishes content.
+    Classification is a reviewed decision, not a filename inference.
+</MudAlert>
+@if (Review.Approval is { } saved)
+{
+    <MudPaper Outlined="true" Class="pa-4 my-3" role="region" aria-label="Last saved document assessment">
+        <MudText Typo="Typo.h6" HtmlTag="h3">Last saved assessment</MudText>
+        <MudAlert Severity="Severity.Success" Class="my-3" role="status">
+            Assessment saved · revision @saved.Revision · @saved.RecordedAtUtc.ToString("u")
+        </MudAlert>
+        <MudText Typo="Typo.body2" Class="mb-3">
+            These are the last confirmed saved values, not the new-assessment form below.
+            A successful save does not mean every readiness gate passed.
+        </MudText>
+        @if (!saved.IsCurrent)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mb-3">Readiness: stale assessment; reassessment required.</MudAlert>
+        }
+        else if (saved.ReadinessApproved)
+        {
+            <MudAlert Severity="Severity.Success" Class="mb-3">Readiness: approved. Indexing is not authorized by this assessment.</MudAlert>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Warning" Class="mb-3">
+                @(saved.Assessment.ApprovalRequested ? "Readiness: blocked despite the saved approval request." : "Readiness: approval withheld by the reviewer.")
+            </MudAlert>
+        }
+        <MudSimpleTable Dense="true" Class="mb-3" aria-label="Saved assessment values">
+            <tbody>
+                <tr><th scope="row">Assessed chunk-review revision</th><td>@saved.Assessment.ChunkReviewRevision</td></tr>
+                <tr><th scope="row">Reviewed document type</th><td>@saved.Assessment.DocumentType</td></tr>
+                <tr><th scope="row">Reviewed language</th><td>@saved.Assessment.Language</td></tr>
+                <tr><th scope="row">Highest CEFR content level</th><td>@(saved.Assessment.CefrLevel ?? "Not specified")</td></tr>
+                <tr><th scope="row">Edition</th><td>@(saved.Assessment.Edition ?? "Not specified")</td></tr>
+                <tr><th scope="row">Readiness approval requested</th><td>@(saved.Assessment.ApprovalRequested ? "Yes (saved)" : "No (saved)")</td></tr>
+                <tr><th scope="row">Original-source and page provenance checked</th><td>@(saved.Assessment.ProvenanceVerified ? "Yes (saved)" : "No (saved)")</td></tr>
+                <tr><th scope="row">Included content checked</th><td>@(saved.Assessment.ContentVerified ? "Yes (saved)" : "No (saved)")</td></tr>
+                <tr><th scope="row">Safety-critical content checked</th><td>@(saved.Assessment.SafetyVerified ? "Yes (saved)" : "No (saved)")</td></tr>
+            </tbody>
+        </MudSimpleTable>
+        <MudText Typo="Typo.subtitle2">Saved rationale and unresolved issues</MudText>
+        <MudText Class="mb-3">@saved.Assessment.Notes</MudText>
+        @if (saved.Blockers.Count > 0)
+        {
+            <MudText Typo="Typo.subtitle2">Unresolved readiness gates</MudText>
+            @foreach (var blocker in saved.Blockers)
+            {
+                <MudAlert Severity="Severity.Warning" Class="mb-2" @key="blocker">@blocker</MudAlert>
+            }
+        }
+        <MudAlert Severity="Severity.Info" Class="mt-3">
+            Indexing authorization: not granted by this assessment. Saving did not submit embeddings or make this document searchable.
+        </MudAlert>
+    </MudPaper>
+}
+else
+{
+    <MudAlert Severity="Severity.Info" Class="my-3" role="status">No document assessment has been saved for this snapshot.</MudAlert>
+}
+@if (Review.ChunkReview is null)
+{
+    <MudAlert Severity="Severity.Warning">Save a chunk review before recording document approval.</MudAlert>
+}
+else if (_context is not null && _draft is not null)
+{
+    <MudText Typo="Typo.h6" HtmlTag="h3" Class="mt-4">@(Review.Approval is null ? "Record the first assessment" : "Record a new assessment")</MudText>
+    @if (Review.Approval is not null)
+    {
+        <MudAlert Severity="Severity.Info" Class="my-3">
+            This is a new assessment, not an edit of the saved record above.
+            Checkboxes and rationale intentionally start empty after a save or refresh; your saved assessment has not been erased.
+            Reconfirm the checks and enter a new rationale only if you want to save another assessment revision.
+        </MudAlert>
+    }
+    <NavigationLock ConfirmExternalNavigation="@(_dirty || Busy)" OnBeforeInternalNavigation="BeforeNavigationAsync" />
+    <EditForm EditContext="_context" OnValidSubmit="SaveAsync" FormName="document-approval">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <MudText Class="my-3">Assessing saved chunk-review revision @Review.ChunkReview.Revision. Reconfirm every attestation for a new assessment.</MudText>
+        <MudTextField T="string" Label="Reviewed language (two-letter lowercase code)" @bind-Value="_draft.Language" @bind-Value:after="ChangedAsync" For="() => _draft.Language" Disabled="Disabled" MaxLength="2" />
+        <MudSelect T="string" Label="Reviewed document type" @bind-Value="_draft.DocumentType" @bind-Value:after="ChangedAsync" For="() => _draft.DocumentType" Disabled="Disabled">
+            @foreach (var type in CasCap.Client.Constants.DocumentApprovalValues.DocumentTypes)
+            {
+                <MudSelectItem Value="@type" @key="type">@type</MudSelectItem>
+            }
+        </MudSelect>
+        <MudTextField T="string" Label="Edition (optional)" @bind-Value="_draft.Edition" @bind-Value:after="ChangedAsync" For="() => _draft.Edition" Disabled="Disabled" MaxLength="200" />
+        <MudSelect T="string" Label="Highest reviewed CEFR content level" @bind-Value="_draft.CefrLevel" @bind-Value:after="ChangedAsync" For="() => _draft.CefrLevel" Disabled="Disabled" Clearable="true">
+            @foreach (var level in CasCap.Client.Constants.DocumentApprovalValues.CefrLevels)
+            {
+                <MudSelectItem Value="@level" @key="level">@level</MudSelectItem>
+            }
+        </MudSelect>
+        <MudText Typo="Typo.body2">Vocabulary lists and exam papers require CEFR. Mixed-level material uses its highest content level, not its easiest passages.</MudText>
+        <MudCheckBox T="bool" @bind-Value="_draft.ProvenanceVerified" @bind-Value:after="ChangedAsync" For="() => _draft.ProvenanceVerified" Disabled="Disabled" Label="I checked the original source/version and page provenance" />
+        <MudCheckBox T="bool" @bind-Value="_draft.ContentVerified" @bind-Value:after="ChangedAsync" For="() => _draft.ContentVerified" Disabled="Disabled" Label="I checked included content and resolved meaning-changing uncertainties" />
+        <MudCheckBox T="bool" @bind-Value="_draft.SafetyVerified" @bind-Value:after="ChangedAsync" For="() => _draft.SafetyVerified" Disabled="Disabled" Label="I checked safety-critical content; no unresolved safety issues remain" />
+        <MudAlert Severity="Severity.Warning" Class="my-3">
+            Device manuals remain blocked: required figure/caption/source associations are not implemented and verified.
+            No checkbox can bypass that visual gate.
+        </MudAlert>
+        <MudTextField T="string" Label="Review rationale and unresolved issues" @bind-Value="_draft.Notes" @bind-Value:after="ChangedAsync" For="() => _draft.Notes" Disabled="Disabled" MaxLength="2000" Lines="3" />
+        <MudCheckBox T="bool" @bind-Value="_draft.ApprovalRequested" @bind-Value:after="ChangedAsync" For="() => _draft.ApprovalRequested" Disabled="Disabled" Label="Request readiness approval for this new assessment (unresolved gates still block it)" />
+        <MudText Typo="Typo.body2" Class="my-3">Unresolved checks are saved as blockers, not silently approved. A changed source, snapshot or saved selection requires a new assessment.</MudText>
+        <MudStack Row="true" Wrap="Wrap.Wrap" Class="my-3">
+            <MudButton ButtonType="ButtonType.Submit" Disabled="Disabled" Color="Color.Primary" Variant="Variant.Filled">Save document assessment</MudButton>
+            <MudButton OnClick="DiscardAsync" Disabled="@(!_dirty || Disabled)">Discard unsaved assessment</MudButton>
+        </MudStack>
+    </EditForm>
+}

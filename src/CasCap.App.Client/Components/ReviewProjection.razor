@@ -1,0 +1,77 @@
+<MudText Typo="Typo.h5" HtmlTag="h2">Heading-aware chunk candidates</MudText>
+<MudText Typo="Typo.body2" Class="mb-3">
+    Heading ancestry is included in each candidate below. Page uncertainties and change notes are not.
+    Provenance uses physical pages and UTF-16 Markdown offsets, not PDF regions or image coordinates.
+</MudText>
+@if (_view is null)
+{
+    <MudAlert Severity="Severity.Error">The projection format is unsupported. Refresh or contact the operator; no snapshot can be stored from this view.</MudAlert>
+}
+else
+{
+    <EditForm Model="_draft!" OnValidSubmit="SaveAsync" FormName="chunk-selection">
+    <DataAnnotationsValidator />
+    <MudText Class="mb-3">
+        @_view.Profile.Strategy · @_view.Chunks.Count candidates · target @_view.Profile.TargetTokensPerChunk tokens ·
+        maximum @_view.Profile.MaximumTokensPerChunk tokens · overlap @_view.Profile.OverlapTokens tokens
+    </MudText>
+    @if (_view.Chunks.Count == 0)
+    {
+        <MudAlert Severity="Severity.Warning">No embeddable candidates were produced. This is not search approval.</MudAlert>
+    }
+    @if (CanSelect && _draft is not null)
+    {
+        <NavigationLock ConfirmExternalNavigation="@(_draft.IsDirty || Busy)" OnBeforeInternalNavigation="BeforeNavigationAsync" />
+        <MudAlert Severity="Severity.Info" Class="my-3">
+            Chunk selection review only. Saving does not approve indexing or resolve classification, safety or source-provenance gates.
+            Excluding an incorrect safety warning is not a substitute for correcting it.
+        </MudAlert>
+        <MudText Class="my-3" role="status">@_view.Chunks.Count chunks: @_draft.IncludedCount included, @_draft.ExcludedCount excluded</MudText>
+        @if (Selection is { } saved)
+        {
+            <MudText Class="mb-3">Saved review revision @saved.Revision · @saved.RecordedAtUtc.ToString("u") · indexing blocked</MudText>
+        }
+        <MudSelect T="string" Label="Show chunks" @bind-Value="_filter" Class="mb-3">
+            <MudSelectItem Value="@All">All chunks</MudSelectItem>
+            <MudSelectItem Value="@Included">Included chunks</MudSelectItem>
+            <MudSelectItem Value="@Excluded">Excluded chunks</MudSelectItem>
+        </MudSelect>
+            <MudStack Row="true" Wrap="Wrap.Wrap" Class="my-3">
+                <MudButton ButtonType="ButtonType.Submit" Disabled="@(Busy || EditingBlocked || Selection is not null && !_draft.IsDirty)"
+                           Color="Color.Primary" Variant="Variant.Filled">Save chunk review</MudButton>
+                <MudButton OnClick="DiscardAsync" Disabled="@(Busy || EditingBlocked || !_draft.IsDirty)">Discard unsaved decisions</MudButton>
+            </MudStack>
+            <MudText Typo="Typo.body2" Class="mb-3">
+                Unsaved decisions stay in this page only. All candidates start included; no individual ticking is required.
+                Nothing is embedded or published by this form.
+            </MudText>
+    }
+    <MudExpansionPanels>
+        @foreach (var chunk in _view.Chunks)
+        {
+            if (CanSelect && !Visible(chunk))
+            {
+                continue;
+            }
+            <MudExpansionPanel Text="@($"Chunk {chunk.Ordinal + 1} · {chunk.TokenCount} tokens{(CanSelect ? _draft!.IsExcluded(chunk.Ordinal) ? " · Excluded" : " · Included" : "")}")"
+                               Expanded="@(chunk.Ordinal == 0)" @key="chunk.Ordinal">
+                @if (CanSelect && _draft is not null)
+                {
+                    <MudCheckBox T="bool" Value="@(!_draft.IsExcluded(chunk.Ordinal))"
+                                 ValueChanged="@((bool included) => SetIncludedAsync(chunk.Ordinal, included))"
+                                 Disabled="@(Busy || EditingBlocked)" Label="@($"Include chunk {chunk.Ordinal + 1} in future search")" />
+                    @if (_draft.IsExcluded(chunk.Ordinal))
+                    {
+                        <MudTextField T="string" Label="@($"Exclusion reason for chunk {chunk.Ordinal + 1} (optional)")"
+                                      Value="@_draft.Reason(chunk.Ordinal)" ValueChanged="@((string? reason) => SetReasonAsync(chunk.Ordinal, reason))"
+                                      MaxLength="500" Disabled="@(Busy || EditingBlocked)" Class="mb-3" />
+                    }
+                }
+                <pre class="projection-text">@chunk.EmbeddingText</pre>
+                <MudText Typo="Typo.subtitle2">Source spans (Markdown, not PDF geometry)</MudText>
+                <pre class="projection-text">@chunk.SourceSpans.ToString()</pre>
+            </MudExpansionPanel>
+        }
+    </MudExpansionPanels>
+    </EditForm>
+}

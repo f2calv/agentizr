@@ -13,6 +13,12 @@ dotnet package add CasCap.AgentRuntime.Contracts
 The package targets `net10.0`. Applications using `CasCap.AgentRuntime.Client` receive it
 transitively.
 
+The source also contains the browser-neutral
+[`RuntimeLoggingControls`](RuntimeConfiguration/RuntimeLoggingControls.cs) contract used by the
+optional [Debug logging editor](../../docs/runtime-configuration-management.md), outside the
+versioned execution API. Its minimum is a typed enum serialized with the existing string names;
+it contains no credentials, provider configuration or Serilog/database dependency.
+
 ## Usage
 
 Types live in `CasCap.AgentRuntime.Contracts.V1`. A minimal run request is:

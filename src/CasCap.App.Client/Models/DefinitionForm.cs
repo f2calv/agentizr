@@ -57,6 +57,9 @@ public sealed class DefinitionForm
     [Display(Name = "Reasoning effort")]
     public string? ReasoningEffort { get; set; }
 
+    /// <summary>Gets or sets whether to use the Responses API rather than Chat Completions.</summary>
+    public bool UseResponsesApi { get; set; }
+
     /// <summary>Gets or sets the tool sources as a JSON array.</summary>
     [Required]
     [Display(Name = "Tools")]

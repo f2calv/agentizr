@@ -47,6 +47,7 @@ public class AgentRunScopeTests
             OnDelegation = (_, _, _, _) => Task.CompletedTask,
             OnCompletion = (_, _, _, _) => Task.CompletedTask,
             OnCompaction = _ => { },
+            OnStructuredResponse = (_, _) => ValueTask.CompletedTask,
         };
 
         var child = scope.ForSubAgent();
@@ -54,6 +55,7 @@ public class AgentRunScopeTests
         Assert.NotNull(child.OnDelegation);
         Assert.NotNull(child.OnCompletion);
         Assert.NotNull(child.OnCompaction);
+        Assert.Null(child.OnStructuredResponse);
     }
 
     /// <summary>

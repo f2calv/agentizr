@@ -37,7 +37,7 @@ jobs:
       version: ${{ needs.versioning.outputs.version }}
       solution-name: agentizr.Release.slnx
       test-compose-file: docker-compose.yml
-      test-compose-services: '["postgres-tests", "redis-tests"]'
+      test-compose-services: '["postgres", "redis"]'
 
   #Publishes only the IsPackable projects: CasCap.AgentRuntime.Contracts and CasCap.AgentRuntime.Client.
   package:
@@ -56,7 +56,8 @@ jobs:
           configuration: Release
           version: ${{ needs.versioning.outputs.version }}
           solution-name: agentizr.Release.slnx
-          dotnet-test-args: --filter-not-trait Category=Integration
+          #The build job has already run these tests on the same commit.
+          execute-tests: false
 
   image:
     needs: [versioning, build]
@@ -90,17 +91,16 @@ jobs:
       chart-path: ./charts/agentizr
       #The umbrella chart owns no top-level image value; runtime and migrate each carry their own.
       has-image: false
-      #Skipped for the same chart-testing argument handling defect documented in signalizr's CI.
-      chart-testing-cli-command: skip
       push-chart: ${{ github.event_name != 'pull_request' }}
 
   release:
     needs: [lint, versioning, build, package, image, chart]
-    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    if: needs.versioning.outputs.release-exists == 'false'
+      && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     uses: f2calv/gha-workflows/.github/workflows/gha-release-versioning.yml@v1
     permissions:
       contents: write
     with:
-      semVer: ${{ needs.versioning.outputs.version }}
+      semVer: ${{ format('{0}.{1}.{2}', needs.versioning.outputs.major, needs.versioning.outputs.minor, needs.versioning.outputs.patch) }}
       tag-prefix: ''
       move-major-tag: false

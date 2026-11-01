@@ -10,7 +10,7 @@
     {
         <MudChip T="string" Color="Color.Success" Icon="@Icons.Material.Filled.CheckCircle">Active @activeVersion</MudChip>
     }
-    else if (_history?.IsSuccess == true)
+    else if (_active?.Status == ApiStatus.NotFound)
     {
         <MudChip T="string" Icon="@Icons.Material.Filled.PauseCircle">Inactive</MudChip>
     }
@@ -21,12 +21,28 @@
             New version from @baseVersion
         </MudButton>
     }
-    @if (ActiveVersion is not null)
+    @if (SelectedVersion is { } selectedVersion)
     {
-        <MudButton OnClick="DeactivateAsync" Variant="Variant.Outlined" Color="Color.Error" Disabled="!CanChange">Deactivate</MudButton>
+        @if (selectedVersion == ActiveVersion)
+        {
+            <MudButton OnClick="DeactivateAsync" Variant="Variant.Outlined" Color="Color.Error" Disabled="!CanChange">
+                Deactivate @selectedVersion
+            </MudButton>
+        }
+        else
+        {
+            <MudButton OnClick="() => ActivateAsync(selectedVersion)" Variant="Variant.Outlined" Color="Color.Primary" Disabled="!CanChange">
+                Activate @selectedVersion
+            </MudButton>
+        }
     }
     <MudButton OnClick="ReloadAsync" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Refresh" Disabled="_busy">Refresh</MudButton>
 </MudStack>
+
+@if (_active is { IsSuccess: false, Status: not ApiStatus.NotFound })
+{
+    <PageState Status="_active.Status" Errors="_active.Errors" OnRetry="ReloadAsync" />
+}
 
 @if (_catalogue is { PublicationSupported: false })
 {
@@ -66,7 +82,7 @@ else
                         <tr @key="item.DefinitionVersion" class="@(item.DefinitionVersion == SelectedVersion ? "selected-version" : null)">
                             <td>
                                 <MudLink Href="@VersionPath(item.DefinitionVersion)">@item.DefinitionVersion</MudLink>
-                                @if (item.IsActive)
+                                @if (item.DefinitionVersion == ActiveVersion)
                                 {
                                     <MudChip T="string" Size="Size.Small" Color="Color.Success">Active</MudChip>
                                 }
@@ -74,7 +90,7 @@ else
                             </td>
                             <td>@Formats.DateTime(item.PublishedAtUtc)<div>@item.PublishedBy</div></td>
                             <td>
-                                @if (!item.IsActive)
+                                @if (item.DefinitionVersion != ActiveVersion)
                                 {
                                     <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="!CanChange"
                                                OnClick="() => ActivateAsync(item.DefinitionVersion)">
@@ -88,7 +104,17 @@ else
             </MudSimpleTable>
         </MudItem>
         <MudItem xs="12" md="7">
-            <MudText Typo="Typo.h5" HtmlTag="h2" GutterBottom="true">Version @SelectedVersion</MudText>
+            <MudText Typo="Typo.h5" HtmlTag="h2" GutterBottom="true">
+                Version @SelectedVersion
+                @if (SelectedVersion == ActiveVersion)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success">Active</MudChip>
+                }
+                else if (CanChange)
+                {
+                    <MudChip T="string" Size="Size.Small">Inactive</MudChip>
+                }
+            </MudText>
             @if (_selected is null)
             {
                 <MudProgressLinear Indeterminate="true" aria-label="Loading version" />

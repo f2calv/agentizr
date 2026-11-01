@@ -1,18 +1,26 @@
 using CasCap.Components;
+using CasCap.Extensions;
 
 namespace CasCap;
 
 /// <summary>Registers and maps the browser administration frontend, a WebAssembly client served by this host.</summary>
 public static partial class AppHost
 {
-    private static void AddFrontend(WebApplicationBuilder builder) =>
+    private static void AddFrontend(WebApplicationBuilder builder)
+    {
         builder.Services.AddRazorComponents().AddInteractiveWebAssemblyComponents();
+        builder.Services.AddAgentRuntimeFrontendSetup();
+    }
 
-    // The frontend is served only where administrators can use it: with sign-in enabled, or in Development.
+    // Served only where administrators can use it: with sign-in enabled, or in open Development. Elsewhere,
+    // page navigations get a setup page explaining the missing configuration.
     private static void MapFrontend(WebApplication app, bool administrationEnabled)
     {
-        if (!administrationEnabled && !app.Environment.IsDevelopment())
+        if (!app.HasAgentRuntimeFrontendAccess(administrationEnabled))
+        {
+            app.MapFallback(context => context.WriteAgentRuntimeFrontendUnavailableAsync());
             return;
+        }
         if (app.Environment.IsDevelopment())
             app.UseWebAssemblyDebugging();
         app.MapStaticAssets();
@@ -20,4 +28,5 @@ public static partial class AppHost
             .AddInteractiveWebAssemblyRenderMode()
             .AddAdditionalAssemblies(typeof(Client.Routes).Assembly);
     }
+
 }

@@ -8,8 +8,8 @@ using System.Text.Encodings.Web;
 
 namespace CasCap.IntegrationTests;
 
-/// <summary>Runs the host with administrator sign-in enabled and a header-driven stand-in for the session cookie.</summary>
-public sealed class AdministrationSignInWebApplicationFactory : AgentDefinitionAdministrationWebApplicationFactory
+/// <summary>Runs administrator sign-in with a header-driven cookie stand-in; data-specific hosts may extend its service setup.</summary>
+public class AdministrationSignInWebApplicationFactory : AgentDefinitionAdministrationWebApplicationFactory
 {
     /// <summary>Gets the request header naming the test administrator's <c>oid</c>.</summary>
     public const string AdministratorHeader = "X-Test-Administrator";
@@ -32,6 +32,8 @@ public sealed class AdministrationSignInWebApplicationFactory : AgentDefinitionA
             ["CasCap__AdministrationConfig__ClientSecret"] = "test-client-secret",
             ["CasCap__AdministrationConfig__AppAdministrators__default__0"] = DefaultAppAdministrator,
             ["CasCap__AdministrationConfig__AppAdministrators__other__0"] = OtherAppAdministrator,
+            // An assignment alone does not create an app; the runtime must define it.
+            ["CasCap__AgentRuntimeConfig__Tenants__other__TimeZoneId"] = "UTC",
         };
         var previous = startupEnvironment.Keys.ToDictionary(key => key, Environment.GetEnvironmentVariable, StringComparer.Ordinal);
         foreach (var (key, value) in startupEnvironment)

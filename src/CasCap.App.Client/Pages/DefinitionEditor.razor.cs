@@ -5,7 +5,7 @@ using MudBlazor;
 
 namespace CasCap.Client.Pages;
 
-/// <summary>Creates an agent or copies a version, then publishes the edits as a new inactive version.</summary>
+/// <summary>Creates or copies a version, publishes it and optionally activates it with a guarded, confirmed request.</summary>
 /// <remarks>
 /// Edits keep fields that have no dedicated control. Unsaved work is kept after errors and protected by a navigation
 /// prompt, and the publish button is disabled while a request is in flight.
@@ -13,7 +13,8 @@ namespace CasCap.Client.Pages;
 public partial class DefinitionEditor(
     AdministrationApiClient apiClient,
     NavigationManager navigationManager,
-    IDialogService dialogService) : CancellableComponentBase
+    IDialogService dialogService,
+    ISnackbar snackbar) : CancellableComponentBase
 {
     private (string AppId, string? AgentName, string? From)? _loaded;
     private ApiStatus? _loadStatus;
@@ -26,6 +27,8 @@ public partial class DefinitionEditor(
     private IReadOnlyList<string>? _serverErrors;
     private bool _dirty;
     private bool _publishing;
+    private bool _activateAfterPublishing;
+    private string? _expectedActiveVersion;
 
     /// <summary>Gets or sets the app selected by the route.</summary>
     [Parameter]
@@ -75,6 +78,8 @@ public partial class DefinitionEditor(
         async cancellationToken =>
         {
             _loadStatus = null;
+            _activateAfterPublishing = false;
+            _expectedActiveVersion = null;
             var catalogue = await apiClient.GetProvidersAsync(AppId, cancellationToken);
             if (!catalogue.IsSuccess)
             {
@@ -97,16 +102,30 @@ public partial class DefinitionEditor(
                 _draft = DefinitionDraft.Empty();
             }
             _form = _draft.ToForm(AgentName ?? string.Empty);
+            if (AgentName is not null)
+            {
+                var suggestion = await apiClient.GetSuggestedVersionAsync(AppId, AgentName, cancellationToken);
+                if (!suggestion.IsSuccess)
+                {
+                    (_loadStatus, _loadErrors) = (suggestion.Status, suggestion.Errors);
+                    return;
+                }
+                _form.DefinitionVersion = suggestion.Value!;
+                var active = await apiClient.GetActiveAsync(AppId, AgentName, cancellationToken);
+                if (!active.IsSuccess && active.Status != ApiStatus.NotFound)
+                {
+                    (_loadStatus, _loadErrors) = (active.Status, active.Errors);
+                    return;
+                }
+                _expectedActiveVersion = active.Value?.DefinitionVersion;
+            }
+            else
+            {
+                _form.DefinitionVersion = DefinitionDraft.SuggestVersion([]);
+            }
             if (string.IsNullOrEmpty(_form.ProviderName) && _catalogue.Providers.FirstOrDefault() is { } registration)
                 ApplyRegistration(registration);
-            _editContext = new EditContext(_form);
-            _messages = new ValidationMessageStore(_editContext);
-            _editContext.OnFieldChanged += (_, _) =>
-            {
-                _dirty = true;
-                _serverErrors = null;
-                _messages.Clear();
-            };
+            InitializeEditContext();
             _loadStatus = ApiStatus.Success;
         },
         renew: true);
@@ -118,6 +137,38 @@ public partial class DefinitionEditor(
         else
             _form!.ProviderName = name;
         _editContext?.NotifyFieldChanged(FieldIdentifier.Create(() => _form!.ProviderName));
+    }
+
+    private async Task UseTemplateAsync(BuiltInDefinitionTemplateResponse template)
+    {
+        if (_dirty && await dialogService.ShowMessageBoxAsync(
+            "Replace draft?",
+            "Using this template replaces your unpublished edits.",
+            yesText: "Use template",
+            cancelText: "Keep editing") != true)
+            return;
+        _draft = DefinitionDraft.FromDefinition(template.Definition);
+        var version = _form!.DefinitionVersion;
+        var provider = _form.ProviderName;
+        _form = _draft.ToForm(template.AgentName);
+        _form.DefinitionVersion = version;
+        _form.ProviderName = provider;
+        InitializeEditContext();
+        _serverErrors = null;
+        _activateAfterPublishing = false;
+        _dirty = true;
+    }
+
+    private void InitializeEditContext()
+    {
+        _editContext = new EditContext(_form!);
+        _messages = new ValidationMessageStore(_editContext);
+        _editContext.OnFieldChanged += (_, _) =>
+        {
+            _dirty = true;
+            _serverErrors = null;
+            _messages.Clear();
+        };
     }
 
     // A registration only seeds the version: its endpoint authority may need the provider's path appended.
@@ -146,6 +197,9 @@ public partial class DefinitionEditor(
         var version = _form.DefinitionVersion.Trim();
         try
         {
+            var activation = _activateAfterPublishing ? await ConfirmActivationAsync(version) : null;
+            if (_activateAfterPublishing && activation is null)
+                return;
             await RunAsync(async cancellationToken =>
             {
                 var result = await apiClient.PublishAsync(
@@ -162,6 +216,8 @@ public partial class DefinitionEditor(
                 switch (result.Status)
                 {
                     case ApiStatus.Success:
+                        if (activation is not null)
+                            await ActivatePublishedAsync(agentName, version, activation, cancellationToken);
                         _dirty = false;
                         navigationManager.NavigateTo($"{Agents.AgentPath(AppId, agentName)}?version={Uri.EscapeDataString(version)}");
                         break;
@@ -188,6 +244,53 @@ public partial class DefinitionEditor(
         {
             _publishing = false;
         }
+    }
+
+    private async Task<AdministrationActivationRequest?> ConfirmActivationAsync(string version)
+    {
+        var expectedActiveVersion = _expectedActiveVersion;
+        var message = expectedActiveVersion is null
+            ? $"Version {version} will be published and serve all new runs."
+            : $"Version {version} will be published and replace {expectedActiveVersion} for all new runs.";
+        var dialog = await dialogService.ShowAsync<ChangeReasonDialog>(
+            $"Publish and activate {version}",
+            new DialogParameters<ChangeReasonDialog>
+            {
+                { component => component.Message, message },
+                { component => component.ConfirmText, "Publish and activate" },
+                { component => component.InitialReason, _form!.ChangeReason.Trim() },
+                { component => component.ShowEvaluation, true },
+                { component => component.EvaluationRequired, _catalogue!.EvaluationRequiredForActivation },
+            });
+        var result = await dialog.Result;
+        return result is { Canceled: false, Data: ChangeReasonDialogResult confirmed }
+            ? new AdministrationActivationRequest
+            {
+                ChangeReason = confirmed.Reason,
+                ExpectedActiveVersion = expectedActiveVersion,
+                Evaluation = confirmed.Evaluation,
+            }
+            : null;
+    }
+
+    private async Task ActivatePublishedAsync(
+        string agentName,
+        string version,
+        AdministrationActivationRequest activation,
+        CancellationToken cancellationToken)
+    {
+        var result = await apiClient.ActivateAsync(AppId, agentName, version, activation, cancellationToken);
+        var (severity, message) = result.Status switch
+        {
+            ApiStatus.Success => (Severity.Success, $"Published and activated {version}."),
+            ApiStatus.Conflict => (Severity.Warning, "Published, but not activated: another administrator changed the active version. Review the agent page before activating."),
+            ApiStatus.ValidationFailed => (Severity.Error, $"Published, but not activated: {string.Join(" ", result.Errors ?? ["Activation validation failed."])}"),
+            ApiStatus.Unauthorized => (Severity.Error, "Published, but not activated: your session has ended. Sign in again."),
+            ApiStatus.Forbidden => (Severity.Error, "Published, but not activated: you are not assigned to administer this app."),
+            ApiStatus.NotFound => (Severity.Error, "Published, but activation could not find the version. Refresh the agent page."),
+            _ => (Severity.Error, "Published, but the activation outcome is unknown. Refresh the agent page before retrying; do not republish."),
+        };
+        snackbar.Add(message, severity);
     }
 
     private async Task ConfirmLeaveAsync(LocationChangingContext context)

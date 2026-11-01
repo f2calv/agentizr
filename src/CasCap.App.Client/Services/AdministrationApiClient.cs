@@ -23,6 +23,89 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
     public Task<ApiResult<IReadOnlyList<AppSummaryResponse>>> GetAppsAsync(CancellationToken cancellationToken) =>
         GetAsync<IReadOnlyList<AppSummaryResponse>>(AdministrationRoutes.Apps, cancellationToken);
 
+#if DEBUG
+    /// <summary>Reads the fixed runtime logging destination after host-wide operator authorization.</summary>
+    public Task<ApiResult<CasCap.Common.Configuration.Management.Contracts.Models.RuntimeConfigurationDestination>>
+        GetRuntimeLoggingDestinationAsync(CancellationToken cancellationToken) =>
+        GetAsync<CasCap.Common.Configuration.Management.Contracts.Models.RuntimeConfigurationDestination>(
+            RuntimeLoggingRoutes.Destination, cancellationToken);
+#endif
+
+    /// <summary>Lists one bounded page of admitted sources and their current jobs, optionally within one exact collection.</summary>
+    public Task<ApiResult<DocumentCataloguePageResponse>> GetDocumentsAsync(
+        string appId, string? collection, int page, int pageSize, CancellationToken cancellationToken) =>
+        GetAsync<DocumentCataloguePageResponse>(
+            AdministrationRoutes.Format(DocumentCatalogueRoutes.Documents, appId)
+                + $"?page={page}&pageSize={pageSize}"
+                + (string.IsNullOrWhiteSpace(collection) ? string.Empty : $"&collection={Uri.EscapeDataString(collection)}"),
+            cancellationToken);
+
+    /// <summary>Reads source synchronization settings/progress without returning source coordinates.</summary>
+    public Task<ApiResult<DocumentSynchronizationResponse>> GetDocumentSynchronizationAsync(
+        string appId, CancellationToken cancellationToken) =>
+        GetAsync<DocumentSynchronizationResponse>(
+            AdministrationRoutes.Format(DocumentCatalogueRoutes.Synchronization, appId), cancellationToken);
+
+    /// <summary>Persists one coalesced request with antiforgery protection; never retries an uncertain mutation.</summary>
+    public Task<ApiResult<DocumentSynchronizationResponse>> RequestDocumentSynchronizationAsync(
+        string appId, CancellationToken cancellationToken) =>
+        SendMutationAsync<DocumentSynchronizationResponse>(HttpMethod.Post,
+            AdministrationRoutes.Format(DocumentCatalogueRoutes.Synchronization, appId), new { }, cancellationToken);
+
+    /// <summary>Previews a current source or reads an immutable review-required generation.</summary>
+    public Task<ApiResult<DocumentReviewGenerationResponse>> GetDocumentReviewAsync(
+        string appId, string collectionId, string documentId, string jobId, string? generationId, CancellationToken cancellationToken) =>
+        GetAsync<DocumentReviewGenerationResponse>(
+            DocumentReviewRoutes.Format(generationId is null ? DocumentReviewRoutes.Source : DocumentReviewRoutes.Generation,
+                appId, collectionId, documentId, jobId, generationId), cancellationToken);
+
+    /// <summary>Checks indexing eligibility without creating jobs, calling providers or approving publication.</summary>
+    public Task<ApiResult<DocumentIndexingPreflightResponse>> GetDocumentIndexingPreflightAsync(
+        string appId, string collectionId, string documentId, string jobId, string generationId, CancellationToken cancellationToken) =>
+        GetAsync<DocumentIndexingPreflightResponse>(
+            DocumentReviewRoutes.Format(DocumentReviewRoutes.IndexingPreflight, appId, collectionId, documentId, jobId, generationId),
+            cancellationToken);
+
+    /// <summary>Submits explicit embedding/publication authorization once, with antiforgery and no automatic retry.</summary>
+    public Task<ApiResult<DocumentIndexingJobResponse>> RequestDocumentIndexingAsync(
+        string appId, string collectionId, string documentId, string jobId, string generationId,
+        DocumentIndexingRequest request, CancellationToken cancellationToken) =>
+        SendMutationAsync<DocumentIndexingJobResponse>(HttpMethod.Post,
+            DocumentReviewRoutes.Format(DocumentReviewRoutes.IndexingJobs, appId, collectionId, documentId, jobId, generationId),
+            request, cancellationToken);
+
+    /// <summary>Reads durable indexing progress without exposing inputs, actor identities or provider configuration.</summary>
+    public Task<ApiResult<DocumentIndexingJobResponse>> GetDocumentIndexingJobAsync(
+        string appId, string collectionId, string documentId, string jobId, string generationId, string indexingJobId,
+        CancellationToken cancellationToken) =>
+        GetAsync<DocumentIndexingJobResponse>(
+            DocumentReviewRoutes.Format(DocumentReviewRoutes.IndexingJob, appId, collectionId, documentId, jobId, generationId)
+                .Replace("{indexingJobId}", Uri.EscapeDataString(indexingJobId), StringComparison.Ordinal), cancellationToken);
+
+    /// <summary>Stores a source-fenced review generation with antiforgery protection; never retries or approves it.</summary>
+    public Task<ApiResult<DocumentReviewGenerationResponse>> StoreDocumentReviewAsync(
+        string appId, string collectionId, string documentId, string jobId,
+        DocumentReviewGenerationRequest request, CancellationToken cancellationToken) =>
+        SendMutationAsync<DocumentReviewGenerationResponse>(HttpMethod.Post,
+            DocumentReviewRoutes.Format(DocumentReviewRoutes.Generations, appId, collectionId, documentId, jobId),
+            request, cancellationToken);
+
+    /// <summary>Records selection decisions with antiforgery and an observed revision; never retries or approves indexing.</summary>
+    public Task<ApiResult<DocumentReviewGenerationResponse>> RecordDocumentChunkReviewAsync(
+        string appId, string collectionId, string documentId, string jobId, string generationId,
+        DocumentChunkReviewRequest request, CancellationToken cancellationToken) =>
+        SendMutationAsync<DocumentReviewGenerationResponse>(HttpMethod.Put,
+            DocumentReviewRoutes.Format(DocumentReviewRoutes.ChunkReview, appId, collectionId, documentId, jobId, generationId),
+            request, cancellationToken);
+
+    /// <summary>Records a document readiness assessment with antiforgery and observed revisions; never retries or indexes.</summary>
+    public Task<ApiResult<DocumentReviewGenerationResponse>> RecordDocumentApprovalAsync(
+        string appId, string collectionId, string documentId, string jobId, string generationId,
+        DocumentApprovalRequest request, CancellationToken cancellationToken) =>
+        SendMutationAsync<DocumentReviewGenerationResponse>(HttpMethod.Put,
+            DocumentReviewRoutes.Format(DocumentReviewRoutes.Approval, appId, collectionId, documentId, jobId, generationId),
+            request, cancellationToken);
+
     /// <summary>Gets one page of an app's agents.</summary>
     public Task<ApiResult<AgentSummaryPageResponse>> GetAgentsAsync(
         string appId,
@@ -49,6 +132,38 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
         CancellationToken cancellationToken) =>
         GetAsync<IReadOnlyList<AgentDefinitionHistoryItemResponse>>(
             AdministrationRoutes.Format(AdministrationRoutes.Definitions, appId, agentName),
+            cancellationToken);
+
+    /// <summary>Suggests an unused version, checking snapshots outside the bounded history window too.</summary>
+    /// <remarks>A concurrent publication can still claim the suggestion; publication returns a conflict in that case.</remarks>
+    public async Task<ApiResult<string>> GetSuggestedVersionAsync(
+        string appId,
+        string agentName,
+        CancellationToken cancellationToken)
+    {
+        var history = await GetHistoryAsync(appId, agentName, cancellationToken);
+        if (!history.IsSuccess)
+            return new ApiResult<string>(history.Status, Errors: history.Errors);
+        var existingVersions = history.Value!.Select(item => item.DefinitionVersion).ToHashSet(StringComparer.Ordinal);
+        while (true)
+        {
+            var version = DefinitionDraft.SuggestVersion(existingVersions);
+            var snapshot = await GetVersionAsync(appId, agentName, version, cancellationToken);
+            if (snapshot.Status == ApiStatus.NotFound)
+                return new ApiResult<string>(ApiStatus.Success, version);
+            if (!snapshot.IsSuccess)
+                return new ApiResult<string>(snapshot.Status, Errors: snapshot.Errors);
+            existingVersions.Add(version);
+        }
+    }
+
+    /// <summary>Gets the authoritative active version, or a not-found outcome when the agent is inactive.</summary>
+    public Task<ApiResult<AgentDefinitionSnapshotResponse>> GetActiveAsync(
+        string appId,
+        string agentName,
+        CancellationToken cancellationToken) =>
+        GetAsync<AgentDefinitionSnapshotResponse>(
+            AdministrationRoutes.Format(AdministrationRoutes.ActiveDefinition, appId, agentName),
             cancellationToken);
 
     /// <summary>Gets an agent's newest-first activation, rollback and deactivation audit.</summary>
@@ -132,11 +247,11 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
                 using var response = await httpClient.SendAsync(request, cancellationToken);
                 return response.StatusCode switch
                 {
-                    HttpStatusCode.OK or HttpStatusCode.Created => new ApiResult<T>(
+                    HttpStatusCode.OK or HttpStatusCode.Created or HttpStatusCode.Accepted => new ApiResult<T>(
                         ApiStatus.Success,
                         await response.Content.ReadFromJsonAsync<T>(JsonSerializerOptions.Web, cancellationToken)),
                     HttpStatusCode.NoContent => new ApiResult<T>(ApiStatus.Success, typeof(T) == typeof(bool) ? (T)(object)true : default),
-                    HttpStatusCode.BadRequest => new ApiResult<T>(ApiStatus.ValidationFailed, Errors: await ReadProblemAsync(response, cancellationToken)),
+                    HttpStatusCode.BadRequest => await ReadProblemAsync<T>(response, cancellationToken),
                     HttpStatusCode.Unauthorized => new ApiResult<T>(ApiStatus.Unauthorized),
                     HttpStatusCode.Forbidden => new ApiResult<T>(ApiStatus.Forbidden),
                     HttpStatusCode.NotFound => new ApiResult<T>(ApiStatus.NotFound),
@@ -153,18 +268,19 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
         }
     }
 
-    private static async Task<IReadOnlyList<string>> ReadProblemAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    private static async Task<ApiResult<T>> ReadProblemAsync<T>(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         try
         {
             var problem = await response.Content.ReadFromJsonAsync<ProblemPayload>(JsonSerializerOptions.Web, cancellationToken);
-            return problem?.Errors?.SelectMany(error => error.Value).ToArray() is { Length: > 0 } errors
+            IReadOnlyList<string> messages = problem?.Errors?.SelectMany(error => error.Value).ToArray() is { Length: > 0 } errors
                 ? errors
                 : [problem?.Title ?? "The request was rejected."];
+            return new(ApiStatus.ValidationFailed, Errors: messages) { FieldErrors = problem?.Errors };
         }
         catch (JsonException)
         {
-            return ["The request was rejected."];
+            return new(ApiStatus.ValidationFailed, Errors: ["The request was rejected."]);
         }
     }
 

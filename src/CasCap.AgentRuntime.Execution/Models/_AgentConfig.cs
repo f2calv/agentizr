@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace CasCap.AgentRuntime.Execution.Models;
 
 /// <summary>
@@ -66,6 +68,19 @@ public record AgentConfig
     /// </summary>
     public PromptSource[] Prompts { get; init; } = [];
 
+    /// <summary>Includes the host's runtime discovery tools and current-time context. Defaults to true.</summary>
+    public bool IncludeRuntimeContext { get; init; } = true;
+
+    /// <summary>Disables conversation persistence, session overrides and content-bearing run history.</summary>
+    public bool Stateless { get; init; }
+
+    /// <summary>Bounds generated output, including reasoning tokens for Responses models.</summary>
+    [Range(1, int.MaxValue)]
+    public int? MaximumOutputTokens { get; init; }
+
+    /// <summary>Requests a strict JSON-schema response instead of unstructured text.</summary>
+    public JsonOutputConfig? JsonOutput { get; init; }
+
     /// <summary>
     /// Agent-specific orchestration settings (<see langword="object"/> placeholder for the configuration binder).
     /// </summary>
@@ -77,4 +92,15 @@ public record AgentConfig
     /// <see cref="IOptions{T}"/> record instead.
     /// </remarks>
     public object? Settings { get; init; }
+}
+
+/// <summary>Names and describes the JSON object returned by a structured-output agent.</summary>
+public sealed record JsonOutputConfig
+{
+    /// <summary>Gets the schema name sent to the provider.</summary>
+    [Required, RegularExpression("^[a-zA-Z0-9_-]{1,64}$")]
+    public required string Name { get; init; }
+
+    /// <summary>Gets the provider-supported JSON schema.</summary>
+    public required JsonElement Schema { get; init; }
 }

@@ -7,8 +7,8 @@
 <MudBreadcrumbs Items="Breadcrumbs" />
 <MudText Typo="Typo.h4" HtmlTag="h1">@Heading</MudText>
 <MudText Typo="Typo.body2" Class="mb-4">
-    Publishing creates an inactive, immutable version. It changes nothing for callers until you activate it
-    from the agent page.
+    Publishing creates an immutable version. Leave activation unchecked to keep it inactive, or choose
+    to activate it after publication. Activation requires confirmation and changes the version serving new runs.
 </MudText>
 
 @if (_loadStatus is null)
@@ -28,6 +28,20 @@ else
         {
             <MudAlert Severity="Severity.Info" Class="mb-4">This host reads definitions from configuration, so publishing is unavailable.</MudAlert>
         }
+        @if (IsNew && _catalogue is { DefinitionTemplates.Count: > 0 })
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-4">
+                Start from a built-in template, then choose the provider registration, root endpoint and PDF-capable model.
+                Templates do not install themselves or enable document processing.
+                @foreach (var template in _catalogue.DefinitionTemplates)
+                {
+                    <MudButton ButtonType="ButtonType.Button" OnClick="() => UseTemplateAsync(template)"
+                               Disabled="_publishing" Color="Color.Primary">
+                        Use @template.AgentName (@template.TemplateVersion)
+                    </MudButton>
+                }
+            </MudAlert>
+        }
         <MudGrid>
             @if (IsNew)
             {
@@ -38,7 +52,7 @@ else
             }
             <MudItem xs="12" md="6">
                 <MudTextField @bind-Value="_form.DefinitionVersion" For="() => _form.DefinitionVersion" Label="New version"
-                              HelperText="Immutable and unique for this agent, for example 2026-10-24.1" />
+                              HelperText="Suggested from today's UTC date and an unused revision. You can edit it; publication checks uniqueness again." />
             </MudItem>
             <MudItem xs="12" md="6">
                 <MudTextField @bind-Value="_form.DisplayName" For="() => _form.DisplayName" Label="Display name" />
@@ -80,6 +94,13 @@ else
             <MudItem xs="12" md="4">
                 <MudTextField @bind-Value="_form.ModelName" For="() => _form.ModelName" Label="Model" />
             </MudItem>
+            <MudItem xs="12">
+                <MudCheckBox T="bool" @bind-Value="_form.UseResponsesApi" Label="Use Responses API" />
+                <MudText Typo="Typo.body2">
+                    OpenAI or Azure OpenAI only. Azure requires its root endpoint.
+                    Paid Responses requests are not retried automatically.
+                </MudText>
+            </MudItem>
             <MudItem xs="12" md="8">
                 <MudTextField @bind-Value="_form.Endpoint" For="() => _form.Endpoint" Label="Endpoint"
                               HelperText="@EndpointHelp" />
@@ -108,6 +129,11 @@ else
                 <MudTextField @bind-Value="_form.ChangeReason" For="() => _form.ChangeReason" Label="Publication reason"
                               HelperText="Recorded with the version" />
             </MudItem>
+            <MudItem xs="12">
+                <MudCheckBox T="bool" @bind-Value="_activateAfterPublishing"
+                             Label="Make this definition active after publishing"
+                             Disabled="_publishing || _catalogue!.PublicationSupported == false" />
+            </MudItem>
         </MudGrid>
 
         @if (_serverErrors is { Count: > 0 })
@@ -123,7 +149,7 @@ else
         <MudStack Row="true" Class="mt-4">
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
                        Disabled="_publishing || _catalogue!.PublicationSupported == false">
-                @(_publishing ? "Publishing…" : "Publish inactive version")
+                @(_publishing ? "Publishing…" : _activateAfterPublishing ? "Publish and activate…" : "Publish inactive version")
             </MudButton>
             <MudButton Href="@CancelPath" Variant="Variant.Text">Cancel</MudButton>
         </MudStack>

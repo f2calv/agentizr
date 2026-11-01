@@ -1,0 +1,36 @@
+@page "/runtime-configuration"
+@inherits CancellableComponentBase
+@using CasCap.AgentRuntime.Contracts.RuntimeConfiguration
+@using CasCap.Common.Configuration.Blazor.Components
+
+<PageTitle>Runtime logging · agentizr</PageTitle>
+<MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Runtime logging</MudText>
+<MudAlert Severity="Severity.Warning" Class="mb-4">
+    This controls the whole host, not one app or tenant. Category overrides remain deployment-owned.
+    The editor shows the durable document, not each replica's effective logging level.
+    Expiry returns to the immutable startup baseline, not the previous publication.
+</MudAlert>
+
+@if (_result is null)
+{
+    <MudProgressLinear Indeterminate="true" aria-label="Loading logging destination" />
+}
+else if (!_result.IsSuccess)
+{
+    <PageState Status="_result.Status" Errors="_result.Errors" OnRetry="LoadAsync" />
+}
+else if (_result.Value is { } destination)
+{
+    <RuntimeConfigurationEditor T="RuntimeLoggingControls" Destination="destination" Title="Host logging controls">
+        <Fields Context="value">
+            <label for="runtime-logging-minimum">Minimum logging level</label>
+            <InputSelect id="runtime-logging-minimum" @bind-Value="value.MinimumLevel">
+                @foreach (var level in Enum.GetValues<RuntimeLoggingLevel>())
+                {
+                    <option value="@level">@level</option>
+                }
+            </InputSelect>
+            <ValidationMessage For="@(() => value.MinimumLevel)" />
+        </Fields>
+    </RuntimeConfigurationEditor>
+}
