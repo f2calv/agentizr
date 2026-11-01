@@ -130,7 +130,8 @@ public sealed class AdministrationDocumentUiTests
         using var handler = new Handler { SynchronizationEnabled = enabled, SynchronizationMapped = mapped };
         var html = await RenderAsync<Documents>(handler, new() { [nameof(Documents.AppId)] = App }, "?collection=filtered");
         Assert.Equal(disabled, System.Text.RegularExpressions.Regex.IsMatch(html,
-            "<button[^>]*disabled[^>]*>[\\s\\S]*?Sync documents"));
+            "<button[^>]*disabled[^>]*>[\\s\\S]*?Sync documents",
+            System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromSeconds(1)));
         Assert.Contains("all configured collections", html, StringComparison.Ordinal);
         Assert.Contains("Preview preparation is paused", html, StringComparison.Ordinal);
         Assert.Contains("does not prepare previews", html, StringComparison.Ordinal);
