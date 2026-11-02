@@ -13,7 +13,7 @@
     <PackageVersion Include="CasCap.Common.Hosting.AspNetCore" Version="5.0.0" />
     <PackageVersion Include="CasCap.Common.Testing" Version="5.0.0" />
     <PackageVersion Include="Cronos" Version="0.13.0" />
-    <PackageVersion Include="Markdig" Version="1.5.0" />
+    <PackageVersion Include="Markdig" Version="1.5.1" />
     <PackageVersion Include="Microsoft.Agents.AI" Version="1.27.0" />
     <PackageVersion Include="Microsoft.Agents.AI.Workflows" Version="1.27.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.14" />
