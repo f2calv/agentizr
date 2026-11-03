@@ -79,6 +79,7 @@ internal sealed class PostgresAgentStateStore(
                 try
                 {
                     var cached = await remoteCache.Db.StringGetAsync(cacheKey).WaitAsync(cancellationToken);
+                    ReportCacheAvailable();
                     if (cached.HasValue)
                     {
                         metrics.RecordHa(tenantContext.TenantId, "cache.read", "hit");
@@ -88,7 +89,7 @@ internal sealed class PostgresAgentStateStore(
                 }
                 catch (RedisException)
                 {
-                    LogCacheUnavailable();
+                    ReportCacheUnavailable();
                     metrics.RecordHa(tenantContext.TenantId, "cache.read", "error");
                 }
             }
@@ -115,11 +116,12 @@ internal sealed class PostgresAgentStateStore(
             await remoteCache.Db.StringSetAsync(
                 cacheKey, payload, TimeSpan.FromHours(runtimeConfig.Value.StateSlidingExpirationHours))
                 .WaitAsync(cancellationToken);
+            ReportCacheAvailable();
             metrics.RecordHa(tenantContext.TenantId, "cache.fill", "succeeded");
         }
         catch (RedisException)
         {
-            LogCacheUnavailable();
+            ReportCacheUnavailable();
             metrics.RecordHa(tenantContext.TenantId, "cache.fill", "error");
         }
     }
@@ -167,11 +169,11 @@ internal sealed class PostgresAgentStateStore(
         }
     }
 
-    private void LogCacheUnavailable()
-    {
-        if (logger.IsEnabled(LogLevel.Warning))
-            logger.LogWarning("{ClassName} Redis payload cache unavailable; using PostgreSQL", nameof(PostgresAgentStateStore));
-    }
+    private void ReportCacheUnavailable() =>
+        RedisCacheAvailability.ReportFailure(logger, nameof(PostgresAgentStateStore), timeProvider);
+
+    private void ReportCacheAvailable() =>
+        RedisCacheAvailability.ReportSuccess(logger, nameof(PostgresAgentStateStore), timeProvider);
 
     private sealed class SessionHandle(
         NpgsqlConnection connection,
