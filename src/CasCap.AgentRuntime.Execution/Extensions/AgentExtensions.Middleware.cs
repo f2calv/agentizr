@@ -108,21 +108,17 @@ public static partial class AgentExtensions
                     Data = context.Arguments,
                 }, cancellationToken).ConfigureAwait(false);
 
+            // Argument values and results can carry user or document content, so Trace records only their shape.
             if (logger.IsEnabled(LogLevel.Trace))
-            {
-                StringBuilder sb = new();
-                sb.Append($"Tool call: '{context.Function.Name}'");
-                if (context.Arguments.Count > 0)
-                    sb.Append($" (args: {string.Join(",", context.Arguments.Select(x => $"[{x.Key} = {x.Value}]"))})");
-                logger.LogTrace("{FunctionCallDetails}", sb);
-            }
+                logger.LogTrace("{ClassName} tool call {FunctionName} ArgumentNames={ArgumentNames}",
+                    nameof(AgentExtensions), context.Function.Name, string.Join(",", context.Arguments.Keys));
 
             if (GetCurrentScope() is { } budgetScope && !budgetScope.TryConsumeToolInvocation())
             {
                 budgetScope.MarkToolCallFailed(context.CallContent.CallId);
                 if (logger.IsEnabled(LogLevel.Warning))
-                    logger.LogWarning("Tool {FunctionName} refused: the run exceeded {MaximumToolInvocations} tool invocations",
-                        context.Function.Name, budgetScope.MaximumToolInvocations);
+                    logger.LogWarning("{ClassName} tool {FunctionName} refused: the run exceeded {MaximumToolInvocations} tool invocations",
+                        nameof(AgentExtensions), context.Function.Name, budgetScope.MaximumToolInvocations);
                 if (scope?.OnActivity is { } refusedTool)
                     await refusedTool(new AgentRunActivity
                     {
@@ -149,7 +145,8 @@ public static partial class AgentExtensions
             catch (Exception ex)
             {
                 GetCurrentScope()?.MarkToolCallFailed(context.CallContent.CallId);
-                logger.LogError(ex, "Tool {FunctionName} threw an exception", context.Function.Name);
+                if (logger.IsEnabled(LogLevel.Error))
+                    logger.LogError(ex, "{ClassName} tool {FunctionName} threw an exception", nameof(AgentExtensions), context.Function.Name);
                 errorType = ex.GetType().FullName;
                 result = $"Error: tool '{context.Function.Name}' failed — {ex.GetType().Name}: {ex.Message}";
             }
@@ -159,7 +156,7 @@ public static partial class AgentExtensions
             {
                 GetCurrentScope()?.MarkToolCallFailed(context.CallContent.CallId);
                 if (logger.IsEnabled(LogLevel.Warning))
-                    logger.LogWarning("Tool {FunctionName} returned an error result", context.Function.Name);
+                    logger.LogWarning("{ClassName} tool {FunctionName} returned an error result", nameof(AgentExtensions), context.Function.Name);
             }
 
             // Strip image blobs to prevent context overflow.
@@ -178,8 +175,8 @@ public static partial class AgentExtensions
                     var sizeKb = base64.Length * 3 / 4 / 1024;
 
                     if (logger.IsEnabled(LogLevel.Debug))
-                        logger.LogDebug("Stripped image blob from tool result {FunctionName} (~{SizeKb}KB), stored as ambient attachment",
-                            context.Function.Name, sizeKb);
+                        logger.LogDebug("{ClassName} stripped image blob from tool result {FunctionName} (~{SizeKb}KB), stored as ambient attachment",
+                            nameof(AgentExtensions), context.Function.Name, sizeKb);
 
                     GetCurrentScope()?.AddAttachment(new AgentRunAttachment
                     {
@@ -202,15 +199,15 @@ public static partial class AgentExtensions
 
             if (logger.IsEnabled(LogLevel.Trace))
             {
-                var resultPreview = result switch
+                var (resultKind, resultLength) = result switch
                 {
-                    string s when s.Length > 500 => $"{s[..500]}... ({s.Length} chars)",
-                    JsonElement jsonEl => jsonEl.ToString().Length > 500
-                        ? $"{jsonEl.ToString()[..500]}... ({jsonEl.ToString().Length} chars)"
-                        : jsonEl.ToString(),
-                    _ => result?.ToString()
+                    null => ("null", 0),
+                    string s => ("string", s.Length),
+                    JsonElement jsonEl => (jsonEl.ValueKind.ToString(), jsonEl.GetRawText().Length),
+                    _ => (result.GetType().Name, 0),
                 };
-                logger.LogTrace("Tool call result: {Result}", resultPreview);
+                logger.LogTrace("{ClassName} tool call {FunctionName} result ResultKind={ResultKind} ResultLength={ResultLength}",
+                    nameof(AgentExtensions), context.Function.Name, resultKind, resultLength);
             }
 
             if (scope?.OnActivity is { } afterTool)

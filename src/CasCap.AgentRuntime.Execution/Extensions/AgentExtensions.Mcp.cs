@@ -38,7 +38,7 @@ public static partial class AgentExtensions
         var effectiveLogger = logger ?? NullLogger.Instance;
         foreach (var tool in tools)
             if (effectiveLogger.IsEnabled(LogLevel.Debug))
-                effectiveLogger.LogDebug("Discovered remote MCP tool {Name} ({Description})", tool.Name, tool.Description);
+                effectiveLogger.LogDebug("{ClassName} discovered remote MCP tool {Name} ({Description})", nameof(AgentExtensions), tool.Name, tool.Description);
         return (mcpClient, tools);
     }
 
@@ -63,7 +63,7 @@ public static partial class AgentExtensions
         var effectiveLogger = logger ?? NullLogger.Instance;
         foreach (var prompt in prompts)
             if (effectiveLogger.IsEnabled(LogLevel.Debug))
-                effectiveLogger.LogDebug("Discovered remote MCP prompt {Name} ({Description})", prompt.Name, prompt.Description);
+                effectiveLogger.LogDebug("{ClassName} discovered remote MCP prompt {Name} ({Description})", nameof(AgentExtensions), prompt.Name, prompt.Description);
         return (mcpClient, prompts);
     }
 
@@ -137,8 +137,8 @@ public static partial class AgentExtensions
 
                 var effectiveLogger = logger ?? NullLogger.Instance;
                 if (effectiveLogger.IsEnabled(LogLevel.Debug))
-                    effectiveLogger.LogDebug("Discovered in-process MCP prompt {Name} ({Description})",
-                        method.Name, description);
+                    effectiveLogger.LogDebug("{ClassName} discovered in-process MCP prompt {Name} ({Description})",
+                        nameof(AgentExtensions), method.Name, description);
             }
 
             prompts.AddRange(FilterPrompts(sourcePrompts, source, logger));
@@ -166,9 +166,9 @@ public static partial class AgentExtensions
         var effectiveLogger = logger ?? NullLogger.Instance;
         if (effectiveLogger.IsEnabled(LogLevel.Warning))
             effectiveLogger.LogWarning(
-                "No {RegistryType} registered — falling back to scanning every loaded assembly for prompt type '{TypeName}'. "
+                "{ClassName} found no {RegistryType} registered — falling back to scanning every loaded assembly for prompt type '{TypeName}'. "
                 + "Call services.AddAgentTypeRegistry(assembly) to make resolution deterministic.",
-                nameof(AgentTypeRegistry), typeName);
+                nameof(AgentExtensions), nameof(AgentTypeRegistry), typeName);
 
         return ScanForType(typeName, "Prompt",
             t => t.GetCustomAttribute<McpServerPromptTypeAttribute>() is not null);
@@ -211,7 +211,7 @@ public static partial class AgentExtensions
         var effectiveLogger = logger ?? NullLogger.Instance;
         foreach (var prompt in promptList)
             if (effectiveLogger.IsEnabled(LogLevel.Debug))
-                effectiveLogger.LogDebug("Enabled prompt {PromptName}", prompt.Name);
+                effectiveLogger.LogDebug("{ClassName} enabled prompt {PromptName}", nameof(AgentExtensions), prompt.Name);
 
         return promptList;
     }

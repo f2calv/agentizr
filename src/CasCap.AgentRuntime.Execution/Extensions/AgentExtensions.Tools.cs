@@ -140,7 +140,7 @@ public static partial class AgentExtensions
             {
                 var effectiveLogger = logger ?? NullLogger.Instance;
                 if (effectiveLogger.IsEnabled(LogLevel.Debug))
-                    effectiveLogger.LogDebug("Skipping disabled sub-agent {AgentKey}", source.Agent);
+                    effectiveLogger.LogDebug("{ClassName} skipping disabled sub-agent {AgentKey}", nameof(AgentExtensions), source.Agent);
                 continue;
             }
 
@@ -171,10 +171,12 @@ public static partial class AgentExtensions
                 + "Ensure the feature that registers this service runs before AddAgentTypeRegistry().");
         }
 
-        (logger ?? NullLogger.Instance).LogWarning(
-            "No {RegistryType} registered — falling back to scanning every loaded assembly for '{TypeName}'. "
-            + "Call services.AddAgentTypeRegistry() after registering tool services to make resolution deterministic.",
-            nameof(AgentTypeRegistry), typeName);
+        var effectiveLogger = logger ?? NullLogger.Instance;
+        if (effectiveLogger.IsEnabled(LogLevel.Warning))
+            effectiveLogger.LogWarning(
+                "{ClassName} found no {RegistryType} registered — falling back to scanning every loaded assembly for '{TypeName}'. "
+                + "Call services.AddAgentTypeRegistry() after registering tool services to make resolution deterministic.",
+                nameof(AgentExtensions), nameof(AgentTypeRegistry), typeName);
 
         return ScanForType(typeName, "Tool service",
             t => !t.IsAbstract && t.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
@@ -262,7 +264,7 @@ public static partial class AgentExtensions
             var subScope = parentScope.ForSubAgent();
             var depth = subScope.Depth;
             if (logger.IsEnabled(LogLevel.Debug))
-                logger.LogDebug("Delegating to sub-agent {AgentKey} (depth={NestingDepth})", agentKey, depth);
+                logger.LogDebug("{ClassName} delegating to sub-agent {AgentKey} (depth={NestingDepth})", nameof(AgentExtensions), agentKey, depth);
 
             // Notify the host that a delegation is starting (e.g. status message / reaction swap).
             if (parentScope.OnDelegation is { } onDelegation)
@@ -276,9 +278,10 @@ public static partial class AgentExtensions
             var result = await agent.RunAnalysisAsync(providerConfig, agentConfig, message, chatOptions,
                 cancellationToken: cancellationToken, logger: logger, scope: subScope).ConfigureAwait(false);
 
-            if (logger.IsEnabled(LogLevel.Information))
-                logger.LogInformation("Sub-agent {AgentKey} completed in {Duration}, toolCalls={ToolCallCount}, attachments={AttachmentCount}",
-                    agentKey, result.Elapsed, result.ToolCallCount, result.Attachments.Count);
+            // RunAnalysisAsync already logged the run summary at Information.
+            if (logger.IsEnabled(LogLevel.Debug))
+                logger.LogDebug("{ClassName} sub-agent {AgentKey} returned to its parent, attachments={AttachmentCount}",
+                    nameof(AgentExtensions), agentKey, result.Attachments.Count);
 
             // Notify the host that this delegation finished (e.g. record debug stats for the step).
             if (parentScope.OnCompletion is { } onCompletion)
@@ -288,8 +291,8 @@ public static partial class AgentExtensions
             if (result.Attachments.Count > 0)
             {
                 if (logger.IsEnabled(LogLevel.Debug))
-                    logger.LogDebug("Bubbling {AttachmentCount} attachment(s) from sub-agent {AgentKey} to parent",
-                        result.Attachments.Count, agentKey);
+                    logger.LogDebug("{ClassName} bubbling {AttachmentCount} attachment(s) from sub-agent {AgentKey} to parent",
+                        nameof(AgentExtensions), result.Attachments.Count, agentKey);
                 foreach (var attachment in result.Attachments)
                     subScope.AddAttachment(attachment);
             }
@@ -341,7 +344,7 @@ public static partial class AgentExtensions
         var effectiveLogger = logger ?? NullLogger.Instance;
         foreach (var tool in toolList)
             if (effectiveLogger.IsEnabled(LogLevel.Debug))
-                effectiveLogger.LogDebug("Enabled tool {ToolName}", tool.Name);
+                effectiveLogger.LogDebug("{ClassName} enabled tool {ToolName}", nameof(AgentExtensions), tool.Name);
 
         return toolList;
     }
