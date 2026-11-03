@@ -96,6 +96,7 @@ public static partial class AppHost
                 }
                 else
                 {
+                    app.UseCasCapRequestLogging();
                     app.MapGet("/status", () => Results.Ok(new { Service = "agentizr", Role = FeatureNames.Ingestion }));
                     app.MapHealthChecks("/healthz");
                 }

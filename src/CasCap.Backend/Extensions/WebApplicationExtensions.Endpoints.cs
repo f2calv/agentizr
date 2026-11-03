@@ -1,3 +1,5 @@
+using Serilog;
+
 namespace CasCap.Extensions;
 
 /// <summary>Maps the HTTP endpoint baseline.</summary>
@@ -9,6 +11,8 @@ public static partial class WebApplicationExtensions
     /// <param name="administrationEnabled">Whether administration authentication is enabled.</param>
     public static void MapAgentRuntimeEndpoints(this WebApplication app, bool tenantAuthenticationEnabled, bool administrationEnabled)
     {
+        // First, so one route-template summary times the whole pipeline and leaves exception events to the handler.
+        app.UseCasCapRequestLogging();
         app.UseExceptionHandler();
         if (tenantAuthenticationEnabled || administrationEnabled)
             app.UseAuthentication();

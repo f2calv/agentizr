@@ -536,6 +536,11 @@ response with `TypedResults`. Concrete return types provide response metadata wi
 success/error attributes. Explicit metadata covers controller validation, session-conflict handling
 and dynamic status codes.
 
+Every request emits one summary event from `UseCasCapRequestLogging`, registered first in
+[`MapAgentRuntimeEndpoints`](Extensions/WebApplicationExtensions.Endpoints.cs): method, route
+template, status code and elapsed time, never the raw path or query string. Controllers do not log
+requests themselves; successful `/healthz` probes log at Verbose.
+
 The administration API serves the browser frontend from
 [`AdministrationController`](Controllers/AdministrationController.cs) and
 [`AdministrationDefinitionsController`](Controllers/AdministrationDefinitionsController.cs) through
@@ -599,7 +604,9 @@ connection string each use their own database. Immutable definition
 snapshots store schema-versioned JSONB plus publisher/reason metadata, while a separate active
 pointer selects one version per tenant agent. Publication never changes live traffic; activation
 atomically advances the pointer and appends actor/reason audit history. Redis is a read-through
-cache, not the authority.
+cache, not the authority. When Redis fails, definition and state stores fall back to PostgreSQL and
+[`RedisCacheAvailability`](Services/RedisCacheAvailability.cs) logs one Warning, repeats at Debug and
+one Information on recovery; the state store's `cache.*` error metrics count every fallback.
 
 `TenantAuthenticationConfig` binds from `CasCap:TenantAuthenticationConfig`. When enabled, JWT
 validation maps the configured caller claim (`azp` by default) through an explicit tenant/caller
