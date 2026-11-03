@@ -221,7 +221,9 @@ internal sealed class HybridDocumentProcessor(
             }
             catch (InvalidOperationException) when (operation.ResultJson is not null)
             {
-                logger.LogWarning("The framework rejected a preparation response; its receipt will be locally validated.");
+                if (logger.IsEnabled(LogLevel.Warning))
+                    logger.LogWarning("{ClassName} framework rejected a preparation response; its receipt will be locally validated",
+                        nameof(HybridDocumentProcessor));
             }
         }
         if (operation.ResultJson is null)
@@ -274,7 +276,9 @@ internal sealed class HybridDocumentProcessor(
 
     private DocumentProcessingOutcome Stop(DocumentProcessingOutcome outcome)
     {
-        logger.LogWarning("Hybrid document preparation stopped with {Outcome}; any paid receipts remain retained.", outcome);
+        if (logger.IsEnabled(LogLevel.Warning))
+            logger.LogWarning("{ClassName} stopped with {Outcome}; any paid receipts remain retained",
+                nameof(HybridDocumentProcessor), outcome);
         return outcome;
     }
 
