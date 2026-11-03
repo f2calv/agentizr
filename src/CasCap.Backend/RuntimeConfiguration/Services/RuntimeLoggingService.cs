@@ -44,14 +44,19 @@ public sealed partial class RuntimeLoggingService(
     {
         try
         {
-            runtimeLoggingProbe.Apply(value);
+            // Monitor refreshes can repeat an unchanged value; only an actual level change is a state transition.
+            if (runtimeLoggingProbe.Apply(value))
+                LogApplied(logger, nameof(RuntimeLoggingService), value.MinimumLevel);
         }
         catch (Exception ex)
         {
-            LogApplyFailed(logger, ex);
+            LogApplyFailed(logger, nameof(RuntimeLoggingService), ex);
         }
     }
 
-    [LoggerMessage(LogLevel.Error, "Runtime logging configuration change was rejected; retaining the last valid logging state")]
-    private static partial void LogApplyFailed(ILogger logger, Exception exception);
+    [LoggerMessage(LogLevel.Information, "{ClassName} runtime logging minimum changed to {MinimumLevel}")]
+    private static partial void LogApplied(ILogger logger, string className, RuntimeLoggingLevel minimumLevel);
+
+    [LoggerMessage(LogLevel.Error, "{ClassName} runtime logging configuration change was rejected; retaining the last valid logging state")]
+    private static partial void LogApplyFailed(ILogger logger, string className, Exception exception);
 }

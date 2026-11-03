@@ -71,6 +71,8 @@ The [typed contract](../src/CasCap.AgentRuntime.Contracts/RuntimeConfiguration/R
 contains only `MinimumLevel`, using a defined Serilog level such as `"Information"` or `"Debug"`.
 The [monitor consumer](../src/CasCap.Backend/RuntimeConfiguration/Services/RuntimeLoggingService.cs)
 owns a disposable subscription and updates a per-host pipeline switch, not the console-only switch.
+It logs one Information event when the effective minimum actually changes, so unchanged monitor
+refreshes stay silent; a change to a level above Information is visible only through `/status`.
 
 ## Provision Before Enabling
 
