@@ -1494,10 +1494,29 @@ resource inventory, repository/release references and raw plan/support evidence 
 
 The infrastructure change set has passed its configured PR checks, merged and been released.
 Subsequent source-provenance-only refresh operations were interrupted before their final
-convergence checks completed. The successful provisioning and earlier no-change plans remain
-evidence; they do not prove final-source metadata convergence. Recheck the existing state and
-a fresh plan before the next apply, preserving any lock until its owning process is confirmed
-stopped. Do not retry service creation, migrate state or widen access to reconcile metadata.
+convergence checks completed. The resulting stale apply locks were released on 2026-11-02 only
+after confirming their owning workstation had no Terraform process and no deployment workflow
+was active, with explicit recovery approval. Fresh saved plans and subsequent embedding applies
+reconciled provenance tags; both roots now report no changes using the same applied metadata.
+Those applies used local, uncommitted embedding configuration, so this is not evidence of
+convergence against a subsequently committed or released source revision.
+
+**Embedding infrastructure handover (2026-11-02):** `text-embedding-3-large`, revision `1`,
+is provisioned in both approved Azure subscriptions through the existing general OpenAI accounts.
+The owner selected the higher-capability supported Azure option rather than the local-model pilot;
+document-specific accuracy remains unmeasured. Both deployments are `GlobalStandard`, capacity
+`10` (10,000 tokens/minute of quota, not a spending limit), and live ARM read-back reports
+`Succeeded` with the exact model/revision/SKU/capacity. Seven focused credential-free Terraform
+mock cases, root validation, formatting and scoped hooks passed. Each inspected apply added only
+one deployment plus provenance-tag updates; no account, access grant, replacement or deletion
+was introduced. Coordinates and raw plans remain in private operator evidence.
+
+No embedding request, PDF submission, runtime profile change or worker activation was performed.
+Use the existing application identity and explicitly bind the selected account/deployment,
+management resource ID, model revision and dimensions; `text-embedding-3-large` supports up to
+3,072 dimensions. Document and future query embeddings must share a compatible pinned profile.
+Application-identity inference access, schema/replica readiness, reviewed-source eligibility,
+paid request/token allowances and retrieval quality remain separate pilot gates.
 
 All approved Terraform mock cases passed. The obsolete application access test was not
 restored: a separately approved isolated diagnostic reused the current runtime's certificate/Key
@@ -2264,13 +2283,38 @@ requirement or replace that acceptance gate.
   semantic approval and search activation through their separately reviewed contracts.
   The current catalogue lists admitted database sources, not every Blob or completed indexing.
 
-### Embedding Pilot Handover (2026-11-01)
+### Embedding Pilot Handover (2026-11-03)
 
-The release train is being handled separately. Resume implementation on the feature branch
-established by that work once its package/dependency and checkout changes have settled; this
-handover neither creates a branch nor authorizes a release, deployment or provider submission.
-Historical local test counts above precede subsequent refactoring and dependency updates and
-must not be treated as validation of the post-release checkout.
+The release train has completed. The current checkout is on the default branch; create a feature
+branch before committing subsequent implementation. This handover neither creates a branch nor
+authorizes a release, deployment or provider submission. Post-release focused checks passed
+85 cases without failures or skips; those offline checks do not prove live inference or publication.
+
+Read-only application readiness checks now establish:
+
+- The target database has `vector` version `0.8.6`, migration
+  `20261030121900_DocumentVectorIndexing`, and the native vector/job/batch/publication tables.
+  There are no indexing jobs, embedding batches, vectors or active document indexes.
+- The inspected vocabulary snapshot has a current source/preparation binding and matching saved
+  assessment/selection revision `1`. Its German `Vocabulary` assessment records A1 and all
+  requested readiness attestations. One exclusion leaves 65 nonempty inputs, 15,895 captured
+  input tokens and a largest input of 512 tokens. The snapshot pins `cl100k_base` tokenizer
+  version `1.0.0.0`. These database observations are not an application preflight manifest.
+- The existing tenant `DocumentPreparation` Azure OpenAI registration is Entra-enabled and its
+  endpoint is allowlisted. That endpoint matches one of the independently verified
+  `text-embedding-3-large` revision `1` deployments. It can be reused for embedding credentials
+  without changing the preparation/chat model; inference permission remains unverified.
+- Both ready replicas use the same newly deployed image digest. No indexing configuration or
+  indexing environment override is present. Image equality does not establish compiled indexing
+  support or derivative-retirement compatibility. The runtime environment name `Production`
+  does not establish whether its assemblies were compiled with Debug indexing support.
+
+A disabled local profile draft uses the selected 3,072 dimensions, the captured tokenizer,
+snapshot-specific input bounds and batches of at most 16 inputs (five requests for this selection).
+Its Azure coordinates are placeholders, not deployable bindings. Before applying it, replace
+them with the verified account/deployment metadata and confirm the pilot's trusted A1 vocabulary
+collection policy. This restrictive policy does not authorize exam papers or higher-level content.
+No live configuration, schema or document state was changed, and no embeddings were submitted.
 
 Proceed through the following gates in order:
 
@@ -2279,9 +2323,13 @@ Proceed through the following gates in order:
   rerun focused adapter, eligibility and native publication checks against isolated storage.
   Preserve concurrent changes and existing services; do not enable workers while the baseline
   or source-writing replicas are changing.
-- [ ] **Verify the execution target without document submission.** Prefer the available 12 GB
-  GPU-backed Ollama endpoint for the selected `qwen3-embedding:4b` pilot; the 4 GB workstation is
-  a fallback only after measured fit. Verify exact tenant registration/authority, reachability
+- [ ] **Verify the execution target without document submission.** The owner selected the
+  provisioned Azure `text-embedding-3-large` revision `1` for the next pilot; verify its exact
+  tenant provider registration, selected endpoint/deployment, management resource ID and
+  dimensions with the application's existing identity. Infrastructure provisioning does not
+  activate a runtime profile or prove inference access. The 12 GB GPU-backed Ollama
+  `qwen3-embedding:4b` path remains an alternative, not an automatically selected fallback;
+  the 4 GB workstation requires measured fit. For Ollama, verify tenant authority and reachability
   from the intended worker, local embedding capability, full model digest and native dimensions.
   Keep model tags immutable during jobs. Model downloads or new GPU/container provisioning
   require separate authorization. Start with one input per batch; record peak GPU memory,
