@@ -26,9 +26,15 @@ internal sealed partial class DocumentIndexingStore
             await transaction.CommitAsync(token);
             return null;
         }
+        now = await DocumentIngestionTransactions.GetUtcNowAsync(db, timeProvider, token);
+        if (job.ClaimExpiresAtUtc <= now)
+            return null;
         var inputs = claim.Manifest.Inputs.Skip(job.VectorCount).Take(claim.Manifest.Profile.MaximumBatchInputs).ToArray();
         if (inputs.Length == 0)
             throw new InvalidDataException("A completed generation cannot submit an additional batch.");
+        if (claim.Manifest.Profile.Azure is not null
+            && inputs.Sum(input => (long)input.Chunk.TokenCount) > config.Value.AzureMaximumBatchTokens)
+            throw new InvalidDataException("The Azure batch exceeds the deployment pacing token ceiling.");
         if (job.SubmittedRequests >= job.MaximumRequests
             || job.ReceivedInputTokens + claim.Manifest.Inputs.Skip(job.VectorCount).Sum(input => (long)input.Chunk.TokenCount) > job.MaximumInputTokens)
         {
@@ -42,6 +48,15 @@ internal sealed partial class DocumentIndexingStore
         if (await db.DocumentEmbeddingBatches.AnyAsync(item => item.TenantId == job.TenantId
                 && item.JobId == job.Id && item.Status == DocumentIndexingStates.Submitting, token))
             throw new InvalidOperationException("The indexing request has no remaining authorized submission.");
+        if (await DocumentEmbeddingPacing.IsPendingAsync(db, config.Value, claim.Manifest, now, token))
+        {
+            job.Status = DocumentIndexingStates.Queued;
+            job.ClaimId = null;
+            job.ClaimExpiresAtUtc = null;
+            await db.SaveChangesAsync(token);
+            await transaction.CommitAsync(token);
+            return null;
+        }
         var batch = new DocumentEmbeddingBatch(claim, job.CompletedBatches, inputs);
         db.DocumentEmbeddingBatches.Add(new()
         {

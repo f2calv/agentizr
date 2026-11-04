@@ -21,6 +21,14 @@ public sealed record DocumentIndexingConfig : IAppConfig, IValidatableObject
     [Range(30, 900)]
     public int ProcessingTimeoutSeconds { get; init; } = 300;
 
+    /// <summary>Gets the minimum quiet interval after an Azure receipt or unresolved claim deadline.</summary>
+    [Range(65, 86_400)]
+    public int AzureMinimumBatchIntervalSeconds { get; init; } = 65;
+
+    /// <summary>Gets the maximum captured input tokens in an Azure batch; configure within the deployment's minute quota.</summary>
+    [Range(1, 100_000_000)]
+    public int AzureMaximumBatchTokens { get; init; } = 10_000;
+
     /// <summary>Gets explicit immutable-profile inputs; no provider or model is selected by default.</summary>
     [Required, MaxLength(32)]
     public List<DocumentEmbeddingProfileConfig> Profiles { get; init; } = [];

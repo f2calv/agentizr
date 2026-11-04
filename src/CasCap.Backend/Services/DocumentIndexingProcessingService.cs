@@ -22,8 +22,8 @@ internal sealed class DocumentIndexingProcessingService(
             var batch = await documentIndexingStore.ReserveAsync(claim, deadline.Token);
             if (batch is null)
             {
-                if (logger.IsEnabled(LogLevel.Warning))
-                    logger.LogWarning("{ClassName} submission was not reserved because ownership, eligibility or budget changed",
+                if (logger.IsEnabled(LogLevel.Debug))
+                    logger.LogDebug("{ClassName} submission was not reserved because pacing, ownership, eligibility or budget changed",
                         nameof(DocumentIndexingProcessingService));
                 return true;
             }
@@ -37,8 +37,9 @@ internal sealed class DocumentIndexingProcessingService(
             or ValidationException or OperationCanceledException)
         {
             if (logger.IsEnabled(LogLevel.Warning))
-                logger.LogWarning("{ClassName} stopped with outcome {Outcome}; submitted intent {Submitted}",
-                    nameof(DocumentIndexingProcessingService), ex.GetType().Name, submitted);
+                logger.LogWarning("{ClassName} stopped with outcome {Outcome}; HTTP status {HttpStatusCode}; submitted intent {Submitted}",
+                    nameof(DocumentIndexingProcessingService), ex.GetType().Name,
+                    ex is HttpRequestException { StatusCode: { } status } ? (int?)status : null, submitted);
             using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             await documentIndexingStore.FailAsync(claim, submitted,
                 ex is OperationCanceledException && (token.IsCancellationRequested || deadline.IsCancellationRequested), cleanup.Token);

@@ -38,6 +38,7 @@ public sealed partial class PostgresAdministrationDocumentReviewTests
                 Assert.Equal(DocumentIndexingStates.Queued, job.Status);
                 Assert.Empty(await db.ActiveDocumentIndexes.ToArrayAsync(Token));
                 Assert.True(seen < 100);
+                await ExpireEmbeddingPacingAsync();
             }
             Assert.True(seen > 1);
             Assert.Equal(seen, provider.Submissions);
@@ -348,7 +349,7 @@ public sealed partial class PostgresAdministrationDocumentReviewTests
     [Fact]
     public async Task Indexing_CompetingCompleteGenerationCannotOverwriteObservedPredecessor()
     {
-        var (http, client, id, settings, request) = await AcceptedIndexingInputsAsync();
+        var (http, client, id, settings, request) = await AcceptedIndexingInputsAsync(local: true);
         using (http)
         {
             var original = await client.RequestDocumentIndexingAsync("tenant-a", _source.CollectionId,
@@ -366,26 +367,14 @@ public sealed partial class PostgresAdministrationDocumentReviewTests
                 Assert.True(await store.ReceiveAsync(last, EmbeddingProvider.Result(last), Token));
                 staged += last.Inputs.Count;
             }
-            var stored = await client.StoreDocumentReviewAsync("tenant-a", _source.CollectionId,
-                _source.DocumentId, _source.JobId, Request() with { TargetTokensPerChunk = 128 }, Token);
-            Assert.True(stored.IsSuccess);
-            var nextId = stored.Value!.GenerationId!;
+            var (nextId, nextJobId) = await AcceptNextIndexingGenerationAsync(client, request);
             Assert.NotEqual(id, nextId);
-            Assert.True((await client.RecordDocumentChunkReviewAsync("tenant-a", _source.CollectionId,
-                _source.DocumentId, _source.JobId, nextId, NativeSelectionRequest(), Token)).IsSuccess);
-            Assert.True((await client.RecordDocumentApprovalAsync("tenant-a", _source.CollectionId,
-                _source.DocumentId, _source.JobId, nextId, NativeApprovalRequest(), Token)).IsSuccess);
-            var preflight = await client.GetDocumentIndexingPreflightAsync("tenant-a", _source.CollectionId,
-                _source.DocumentId, _source.JobId, nextId, Token);
-            var next = await client.RequestDocumentIndexingAsync("tenant-a", _source.CollectionId,
-                _source.DocumentId, _source.JobId, nextId, request with { ManifestSha256 = preflight.Value!.ManifestSha256! }, Token);
-            Assert.True(next.IsSuccess);
             var provider = new EmbeddingProvider();
             while (await Processor(store, provider, settings).ProcessOneAsync(Token))
                 Assert.True(provider.Submissions < 100);
             Assert.False(await store.ReceiveAsync(last, EmbeddingProvider.Result(last), Token));
             await using var db = _database.DbContextFactory.CreateDbContext();
-            Assert.Equal(next.Value!.Id, (await db.ActiveDocumentIndexes.SingleAsync(Token)).JobId);
+            Assert.Equal(nextJobId, (await db.ActiveDocumentIndexes.SingleAsync(Token)).JobId);
             var old = await db.DocumentIndexingJobs.SingleAsync(item => item.Id == original.Value!.Id, Token);
             Assert.Equal(DocumentIndexingStates.Conflict, old.Status);
             Assert.Equal(last.Claim.Manifest.Inputs.Count, old.VectorCount);
@@ -399,9 +388,11 @@ public sealed partial class PostgresAdministrationDocumentReviewTests
     private static DocumentIndexingProcessingService Processor(DocumentIndexingStore store, EmbeddingProvider provider, DocumentIndexingConfig settings) =>
         new(NullLogger<DocumentIndexingProcessingService>.Instance, Options.Create(settings), store, provider);
 
-    private async Task<(HttpClient Http, AdministrationApiClient Client, string Id, DocumentIndexingConfig Settings, DocumentIndexingRequest Request)> AcceptedIndexingInputsAsync()
+    private async Task<(HttpClient Http, AdministrationApiClient Client, string Id, DocumentIndexingConfig Settings, DocumentIndexingRequest Request)> AcceptedIndexingInputsAsync(bool local = false)
     {
         var settings = DocumentIndexingTestData.ExecutionConfig(_source.TenantId, _source.CollectionId);
+        if (local)
+            settings = settings with { Profiles = [DocumentIndexingTestData.OllamaConfig().Profiles[0] with { MaximumBatchInputs = 1 }] };
         await _host.DisposeAsync();
         _host = new(_database.DbContextFactory, indexing: settings);
         var http = await ClientAsync(_host);
@@ -432,9 +423,38 @@ public sealed partial class PostgresAdministrationDocumentReviewTests
     private static Task<int> VectorCountAsync(AgentRuntimeDbContext db) =>
         db.Database.SqlQuery<int>($"""SELECT count(*)::integer AS "Value" FROM agent_runtime.document_index_vectors""").SingleAsync(Token);
 
+    private async Task<(string GenerationId, string JobId)> AcceptNextIndexingGenerationAsync(
+        AdministrationApiClient client, DocumentIndexingRequest request)
+    {
+        var stored = await client.StoreDocumentReviewAsync("tenant-a", _source.CollectionId,
+            _source.DocumentId, _source.JobId, Request() with { TargetTokensPerChunk = 128 }, Token);
+        Assert.True(stored.IsSuccess);
+        var generationId = stored.Value!.GenerationId!;
+        Assert.True((await client.RecordDocumentChunkReviewAsync("tenant-a", _source.CollectionId,
+            _source.DocumentId, _source.JobId, generationId, NativeSelectionRequest(), Token)).IsSuccess);
+        Assert.True((await client.RecordDocumentApprovalAsync("tenant-a", _source.CollectionId,
+            _source.DocumentId, _source.JobId, generationId, NativeApprovalRequest(), Token)).IsSuccess);
+        var preflight = await client.GetDocumentIndexingPreflightAsync("tenant-a", _source.CollectionId,
+            _source.DocumentId, _source.JobId, generationId, Token);
+        var next = await client.RequestDocumentIndexingAsync("tenant-a", _source.CollectionId,
+            _source.DocumentId, _source.JobId, generationId, request with { ManifestSha256 = preflight.Value!.ManifestSha256! }, Token);
+        Assert.True(next.IsSuccess);
+        return (generationId, next.Value!.Id);
+    }
+
+    private async Task ExpireEmbeddingPacingAsync()
+    {
+        await using var db = _database.DbContextFactory.CreateDbContext();
+        await db.DocumentEmbeddingBatches.Where(item => item.ReceivedAtUtc != null).ExecuteUpdateAsync(update =>
+            update.SetProperty(item => item.SubmittedAtUtc, DateTimeOffset.UnixEpoch)
+                .SetProperty(item => item.ReceivedAtUtc, DateTimeOffset.UnixEpoch), Token);
+    }
+
     private sealed class EmbeddingProvider : IDocumentEmbeddingProvider
     {
         public int Submissions { get; private set; }
+
+        public int Verifications { get; private set; }
 
         public bool Fail { get; init; }
 
@@ -444,6 +464,7 @@ public sealed partial class PostgresAdministrationDocumentReviewTests
 
         public Task VerifyAsync(DocumentIndexingManifest manifest, CancellationToken token)
         {
+            Verifications++;
             StopBeforeSubmission?.Cancel();
             token.ThrowIfCancellationRequested();
             return Task.CompletedTask;

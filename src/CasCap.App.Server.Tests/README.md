@@ -409,9 +409,19 @@ write-once receipts, exact vector round-trips, tenant foreign keys, competing pu
 source/selection revocation while receipt persistence waits for the mutation lock, policy
 supersession, input-token overruns, expired claims and ownership cancellation. An uncertain
 reservation acknowledgement is classified from durable intent, not a local submitted flag.
+The [native pacing cases](Tests/Integration/PostgresAdministrationDocumentReviewTests.Pacing.cs)
+add six expanded cases across five methods for fresh-store deferral without provider verification
+or budget consumption, competing native reservations admitting only one intent, shared deployment aliases, retirement audit,
+exact interval boundaries and unresolved claim deadlines without replay. Publication tests advance
+only synthetic receipt timestamps to avoid real minute-long waits; the competing-generation test
+uses the local-provider profile to isolate publication concurrency from Azure quota admission.
 The [Azure HTTP cases](Tests/Integration/DocumentEmbeddingHttpTests.cs) use synthetic credentials
 and a fake handler to check exact ARM/deployment/input bindings, API-key/Entra paths and one
-non-retried submission. [Response tests](../CasCap.Backend.Tests/Tests/Unit/DocumentEmbeddingProviderTests.cs) cover
+non-retried submission. Its five expanded cases (one method) cover success, 429, 503 and unknown
+transport outcomes, with status/Retry-After diagnostics and response-body/credential exclusion.
+[Offline pacing tests](../CasCap.Backend.Tests/Tests/Unit/DocumentEmbeddingPacingTests.cs) cover
+deployment identity, timing, fixed-batch token ceilings, unchanged manifest identity and safe header
+parsing. [Response tests](../CasCap.Backend.Tests/Tests/Unit/DocumentEmbeddingProviderTests.cs) cover
 indexes, finite nonzero dimensions, native usage, malformed JSON kinds and byte limits.
 The [Ollama HTTP cases](Tests/Integration/DocumentOllamaEmbeddingHttpTests.cs) exercise actual
 provider dispatch, tenant/authority denial before HTTP, installed digest/capability/dimensions,

@@ -28,7 +28,8 @@ Debug-only document and logging cases are absent from Release where guarded by `
 | `DocumentBlobDownloadTests` | 5 | 21 |
 | `DocumentChunkingTests` | 5 | 15 |
 | `DocumentEmbeddingProviderTests` | 3 | 16 |
-| `DocumentIndexingConfigTests` | 4 | 32 |
+| `DocumentEmbeddingPacingTests` | 6 | 25 |
+| `DocumentIndexingConfigTests` | 4 | 34 |
 | `DocumentIndexingPlanTests` | 6 | 34 |
 | `DocumentIngestionAdmissionTests` | 9 | 20 |
 | `DocumentIngestionConfigTests` | 7 | 23 |

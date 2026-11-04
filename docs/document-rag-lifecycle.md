@@ -261,6 +261,32 @@ the worker. The existing elected ingestion loop runs at most one bounded batch p
 `ProcessingTimeoutSeconds` defaults to 300 and permits 30–900; cleanup has a separate ten-second
 bound. Provider calls are not made while holding a database transaction.
 
+Azure pacing is separate from the immutable profile and paid authorization. Operator settings
+`AzureMinimumBatchIntervalSeconds` (default 65, range 65–86400) and `AzureMaximumBatchTokens`
+(default 10,000 captured tokens) bound one batch per deployment per quiet interval. Preflight
+rejects an oversized fixed batch; reduce `MaximumBatchInputs` rather than silently repartitioning
+an authorized generation or granting more requests. Ollama is unaffected.
+
+The [durable pacing gate](../src/CasCap.Backend/Services/DocumentEmbeddingPacing.cs) runs under the
+shared mutation lock before claiming and again before reserving intent. It identifies the physical
+Azure deployment by cloud/ARM resource ID, not tenant, profile or provider alias. A successful
+receipt starts the quiet interval; an unresolved intent conservatively uses its claim deadline
+as the latest possible dispatch time. Waiting consumes no request allowance and holds no claim,
+transaction or process-local timer. Restarting or replacing the leader does not reset history.
+Retirement erases private manifests, so a recent unidentifiable intent temporarily gates **all**
+Azure deployments rather than losing its quota history. An unrelated identifiable deployment
+can continue while another waits.
+
+These are conservative application admission bounds, not Azure's own token estimator, a monetary
+cap or coordination with other applications sharing the deployment. Set the token ceiling within
+the verified deployment quota, leave estimator headroom where needed, and retain at least the
+quota window plus a margin between batches. HTTP failures report only status and validated numeric
+`Retry-After`/`retry-after-ms` metadata; bodies, credentials and provider coordinates are not logged.
+Headers are diagnostic only: there is no automatic replay or durable header-based rescheduler.
+Even an explicit 429 after intent remains `ReconciliationRequired`, without resetting counters
+or inventing a zero-usage receipt. Reconciliation/new authorization and any longer cooldown must
+be an explicit operator decision. Do not repair an uncertain job by changing its database rows.
+
 An accepted higher collection-policy revision advances durable authority across replicas;
 older accepted revisions cannot dispatch or publish. Equal-revision/different-profile contents
 conflict. Configuration edits alone are not distributed policy activation.

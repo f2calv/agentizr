@@ -13,6 +13,8 @@ public sealed class DocumentIndexingConfigTests
         var config = new DocumentIndexingConfig();
         Assert.False(config.Enabled);
         Assert.False(config.ProcessingEnabled);
+        Assert.Equal(65, config.AzureMinimumBatchIntervalSeconds);
+        Assert.Equal(10_000, config.AzureMaximumBatchTokens);
         Assert.Empty(config.Profiles);
         Assert.Empty(config.Collections);
         Assert.Empty(Validate(config));
@@ -39,6 +41,8 @@ public sealed class DocumentIndexingConfigTests
     [InlineData("no-batch")]
     [InlineData("invalid-azure")]
     [InlineData("management-authority")]
+    [InlineData("azure-pacing-interval")]
+    [InlineData("azure-pacing-tokens")]
     public void Indexing_InvalidConfigurationFailsValidation(string invalid)
     {
         var config = DocumentIndexingTestData.Config();
@@ -62,6 +66,8 @@ public sealed class DocumentIndexingConfigTests
             "processing-no-azure" => config with { ProcessingEnabled = true },
             "no-batch" => config with { Profiles = [config.Profiles[0] with { MaximumBatchInputs = 0 }] },
             "invalid-azure" => config with { Profiles = [config.Profiles[0] with { Azure = new() }] },
+            "azure-pacing-interval" => config with { AzureMinimumBatchIntervalSeconds = 64 },
+            "azure-pacing-tokens" => config with { AzureMaximumBatchTokens = 0 },
             _ => config with { Profiles = [config.Profiles[0] with { Azure = DocumentIndexingTestData.Azure with { ManagementEndpoint = "https://untrusted.example.com/" } }] },
         };
         Assert.NotEmpty(Validate(config));

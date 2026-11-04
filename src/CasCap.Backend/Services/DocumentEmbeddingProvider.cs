@@ -1,5 +1,6 @@
 #if DEBUG
 using Azure.Core;
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -9,6 +10,8 @@ namespace CasCap.Services;
 
 /// <summary>Dispatches bounded tenant-authorized Azure or Ollama embeddings without transport replay.</summary>
 internal sealed class DocumentEmbeddingProvider(
+    ILogger<DocumentEmbeddingProvider> logger,
+    TimeProvider timeProvider,
     IServiceProvider serviceProvider,
     IHttpClientFactory httpClientFactory,
     DocumentPreparationModelVerifier documentPreparationModelVerifier,
@@ -66,9 +69,30 @@ internal sealed class DocumentEmbeddingProvider(
         });
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
         if (response.StatusCode != HttpStatusCode.OK)
+        {
+            if (logger.IsEnabled(LogLevel.Warning))
+                logger.LogWarning("{ClassName} submission returned HTTP {HttpStatusCode}; retry-after seconds {RetryAfterSeconds}; automatic replay disabled",
+                    nameof(DocumentEmbeddingProvider), (int)response.StatusCode, RetryAfter(response, timeProvider.GetUtcNow())?.TotalSeconds);
             throw new HttpRequestException("The embedding submission did not return a valid receipt.", null, response.StatusCode);
+        }
         using var json = await DocumentProviderJson.ReadAsync(response, 16 * 1024 * 1024, token);
         return Parse(json.RootElement, batch.Inputs.Count, profile.Dimensions);
+    }
+
+    internal static TimeSpan? RetryAfter(HttpResponseMessage response, DateTimeOffset now)
+    {
+        var retry = response.Headers.RetryAfter;
+        var delay = retry?.Delta ?? (retry?.Date is { } date ? date - now : (TimeSpan?)null);
+        var millisecondsValues = response.Headers.TryGetValues("retry-after-ms", out var values) ? values.Take(2).ToArray() : [];
+        if (millisecondsValues.Length == 1
+            && long.TryParse(millisecondsValues[0], NumberStyles.None, CultureInfo.InvariantCulture, out var milliseconds)
+            && milliseconds <= TimeSpan.MaxValue.Ticks / TimeSpan.TicksPerMillisecond)
+        {
+            var azureDelay = TimeSpan.FromTicks(milliseconds * TimeSpan.TicksPerMillisecond);
+            if (delay is null || azureDelay > delay)
+                delay = azureDelay;
+        }
+        return delay is { } value && value < TimeSpan.Zero ? TimeSpan.Zero : delay;
     }
 
     internal static DocumentEmbeddingResult Parse(JsonElement root, int inputCount, int dimensions)

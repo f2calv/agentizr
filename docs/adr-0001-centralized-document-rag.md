@@ -2283,10 +2283,10 @@ requirement or replace that acceptance gate.
   semantic approval and search activation through their separately reviewed contracts.
   The current catalogue lists admitted database sources, not every Blob or completed indexing.
 
-### Embedding Pilot Handover (2026-11-03)
+### Embedding Pilot Handover (2026-11-04)
 
-The release train has completed. The current checkout is on the default branch; create a feature
-branch before committing subsequent implementation. This handover neither creates a branch nor
+The release train has completed. The current checkout is on the ongoing logging feature branch;
+preserve that concurrent work. This handover neither creates a branch nor
 authorizes a release, deployment or provider submission. Post-release focused checks passed
 85 cases without failures or skips; those offline checks do not prove live inference or publication.
 
@@ -2294,27 +2294,101 @@ Read-only application readiness checks now establish:
 
 - The target database has `vector` version `0.8.6`, migration
   `20261030121900_DocumentVectorIndexing`, and the native vector/job/batch/publication tables.
-  There are no indexing jobs, embedding batches, vectors or active document indexes.
+  The pre-pilot read found no indexing jobs, embedding batches, vectors or active indexes;
+  the controlled pilot outcome below supersedes that empty-state observation.
 - The inspected vocabulary snapshot has a current source/preparation binding and matching saved
   assessment/selection revision `1`. Its German `Vocabulary` assessment records A1 and all
   requested readiness attestations. One exclusion leaves 65 nonempty inputs, 15,895 captured
   input tokens and a largest input of 512 tokens. The snapshot pins `cl100k_base` tokenizer
-  version `1.0.0.0`. These database observations are not an application preflight manifest.
+  version `1.0.0.0`. The authenticated application preflight now independently confirms the same
+  included count, token total and saved review revisions.
 - The existing tenant `DocumentPreparation` Azure OpenAI registration is Entra-enabled and its
   endpoint is allowlisted. That endpoint matches one of the independently verified
   `text-embedding-3-large` revision `1` deployments. It can be reused for embedding credentials
-  without changing the preparation/chat model; inference permission remains unverified.
-- Both ready replicas use the same newly deployed image digest. No indexing configuration or
-  indexing environment override is present. Image equality does not establish compiled indexing
-  support or derivative-retirement compatibility. The runtime environment name `Production`
-  does not establish whether its assemblies were compiled with Debug indexing support.
+  without changing the preparation/chat model. The subsequent pilot receipts establish inference
+  access; registration checks alone did not.
+- Both ready replicas use the same deployed image digest. Its OCI source revision matches the
+  inspected indexing configuration, durable store and source-retirement implementation. The
+  authenticated preflight endpoint returns HTTP 200, establishing compiled preflight support;
+  the subsequent pilot exercised inference but did not complete publication.
 
-A disabled local profile draft uses the selected 3,072 dimensions, the captured tokenizer,
-snapshot-specific input bounds and batches of at most 16 inputs (five requests for this selection).
-Its Azure coordinates are placeholders, not deployable bindings. Before applying it, replace
-them with the verified account/deployment metadata and confirm the pilot's trusted A1 vocabulary
-collection policy. This restrictive policy does not authorize exam papers or higher-level content.
-No live configuration, schema or document state was changed, and no embeddings were submitted.
+Under separate operator approval, GitOps now enables eligibility only and explicitly leaves
+`ProcessingEnabled=false`. The applied profile binds verified Azure deployment coordinates,
+3,072 dimensions, the captured tokenizer, snapshot-specific bounds and at most 16 inputs per batch
+(five requests for this selection). The trusted collection policy permits German A1 vocabulary,
+not exam papers or higher-level content. Both updated replicas are ready and reconciliation reports
+Synced/Healthy. The separately authorized pilot below briefly enabled processing and then restored
+this disabled state.
+
+Playwright completed the assigned-administrator document readback after operator sign-in.
+The exact preflight returns `eligible=true`, no blockers, `indexingApproved=false`, no observed
+active predecessor, and manifest hash
+`7691E458AF5FA3EF9943EB4D9A43B27C65C2CE33A63531AE4268D240B37833A7`.
+Re-read it before job acceptance: changed source/review/policy/profile state invalidates this evidence.
+
+**Controlled Azure pilot outcome (2026-11-04):** The operator authorized one generation, at most
+five requests and 20,000 reported input tokens, plus the enable/disable GitOps commits and a
+configuration/deployment freeze. Acceptance retained the stricter existing profile ceiling of
+15,895 tokens. A fresh authenticated preflight matched the recorded manifest exactly; the
+administration API accepted one durable job while processing was still disabled.
+
+After the temporary gate rollout, three batches completed with 1,788, 2,399 and 5,709 reported
+input tokens respectively: 9,896 confirmed tokens and 48 staged vectors, each 3,072-dimensional.
+The fourth submission produced `HttpRequestException` without a durable successful receipt.
+The job stopped as `ReconciliationRequired`, with four reserved submissions and no fifth request.
+Azure status-code metrics for the selected deployment/window include HTTP 429 alongside successful
+requests, supporting throttling as the likely cause; those aggregated metrics are not a
+request-correlated receipt and do not establish the uncertain submission's usage or bill.
+The deployed pilot worker recorded the exception type but not the HTTP status; the local
+diagnostic changes described below cannot recover that missing evidence retrospectively.
+
+Readback verifies all 48 staged hashes match the authorized manifest, all 65 authorized inputs
+exclude the saved rejected chunk, and no active generation was published. Partial staging remains
+non-searchable. Processing was disabled again through GitOps and both replicas are ready with
+Synced/Healthy reconciliation. No uncertain request was replayed, no audit data was deleted, and
+the application identity has now demonstrated successful embedding inference for the three receipts.
+
+Before another pilot, reconcile the fourth outcome through available provider evidence, retain its
+audit/usage history, and design an explicit recovery/new-authorization path rather than editing
+job rows or automatically replaying it. The verified deployment permits 10,000 tokens per
+60 seconds and 10 requests per 10 seconds; the first three receipts consumed 9,896 tokens
+in roughly five seconds. PDF file size is not the quota unit. Application pacing is required
+independently of an optional infrastructure capacity increase.
+Any new profile/manifest, recovery submission or quota increase needs separate review and approval.
+The operator can release the pilot freeze; retrieval and end-to-end answering remain undelivered.
+
+**Local pacing implementation, not deployed:** The operator selected a conservative durable
+gate using existing submission/receipt history rather than a process-local
+`System.Threading.RateLimiting` counter. An in-memory limiter alone loses history on leader
+replacement and cannot coordinate replicas or tenant/provider aliases. Adding a second limiter
+would duplicate admission policy without providing the missing durability.
+
+The [gate](../src/CasCap.Backend/Services/DocumentEmbeddingPacing.cs) and
+[worker contract](document-rag-lifecycle.md#local-durable-indexing-implementation) now provide:
+
+- One Azure batch per physical cloud/deployment resource ID per quiet interval, default 65 seconds,
+  with a default ceiling of 10,000 captured input tokens per batch. These operational settings
+  do not rewrite the manifest, change fixed batch boundaries or increase accepted allowances.
+  Oversized batches block preflight; Azure's estimator and other callers can still cause throttling.
+- Admission before claiming and rechecking before intent under the existing PostgreSQL mutation
+  lock. Waiting holds no claim/transaction and consumes no request. Successful receipts anchor the
+  interval; unresolved intents use their claim deadline conservatively. Recent source-retired
+  intents with erased private manifests gate all Azure scopes until their interval expires.
+- Privacy-safe numeric HTTP-status and Retry-After diagnostics, without bodies or credentials.
+  No new retry handler, header-based automatic rescheduler or reconciliation endpoint is introduced.
+  Explicit HTTP rejection and unknown transport outcomes both preserve the existing no-replay
+  quarantine after intent. The original fourth outcome remains uncertain.
+
+Local Debug validation passed 125 focused offline cases and 54 fake-HTTP/native-indexing cases.
+Two further native checks passed for actual competing reservations and the refactored publication
+competition fixture; one repeated earlier coverage, giving 180 distinct passing cases and no skips.
+The native runs used disposable, loopback-only pgvector PostgreSQL 18 containers, fake embedding
+providers and isolated databases; both containers and temporary storage were removed.
+This verifies application pacing, query translation and concurrency, not Azure estimator behavior.
+
+No schema change, live submission, application deployment or quota increase is part of this fix.
+Separately approve rollout before a fresh preflight and an explicit recovery decision. The stopped
+pilot remains unpublished with processing disabled; code validation is not live publication acceptance.
 
 Proceed through the following gates in order:
 
@@ -2334,24 +2408,26 @@ Proceed through the following gates in order:
   Keep model tags immutable during jobs. Model downloads or new GPU/container provisioning
   require separate authorization. Start with one input per batch; record peak GPU memory,
   CPU fallback and batch/load latency rather than assuming model weight size proves fit.
-- [ ] **Verify schema and deployment readiness.** Confirm `vector` and the additive indexing
+- [x] **Verify schema and deployment readiness.** Confirm `vector` and the additive indexing
   migration on the target database, then verify the intended worker artifact and all source-writing
   replicas support derivative retirement. Apply missing schema externally under separate
   authorization; leave eligibility/processing disabled until these checks pass. A successful
   local build or installed extension alone does not prove worker deployment.
-- [ ] **Read back one exact saved review and preflight.** Prefer an eligible reviewed vocabulary
+- [x] **Read back one exact saved review and preflight.** Prefer an eligible reviewed vocabulary
   document as the first pilot. Confirm current source/snapshot, included/excluded ordinals,
   assessment revision, trusted policy/profile, manifest hash and observed publication predecessor.
   A successful assessment save proves persistence, not readiness, indexing or search availability.
   The manual source is not an eligible shortcut: implement and verify figure/caption/source
   associations before attempting device-manual indexing, without relabeling it to bypass policy.
-- [ ] **Authorize one bounded embedding/publication job.** Select exactly one Azure or Ollama
+- [x] **Authorize one bounded embedding job.** One exact Azure manifest and its ceilings were
+  accepted under separate operator approval. This does not establish publication success.
+- [ ] **Complete publication acceptance or reconcile a stopped pilot.** Select exactly one Azure or Ollama
   profile and separately confirm request/token ceilings and the observed predecessor. Coordinate
   a short deployment/configuration freeze with other sessions during the pilot. Verify received
   native usage, exact included-vector count/dimensions/provenance, excluded-chunk absence and
   atomic complete-generation publication; partial or uncertain work must not activate or replay.
   Record timings and resource use without document/query content in telemetry.
-- [ ] **Close the pilot before broadening it.** Read back durable job/receipt/publication state,
+- [x] **Close the stopped pilot before broadening it.** Read back durable job/receipt/publication state,
   report any reconciliation requirement and restore the agreed processing/configuration state.
   Do not delete audit history or drop schema for application rollback. Release the coordinated
   freeze explicitly; publication alone does not authorize retrieval or further submissions.

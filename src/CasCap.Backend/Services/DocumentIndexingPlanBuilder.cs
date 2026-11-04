@@ -66,6 +66,9 @@ internal static class DocumentIndexingPlanBuilder
             if (inputs.Length > profile.MaximumChunks || total > profile.MaximumTotalTokens
                 || inputs.Any(chunk => chunk.TokenCount > profile.MaximumTokensPerInput))
                 blockers.Add("Included embedding inputs exceed the configured chunk or token bounds.");
+            if (profile.Azure is not null && inputs.Chunk(profile.MaximumBatchInputs)
+                .Any(batch => batch.Sum(chunk => (long)chunk.TokenCount) > config.AzureMaximumBatchTokens))
+                blockers.Add("An Azure batch exceeds the deployment pacing token ceiling; reduce the profile batch size.");
         }
         DocumentIndexingManifest? manifest = blockers.Count != 0 ? null : new()
         {
