@@ -133,5 +133,77 @@ public sealed class DocumentIndexingConfigTests
         Assert.False(preflight.Response.Eligible);
         Assert.Contains(preflight.Response.Blockers, blocker => blocker.Contains("verified visual associations", StringComparison.Ordinal));
     }
+
+    [Theory]
+    [InlineData("valid")]
+    [InlineData("azure")]
+    [InlineData("ollama")]
+    [InlineData("all")]
+    [InlineData("digest")]
+    [InlineData("null-digest")]
+    [InlineData("uppercase-digest")]
+    [InlineData("alias")]
+    [InlineData("null-alias")]
+    [InlineData("scheme")]
+    [InlineData("credentials")]
+    [InlineData("path")]
+    [InlineData("query")]
+    [InlineData("fragment")]
+    [InlineData("pooling")]
+    [InlineData("no-endpoint")]
+    public void LlamaCppRequiresOneBindingDigestAliasAndExplicitPooling(string variation)
+    {
+        var config = DocumentIndexingTestData.LlamaCppConfig();
+        var profile = config.Profiles[0];
+        profile = variation switch
+        {
+            "azure" => profile with { Azure = DocumentIndexingTestData.Azure },
+            "ollama" => profile with { Ollama = DocumentIndexingTestData.OllamaConfig().Profiles[0].Ollama },
+            "all" => profile with { Azure = DocumentIndexingTestData.Azure, Ollama = DocumentIndexingTestData.OllamaConfig().Profiles[0].Ollama },
+            "digest" => profile with { ModelRevision = "short-digest" },
+            "null-digest" => profile with { ModelRevision = null! },
+            "uppercase-digest" => profile with { ModelRevision = new('A', 64) },
+            "alias" => profile with { Model = "mutable-model-tag" },
+            "null-alias" => profile with { Model = null! },
+            "scheme" => profile with { LlamaCpp = profile.LlamaCpp! with { Endpoint = "ftp://embedding.example.com/" } },
+            "credentials" => profile with { LlamaCpp = profile.LlamaCpp! with { Endpoint = "http://user:password@embedding.example.com/" } },
+            "path" => profile with { LlamaCpp = profile.LlamaCpp! with { Endpoint = "http://embedding.example.com/v1/" } },
+            "query" => profile with { LlamaCpp = profile.LlamaCpp! with { Endpoint = "http://embedding.example.com/?model=chat" } },
+            "fragment" => profile with { LlamaCpp = profile.LlamaCpp! with { Endpoint = "http://embedding.example.com/#fragment" } },
+            "pooling" => profile with { LlamaCpp = profile.LlamaCpp! with { Pooling = "none" } },
+            "no-endpoint" => profile with { LlamaCpp = new() { Pooling = "last" } },
+            _ => profile,
+        };
+        config = config with { Profiles = [profile] };
+        if (variation == "valid")
+        {
+            Assert.Empty(Validate(config));
+            Assert.True(profile.HasExecutionBinding);
+            Assert.True(DocumentIndexingPlanBuilder.Build(config, DocumentIndexingTestData.Review()).Response.Eligible);
+        }
+        else
+            Assert.NotEmpty(Validate(config));
+    }
+
+    [Fact]
+    public void LlamaCppBindingPreservesExistingManifestSerializationAndBindsPooling()
+    {
+        foreach (var config in new[] { DocumentIndexingTestData.ExecutionConfig(), DocumentIndexingTestData.OllamaConfig() })
+        {
+            var manifest = DocumentIndexingPlanBuilder.Build(config, DocumentIndexingTestData.Review()).Manifest!;
+            var serialized = JsonSerializer.Serialize(manifest, JsonSerializerOptions.Web);
+            Assert.DoesNotContain("\"llamaCpp\":", serialized, StringComparison.Ordinal);
+            var loaded = JsonSerializer.Deserialize<DocumentIndexingManifest>(serialized, JsonSerializerOptions.Web)!;
+            Assert.Equal(serialized, JsonSerializer.Serialize(loaded, JsonSerializerOptions.Web));
+            Assert.True(loaded.Profile.HasExecutionBinding);
+        }
+        var llamaCpp = DocumentIndexingTestData.LlamaCppConfig();
+        var initial = DocumentIndexingPlanBuilder.Build(llamaCpp, DocumentIndexingTestData.Review());
+        var changed = DocumentIndexingPlanBuilder.Build(llamaCpp with
+        {
+            Profiles = [llamaCpp.Profiles[0] with { LlamaCpp = llamaCpp.Profiles[0].LlamaCpp! with { Pooling = "mean" } }],
+        }, DocumentIndexingTestData.Review());
+        Assert.NotEqual(initial.Response.ManifestSha256, changed.Response.ManifestSha256);
+    }
 }
 #endif

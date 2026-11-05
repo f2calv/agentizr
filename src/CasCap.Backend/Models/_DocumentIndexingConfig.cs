@@ -1,5 +1,6 @@
 #if DEBUG
 using CasCap.Client.Constants;
+using CasCap.Constants;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
@@ -86,8 +87,19 @@ public sealed record DocumentIndexingConfig : IAppConfig, IValidatableObject
                     || !Regex.IsMatch(profile.Model, "^[a-z0-9][a-z0-9._/-]*:[a-z0-9][a-z0-9._-]*$", RegexOptions.CultureInvariant))
                     yield return new("Ollama embeddings require an explicit model tag and full lowercase SHA256 model digest.");
             }
-            if (profile.Azure is not null && profile.Ollama is not null)
-                yield return new("An embedding profile cannot select both Azure and Ollama.");
+            if (profile.LlamaCpp is { } llamaCpp)
+            {
+                results.Clear();
+                Validator.TryValidateObject(llamaCpp, new ValidationContext(llamaCpp), results, validateAllProperties: true);
+                foreach (var result in results)
+                    yield return result;
+                if (string.IsNullOrEmpty(profile.ModelRevision)
+                    || !Regex.IsMatch(profile.ModelRevision, "^[a-f0-9]{64}$", RegexOptions.CultureInvariant)
+                    || profile.Model != $"{DocumentLlamaCppEmbeddingRoutes.ModelAliasPrefix}{profile.ModelRevision}")
+                    yield return new("llama.cpp embeddings require a full lowercase GGUF SHA256 revision and the matching sha256-<digest> server alias.");
+            }
+            if (profile.ExecutionBindingCount > 1)
+                yield return new("An embedding profile cannot select multiple provider bindings.");
             if (ProcessingEnabled && !profile.HasExecutionBinding)
                 yield return new("Indexing processing requires exactly one explicit embedding provider binding.");
             if (!profiles.Add(profile.Id))
@@ -171,8 +183,15 @@ public sealed record DocumentEmbeddingProfileConfig
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DocumentOllamaEmbeddingConfig? Ollama { get; init; }
 
+    /// <summary>Gets an optional single-model llama.cpp binding, independent of chat and router defaults.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DocumentLlamaCppEmbeddingConfig? LlamaCpp { get; init; }
+
+    /// <summary>Gets the number of explicitly selected execution bindings.</summary>
+    internal int ExecutionBindingCount => (Azure is null ? 0 : 1) + (Ollama is null ? 0 : 1) + (LlamaCpp is null ? 0 : 1);
+
     /// <summary>Gets whether exactly one executable provider binding is selected.</summary>
-    internal bool HasExecutionBinding => (Azure is null) != (Ollama is null);
+    internal bool HasExecutionBinding => ExecutionBindingCount == 1;
 }
 
 /// <summary>Trusted single-classification collection policy; mixed-type collections need a stronger trusted classification boundary.</summary>
@@ -274,6 +293,27 @@ public sealed record DocumentOllamaEmbeddingConfig : IValidatableObject
             || uri.Scheme is not ("http" or "https") || uri.AbsolutePath != "/" || uri.UserInfo.Length != 0
             || uri.Query.Length != 0 || uri.Fragment.Length != 0)
             yield return new("Ollama embeddings require a credential-free HTTP or HTTPS root.");
+    }
+}
+
+/// <summary>Explicit single-model llama.cpp endpoint and operator-verified pooling contract.</summary>
+public sealed record DocumentLlamaCppEmbeddingConfig : IValidatableObject
+{
+    /// <summary>Gets the credential-free HTTP or HTTPS root of an already-provisioned embedding server.</summary>
+    [Required, Url]
+    public string Endpoint { get; init; } = string.Empty;
+
+    /// <summary>Gets the operator-verified server pooling mode; llama.cpp metadata does not expose this setting.</summary>
+    [Required, RegularExpression("^(mean|cls|last)$")]
+    public string Pooling { get; init; } = string.Empty;
+
+    /// <inheritdoc/>
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (!Uri.TryCreate(Endpoint, UriKind.Absolute, out var uri)
+            || uri.Scheme is not ("http" or "https") || uri.AbsolutePath != "/" || uri.UserInfo.Length != 0
+            || uri.Query.Length != 0 || uri.Fragment.Length != 0)
+            yield return new("llama.cpp embeddings require a credential-free HTTP or HTTPS root.");
     }
 }
 #endif

@@ -71,7 +71,8 @@ still records admission, not a derived indexing state. `ClaimLost` records no ou
 recovery/supersession to the existing lifecycle.
 Apply the processing and `20261026041415_DocumentPreparedGenerations` migrations externally before
 rolling out this code; do not enable processing during a mixed-version ingestion rollout.
-Embeddings and searchable generation activation remain future work.
+Embedding has a separate authorization/worker path described below; searchable model access remains
+future work.
 
 ### Document Source Synchronization
 
@@ -101,7 +102,8 @@ Partial listings, missing containers, permissions and transport failures leave u
 intact and record a safe failure code. Confirmed deletions and revision replacement remove currently
 implemented text/Markdown projections, clear receipt content and revoke pending/active work while
 retaining tombstones and usage audit. Existing source/claim fences block stale output publication.
-Embedding/search-index purge remains a prerequisite for those future adapters.
+Existing vector generations are retired with source changes; future search must additionally
+enforce current eligibility at query time.
 Event admission verifies current storage under the existing global transaction lock; slow metadata
 calls therefore serialize admissions. Queue redelivery remains safe through durable receipt checks.
 
@@ -363,13 +365,15 @@ CEFR enforcement remains future work.
 The local Debug [indexing service](Services/DocumentIndexingAdministrationService.cs) owns the
 separate indexing authorization, never an assessment save. `DocumentIndexingConfig.Enabled`
 and `ProcessingEnabled` default false. Explicit Azure deployment/model bindings, tenant credentials
-and ARM verification, or a separately configured local Ollama model tag/digest and native dimensions,
+and ARM verification, a separately configured local Ollama model tag/digest, or a single-model
+llama.cpp GGUF-digest alias and explicit pooling contract with native dimensions,
 precede submission intent. The elected ingestion role processes one bounded batch
 per cycle; unresolved submissions are never automatically replayed.
 The [native migration](../CasCap.Data/Migrations/20261030121900_DocumentVectorIndexing.cs) requires an externally
 installed `vector` extension and adds durable jobs, receipts, publication pointers and a SQL-owned
 vector table without an EF vector plugin. Apply it externally and upgrade all source writers
-before enabling processing. This slice is not deployed; it exposes no indexing browser control,
+before enabling processing. The Azure slice has bounded live storage/publication acceptance;
+the local adapters are offline-tested, not deployed. There is no indexing browser control,
 search endpoint or model knowledge binding. See the [lifecycle contract](../../docs/document-rag-lifecycle.md#local-durable-indexing-implementation)
 for policy authority, receipts, publication conflicts, retirement and logical-versus-financial
 budget limits.
@@ -377,6 +381,10 @@ The [Ollama contract](../../docs/document-rag-lifecycle.md#local-ollama-embeddin
 embedding-capable models, not the tenant's chat-model default. It disables truncation, requests
 model unload after each batch, checks tag/digest drift and retains the same review gates.
 It does not download models, start containers, change PDF preparation or enable manual indexing.
+The [llama.cpp contract](../../docs/document-rag-lifecycle.md#local-llamacpp-embeddings) uses an explicit
+credential-free `OpenAI` tenant registration and single-model endpoint, not a chat router. It reuses
+the same scoped provider dispatch and native publication guards; operator-verified immutable GGUF
+files and launch settings remain prerequisites, not claims inferred from an alias.
 
 The [native HTTP acceptance](../CasCap.App.Server.Tests/Tests/Integration/PostgresAdministrationDocumentReviewTests.cs)
 verifies persisted JSONB source resolution, concurrent retries, ownership fences, source revocation,

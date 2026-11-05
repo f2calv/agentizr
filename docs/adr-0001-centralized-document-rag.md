@@ -1757,10 +1757,10 @@ this does not prove full RAG processing.
   PostgreSQL source/selection changes while preflight waits for the mutation lock, exact input
   limits, authorization, stale source/assessment and classification-bypass checks. Release builds
   without warnings/errors; isolated fixture databases were removed. This is local implementation
-  evidence only: preflight is disabled by default, is not deployed, always retains
+  evidence only: preflight is disabled by default and always retains
   `IndexingApproved=false`, and neither persists jobs nor invokes embeddings, writes vectors or
   activates retrieval. These original preflight checks alone do not prove a vector adapter;
-  the subsequent local worker/storage slice is recorded below.
+  the subsequent worker/storage slice and live Azure publication are recorded below.
 - [x] Implement the local Debug durable indexing worker and pgvector publication boundary:
   separately confirmed exact manifests/request-token allowances, durable intent and write-once
   usage receipts, database-time claims, no automatic replay of unresolved submissions, current
@@ -1785,11 +1785,21 @@ this does not prove full RAG processing.
   Exactly one provider binding is required; installed model tag/digest, embedding capability,
   native dimensions and tenant/endpoint authority are verified. Exact included inputs use native
   `/api/embed` without truncation, cloud forwarding, model-management calls or automatic replay.
-  The selected pilot is `qwen3-embedding:4b`, distinct from an answering model; its real endpoint,
+  Its example model is `qwen3-embedding:4b`, distinct from an answering model; its real endpoint,
   digest/dimensions, GPU fit and retrieval quality remain unverified. The
   [Ollama contract](document-rag-lifecycle.md#local-ollama-embeddings) records tokenizer limits,
   tag immutability and unload behavior. Offline/fake-HTTP checks cover Azure preservation and the
   Ollama contract. No live calls, downloads, container startup, rollout or visual-gate bypass occurs.
+- [x] Add an explicit single-model llama.cpp embedding adapter/binding under the same Debug
+  authorization, tenant authority, no-replay and native publication fences. Pin an operator-verified
+  GGUF digest and matching server alias, native dimensions and explicit pooling contract.
+  The [llama.cpp contract](document-rag-lifecycle.md#local-llamacpp-embeddings) distinguishes runtime
+  metadata checks from operator-verified file/launch settings and prohibits implicit router loading.
+  Focused unit/configuration/preflight and fake-HTTP checks pass **192 cases, zero failures/skips**,
+  including Azure/Ollama regression coverage; four additional offline DI composition cases pass,
+  for **196 focused cases** overall. Release builds with zero warnings/errors after
+  configuration-specific dependency restore. This is local implementation, not GPU acceptance:
+  no model download, switch, inference or deployment is authorized or performed.
 - [ ] After accepting the managed/PDF-only/hybrid quality contract, deliver the
   [built-in preparation agent](#built-in-document-preparation-agent) through versioned tenant-local
   definitions and the durable worker. Verify actual runtime PDF/structured-output behavior,
@@ -2283,9 +2293,9 @@ requirement or replace that acceptance gate.
   semantic approval and search activation through their separately reviewed contracts.
   The current catalogue lists admitted database sources, not every Blob or completed indexing.
 
-### Embedding Pilot Handover (2026-11-04)
+### Embedding Pilot Handover (2026-11-05)
 
-The release train has completed. The current checkout is on the ongoing logging feature branch;
+The release train has completed. The current checkout is on the ongoing generic updates feature branch;
 preserve that concurrent work. This handover neither creates a branch nor
 authorizes a release, deployment or provider submission. Post-release focused checks passed
 85 cases without failures or skips; those offline checks do not prove live inference or publication.
@@ -2310,7 +2320,8 @@ Read-only application readiness checks now establish:
 - Both ready replicas use the same deployed image digest. Its OCI source revision matches the
   inspected indexing configuration, durable store and source-retirement implementation. The
   authenticated preflight endpoint returns HTTP 200, establishing compiled preflight support;
-  the subsequent pilot exercised inference but did not complete publication.
+  the first pilot exercised inference without publication; the separately authorized replacement
+  below completed publication.
 
 Under separate operator approval, GitOps now enables eligibility only and explicitly leaves
 `ProcessingEnabled=false`. The applied profile binds verified Azure deployment coordinates,
@@ -2321,7 +2332,7 @@ Synced/Healthy. The separately authorized pilot below briefly enabled processing
 this disabled state.
 
 Playwright completed the assigned-administrator document readback after operator sign-in.
-The exact preflight returns `eligible=true`, no blockers, `indexingApproved=false`, no observed
+The first pilot's preflight returned `eligible=true`, no blockers, `indexingApproved=false`, no observed
 active predecessor, and manifest hash
 `7691E458AF5FA3EF9943EB4D9A43B27C65C2CE33A63531AE4268D240B37833A7`.
 Re-read it before job acceptance: changed source/review/policy/profile state invalidates this evidence.
@@ -2348,16 +2359,19 @@ non-searchable. Processing was disabled again through GitOps and both replicas a
 Synced/Healthy reconciliation. No uncertain request was replayed, no audit data was deleted, and
 the application identity has now demonstrated successful embedding inference for the three receipts.
 
-Before another pilot, reconcile the fourth outcome through available provider evidence, retain its
-audit/usage history, and design an explicit recovery/new-authorization path rather than editing
-job rows or automatically replaying it. The verified deployment permits 10,000 tokens per
+The fourth outcome remains quarantined with its audit/usage history intact. The operator chose a
+separately authorized full replacement rather than recovery tooling or direct job-row edits.
+Auditable administrator reconciliation remains a TODO on
+[`ReconciliationRequired`](../src/CasCap.Backend/Constants/DocumentIndexingStates.cs);
+never reset counters or automatically replay an unresolved paid intent.
+The verified deployment permits 10,000 tokens per
 60 seconds and 10 requests per 10 seconds; the first three receipts consumed 9,896 tokens
 in roughly five seconds. PDF file size is not the quota unit. Application pacing is required
 independently of an optional infrastructure capacity increase.
 Any new profile/manifest, recovery submission or quota increase needs separate review and approval.
 The operator can release the pilot freeze; retrieval and end-to-end answering remain undelivered.
 
-**Local pacing implementation, not deployed:** The operator selected a conservative durable
+**Deployed durable pacing:** The operator selected a conservative durable
 gate using existing submission/receipt history rather than a process-local
 `System.Threading.RateLimiting` counter. An in-memory limiter alone loses history on leader
 replacement and cannot coordinate replicas or tenant/provider aliases. Adding a second limiter
@@ -2386,28 +2400,55 @@ The native runs used disposable, loopback-only pgvector PostgreSQL 18 containers
 providers and isolated databases; both containers and temporary storage were removed.
 This verifies application pacing, query translation and concurrency, not Azure estimator behavior.
 
-No schema change, live submission, application deployment or quota increase is part of this fix.
-Separately approve rollout before a fresh preflight and an explicit recovery decision. The stopped
-pilot remains unpublished with processing disabled; code validation is not live publication acceptance.
+The pacing fix required no schema change or quota increase. Its tested Debug image was subsequently
+deployed under separate approval for the following bounded replacement.
+
+**Successful full Azure replacement (2026-11-05):** A new trusted collection policy revision `2`
+produced a new exact manifest while preserving the original job, staging and counters. A fresh
+authenticated preflight confirmed the same 65 inputs, 15,895 captured tokens and saved
+selection/assessment revisions `1`. The operator separately authorized five requests and
+15,895 reported input tokens; this was an independent allowance, not a reset of the old one.
+
+All five batches completed, reporting 1,788, 2,399, 5,709, 5,822 and 177 input tokens respectively.
+The job reached `Published`, current and active, with exactly 65 vectors of 3,072 dimensions.
+Read-only PostgreSQL acceptance matched every authorized ordinal/input hash, found no missing,
+mismatched or extra vector, and confirmed that both manifests contain the same input set.
+Receipt-to-next-submission intervals were 66.3–67.4 seconds; first submission to final publication
+took approximately 4 minutes 31 seconds. The old uncertain job remains inactive and unchanged.
+
+Processing was restored to `false`; both replicas were ready on the intended image with
+Synced/Healthy reconciliation. No further Azure submission is authorized by this completed run.
+This proves storage/publication acceptance, not retrieval, citations or end-to-end answering.
+
+**GPU follow-up:** Read-only discovery found an existing llama.cpp runtime on a 12 GB GPU,
+with a chat model loaded but no advertised/configured embedding model. This is not Ollama.
+A dedicated single-model adapter/binding is now implemented and offline-tested, but not deployed;
+the existing multi-model chat router is not a compatible target without separately approved
+reconfiguration. A verified embedding model, artifact hash, dimensions and pooling are still required.
+Downloads, provisioning, model switching and inference need separate approval. Keep the Azure
+generation available during comparison; a different model must use a separate corpus/profile
+rather than mixing vector spaces or accidentally replacing the active Azure generation.
 
 Proceed through the following gates in order:
 
-- [ ] **Re-establish the baseline after the release train.** Confirm the active branch, resolved
+- [x] **Re-establish the Azure baseline after the release train.** Confirm the active branch, resolved
   dependencies, actual role registrations and Debug/Release support. With separate test approval,
   rerun focused adapter, eligibility and native publication checks against isolated storage.
   Preserve concurrent changes and existing services; do not enable workers while the baseline
   or source-writing replicas are changing.
-- [ ] **Verify the execution target without document submission.** The owner selected the
+- [x] **Verify the Azure execution target without document submission.** The owner selected the
   provisioned Azure `text-embedding-3-large` revision `1` for the next pilot; verify its exact
   tenant provider registration, selected endpoint/deployment, management resource ID and
   dimensions with the application's existing identity. Infrastructure provisioning does not
-  activate a runtime profile or prove inference access. The 12 GB GPU-backed Ollama
-  `qwen3-embedding:4b` path remains an alternative, not an automatically selected fallback;
-  the 4 GB workstation requires measured fit. For Ollama, verify tenant authority and reachability
-  from the intended worker, local embedding capability, full model digest and native dimensions.
-  Keep model tags immutable during jobs. Model downloads or new GPU/container provisioning
-  require separate authorization. Start with one input per batch; record peak GPU memory,
-  CPU fallback and batch/load latency rather than assuming model weight size proves fit.
+  activate a runtime profile or prove inference access.
+- [x] **Implement and offline-test llama.cpp dispatch.** Reuse the durable worker/publication
+  boundary without changing existing Azure/Ollama manifest serialization or enabling live work.
+- [ ] **Verify and authorize llama.cpp GPU embedding separately.** Verify
+  tenant authority, worker reachability, single-model serving, model identity/artifact hash, embedding
+  capability, pooling and native dimensions. Keep model artifacts immutable during jobs. Downloads,
+  provisioning, inference or eviction of the existing chat model need separate authorization.
+  Start with one input per batch; measure GPU memory, CPU fallback and batch/load latency.
+  Preserve the Azure publication during comparison.
 - [x] **Verify schema and deployment readiness.** Confirm `vector` and the additive indexing
   migration on the target database, then verify the intended worker artifact and all source-writing
   replicas support derivative retirement. Apply missing schema externally under separate
@@ -2421,13 +2462,13 @@ Proceed through the following gates in order:
   associations before attempting device-manual indexing, without relabeling it to bypass policy.
 - [x] **Authorize one bounded embedding job.** One exact Azure manifest and its ceilings were
   accepted under separate operator approval. This does not establish publication success.
-- [ ] **Complete publication acceptance or reconcile a stopped pilot.** Select exactly one Azure or Ollama
+- [x] **Complete Azure publication acceptance.** Select exactly one Azure
   profile and separately confirm request/token ceilings and the observed predecessor. Coordinate
   a short deployment/configuration freeze with other sessions during the pilot. Verify received
   native usage, exact included-vector count/dimensions/provenance, excluded-chunk absence and
   atomic complete-generation publication; partial or uncertain work must not activate or replay.
   Record timings and resource use without document/query content in telemetry.
-- [x] **Close the stopped pilot before broadening it.** Read back durable job/receipt/publication state,
+- [x] **Close the Azure run before broadening it.** Read back durable job/receipt/publication state,
   report any reconciliation requirement and restore the agreed processing/configuration state.
   Do not delete audit history or drop schema for application rollback. Release the coordinated
   freeze explicitly; publication alone does not authorize retrieval or further submissions.

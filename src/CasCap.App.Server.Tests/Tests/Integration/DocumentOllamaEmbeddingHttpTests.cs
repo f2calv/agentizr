@@ -119,7 +119,7 @@ public sealed class DocumentOllamaEmbeddingHttpTests
             var clients = new Clients(Handler);
             var credential = new RuntimeEntraCredential(() => throw new InvalidOperationException("Ollama must not request Azure credentials."));
             Adapter = new(Microsoft.Extensions.Logging.Abstractions.NullLogger<DocumentEmbeddingProvider>.Instance,
-                TimeProvider.System, _container, clients, new(clients, credential), new(_container, clients));
+                TimeProvider.System, _container, clients, new(clients, credential), new(_container, clients), new(_container, clients));
         }
 
         public async ValueTask DisposeAsync()

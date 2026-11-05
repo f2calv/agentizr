@@ -50,6 +50,7 @@ public static partial class WebApplicationBuilderExtensions
         builder.Services.AddScoped<IDocumentPreparationProvider, DocumentPreparationProvider>();
         builder.Services.AddScoped<IDocumentEmbeddingProvider, DocumentEmbeddingProvider>();
         builder.Services.AddScoped<DocumentOllamaEmbeddingProvider>();
+        builder.Services.AddScoped<DocumentLlamaCppEmbeddingProvider>();
         builder.Services.TryAddScoped<DocumentIndexingStore>();
         builder.Services.AddScoped<DocumentIndexingProcessingService>();
         builder.Services.AddHttpClient(nameof(DocumentEmbeddingProvider))

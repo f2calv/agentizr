@@ -80,21 +80,7 @@ internal sealed class DocumentOllamaEmbeddingProvider(
     {
         var binding = manifest.Profile.Ollama ?? throw new InvalidDataException("The Ollama embedding binding is absent.");
         Validator.ValidateObject(binding, new ValidationContext(binding), validateAllProperties: true);
-        if (!manifest.Profile.HasExecutionBinding)
-            throw new InvalidDataException("The embedding provider binding is ambiguous.");
-        var endpoint = new Uri(binding.Endpoint);
-        var runtime = serviceProvider.GetRequiredService<IOptions<AgentRuntimeConfig>>().Value;
-        var policy = serviceProvider.GetRequiredService<IOptions<AgentDefinitionPolicyConfig>>().Value;
-        if (!runtime.Tenants.TryGetValue(manifest.TenantId, out var tenant)
-            || !tenant.Providers.TryGetValue(manifest.Profile.Provider, out var provider) || provider.Type != AgentType.Ollama
-            || provider.Endpoint != endpoint
-            || !policy.AllowedProviderAuthorities.Contains(endpoint.GetLeftPart(UriPartial.Authority), StringComparer.OrdinalIgnoreCase)
-            || !string.IsNullOrWhiteSpace(provider.ApiKey) || tenant.EntraIdProviders.Contains(manifest.Profile.Provider))
-            throw new InvalidDataException("The exact local Ollama endpoint/provider is not authorized for credential-free access by this tenant.");
-        var client = httpClientFactory.CreateClient(nameof(DocumentEmbeddingProvider));
-        client.BaseAddress = endpoint;
-        client.Timeout = Timeout.InfiniteTimeSpan;
-        return client;
+        return DocumentEmbeddingProvider.LocalClient(serviceProvider, httpClientFactory, manifest, binding.Endpoint, AgentType.Ollama);
     }
 
     private static async Task VerifyTagAsync(HttpClient client, DocumentEmbeddingProfileConfig profile, CancellationToken token)

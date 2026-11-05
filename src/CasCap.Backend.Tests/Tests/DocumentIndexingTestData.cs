@@ -72,6 +72,21 @@ internal static class DocumentIndexingTestData
         };
     }
 
+    public static DocumentIndexingConfig LlamaCppConfig()
+    {
+        var config = Config();
+        return config with
+        {
+            ProcessingEnabled = true,
+            Profiles = [config.Profiles[0] with
+            {
+                Model = $"sha256-{new string('a', 64)}",
+                ModelRevision = new('a', 64),
+                LlamaCpp = new() { Endpoint = "http://embedding.example.com:8080/", Pooling = "last" },
+            }],
+        };
+    }
+
     public static DocumentIndexingReview Review()
     {
         var source = new DocumentIngestionClaim

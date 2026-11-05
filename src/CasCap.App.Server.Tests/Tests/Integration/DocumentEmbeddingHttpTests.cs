@@ -53,7 +53,7 @@ public sealed class DocumentEmbeddingHttpTests
         var clients = new Clients(handler);
         var logger = new CaptureLogger();
         var adapter = new DocumentEmbeddingProvider(logger, TimeProvider.System, container, clients, new(clients, container.GetRequiredService<RuntimeEntraCredential>()),
-            new(container, clients));
+            new(container, clients), new(container, clients));
         await adapter.VerifyAsync(manifest, TestContext.Current.CancellationToken);
         Assert.Equal(2, handler.MetadataReads);
         Assert.Equal(0, handler.Submissions);

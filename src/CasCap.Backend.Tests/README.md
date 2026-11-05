@@ -29,10 +29,11 @@ Debug-only document and logging cases are absent from Release where guarded by `
 | `DocumentChunkingTests` | 5 | 15 |
 | `DocumentEmbeddingProviderTests` | 3 | 16 |
 | `DocumentEmbeddingPacingTests` | 6 | 25 |
-| `DocumentIndexingConfigTests` | 4 | 34 |
+| `DocumentIndexingConfigTests` | 6 | 51 |
 | `DocumentIndexingPlanTests` | 6 | 34 |
 | `DocumentIngestionAdmissionTests` | 9 | 20 |
 | `DocumentIngestionConfigTests` | 7 | 23 |
+| `DocumentLlamaCppEmbeddingProviderTests` | 2 | 19 |
 | `DocumentMarkdownChunkingTests` | 17 | 30 |
 | `DocumentMarkdownReviewTests` | 10 | 32 |
 | `DocumentMarkdownStructureTests` | 10 | 33 |

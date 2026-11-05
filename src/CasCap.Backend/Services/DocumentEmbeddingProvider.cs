@@ -8,20 +8,26 @@ using System.Text.Json;
 
 namespace CasCap.Services;
 
-/// <summary>Dispatches bounded tenant-authorized Azure or Ollama embeddings without transport replay.</summary>
+/// <summary>Dispatches bounded tenant-authorized Azure, Ollama or llama.cpp embeddings without transport replay.</summary>
 internal sealed class DocumentEmbeddingProvider(
     ILogger<DocumentEmbeddingProvider> logger,
     TimeProvider timeProvider,
     IServiceProvider serviceProvider,
     IHttpClientFactory httpClientFactory,
     DocumentPreparationModelVerifier documentPreparationModelVerifier,
-    DocumentOllamaEmbeddingProvider documentOllamaEmbeddingProvider) : IDocumentEmbeddingProvider
+    DocumentOllamaEmbeddingProvider documentOllamaEmbeddingProvider,
+    DocumentLlamaCppEmbeddingProvider documentLlamaCppEmbeddingProvider) : IDocumentEmbeddingProvider
 {
     public async Task VerifyAsync(DocumentIndexingManifest manifest, CancellationToken token)
     {
         if (manifest.Profile.Ollama is not null)
         {
             await documentOllamaEmbeddingProvider.VerifyAsync(manifest, token);
+            return;
+        }
+        if (manifest.Profile.LlamaCpp is not null)
+        {
+            await documentLlamaCppEmbeddingProvider.VerifyAsync(manifest, token);
             return;
         }
         var azure = manifest.Profile.Azure ?? throw new InvalidDataException("The Azure embedding binding is absent.");
@@ -38,6 +44,8 @@ internal sealed class DocumentEmbeddingProvider(
     {
         if (batch.Claim.Manifest.Profile.Ollama is not null)
             return await documentOllamaEmbeddingProvider.GenerateAsync(batch, token);
+        if (batch.Claim.Manifest.Profile.LlamaCpp is not null)
+            return await documentLlamaCppEmbeddingProvider.GenerateAsync(batch, token);
         ValidateAuthority(batch.Claim.Manifest);
         var profile = batch.Claim.Manifest.Profile;
         var azure = profile.Azure ?? throw new InvalidDataException("The Azure embedding binding is absent.");
@@ -117,7 +125,7 @@ internal sealed class DocumentEmbeddingProvider(
         return new(ordered, inputTokens);
     }
 
-    /// <summary>Checks native vector shape and cosine compatibility for either provider.</summary>
+    /// <summary>Checks native vector shape and cosine compatibility for every provider.</summary>
     internal static float[] ParseVector(JsonElement values, int dimensions)
     {
         if (values.ValueKind != JsonValueKind.Array || values.GetArrayLength() != dimensions)
@@ -133,6 +141,31 @@ internal sealed class DocumentEmbeddingProvider(
         if (!vector.Any(value => value != 0))
             throw new InvalidDataException("A zero vector cannot support the configured cosine distance.");
         return vector;
+    }
+
+    /// <summary>Creates a non-retrying local client only after exact tenant/provider/authority authorization.</summary>
+    internal static HttpClient LocalClient(
+        IServiceProvider services,
+        IHttpClientFactory clients,
+        DocumentIndexingManifest manifest,
+        string endpoint,
+        AgentType providerType)
+    {
+        if (!manifest.Profile.HasExecutionBinding)
+            throw new InvalidDataException("The embedding provider binding is ambiguous.");
+        var uri = new Uri(endpoint);
+        var runtime = services.GetRequiredService<IOptions<AgentRuntimeConfig>>().Value;
+        var policy = services.GetRequiredService<IOptions<AgentDefinitionPolicyConfig>>().Value;
+        if (!runtime.Tenants.TryGetValue(manifest.TenantId, out var tenant)
+            || !tenant.Providers.TryGetValue(manifest.Profile.Provider, out var provider) || provider.Type != providerType
+            || provider.Endpoint != uri
+            || !policy.AllowedProviderAuthorities.Contains(uri.GetLeftPart(UriPartial.Authority), StringComparer.OrdinalIgnoreCase)
+            || !string.IsNullOrWhiteSpace(provider.ApiKey) || tenant.EntraIdProviders.Contains(manifest.Profile.Provider))
+            throw new InvalidDataException("The exact local embedding endpoint/provider is not authorized for credential-free access by this tenant.");
+        var client = clients.CreateClient(nameof(DocumentEmbeddingProvider));
+        client.BaseAddress = uri;
+        client.Timeout = Timeout.InfiniteTimeSpan;
+        return client;
     }
 
     private void ValidateAuthority(DocumentIndexingManifest manifest)

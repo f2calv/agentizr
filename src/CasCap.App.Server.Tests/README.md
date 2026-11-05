@@ -432,6 +432,25 @@ native usage and malformed results. These classes use only fake HTTP and need no
 GPU or model download. Run them with `--filter-class
 CasCap.Tests.Unit.DocumentOllamaEmbeddingProviderTests CasCap.Tests.Integration.DocumentOllamaEmbeddingHttpTests`.
 
+The [llama.cpp HTTP cases](Tests/Integration/DocumentLlamaCppEmbeddingHttpTests.cs) use synthetic
+single-model metadata and a fake handler: exact tenant/authority/digest-alias checks, native
+dimensions, router rejection, pre/post-submission identity drift, exact inputs, bounded JSON,
+HTTP rejection/cancellation and single-attempt behavior. The
+[response cases](../CasCap.Backend.Tests/Tests/Unit/DocumentLlamaCppEmbeddingProviderTests.cs) reuse
+the indexed-vector contract and require the exact model and positive native usage. No GGUF, GPU,
+external endpoint or model-management operation is used. The existing ingestion composition cases
+also resolve actual dispatch registration and verify the llama.cpp adapter's scoped lifetime.
+
+| Class | Methods | Expanded cases |
+| --- | ---: | ---: |
+| `DocumentLlamaCppEmbeddingHttpTests` | 4 | 30 |
+| `DocumentLlamaCppEmbeddingProviderTests` (Backend.Tests) | 2 | 19 |
+
+Observed focused results: 192 offline cases passed with no skips (136 unit/configuration/preflight
+cases and 56 Azure/Ollama/llama.cpp fake-HTTP cases). This does not establish a deployed llama.cpp
+embedding model, actual file hashes/pooling, GPU fit or end-to-end retrieval.
+Four additional offline composition cases passed, bringing the focused total to 196 with no skips.
+
 **Prerequisite:** latest PostgreSQL migrations now require the operator-installed `vector`
 extension in every fixture database. Use a disposable pgvector-capable PostgreSQL host and
 install the extension in its test-owned `template1` before fixtures create their databases.
