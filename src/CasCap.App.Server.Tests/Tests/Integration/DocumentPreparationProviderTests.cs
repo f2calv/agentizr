@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Common.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -117,4 +116,3 @@ public sealed class DocumentPreparationProviderTests
         public AgentRuntimeDbContext CreateDbContext() => throw new InvalidOperationException("The pinned definition must not be re-resolved.");
     }
 }
-#endif

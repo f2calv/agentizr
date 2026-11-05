@@ -1,4 +1,3 @@
-#if DEBUG
 using System.Text.Json;
 
 namespace CasCap.Tests.Unit;
@@ -67,4 +66,3 @@ public sealed class DocumentLlamaCppEmbeddingProviderTests
         Assert.Throws<InvalidDataException>(() => DocumentLlamaCppEmbeddingProvider.Parse(json.RootElement, "model", 1, 1));
     }
 }
-#endif

@@ -1,4 +1,3 @@
-#if DEBUG
 using Microsoft.ML.Tokenizers;
 using System.ComponentModel.DataAnnotations;
 using System.Text;
@@ -105,4 +104,3 @@ public sealed class DocumentChunkingTests
         Assert.ThrowsAny<OperationCanceledException>(() => chunks.MoveNext());
     }
 }
-#endif

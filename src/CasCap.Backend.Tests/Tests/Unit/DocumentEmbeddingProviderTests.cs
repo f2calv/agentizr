@@ -1,4 +1,3 @@
-#if DEBUG
 using System.Text.Json;
 
 namespace CasCap.Tests.Unit;
@@ -71,4 +70,3 @@ public sealed class DocumentEmbeddingProviderTests
         public override bool CanSeek => false;
     }
 }
-#endif

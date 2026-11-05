@@ -1,4 +1,3 @@
-#if DEBUG
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 
@@ -206,4 +205,3 @@ public sealed class DocumentIndexingConfigTests
         Assert.NotEqual(initial.Response.ManifestSha256, changed.Response.ManifestSha256);
     }
 }
-#endif

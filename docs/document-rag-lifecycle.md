@@ -10,6 +10,11 @@ and document-level readiness assessments are deployed in the Debug workflow. Kno
 and model knowledge bindings are not implemented.
 Saving an assessment does not start indexing or make a document available to a model.
 
+Both Debug and Release now compile the same opt-in ingestion, review and indexing implementation.
+Release uses verified Common 5.1.0 and Azure 2.0.0 packages. This removes a build restriction only:
+the deployment evidence below remains Debug-specific, processing/indexing remain off by default,
+and protected retrieval, agent knowledge bindings and live GPU acceptance remain unfinished.
+
 **Deployed Azure indexing:** protected preflight, separately confirmed durable jobs, non-retrying
 Azure embeddings, durable pacing, native pgvector staging and guarded atomic publication are deployed
 in the Debug workflow. On 2026-11-05, a separately authorized full replacement published all 65 reviewed
@@ -214,7 +219,7 @@ No embedding provider, model, dimensions or spending allowance is selected by th
 
 ### Local Preflight Implementation
 
-The Debug-only protected review API exposes `GET .../generations/{generationId}/indexing-preflight`,
+The protected review API exposes `GET .../generations/{generationId}/indexing-preflight`,
 with the same signed-in assigned-administrator boundary and `no-store` response policy as review.
 The [typed client](../src/CasCap.App.Client/Services/AdministrationApiClient.cs) and
 [request collection](../requests/document-reviews.http) expose the check; there is no new browser

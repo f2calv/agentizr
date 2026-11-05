@@ -1,4 +1,3 @@
-#if DEBUG
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using CasCap.Constants;
@@ -212,4 +211,3 @@ internal static class DocumentHybridPreparationTestData
             Task.FromResult(source());
     }
 }
-#endif

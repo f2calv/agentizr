@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Constants;
 using System.Net;
 using System.Text.Json;
@@ -98,4 +97,3 @@ internal sealed class DocumentLlamaCppEmbeddingProvider(
             throw new InvalidDataException("llama.cpp did not return JSON embedding metadata/results.");
     }
 }
-#endif

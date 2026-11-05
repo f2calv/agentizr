@@ -1,4 +1,3 @@
-#if DEBUG
 using System.Text.Json;
 
 namespace CasCap.Tests.Unit;
@@ -122,4 +121,3 @@ public sealed class DocumentEmbeddingPacingTests
         Assert.Equal(seconds, DocumentEmbeddingProvider.RetryAfter(response, now)?.TotalSeconds);
     }
 }
-#endif

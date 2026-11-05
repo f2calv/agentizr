@@ -12,7 +12,6 @@ public static partial class WebApplicationBuilderExtensions
     /// <param name="runtimeEnabled">Whether the runtime role already registered shared services.</param>
     public static void AddAgentRuntimeIngestion(this WebApplicationBuilder builder, bool runtimeEnabled)
     {
-#if DEBUG
         AddDocumentIngestionConfiguration(builder);
         AddDocumentIndexingConfiguration(builder);
         var database = builder.Configuration.GetSection(DatabaseConfig.ConfigurationSectionName).Get<DatabaseConfig>();
@@ -70,12 +69,8 @@ public static partial class WebApplicationBuilderExtensions
         builder.Services.AddScoped<DocumentIngestionJobService>();
         builder.Services.AddScoped<DocumentIngestionProcessingService>();
         builder.Services.AddSingleton<IBgFeature, DocumentIngestionFeature>();
-#else
-        throw new InvalidOperationException("The ingestion PoC requires Debug source references until its shared APIs are published.");
-#endif
     }
 
-#if DEBUG
     internal static void AddDocumentIngestionConfiguration(WebApplicationBuilder builder) =>
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IConfigureOptions<DocumentIngestionConfig>>(
             new ConfigureFromConfigurationOptions<DocumentIngestionConfig>(
@@ -88,5 +83,4 @@ public static partial class WebApplicationBuilderExtensions
                 builder.Configuration.GetSection(DocumentIndexingConfig.ConfigurationSectionName))));
         builder.Services.AddOptionsWithValidateOnStart<DocumentIndexingConfig>().ValidateDataAnnotations();
     }
-#endif
 }

@@ -1,4 +1,3 @@
-#if DEBUG
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
@@ -51,4 +50,3 @@ internal static class DocumentEmbeddingPacing
             && new Uri(azure.ManagementEndpoint) == new Uri(binding.GetProperty("managementEndpoint").GetString()!);
     }
 }
-#endif

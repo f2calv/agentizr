@@ -25,7 +25,9 @@ The chart aliases the shared `workload` chart twice:
 | `runtime` | Long-running Agent Runtime HTTP service |
 | `migrate` | One-shot `agentizr --migrate` job for externally applied migrations |
 
-Both workload aliases default to zero replicas; dashboard rendering is enabled independently.
+The runtime defaults to zero replicas and the migration Job is disabled; dashboard rendering is
+enabled independently. Jobs do not use `replicaCount`: deployments must explicitly set
+`migrate.enabled: true`, including when upgrading an existing deployment.
 A deployment supplies PostgreSQL, optional Redis caching, JWT tenancy,
 definition publication policy and credential configuration through environment variables and
 Secrets, then enables both workloads. Configure the migration Job as an Argo CD PreSync hook so it
@@ -41,7 +43,7 @@ runtime:
     tag: "<immutable-image-tag>"
 
 migrate:
-  replicaCount: 1
+  enabled: true
   image:
     repository: ghcr.io/example/agent-runtime
     tag: "<immutable-image-tag>"
@@ -65,7 +67,7 @@ Only the example above adds Argo CD hook annotations; they are not defaulted by 
 | --- | --- | --- |
 | `runtime.replicaCount` | `0` | Enable the long-running HTTP workload |
 | `runtime.terminationGracePeriodSeconds` | `90` | Exceeds the 60-second application shutdown budget |
-| `migrate.replicaCount` | `0` | Enable the external migration Job |
+| `migrate.enabled` | `false` | Explicitly enable the external migration Job |
 | `runtime.image.tag`, `migrate.image.tag` | empty | Explicitly select the runtime image version for both workloads |
 | `runtime.resources` | 50m/128Mi requests; 500m/512Mi limits | Runtime CPU and memory |
 | `migrate.resources` | 25m/64Mi requests; 250m/256Mi limits | Migration CPU and memory |
@@ -96,8 +98,8 @@ graph TD
 
 | Chart | Version | Alias |
 | --- | --- | --- |
-| `oci://ghcr.io/f2calv/charts/workload` | `1.6.0` | `runtime` |
-| `oci://ghcr.io/f2calv/charts/workload` | `1.6.0` | `migrate` |
+| `oci://ghcr.io/f2calv/charts/workload` | `1.7.0` | `runtime` |
+| `oci://ghcr.io/f2calv/charts/workload` | `1.7.0` | `migrate` |
 | Local `agentizr-dashboards` | `0.1.0` | `dashboards` |
 
 ## Documentation

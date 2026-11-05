@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.AgentRuntime.Contracts.RuntimeConfiguration;
 using CasCap.Common.Configuration.Runtime.Models;
 using CasCap.IntegrationTests;
@@ -189,4 +188,3 @@ public sealed class RuntimeLoggingBootstrapTests
         }
     }
 }
-#endif

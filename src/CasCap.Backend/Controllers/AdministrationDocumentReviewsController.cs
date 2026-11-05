@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Constants;
 using CasCap.Client.Models;
 using CasCap.Constants;
@@ -166,4 +165,3 @@ public sealed class AdministrationDocumentReviewsController : ControllerBase
             _ => TypedResults.NotFound(),
         };
 }
-#endif

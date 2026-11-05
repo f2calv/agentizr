@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Constants;
 using CasCap.Constants;
 using System.Text.Json.Serialization;
@@ -316,4 +315,3 @@ public sealed record DocumentLlamaCppEmbeddingConfig : IValidatableObject
             yield return new("llama.cpp embeddings require a credential-free HTTP or HTTPS root.");
     }
 }
-#endif

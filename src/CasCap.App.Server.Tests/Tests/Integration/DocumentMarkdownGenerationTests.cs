@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Constants;
 using CasCap.Entities;
 using Microsoft.Data.Sqlite;
@@ -114,7 +113,7 @@ public sealed class DocumentMarkdownGenerationTests : IAsyncLifetime
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task SupersessionAndDeletionHideExistingGenerations(bool deleted)
+    public async Task SupersessionHidesAndDeletionPurgesExistingGenerations(bool deleted)
     {
         var source = await SourceAsync();
         var id = Assert.IsType<string>(await Store().StoreAsync(source, new(), Review(), Token));
@@ -123,7 +122,11 @@ public sealed class DocumentMarkdownGenerationTests : IAsyncLifetime
         Assert.Null(await Store().ReadAsync(source, id, Token));
         Assert.Null(await Store().StoreAsync(source, new(), Review(), Token));
         await using var db = _factory.CreateDbContext();
-        Assert.Single(await db.DocumentMarkdownGenerations.ToArrayAsync(Token));
+        var generations = await db.DocumentMarkdownGenerations.ToArrayAsync(Token);
+        if (deleted)
+            Assert.Empty(generations);
+        else
+            Assert.Single(generations);
     }
 
     [Theory]
@@ -462,4 +465,3 @@ public sealed class DocumentMarkdownGenerationTests : IAsyncLifetime
         }
     }
 }
-#endif

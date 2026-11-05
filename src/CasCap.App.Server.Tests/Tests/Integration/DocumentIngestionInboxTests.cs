@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Constants;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -366,4 +365,3 @@ public sealed class DocumentIngestionInboxTests : IAsyncLifetime
         public AgentRuntimeDbContext CreateDbContext() => new(options);
     }
 }
-#endif

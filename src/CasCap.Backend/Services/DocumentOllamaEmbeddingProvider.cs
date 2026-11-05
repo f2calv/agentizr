@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Constants;
 using System.Net;
 using System.Net.Http.Json;
@@ -109,4 +108,3 @@ internal sealed class DocumentOllamaEmbeddingProvider(
             throw new HttpRequestException("Ollama did not return a valid embedding metadata/result response.", null, response.StatusCode);
     }
 }
-#endif

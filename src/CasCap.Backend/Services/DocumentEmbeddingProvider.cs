@@ -1,4 +1,3 @@
-#if DEBUG
 using Azure.Core;
 using System.Globalization;
 using System.Net;
@@ -192,4 +191,3 @@ internal sealed class DocumentEmbeddingProvider(
         public string TenantId => tenantId;
     }
 }
-#endif

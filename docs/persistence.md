@@ -155,16 +155,17 @@ For integration tests, reuse those services:
 
 ```powershell
 docker compose up -d --wait postgres redis
-dotnet test --project src\CasCap.App.Server.Tests --configuration Release --filter-class '*PostgresAgentStateTests' --filter-class '*AgentRunHistoryTests'
+dotnet test --project src\CasCap.App.Server.Tests --configuration Release --filter-class '*PostgresAgentStateTests' '*AgentRunHistoryTests'
 docker compose stop postgres redis
 ```
 
-The PostgreSQL fixture creates a random per-fixture database, migrates it, and drops only that
-generated database at teardown. Redis tests use random tenant-qualified keys, never `FLUSHDB`.
+The PostgreSQL fixture creates a random per-fixture database, installs its `vector` extension,
+migrates it, and drops only that generated database at teardown. Redis tests use random
+tenant-qualified keys, never `FLUSHDB`.
 The Compose PostgreSQL service uses the pgvector image and installs the `vector` extension in its
-database and in `template1`, so fixture databases satisfy the document-indexing migration. The
-initialisation script runs only when the volume is empty; an older local volume needs
-`CREATE EXTENSION vector` in both databases, or a fresh volume.
+database and in `template1`. The initialisation script runs only when the volume is empty; an older
+local volume needs `CREATE EXTENSION vector` in its development database before applying the
+document-indexing migration. Test database bootstrap does not depend on template inheritance.
 Tests do not automatically start or stop
 containers. No per-run ad hoc containers are needed. If tests are killed before teardown, their
 generated `agentizr_test_*` databases may remain for manual inspection/cleanup.
@@ -187,7 +188,7 @@ from Redis-only state, interrupted turns and external side-effect limitations.
 
 [ADR 0001: Centralized document RAG](adr-0001-centralized-document-rag.md) proposes tenant-scoped
 Blazor document management, private Azure Blob originals and Event Grid/queue-triggered ingestion,
-with PostgreSQL/pgvector first and Azure AI Search as an optional target. The Debug ingestion role
+with PostgreSQL/pgvector first and Azure AI Search as an optional target. The opt-in ingestion role
 now admits validated source events into `knowledge_documents` and `document_ingestion_jobs`, committing
 the receipt/job before queue acknowledgement. These are metadata and processing intents, not vectors.
 Apply the additive `DocumentIngestionAdmission` migration externally before enabling the worker.
@@ -199,4 +200,6 @@ Redis optional. Ingestion requires PostgreSQL plus shared Redis leadership; losi
 ownership rather than changing durable authority. See the ADR's
 [role contract](adr-0001-centralized-document-rag.md#d4b-modular-roles-and-elected-ownership) and
 [IaC handoff](adr-0001-centralized-document-rag.md#exact-iac-handoff) for configuration and PoC limits.
-PDF extraction, pgvector, document UI/API and agent retrieval are not implemented yet.
+PDF preparation, immutable review UI/API and guarded pgvector publication are implemented in both
+build configurations. Protected retrieval and agent knowledge bindings remain unimplemented; see
+the [current RAG lifecycle](document-rag-lifecycle.md) for separate implementation and live-acceptance evidence.

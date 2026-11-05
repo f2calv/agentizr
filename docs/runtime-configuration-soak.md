@@ -1,10 +1,10 @@
 # Runtime Configuration Logging Soak
 
-This opt-in Debug slice exercises the unpublished CasCap.Common runtime/PostgreSQL libraries
+This opt-in reader exercises the CasCap.Common runtime/PostgreSQL libraries
 through agentizr's actual Serilog pipeline. Immutable deployment settings, sinks, credentials,
 category overrides and tenant definitions remain outside the runtime contract.
 
-The Debug frontend now embeds an optional [typed logging editor](runtime-configuration-management.md).
+The frontend embeds an optional [typed logging editor](runtime-configuration-management.md).
 It requires separate explicit host-wide operator authorization; opening it never publishes.
 
 ## Build and Deployment Boundary
@@ -19,9 +19,10 @@ the build shim with `-Push -Configuration Debug`. No script change or package pu
 for this development path. Running it still publishes an image and changes GitOps deployment state;
 do not run it merely to validate this document.
 
-The new code is deliberately excluded from Release until the runtime, PostgreSQL and updated hosting
-packages have been published and adopted together. Release rejects an enabled soak instead of
-silently ignoring it. Neither a local successful test nor a Debug build is evidence of a live rollout.
+Release adopts the published Common 5.1.0 runtime, PostgreSQL, management and hosting packages;
+Debug retains equivalent sibling references. Both configurations include the reader and editor,
+with their existing off-by-default gates and operator permissions. Local build/test success is not
+evidence of a Release rollout; the live evidence below belongs to the earlier Debug deployment.
 
 ## Configuration Examples
 
@@ -207,7 +208,7 @@ internal reconciliation timing. Do not infer expiry solely from elapsed time or 
 
 The first six items below describe isolated local validation, not live exporter or cache evidence.
 
-- [x] Debug build uses local source references; normal Release build still compiles.
+- [x] Debug uses local source references; Release builds the same opt-in feature from published packages.
 - [x] Real PostgreSQL publication changes the effective pipeline minimum, verified by emitted events
   and forwarding to an additional Microsoft logging provider.
 - [x] Deployment-owned category overrides and the same process-memory cache sentinel are preserved.

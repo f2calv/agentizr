@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Constants;
 using Markdig;
 using Markdig.Extensions.Tables;
@@ -389,4 +388,3 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
     /// <summary>Identifies retained heading-only Markdown that is deliberately absent from vector input.</summary>
     private sealed record HeadingOnlySpan(int PageNumber, int StartOffset, int EndOffset);
 }
-#endif

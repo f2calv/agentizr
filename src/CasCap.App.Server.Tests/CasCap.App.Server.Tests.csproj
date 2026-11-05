@@ -19,6 +19,7 @@
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
     <PackageReference Include="xunit.v3" />
+    <PackageReference Include="CasCap.Common.Testing" Condition="'$(Configuration)' != 'Debug'" />
   </ItemGroup>
 
   <ItemGroup>

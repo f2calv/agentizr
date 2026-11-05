@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Constants;
 using CasCap.Client.Models;
 
@@ -117,4 +116,3 @@ internal static class DocumentIndexingTestData
             });
     }
 }
-#endif

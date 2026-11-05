@@ -11,6 +11,26 @@ This nonpackable library retains the existing `CasCap` namespaces. It depends on
 Browser administration adapters use the existing frontend DTOs from
 [App.Client](../CasCap.App.Client/README.md); neither public runtime contract package depends on EF Core.
 
+## Dependency Graph
+
+Debug substitutes sibling projects for the same Common 5.1.0 and Azure 2.0.0 packages used in
+Release; neither build configuration excludes ingestion or runtime configuration.
+
+```mermaid
+graph TD
+    classDef application fill:#dbeafe,stroke:#3b82f6,color:#1e3a8a
+    classDef dependency fill:#fef3c7,stroke:#d97706,color:#78350f
+    Backend[CasCap.Backend]:::application --> Client[CasCap.App.Client]:::application
+    Backend --> Data[CasCap.Data]:::application
+    Backend --> Contracts[CasCap.AgentRuntime.Contracts]:::application
+    Backend --> Execution[CasCap.AgentRuntime.Execution]:::application
+    Backend --> Evaluation[CasCap.AgentRuntime.Evaluation]:::application
+    Backend --> Common[Common 5.1.0 - configuration, caching, hosting, services]:::dependency
+    Backend --> Azure[Azure 2.0.0 - auth, cognitive services, Event Grid, storage]:::dependency
+    Backend --> Parsing[Cronos, Markdig, PdfPig, tokenizers]:::dependency
+    Backend --> Host[ASP.NET Core, EF Core, Npgsql, MCP]:::dependency
+```
+
 ## Application Integration
 
 The host calls focused
@@ -49,13 +69,13 @@ collapse; empty/unknown selections and a migration combined with a daemon fail.
 
 The API/frontend/MCP surfaces below belong only to `agentizr`. `ingestion` exposes status/health
 probes and runs a serial elected notification receiver; it requires PostgreSQL, shared Redis
-distributed locking, provisioned Azure queues and explicit source mappings. It is a Debug
-source-reference PoC: `Queued` is durable admission, not searchable PDF content.
+distributed locking, provisioned Azure queues and explicit source mappings. Both Debug and Release
+support this opt-in pipeline: `Queued` is durable admission, not searchable PDF content.
 The same elected feature now supports durable job processing behind an off-by-default gate.
 Under `CasCap:DocumentIngestionConfig`, `ProcessingEnabled` defaults to `false` and
 `ProcessingTimeoutSeconds` defaults to `300` (range 30-900). Enabling processing without a real
 [`IDocumentProcessor`](Abstractions/IDocumentProcessor.cs) registration fails startup.
-The Debug role registers
+The ingestion role registers
 [`DocumentPreparationProcessor`](Services/DocumentPreparationProcessor.cs). Jobs without an admitted
 hybrid plan use [`PdfDocumentProcessor`](Services/PdfDocumentProcessor.cs), which persists local
 immutable chunks. Explicit hybrid plans produce review-only candidates, not chunks or indexes.
@@ -76,7 +96,7 @@ future work.
 
 ### Document Source Synchronization
 
-The Debug [`DocumentSynchronizationService`](Services/DocumentSynchronizationService.cs) repairs
+[`DocumentSynchronizationService`](Services/DocumentSynchronizationService.cs) repairs
 missed Blob events against durable document/job state, not the contents of transient queues.
 `SynchronizationEnabled` defaults to `false`; apply the additive
 `20261029104131_AddDocumentSynchronization` migration externally and deploy compatible ingestion
@@ -86,7 +106,7 @@ calls a preparation or embedding provider, and enabling it does not make PDFs re
 An ingestion owner requests synchronization after every ownership acquisition and at minute zero
 each UTC hour. `SynchronizationCron` accepts recurring five-field Cronos expressions and defaults to
 `0 * * * *`; `SynchronizationTimeoutSeconds` defaults to `600` (range 30-3600). The shared timing
-runner currently requires the Debug sibling checkout, not a published-package assumption.
+runner resolves through Common 5.1.0 in Release and the sibling checkout in Debug.
 Requests coalesce durably per configured source; the existing elected loop claims one source at a
 time. Database run identity/deadline checks reject expired owners independently of Redis ownership.
 
@@ -107,7 +127,7 @@ enforce current eligibility at query time.
 Event admission verifies current storage under the existing global transaction lock; slow metadata
 calls therefore serialize admissions. Queue redelivery remains safe through durable receipt checks.
 
-Release explicitly rejects ingestion until the required shared APIs are published.
+Release uses the verified Azure 2.0.0 parser/storage APIs and Common 5.1.0 leadership/scheduling APIs.
 `migrate` is a finite external schema job with no HTTP listener or background ingestion; the existing
 `--migrate` argument also selects it.
 
@@ -138,7 +158,7 @@ loading stored conversation state or overrides.
 
 ## Offline PDF Preparation
 
-The Debug-only [`PdfDocumentPreparationService`](Services/PdfDocumentPreparationService.cs)
+The [`PdfDocumentPreparationService`](Services/PdfDocumentPreparationService.cs)
 uses PdfPig 0.1.16 and Microsoft.ML.Tokenizers 2.0.1 with the packaged `cl100k_base` vocabulary.
 It accepts a borrowed readable stream from its current position, leaves it open and returns explicit
 preparation/rejection outcomes. It does not download Blobs, register an ingestion processor or make
@@ -166,7 +186,7 @@ not a hard CPU/memory sandbox; see the
 
 ### Offline Markdown-Headings Projection
 
-The Debug-only [`DocumentChunkingService.ChunkMarkdown`](Services/DocumentChunkingService.Markdown.cs)
+The [`DocumentChunkingService.ChunkMarkdown`](Services/DocumentChunkingService.Markdown.cs)
 builds review-only `markdown-headings` chunks from original physical-page Markdown using Markdig
 1.5.0 (CommonMark with pipe tables). It does not replace the ingestion processor or persist,
 embed, approve or activate a generation; Markdown upload passthrough is not wired.
@@ -236,7 +256,7 @@ is a separate operation below, not a side effect of chunking.
 
 ### Review-Required Markdown Generations
 
-The Debug-only [`DocumentPreparationMarkdownStore`](Services/DocumentPreparationMarkdownStore.cs)
+The [`DocumentPreparationMarkdownStore`](Services/DocumentPreparationMarkdownStore.cs)
 explicitly persists normalized candidates and reviewed heading-aware projections from existing
 validated hybrid receipts. It is registered for ingestion but not invoked automatically by the
 worker, exposed through HTTP/UI or authorized by a source claim alone. Management must separately
@@ -277,7 +297,7 @@ migrated; semantic/visual/retrieval acceptance remains separate.
 
 ### Protected Review Management
 
-The Debug-only [administration controller](Controllers/AdministrationDocumentReviewsController.cs)
+The [administration controller](Controllers/AdministrationDocumentReviewsController.cs)
 uses the existing app-administrator assignment and cookie, plus a mandatory authenticated-reviewer
 policy. Anonymous Development access and machine bearer identities cannot use it. Every mutation
 requires the session's antiforgery token. Review and catalogue responses carry `Cache-Control: no-store`.
@@ -362,7 +382,7 @@ Readiness never changes the job's `ReviewRequired` state, invokes providers or a
 Trusted collection classification is checked separately by indexing preflight; retrieval-level
 CEFR enforcement remains future work.
 
-The local Debug [indexing service](Services/DocumentIndexingAdministrationService.cs) owns the
+The local [indexing service](Services/DocumentIndexingAdministrationService.cs) owns the
 separate indexing authorization, never an assessment save. `DocumentIndexingConfig.Enabled`
 and `ProcessingEnabled` default false. Explicit Azure deployment/model bindings, tenant credentials
 and ARM verification, a separately configured local Ollama model tag/digest, or a single-model
@@ -469,7 +489,7 @@ PDF/managed/model conversion rather than converting Markdown back to Markdown.
 ### Conditional Blob Sources
 
 [`DocumentBlobDownloadService`](Services/DocumentBlobDownloadService.cs) is registered for the
-Debug ingestion role. It revalidates each claim against the configured tenant/collection/container
+ingestion role. It revalidates each claim against the configured tenant/collection/container
 binding before opening a canonical credential-free HTTPS PDF location. Blob names are decoded once
 and passed to `CasCap.Api.Azure.Storage`'s `OpenBlobReadAsync` with the admitted ETag.
 The library uses conditional range reads, not a whole-file download or a container-creating
@@ -482,7 +502,7 @@ discard partial data. The caller owns the stream and supplies read cancellation 
 limits. The PDF processor consumes this stream before persisting complete preparation output.
 The adapter itself does not mark jobs complete or activate generations.
 No Azure access was performed for its offline tests.
-Its new shared APIs remain unpublished, so keep this path on Debug project references.
+Its shared conditional-read APIs are published in Azure 2.0.0 and validated through Release packages.
 
 ### Durable Prepared Output
 
@@ -578,15 +598,15 @@ PostgreSQL or Redis.
 ## Configuration
 
 The opt-in [runtime logging soak](../../docs/runtime-configuration-soak.md) uses typed PostgreSQL
-configuration and the standard options monitor without restarting the host. It is currently limited
-to Debug/local-source builds; normal Release builds remain unchanged and reject attempts to enable
-the unpublished feature. The root deployment script already selects Debug and its sibling project
-references. No configuration store is contacted unless the soak is explicitly enabled.
+configuration and the standard options monitor without restarting the host. Both configurations
+support it: Debug uses sibling projects, while Release uses the published Common 5.1.0 packages.
+The root development deployment script still selects Debug. No configuration store is contacted
+unless the reader is explicitly enabled.
 
 `RuntimeConfigurationConfig.ApplicationDatabaseReuseEnabled` explicitly reuses the normalized
 application database/account, including the database-name override, instead of requiring a second
-connection secret. An enabled Debug soak adds payload-free actual-switch evidence to `/status`;
-disabled and Release status shapes stay unchanged. Read the soak guide's expiry-evidence limitation
+connection secret. An enabled reader adds payload-free actual-switch evidence to `/status`;
+the disabled status shape stays unchanged in both configurations. Read the soak guide's expiry-evidence limitation
 before publishing a temporary level change.
 
 `AppConfig` provides safe defaults for the telemetry meter prefix and service name. Set `AppConfig__OtlpExporterEndpoint` to enable OTLP export; leaving it unset disables the shared telemetry registration.

@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Constants;
 using CasCap.Client.Models;
 using System.Text.Json;
@@ -169,4 +168,3 @@ public sealed class DocumentIndexingPlanTests
         Assert.False(DocumentIndexingPlanBuilder.Build(config with { Profiles = [profile] }, review).Response.Eligible);
     }
 }
-#endif

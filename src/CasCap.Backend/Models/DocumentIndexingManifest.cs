@@ -1,4 +1,3 @@
-#if DEBUG
 namespace CasCap.Models;
 
 /// <summary>Captures exact review, trusted policy/profile and embedding inputs; not a durable job or billing authorization.</summary>
@@ -34,4 +33,3 @@ internal sealed record DocumentIndexingManifest
 
     public required IReadOnlyList<DocumentIndexingInput> Inputs { get; init; }
 }
-#endif

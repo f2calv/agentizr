@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Constants;
 using CasCap.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -193,4 +192,3 @@ internal sealed partial class DocumentIndexingStore
             throw new InvalidDataException("Embedding results must contain complete finite nonzero vectors with the pinned dimensions and valid native usage.");
     }
 }
-#endif

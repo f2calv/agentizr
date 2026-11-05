@@ -1,4 +1,3 @@
-#if DEBUG
 using Azure.Core;
 using System.Net;
 using System.Text;
@@ -134,4 +133,3 @@ public sealed class DocumentPreparationModelVerifierTests
         }
     }
 }
-#endif

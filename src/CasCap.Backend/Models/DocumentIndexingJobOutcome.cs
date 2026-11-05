@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Models;
 
 namespace CasCap.Models;
@@ -21,4 +20,3 @@ public sealed record DocumentIndexingJobOutcome
     /// <summary>Gets durable job progress, if found.</summary>
     public DocumentIndexingJobResponse? Job { get; init; }
 }
-#endif

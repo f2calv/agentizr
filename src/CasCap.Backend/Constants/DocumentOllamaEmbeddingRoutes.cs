@@ -1,4 +1,3 @@
-#if DEBUG
 namespace CasCap.Constants;
 
 /// <summary>Native Ollama metadata and embedding operations; no model-management routes are exposed.</summary>
@@ -11,4 +10,3 @@ internal static class DocumentOllamaEmbeddingRoutes
     /// <summary>Submits an ordered batch of embedding inputs.</summary>
     public const string Embed = "api/embed";
 }
-#endif

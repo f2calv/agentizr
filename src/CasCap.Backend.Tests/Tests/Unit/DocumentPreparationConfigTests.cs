@@ -1,4 +1,3 @@
-#if DEBUG
 using System.ComponentModel.DataAnnotations;
 
 namespace CasCap.Tests.Unit;
@@ -48,4 +47,3 @@ public sealed class DocumentPreparationConfigTests
         return results;
     }
 }
-#endif

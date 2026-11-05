@@ -1,4 +1,3 @@
-#if DEBUG
 using System.Text.Json;
 
 namespace CasCap.Tests.Unit;
@@ -60,4 +59,3 @@ public sealed class DocumentPreparationCandidateTests
             Assert.Contains("Unclear &lt;word&gt;", html, StringComparison.Ordinal);
     }
 }
-#endif

@@ -1,4 +1,3 @@
-#if DEBUG
 using Azure;
 using CasCap.Constants;
 using Microsoft.Data.Sqlite;
@@ -361,4 +360,3 @@ public sealed class DocumentPreparationPersistenceTests : IAsyncLifetime
         }
     }
 }
-#endif

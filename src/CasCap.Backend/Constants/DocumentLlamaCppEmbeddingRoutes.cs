@@ -1,4 +1,3 @@
-#if DEBUG
 namespace CasCap.Constants;
 
 /// <summary>Read-only single-model llama.cpp metadata and one non-retried embedding operation.</summary>
@@ -16,4 +15,3 @@ internal static class DocumentLlamaCppEmbeddingRoutes
     /// <summary>Submits exact input strings to the OpenAI-compatible embedding endpoint.</summary>
     public const string Embed = "v1/embeddings";
 }
-#endif

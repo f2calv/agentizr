@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Models;
 
 namespace CasCap.Models;
@@ -10,4 +9,3 @@ internal sealed record DocumentIndexingReview(
     DocumentMarkdownReviewGeneration Snapshot,
     DocumentChunkReviewResponse? Selection,
     DocumentApprovalResponse? Approval);
-#endif

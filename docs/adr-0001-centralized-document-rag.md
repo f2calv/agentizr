@@ -9,6 +9,9 @@ adapter are implemented and offline-tested, not live GPU-accepted. Saved readine
 indexing. Device manuals remain blocked by the unimplemented verified visual-association gate.
 Protected retrieval, citations, model knowledge bindings and end-to-end answering remain outstanding.
 Implementation progress does not change this ADR's Proposed decision status.
+Both build configurations now include the opt-in pipeline, using published Common 5.1.0 and Azure
+2.0.0 packages in Release. The deployment evidence remains Debug-specific; Release build support
+does not establish a rollout, live GPU acceptance or end-to-end answering.
 **Date:** 2026-11-05.
 **Scope:** Blazor document management, Azure Blob/Event Grid ingestion and tenant-isolated RAG.
 **Canonical record:** This document. Related issues are historical context or implementation tracking,
@@ -58,9 +61,9 @@ Issue #73 was closed at the user's request after this proposal was drafted; PR #
 - [AgentDefinition](../src/CasCap.Backend/Models/AgentDefinition.cs),
   [AgentConfig](../src/CasCap.AgentRuntime.Execution/Models/_AgentConfig.cs) and
   [IAgentRuntimeClient](../src/CasCap.AgentRuntime.Client/Abstractions/IAgentRuntimeClient.cs)
-  do not yet bind agent execution to protected document retrieval. Dedicated Debug ingestion
+  do not yet bind agent execution to protected document retrieval. Dedicated ingestion
   APIs exist separately; their availability is not a model knowledge binding.
-- The Debug [embedding dispatcher](../src/CasCap.Backend/Services/DocumentEmbeddingProvider.cs)
+- The [embedding dispatcher](../src/CasCap.Backend/Services/DocumentEmbeddingProvider.cs)
   now wires Azure OpenAI, llama.cpp and native Ollama adapters into the durable indexing worker.
   The [vector migration](../src/CasCap.Data/Migrations/20261030121900_DocumentVectorIndexing.cs)
   supports native pgvector staging/publication. Azure has live publication acceptance; protected
@@ -144,7 +147,7 @@ Provide a protected comparison view inspired by the experimental review panels: 
 available local extraction, managed draft and reconciled Markdown, with physical-page navigation,
 raw/rendered Markdown, provenance, changes and uncertainties. A view reads retained artifacts; it
 must not rerun paid preparation. Keep review-required and reconciliation-required candidates distinct
-from searchable generations. The current local Debug slice provides an admitted-source catalogue,
+from searchable generations. The current implementation provides an admitted-source catalogue,
 escaped page Markdown and contextual chunks, plus confirmed immutable review-snapshot storage.
 Original PDF comparison, rendered Markdown and the other lifecycle controls remain future work.
 For visual-enabled manuals, show associated figures with a protected link to the exact source
@@ -485,7 +488,7 @@ fields; older runtime replicas cannot be relied on to enforce them.
 
 Record the strategy identifier as **`markdown-headings`** in the immutable chunking profile,
 alongside its implementation/parser version. This is the intended replacement for the existing
-page-local ingestion splitter. A Debug-only offline/review component now implements the bounded
+page-local ingestion splitter. An offline/review component now implements the bounded
 heading projection below; deployed ingestion still uses the page-local profile.
 Select semantic packing rules by trusted document classification, not application identity:
 
@@ -881,8 +884,8 @@ incompatible selections fail explicitly.
 
 The existing `--migrate` invocation selects migration-only behavior. The same application artifact
 serves every role; no separate entrypoint, Dockerfile or worker image is introduced.
-The ingestion PoC currently requires Debug sibling-project references. Release explicitly rejects
-that selection until the new shared APIs are published and its package path is validated.
+Debug uses sibling-project references; Release now builds the same ingestion pipeline using the
+published Common 5.1.0 and Azure 2.0.0 APIs. Processing and indexing remain explicitly opt-in.
 
 The [ingestion feature](../src/CasCap.Backend/Services/DocumentIngestionFeature.cs) delegates lease
 acquisition, loss, awaited cleanup and reacquisition to the shared `ILeadershipRunner`, not a custom
@@ -919,7 +922,7 @@ escape to host supervision rather than being silently classified as transient.
 
 [Processing orchestration](../src/CasCap.Backend/Services/DocumentIngestionProcessingService.cs)
 is explicitly gated by `ProcessingEnabled=false`. Startup rejects enabling it without a real
-[`IDocumentProcessor`](../src/CasCap.Backend/Abstractions/IDocumentProcessor.cs). The Debug role now
+[`IDocumentProcessor`](../src/CasCap.Backend/Abstractions/IDocumentProcessor.cs). The ingestion role now
 registers [PdfDocumentProcessor](../src/CasCap.Backend/Services/PdfDocumentProcessor.cs) for
 conditional download, bounded preparation and durable staging, not a no-op or a searchable indexer.
 `ProcessingTimeoutSeconds=300` (range 30-900)
@@ -1725,7 +1728,7 @@ The infrastructure owner should update the Phase 0 checkboxes with sanitized obs
 The application workstream can continue local admission development while this handoff is
 incomplete. Before a live admission run, apply the additive application migration externally,
 supply shared Redis with distributed locking and the agreed leadership resource, use a compatible
-Debug build until the shared Release APIs are published, and explicitly select `ingestion` or
+build with the published shared APIs, and explicitly select `ingestion` or
 `agentizr,ingestion`. The default API role does not consume notifications. Pgvector activation is
 not required for admission-only persistence, but remains a prerequisite for vector processing and
 retrieval. Read-only follow-up has now verified the extension rollout and a vector operation;
@@ -1736,7 +1739,7 @@ this does not prove full RAG processing.
 - [ ] Accept or amend this ADR; keep acceptance separate from implementation progress.
 - [x] Select stable managed libraries and bounded offline preparation defaults: `PdfPig` 0.1.16,
   `Microsoft.ML.Tokenizers` 2.0.1 and its `Data.Cl100kBase` 2.0.1 vocabulary package. These are
-  Debug-only dependencies; tokenization runs offline without downloading model data.
+  dependencies in both configurations; tokenization runs offline without downloading model data.
   [PDF preparation](../src/CasCap.Backend/Services/PdfDocumentPreparationService.cs) uses
   PdfPig's content-order extraction, not raw `page.Text`.
 - [ ] Select the multilingual embedding profile, live upload/download policy, rights/retention,
@@ -2048,7 +2051,7 @@ this does not prove full RAG processing.
   synthetic block tests, and persist the approved projection through the generation fence before
   embedding or activation.
 - [x] Add explicit review-required Markdown-generation storage from validated durable receipts,
-  separate from page-local prepared chunks and from approval. The Debug-only
+  separate from page-local prepared chunks and from approval. The
   [store](../src/CasCap.Backend/Services/DocumentPreparationMarkdownStore.cs) retains a versioned
   [snapshot](../src/CasCap.Backend/Models/DocumentMarkdownReviewGeneration.cs) with original
   source/plan hashes, receipt references, normalized page Markdown, separate notes, profile,
@@ -2086,7 +2089,7 @@ this does not prove full RAG processing.
   baseline. The task-started PostgreSQL service was stopped immediately and existing workloads/
   volumes preserved. No deployed database migration, paid call, real-document persistence,
   management authorization, semantic/visual approval, embedding or activation is established.
-- [x] Wire the Debug-only [protected review-management API](../src/CasCap.Backend/Controllers/AdministrationDocumentReviewsController.cs)
+- [x] Wire the [protected review-management API](../src/CasCap.Backend/Controllers/AdministrationDocumentReviewsController.cs)
   and [typed administration client](../src/CasCap.App.Client/Services/AdministrationApiClient.cs).
   Existing configured app administrators act as reviewers through the administration cookie;
   a separate authenticated-reviewer policy denies anonymous Development and machine bearer access.
@@ -2161,7 +2164,7 @@ this does not prove full RAG processing.
   the trusted cumulative CEFR policy in retrieval/source-expansion queries, including missing/invalid
   levels, mixed-level sources, forged tool filters, alternate backends and cache isolation.
   Prove zero higher-level passages reach A1 context and that A2 can retrieve both A1 and A2 (R2, R4).
-- [x] Add a Debug-only [Blob download adapter](../src/CasCap.Backend/Services/DocumentBlobDownloadService.cs)
+- [x] Add a [Blob download adapter](../src/CasCap.Backend/Services/DocumentBlobDownloadService.cs)
   using `CasCap.Api.Azure.Storage`, not an application-owned replacement. The shared library now
   accepts an existing container client without provisioning and offers ETag-conditional streaming
   reads. Agentizr rechecks the claim's tenant/collection/container binding and canonical location,
@@ -2171,8 +2174,8 @@ this does not prove full RAG processing.
   and discard partial output. Its 64 KiB SDK buffer is not a total download limit; consume through
   bounded preparation. The adapter/DI tests passed all 24 offline cases, and the shared library's
   12 SDK HTTP-pipeline cases passed on .NET 10, including a mid-read revision change and read
-  cancellation. No live download, applied migration or deployment is claimed. Shared APIs remain
-  unpublished; durable staging is covered by the separate local processor slice above.
+  cancellation. Those offline cases do not claim a live download, applied migration or deployment.
+  The shared APIs are now published in Azure 2.0.0; durable staging is covered by the processor slice above.
 - [ ] Prove authenticated upload/status/search/source/delete through versioned HTTP and typed-client
   surfaces against isolated PostgreSQL with pgvector, not an in-memory substitute (R1-R4).
 - [ ] Persist and validate the preparation choices through upload intent, document versions,
@@ -2270,7 +2273,7 @@ requirement or replace that acceptance gate.
   [metadata query](../src/CasCap.Backend/Services/DocumentCatalogueAdministrationService.cs)
   derives tenancy from authorization, returns current-job/review availability and a stored-generation
   identity, and excludes source URIs, plans, receipts and content payloads. Cookie-only administrator
-  policies and no-store behavior match the existing review API; these endpoints remain Debug-only.
+  policies and no-store behavior match the existing review API in both build configurations.
 - [x] Link the [catalogue](../src/CasCap.App.Client/Pages/Documents.razor) from app administration and
   add a [review workbench](../src/CasCap.App.Client/Pages/DocumentReview.razor) over the existing protected
   preview/store/read API. Show escaped physical-page Markdown, nonempty separate notes, heading-aware
@@ -2503,7 +2506,7 @@ details; [native Ollama constraints](document-rag-lifecycle.md#local-ollama-embe
 
 1. **Complete the separately authorized GPU pilot.** Select/verify a single-model llama.cpp
    embedding endpoint and immutable model/pooling contract; approve any model setup or chat-model
-   eviction explicitly. Deploy the tested Debug adapter, authorize one new exact manifest/budget,
+   eviction explicitly. Deploy the tested adapter through an explicitly approved build variant, authorize one new exact manifest/budget,
    verify all native receipts/vectors and publish to a separate profile/corpus while preserving
    the Azure generation. Close out processing and report measured GPU memory/latency.
 2. **Implement protected retrieval.** Bind query embeddings to the selected stored profile,
@@ -2517,9 +2520,9 @@ details; [native Ollama constraints](document-rag-lifecycle.md#local-ollama-embe
    learning use cases. Device manuals additionally require verified figure/caption/source
    associations and preparation fidelity; an Azure or GPU embedding success cannot bypass them.
 5. **Validate the delivery variant and onboard.** Prove the live blob-to-answer flow through the
-   intended Debug deployment, apply migrations externally and onboard one eligible collection per
-   consumer. Release ingestion support/package validation and production limits remain separate
-   gates; the current Debug-only implementation is not production acceptance.
+   intended deployment, apply migrations externally and onboard one eligible collection per
+   consumer. Release package compilation is now validated; live delivery, production limits and
+   end-to-end consumer acceptance remain separate gates.
 
 The Phase 3 checklist below remains the detailed consumer acceptance authority.
 [Azure AI Search and onboarding automation](#later-gates-optional-search-target-and-bootstrap)

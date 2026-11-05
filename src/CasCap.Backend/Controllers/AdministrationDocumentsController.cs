@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Constants;
 using CasCap.Client.Models;
 using CasCap.Constants;
@@ -29,4 +28,3 @@ public sealed class AdministrationDocumentsController(DocumentCatalogueAdministr
             ? TypedResults.Ok(result)
             : TypedResults.StatusCode(StatusCodes.Status501NotImplemented);
 }
-#endif

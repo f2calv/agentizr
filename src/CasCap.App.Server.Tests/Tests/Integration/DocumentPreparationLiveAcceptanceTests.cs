@@ -1,4 +1,3 @@
-#if DEBUG
 using Azure.Storage.Blobs;
 using CasCap.Common.Abstractions;
 using CasCap.Common.Extensions;
@@ -309,4 +308,3 @@ public sealed class DocumentPreparationLiveAcceptanceTests(ITestOutputHelper out
     private sealed record SourceInput(DocumentSourceConfig Source, DocumentPreparationPlan Plan, BlobClient Blob,
         string ETag, DateTimeOffset ModifiedAtUtc, byte[] Bytes, int PageCount);
 }
-#endif

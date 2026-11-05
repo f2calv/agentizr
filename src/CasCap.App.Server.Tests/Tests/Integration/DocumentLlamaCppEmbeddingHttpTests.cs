@@ -1,4 +1,3 @@
-#if DEBUG
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Text;
 using System.Text.Json;
@@ -246,4 +245,3 @@ public sealed class DocumentLlamaCppEmbeddingHttpTests
             new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
     }
 }
-#endif

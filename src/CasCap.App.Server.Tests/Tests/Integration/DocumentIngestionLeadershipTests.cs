@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Common.Abstractions;
 using CasCap.Entities;
 using Microsoft.Data.Sqlite;
@@ -260,4 +259,3 @@ public sealed class DocumentIngestionLeadershipTests
             throw new NotSupportedException();
     }
 }
-#endif

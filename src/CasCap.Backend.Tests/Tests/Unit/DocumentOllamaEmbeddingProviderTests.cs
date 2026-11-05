@@ -1,4 +1,3 @@
-#if DEBUG
 using System.Text.Json;
 
 namespace CasCap.Tests.Unit;
@@ -62,4 +61,3 @@ public sealed class DocumentOllamaEmbeddingProviderTests
         Assert.Throws<InvalidDataException>(() => DocumentOllamaEmbeddingProvider.Parse(json.RootElement, "qwen3-embedding:4b", 1, 1));
     }
 }
-#endif

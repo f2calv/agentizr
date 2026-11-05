@@ -1,6 +1,6 @@
-# Debug Runtime Logging Editor
+# Runtime Logging Editor
 
-The existing Blazor WebAssembly frontend embeds the source-only CasCap.Common typed editor at
+The existing Blazor WebAssembly frontend embeds the CasCap.Common typed editor at
 `/runtime-configuration`. It manages only the host logging minimum, not tenant definitions,
 credentials, sinks, category overrides or arbitrary settings.
 
@@ -16,8 +16,8 @@ The [shared logging DTO](../src/CasCap.AgentRuntime.Contracts/RuntimeConfigurati
 contains a browser-safe enum with the existing string JSON representation. No Serilog, EF, database
 driver or server configuration dependency enters the downloaded contracts/client.
 
-Release excludes the page, client registration, management endpoints and reader until the Common
-packages are published and deliberately adopted. The existing [deployment entry point](../deploy.ps1)
+Release includes the page, client registration, management endpoints and reader using the published
+Common 5.1.0 packages. The existing [development deployment entry point](../deploy.ps1)
 continues to build Debug from sibling project references. An image build/deployment is not a
 configuration publication; simply opening this page never writes a revision.
 
@@ -41,7 +41,7 @@ Prefer a separate explicit operator allowlist, using the validated claim selecte
 }
 ```
 
-For an explicitly approved Debug trial only, the operator may instead grant all existing configured
+For an explicitly approved trial only, the operator may instead grant all existing configured
 app-administrator identities host-wide logging access:
 
 ```json
@@ -61,7 +61,7 @@ configuration chain, never tracked examples. Machine bearer tokens never grant e
 
 ## Browser and API Flow
 
-1. Follow **Runtime logging** from the Debug app bar and sign in through the existing administration
+1. Follow **Runtime logging** from the app bar and sign in through the existing administration
    flow if necessary.
 2. The host authorizes `GET /admin/api/runtime-configuration` before returning its fixed
    application/environment/contract destination. The browser cannot select an arbitrary target.
@@ -98,6 +98,6 @@ Physical browser loading and post-rollout authentication/assets/health must be v
 local rendering tests alone do not establish that a deployed browser session works.
 
 Observed local result: all 28 focused cases pass, with zero failures/skips. The complete Debug
-solution and Release WASM client build with zero warnings/errors. The full Release host currently
-remains blocked by separate, unpublished shared exit-state APIs; the Debug editor introduces no
-Release reference to the Common management/RCL packages.
+solution and full Release solution build with zero warnings/errors. Release now resolves the shared
+exit-state APIs and management/RCL dependencies from published packages. These checks do not claim
+a deployed Release browser session.

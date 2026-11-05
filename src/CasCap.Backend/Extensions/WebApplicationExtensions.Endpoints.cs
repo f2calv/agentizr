@@ -34,22 +34,18 @@ public static partial class WebApplicationExtensions
         app.MapHealthChecks("/healthz");
     }
 
-    /// <summary>Maps baseline status with payload-free logging evidence only for an enabled Debug soak.</summary>
+    /// <summary>Maps baseline status with payload-free logging evidence only for an enabled runtime logging reader.</summary>
     internal static void MapStatusEndpoint(WebApplication app)
     {
-#if DEBUG
         var probe = app.Services.GetService<CasCap.RuntimeConfiguration.Services.RuntimeLoggingProbe>();
-#endif
         app.MapGet("/status", () =>
         {
-#if DEBUG
             if (probe is not null)
                 return Results.Ok(new
                 {
                     Service = "agentizr",
                     RuntimeLogging = probe.ReadStatus(),
                 });
-#endif
             return Results.Ok(new
             {
                 Service = "agentizr",

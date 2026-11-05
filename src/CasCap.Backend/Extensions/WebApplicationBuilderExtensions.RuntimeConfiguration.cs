@@ -6,10 +6,10 @@ using Serilog.Events;
 
 namespace CasCap.Extensions;
 
-/// <summary>Registers the deliberately narrow, Debug-only runtime logging soak.</summary>
+/// <summary>Registers the deliberately narrow runtime logging reader.</summary>
 public static partial class WebApplicationBuilderExtensions
 {
-    /// <summary>Registers the opt-in Debug logging reader and its owned level switch.</summary>
+    /// <summary>Registers the opt-in logging reader and its owned level switch.</summary>
     /// <param name="builder">Application builder.</param>
     /// <returns>The logging level switch, or null when the reader is disabled.</returns>
     public static LoggingLevelSwitch? AddAgentRuntimeLogging(this WebApplicationBuilder builder)

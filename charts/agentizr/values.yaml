@@ -49,7 +49,7 @@ runtime:
       memory: 512Mi
 
 migrate:
-  replicaCount: 0
+  enabled: false
   kind: Job
   fullnameOverride: agentizr-migrate
   image:

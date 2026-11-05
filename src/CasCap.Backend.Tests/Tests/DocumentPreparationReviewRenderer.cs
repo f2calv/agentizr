@@ -1,4 +1,3 @@
-#if DEBUG
 using System.Net;
 
 namespace CasCap.Tests;
@@ -80,4 +79,3 @@ internal static partial class DocumentPreparationReviewRenderer
         RegexOptions.CultureInvariant, 1000)]
     private static partial Regex ExportElement();
 }
-#endif

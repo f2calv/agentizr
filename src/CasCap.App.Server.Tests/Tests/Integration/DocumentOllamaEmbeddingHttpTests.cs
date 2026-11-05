@@ -1,4 +1,3 @@
-#if DEBUG
 using System.Text;
 using System.Text.Json;
 
@@ -200,4 +199,3 @@ public sealed class DocumentOllamaEmbeddingHttpTests
             new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
     }
 }
-#endif

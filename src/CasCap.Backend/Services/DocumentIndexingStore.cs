@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Models;
 using CasCap.Constants;
 using CasCap.Entities;
@@ -209,4 +208,3 @@ internal sealed partial class DocumentIndexingStore(
         db.ActiveDocumentIndexes.SingleOrDefaultAsync(item => item.TenantId == manifest.TenantId
             && item.CollectionId == manifest.CollectionId && item.DocumentId == manifest.DocumentId, token);
 }
-#endif

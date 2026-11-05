@@ -1,4 +1,3 @@
-#if DEBUG
 using Azure.Core;
 using Microsoft.Extensions.Logging;
 using System.Text;
@@ -179,4 +178,3 @@ public sealed class DocumentEmbeddingHttpTests
             new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
     }
 }
-#endif

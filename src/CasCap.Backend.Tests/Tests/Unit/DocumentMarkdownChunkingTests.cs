@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Constants;
 using Microsoft.ML.Tokenizers;
 using System.ComponentModel.DataAnnotations;
@@ -269,4 +268,3 @@ public sealed class DocumentMarkdownChunkingTests
 
     private static string Slice(string markdown, DocumentMarkdownSourceSpan span) => markdown[span.StartOffset..span.EndOffset];
 }
-#endif

@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Constants;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -174,4 +173,3 @@ public sealed partial class PostgresAdministrationDocumentReviewTests
         }
     }
 }
-#endif

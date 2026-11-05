@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.AgentRuntime.Contracts.RuntimeConfiguration;
 using CasCap.Client.Constants;
 using CasCap.Common.Configuration.Management.Contracts.Constants;
@@ -172,4 +171,3 @@ public sealed class RuntimeLoggingManagementTests(RuntimeLoggingPostgreSqlFixtur
         }
     }
 }
-#endif

@@ -17,13 +17,13 @@ the API fit together.
 | Route | Page |
 | --- | --- |
 | `/` | Apps the administrator may manage, with caller applications and agent counts |
-| `/runtime-configuration` | Optional Debug-only typed host logging editor, requiring explicit host-wide operator rights |
+| `/runtime-configuration` | Optional typed host logging editor, requiring explicit host-wide operator rights |
 | `/apps/{appId}` | Paged, searchable agents, including inactive and never-activated ones |
 | `/apps/{appId}/providers` | Provider registrations and the definition policy, read-only |
 | `/apps/{appId}/agents/{agentName}` | Versions, the selected snapshot, activation audit, activate, roll back and deactivate |
 | `/apps/{appId}/agents/{agentName}/edit?from={version}` | Copy a version, edit it and publish, with optional guarded activation |
 | `/apps/{appId}/new-agent` | Create an agent by publishing its first version, optionally activating it |
-| `/apps/{appId}/documents?collection={exactCollectionId}&page=1` | Debug admitted-source catalogue, current jobs and review links |
+| `/apps/{appId}/documents?collection={exactCollectionId}&page=1` | Admitted-source catalogue, current jobs and review links |
 | `/apps/{appId}/collections/{collectionId}/documents/{documentId}/jobs/{jobId}/review?generationId={optionalSnapshot}` | Current preview or exact immutable review-required snapshot |
 
 Selections and searches live in the URL, so a refresh or shared link reopens the same view.
@@ -38,13 +38,27 @@ settings, and confirms replacement of an edited draft. The editor exposes the Re
 See the [template walkthrough](../../docs/administration-frontend.md#built-in-document-preparation-template)
 for provider requirements and the still-pending durable-worker integration.
 
+## Dependency Graph
+
+```mermaid
+graph TD
+    classDef application fill:#dbeafe,stroke:#3b82f6,color:#1e3a8a
+    classDef dependency fill:#fef3c7,stroke:#d97706,color:#78350f
+    Client[CasCap.App.Client]:::application --> Contracts[CasCap.AgentRuntime.Contracts]:::application
+    Client --> Configuration[Common Configuration.Blazor 5.1.0]:::dependency
+    Client --> WebAssembly[ASP.NET Core WebAssembly]:::dependency
+    Client --> Http[Microsoft.Extensions.Http]:::dependency
+    Client --> MudBlazor[MudBlazor]:::dependency
+```
+
 ## Public Surface
 
-The [Debug logging editor](../../docs/runtime-configuration-management.md) embeds the Common RCL
+The [logging editor](../../docs/runtime-configuration-management.md) embeds the Common RCL
 using browser-safe contracts and the existing same-origin administration cookie. Management is
 off by default; tenant-admin assignments grant no host-wide rights without explicit operator approval.
 It previews before confirmed publication, preserves exact revisions and labels commit as activation
-pending. Opening the page is read-only; the page and RCL dependency are excluded from Release.
+pending. Opening the page is read-only. Release includes the editor through Common 5.1.0 packages;
+Debug uses the equivalent sibling-project reference.
 
 | Type | Purpose |
 | --- | --- |
@@ -78,7 +92,7 @@ Definition snapshots, history and evaluation reuse the
 [versioned contracts](../CasCap.AgentRuntime.Contracts/README.md).
 
 `GetDocumentReviewAsync` and `StoreDocumentReviewAsync` use the same session and outcome handling
-as definition administration. The host currently exposes document-review management only in Debug
+as definition administration. The host exposes document-review management in both build configurations
 with PostgreSQL; it additionally requires actual administrator sign-in, even in Development.
 The optional `Review` JSON document uses schema 2 (`version`, `reviewId`, `markdownSha256`,
 `exclusions`, `headings`, `layoutTables`). The response's `Projection` retains the profile, exact

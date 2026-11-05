@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Models;
 using CasCap.Constants;
 using Microsoft.EntityFrameworkCore;
@@ -78,4 +77,3 @@ public sealed class DocumentCatalogueAdministrationService
         };
     }
 }
-#endif

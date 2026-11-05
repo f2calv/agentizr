@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Constants;
 using CasCap.Client.Models;
 using CasCap.Constants;
@@ -35,4 +34,3 @@ public sealed class AdministrationDocumentSynchronizationController(DocumentSync
             ? TypedResults.Accepted(AdministrationRoutes.Format(DocumentCatalogueRoutes.Synchronization, appId), result)
             : TypedResults.StatusCode(StatusCodes.Status501NotImplemented);
 }
-#endif

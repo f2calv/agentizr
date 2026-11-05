@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Common.Configuration.Runtime.Models;
 using CasCap.Constants;
 using CasCap.RuntimeConfiguration.Models;
@@ -65,4 +64,3 @@ public sealed class RuntimeLoggingAuthorizationTests
         Assert.Empty(feature.Controllers);
     }
 }
-#endif

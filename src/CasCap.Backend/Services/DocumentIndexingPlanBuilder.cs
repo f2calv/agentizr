@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Constants;
 using CasCap.Client.Models;
 using System.Text.Json;
@@ -98,4 +97,3 @@ internal static class DocumentIndexingPlanBuilder
         }, manifest);
     }
 }
-#endif

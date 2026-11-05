@@ -1,4 +1,3 @@
-#if DEBUG
 using Npgsql;
 
 namespace CasCap.Tests.Integration;
@@ -34,4 +33,3 @@ public sealed class RuntimeLoggingPostgreSqlFixture : IAsyncLifetime
         await command.ExecuteNonQueryAsync();
     }
 }
-#endif

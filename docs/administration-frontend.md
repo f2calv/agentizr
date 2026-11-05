@@ -249,10 +249,10 @@ the identity provider an `http://` callback it would reject.
 
 [ADR 0001](adr-0001-centralized-document-rag.md) proposes app-scoped PDF upload, document management
 and ingestion status in this frontend, backed by private Azure Blob Storage and background RAG
-processing. Upload/replace/delete and provisioning controls remain unimplemented; the Debug frontend
+processing. Upload/replace/delete and provisioning controls remain unimplemented; the frontend
 already offers an admitted-source catalogue, review workbench and synchronization panel.
 
-A Debug-only [protected review API](../src/CasCap.Backend/README.md#protected-review-management)
+A [protected review API](../src/CasCap.Backend/README.md#protected-review-management)
 and typed administration-client methods now preview/store/read existing receipt-derived review
 generations. They require a signed-in assigned app administrator and antiforgery protection, not
 open Development access. These controls do not approve indexing. Synchronization has local HTTP

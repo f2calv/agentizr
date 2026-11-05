@@ -15,7 +15,7 @@ reachable model provider and an installed agent definition.
 
 The [AppHost](AppHost.cs) selects `agentizr`, `ingestion`, `agentizr,ingestion` or the finite
 `migrate` role. The existing `--migrate` argument selects migration-only execution without
-starting a listener or worker. Role prerequisites and Debug-only ingestion behavior are documented
+starting a listener or worker. Both build configurations support these roles; their prerequisites are documented
 in the [backend role reference](../CasCap.Backend/README.md#runtime-roles).
 
 This project owns the executable identity `agentizr`, the

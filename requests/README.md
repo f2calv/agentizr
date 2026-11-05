@@ -23,7 +23,7 @@ secret. Do not weaken authorization to make an example work.
 | --- | --- | --- |
 | [runtime.http](runtime.http) | Run/stream, sessions, compaction, snapshots, overrides and instructions | `agent.execute` |
 | [definitions.http](definitions.http) | Immutable publication/history, evaluation, activation/rollback and deactivation | `agent.definition.read`, `agent.definition.publish` or `agent.definition.activate`, per action |
-| [document-reviews.http](document-reviews.http) | Debug-only catalogue, synchronization, source preview, immutable snapshots, chunk selection and readiness assessments | Assigned app administrator's session cookie, plus antiforgery on POST/PUT; machine scopes do not qualify |
+| [document-reviews.http](document-reviews.http) | Catalogue, synchronization, source preview, immutable snapshots, chunk selection and readiness assessments | Assigned app administrator's session cookie, plus antiforgery on POST/PUT; machine scopes do not qualify |
 
 Document-review examples require enabled administration sign-in; preview/storage also requires
 existing finished review-required receipts. The catalogue lists admitted metadata, not every Blob.
@@ -32,7 +32,7 @@ antiforgery cookie and matching request token, then set the private cookie heade
 never paste them into tracked files or chat. Use URL-safe app/collection/document/job/generation
 identifiers. The POST source sequence and ETag must be copied as correctly escaped JSON strings from
 the authorized preview. Set the generation variable from the resulting Location. Storage without
-configured PostgreSQL returns 501; these endpoints are absent in Release. No manual request has
+configured PostgreSQL returns 501; both build configurations include these protected endpoints. No manual request has
 been executed as part of static example validation.
 
 The chunk-review PUT targets an exact stored generation and sends its observed source sequence,

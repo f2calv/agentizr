@@ -8,7 +8,7 @@ server executable.
 ## Tests
 
 Counts below are source-declared methods and expanded InlineData cases, not observed run results.
-Debug-only document and logging cases are absent from Release where guarded by `#if DEBUG`.
+Document and logging cases run in both configurations; Release proves the published-package path.
 
 | Class | Method count | Test-case count |
 | --- | ---: | ---: |
@@ -65,7 +65,7 @@ remain in [Server.Tests](../CasCap.App.Server.Tests/README.md).
 
 ## Skipped Tests
 
-One Debug case requires explicit retained-document review approval:
+One case requires explicit retained-document review approval:
 `DocumentPreparationOfflineReviewTests.RetainedCandidatesToChunks` is gated by
 `CASCAP_RUN_DOCUMENT_OFFLINE_REVIEW=true` and requires local review input plus a fresh private
 output directory. Ordinary runs must not read operator documents. See the

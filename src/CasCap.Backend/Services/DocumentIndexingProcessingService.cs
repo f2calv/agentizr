@@ -1,4 +1,3 @@
-#if DEBUG
 namespace CasCap.Services;
 
 /// <summary>Runs one claimed batch; durable submission intent survives ownership loss, timeout and process failure.</summary>
@@ -48,4 +47,3 @@ internal sealed class DocumentIndexingProcessingService(
         return true;
     }
 }
-#endif

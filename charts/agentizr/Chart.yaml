@@ -15,10 +15,11 @@ dependencies:
     condition: dashboards.enabled
 
   - name: workload
-    version: 1.6.0
+    version: 1.7.0
     repository: oci://ghcr.io/f2calv/charts
     alias: runtime
   - name: workload
-    version: 1.6.0
+    version: 1.7.0
     repository: oci://ghcr.io/f2calv/charts
     alias: migrate
+    condition: migrate.enabled

@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Constants;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -187,7 +186,7 @@ public sealed class PostgresDocumentMarkdownGenerationTests : IAsyncLifetime
         Assert.Null(await Store().StoreAsync(source, new(), Review(), Token));
         if (await storing is { } id)
             Assert.Null(await Store().ReadAsync(source, id, Token));
-        await AssertCountAsync(admissionFirst ? 0 : 1);
+        await AssertCountAsync(admissionFirst || deleted ? 0 : 1);
     }
 
     [Theory]
@@ -279,22 +278,52 @@ public sealed class PostgresDocumentMarkdownGenerationTests : IAsyncLifetime
         var source = await SourceAsync();
         await Store().StoreAsync(source, new(), Review(), Token);
         await using var db = _database.DbContextFactory.CreateDbContext();
-        var row = await db.DocumentMarkdownGenerations.SingleAsync(Token);
-        if (tenant)
-            row.TenantId = "tenant-b";
-        else
-            row.CollectionId = "other";
-        var error = await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(Token));
-        Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, Assert.IsType<PostgresException>(error.InnerException).SqlState);
+        var error = await Assert.ThrowsAsync<PostgresException>(() => tenant
+            ? db.DocumentMarkdownGenerations.ExecuteUpdateAsync(
+                update => update.SetProperty(row => row.TenantId, "tenant-b"), Token)
+            : db.DocumentMarkdownGenerations.ExecuteUpdateAsync(
+                update => update.SetProperty(row => row.CollectionId, "other"), Token));
+        Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, error.SqlState);
     }
 
     [Fact]
     public async Task UpgradePreservesExistingPaidReceiptsAndAllowsReviewStorage()
     {
+        var source = await SourceAsync();
+        await using var current = _database.DbContextFactory.CreateDbContext();
+        var document = await current.KnowledgeDocuments.SingleAsync(Token);
+        var job = await current.DocumentIngestionJobs.SingleAsync(Token);
+        var receipts = await current.DocumentPreparationOperations.AsNoTracking().ToArrayAsync(Token);
         await using var previous = new PostgreSqlFixture { InitialMigration = BaselineMigration };
         await previous.InitializeAsync();
-        var source = await DocumentHybridPreparationTestData.PrepareReviewAsync(previous.DbContextFactory, _provider, Token);
         await using var db = previous.DbContextFactory.CreateDbContext();
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO agent_runtime.knowledge_documents
+                (id, tenant_id, collection_id, blob_uri, sequencer, etag, status, updated_at_utc)
+            VALUES ({document.Id}, {document.TenantId}, {document.CollectionId}, {document.BlobUri},
+                {document.Sequencer}, {document.ETag}, {document.Status}, {document.UpdatedAtUtc});
+            INSERT INTO agent_runtime.document_ingestion_jobs
+                (id, fingerprint, document_id, tenant_id, collection_id, sequencer, status, accepted_at_utc,
+                 attempt_count, claim_id, claim_expires_at_utc, next_attempt_at_utc, finished_at_utc,
+                 last_failure_code, preparation_plan_json)
+            VALUES ({job.Id}, {job.Fingerprint}, {job.DocumentId}, {job.TenantId}, {job.CollectionId},
+                {job.Sequencer}, {job.Status}, {job.AcceptedAtUtc}, {job.AttemptCount}, {job.ClaimId},
+                {job.ClaimExpiresAtUtc}, {job.NextAttemptAtUtc}, {job.FinishedAtUtc},
+                {job.LastFailureCode}, CAST({job.PreparationPlanJson} AS jsonb));
+            """, Token);
+        foreach (var receipt in receipts)
+            await db.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO agent_runtime.document_preparation_operations
+                    (id, job_id, tenant_id, collection_id, document_id, source_sha256, plan_sha256,
+                     request_sha256, derived_pdf_sha256, stage, page_number, submission_claim_id,
+                     status, operation_uri, result_json, result_sha256, usage_json, created_at_utc, received_at_utc)
+                VALUES ({receipt.Id}, {receipt.JobId}, {receipt.TenantId}, {receipt.CollectionId},
+                    {receipt.DocumentId}, {receipt.SourceSha256}, {receipt.PlanSha256}, {receipt.RequestSha256},
+                    {receipt.DerivedPdfSha256}, {receipt.Stage}, {receipt.PageNumber}, {receipt.SubmissionClaimId},
+                    {receipt.Status}, {receipt.OperationUri}, CAST({receipt.ResultJson} AS jsonb),
+                    {receipt.ResultSha256}, CAST({receipt.UsageJson} AS jsonb),
+                    {receipt.CreatedAtUtc}, {receipt.ReceivedAtUtc});
+                """, Token);
         var before = await db.DocumentPreparationOperations.AsNoTracking().OrderBy(item => item.Id).ToArrayAsync(Token);
         Assert.DoesNotContain(ReviewMigration, await db.Database.GetAppliedMigrationsAsync(Token));
         await db.Database.MigrateAsync(Token);
@@ -342,4 +371,3 @@ public sealed class PostgresDocumentMarkdownGenerationTests : IAsyncLifetime
         public override DateTimeOffset GetUtcNow() => now;
     }
 }
-#endif

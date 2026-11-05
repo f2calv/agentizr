@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Common.Abstractions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
@@ -85,4 +84,3 @@ public sealed class DocumentIngestionCompositionTests
             throw new NotSupportedException();
     }
 }
-#endif

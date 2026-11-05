@@ -21,9 +21,8 @@
       "description": "One-shot external EF Core migration job; validated by the workload dependency.",
       "type": "object",
       "properties": {
-        "replicaCount": {
-          "type": "integer",
-          "minimum": 0
+        "enabled": {
+          "type": "boolean"
         }
       }
     }

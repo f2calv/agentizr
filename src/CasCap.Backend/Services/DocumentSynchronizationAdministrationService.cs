@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Models;
 using CasCap.Constants;
 using Microsoft.EntityFrameworkCore;
@@ -76,4 +75,3 @@ public sealed class DocumentSynchronizationAdministrationService
         return await ReadAsync(token);
     }
 }
-#endif
