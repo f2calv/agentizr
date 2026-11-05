@@ -28,7 +28,7 @@ public sealed class DocumentPreparationProviderTests
             .AddSingleton<TimeProvider>(new UnusedClock())
             .AddSingleton<ITenantContext, UnusedTenant>()
             .AddSingleton<IDbContextFactory<AgentRuntimeDbContext>, UnusedDatabase>()
-            .AddSingleton(Options.Create(new ApiAuthConfig { Username = "unused", Password = "unused" }))
+            .AddSingleton(Options.Create(new ApiAuthConfig { Username = string.Empty, Password = string.Empty }))
             .AddSingleton(Options.Create(new AgentRuntimeConfig
             {
                 Tenants = new()

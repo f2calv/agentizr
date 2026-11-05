@@ -271,7 +271,7 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
             Array.Fill(coverage[exclusion.PageNumber], true, exclusion.StartOffset, exclusion.EndOffset - exclusion.StartOffset);
         }
         ValidateLayoutCoverage(pages, result, coverage);
-        var headingOnly = HeadingOnlySpans(pages, coverage, result.Review);
+        var headingOnly = FindHeadingOnlySpans(pages, coverage, result.Review);
         foreach (var page in pages)
             for (var index = 0; index < page.Markdown.Length; index++)
                 Assert.True(coverage[page.PageNumber][index] || char.IsWhiteSpace(page.Markdown[index]),
@@ -316,20 +316,25 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
                     expected.Add("- " + text);
                 }
             Assert.Contains(result.Chunks, chunk => chunk.Body.Contains(string.Join('\n', expected), StringComparison.Ordinal));
-            var line = 0;
-            for (var offset = annotation.StartOffset; offset < annotation.EndOffset; offset++)
-            {
-                var value = page.Markdown[offset];
-                if (value == '\n')
-                    line++;
-                Assert.True(coverage[page.PageNumber][offset] || char.IsWhiteSpace(value) || value == '|'
-                    || (line == 1 && value is '-' or ':'), "Unmapped layout content is not table formatting.");
-                coverage[page.PageNumber][offset] = true;
-            }
+            MarkLayoutFormatting(page, annotation.StartOffset, annotation.EndOffset, coverage[page.PageNumber]);
         }
     }
 
-    private static HeadingOnlySpan[] HeadingOnlySpans(DocumentMarkdownPage[] pages, Dictionary<int, bool[]> coverage, DocumentMarkdownSourceReview? review)
+    private static void MarkLayoutFormatting(DocumentMarkdownPage page, int startOffset, int endOffset, bool[] coverage)
+    {
+        var line = 0;
+        for (var offset = startOffset; offset < endOffset; offset++)
+        {
+            var value = page.Markdown[offset];
+            if (value == '\n')
+                line++;
+            Assert.True(coverage[offset] || char.IsWhiteSpace(value) || value == '|'
+                || (line == 1 && value is '-' or ':'), "Unmapped layout content is not table formatting.");
+            coverage[offset] = true;
+        }
+    }
+
+    private static HeadingOnlySpan[] FindHeadingOnlySpans(DocumentMarkdownPage[] pages, Dictionary<int, bool[]> coverage, DocumentMarkdownSourceReview? review)
     {
         var result = new List<HeadingOnlySpan>();
         var pipeline = new MarkdownPipelineBuilder().UsePipeTables().Build();
@@ -339,23 +344,7 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
             while (last < pages.Length && pages[last].PageNumber == pages[last - 1].PageNumber + 1)
                 last++;
             var partition = pages[first..last];
-            var text = string.Join("\n\n", partition.Select(page => page.Markdown));
-            foreach (var heading in Markdown.Parse(text, pipeline).OfType<HeadingBlock>())
-            {
-                var offset = 0;
-                foreach (var page in partition)
-                {
-                    var start = Math.Max(0, heading.Span.Start - offset);
-                    var end = Math.Min(page.Markdown.Length, heading.Span.End + 1 - offset);
-                    if (start < end && Enumerable.Range(start, end - start).Any(index => !char.IsWhiteSpace(page.Markdown[index]))
-                        && Enumerable.Range(start, end - start).All(index => !coverage[page.PageNumber][index]))
-                    {
-                        result.Add(new(page.PageNumber, start, end));
-                        Array.Fill(coverage[page.PageNumber], true, start, end - start);
-                    }
-                    offset += page.Markdown.Length + 2;
-                }
-            }
+            AddPartitionHeadings(partition, pipeline, coverage, result);
             first = last;
         }
         foreach (var heading in review?.Headings ?? [])
@@ -365,6 +354,28 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
                 Array.Fill(coverage[heading.PageNumber], true, heading.StartOffset, heading.EndOffset - heading.StartOffset);
             }
         return result.ToArray();
+    }
+
+    private static void AddPartitionHeadings(DocumentMarkdownPage[] partition, MarkdownPipeline pipeline,
+        Dictionary<int, bool[]> coverage, List<HeadingOnlySpan> result)
+    {
+        var text = string.Join("\n\n", partition.Select(page => page.Markdown));
+        foreach (var heading in Markdown.Parse(text, pipeline).OfType<HeadingBlock>())
+        {
+            var offset = 0;
+            foreach (var page in partition)
+            {
+                var start = Math.Max(0, heading.Span.Start - offset);
+                var end = Math.Min(page.Markdown.Length, heading.Span.End + 1 - offset);
+                if (start < end && Enumerable.Range(start, end - start).Any(index => !char.IsWhiteSpace(page.Markdown[index]))
+                    && Enumerable.Range(start, end - start).All(index => !coverage[page.PageNumber][index]))
+                {
+                    result.Add(new(page.PageNumber, start, end));
+                    Array.Fill(coverage[page.PageNumber], true, start, end - start);
+                }
+                offset += page.Markdown.Length + 2;
+            }
+        }
     }
 
     private static string Required(string name) =>

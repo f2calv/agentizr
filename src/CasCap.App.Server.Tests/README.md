@@ -34,6 +34,16 @@ failures, using local PostgreSQL/Redis and isolated fixture databases. Both Debu
 graphs build successfully. The skipped live/provider/retained-artifact cases remain separate
 acceptance gates; this run does not establish live GPU embedding or end-to-end answering.
 
+After the quality-gate refactoring, focused Release validation passed **683 offline cases**
+(two gated skips), **60 scripted HTTP/provider cases** and **29 native indexing lifecycle cases**.
+The native cases cover publication, rejected or obsolete receipts, immutable retries and competing
+generations. The Debug solution also rebuilt with zero warnings or errors.
+
+On Linux, suites creating many application hosts can exhaust the per-user inotify instance limit.
+CI passes `--environment DOTNET_USE_POLLING_FILE_WATCHER=1` to the native test runner; use the same
+option when reproducing CI locally. Configuration reload remains enabled without changing host
+limits.
+
 ## Tests
 
 | Class | Method count | Test-case count | Description |

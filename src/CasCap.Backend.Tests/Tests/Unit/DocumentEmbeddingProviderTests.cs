@@ -18,16 +18,7 @@ public sealed class DocumentEmbeddingProviderTests
     [InlineData("nonfinite")]
     public void Embedding_RequiresExactIndexedFiniteResultsAndNativeUsage(string variation)
     {
-        var json = $$"""
-            {
-                "data": [
-                    { "index": {{(variation == "order" ? 1 : 0)}}, "embedding": {{(variation == "zero" ? "[0,0]" : variation == "nonfinite" ? "[1e100,2]" : "[1,2]")}} }
-                    {{(variation == "missing" ? "" : ", { \"index\": " + (variation is "order" or "duplicate" ? "0" : "1") + ", \"embedding\": [3,4] }")}}
-                ],
-                "usage": { "prompt_tokens": {{(variation == "usage" ? -1 : 7)}}, "total_tokens": {{(variation == "total" ? 8 : 7)}} }
-            }
-            """;
-        using var root = JsonDocument.Parse(json);
+        using var root = JsonDocument.Parse(ResponseJson(variation));
         if (variation is "valid" or "order")
         {
             var result = DocumentEmbeddingProvider.Parse(root.RootElement, 2, 2);
@@ -37,6 +28,17 @@ public sealed class DocumentEmbeddingProviderTests
         else
             Assert.Throws<InvalidDataException>(() => DocumentEmbeddingProvider.Parse(root.RootElement, 2, variation == "dimensions" ? 3 : 2));
     }
+
+    private static string ResponseJson(string variation) =>
+        $$"""
+            {
+                "data": [
+                    { "index": {{(variation == "order" ? 1 : 0)}}, "embedding": {{(variation == "zero" ? "[0,0]" : variation == "nonfinite" ? "[1e100,2]" : "[1,2]")}} }
+                    {{(variation == "missing" ? "" : ", { \"index\": " + (variation is "order" or "duplicate" ? "0" : "1") + ", \"embedding\": [3,4] }")}}
+                ],
+                "usage": { "prompt_tokens": {{(variation == "usage" ? -1 : 7)}}, "total_tokens": {{(variation == "total" ? 8 : 7)}} }
+            }
+            """;
 
     [Theory]
     [InlineData(true)]

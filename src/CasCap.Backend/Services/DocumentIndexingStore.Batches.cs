@@ -104,14 +104,28 @@ internal sealed partial class DocumentIndexingStore
         var eligible = owned && await CurrentManifestAsync(db, job, token) is not null;
         if (!eligible || job.ReceivedInputTokens > job.MaximumInputTokens)
         {
-            if (job.Status != DocumentIndexingStates.Revoked)
-                job.Status = eligible ? DocumentIndexingStates.Failed : DocumentIndexingStates.ReconciliationRequired;
-            job.ClaimId = null;
-            job.FinishedAtUtc = now;
+            RejectReceipt(job, eligible, now);
             await db.SaveChangesAsync(token);
             await transaction.CommitAsync(token);
             return false;
         }
+        await CompleteBatchAsync(db, job, batch, result, now, token);
+        await db.SaveChangesAsync(token);
+        await transaction.CommitAsync(token);
+        return job.Status is DocumentIndexingStates.Queued or DocumentIndexingStates.Published;
+    }
+
+    private static void RejectReceipt(DocumentIndexingJobEntity job, bool eligible, DateTimeOffset now)
+    {
+        if (job.Status != DocumentIndexingStates.Revoked)
+            job.Status = eligible ? DocumentIndexingStates.Failed : DocumentIndexingStates.ReconciliationRequired;
+        job.ClaimId = null;
+        job.FinishedAtUtc = now;
+    }
+
+    private static async Task CompleteBatchAsync(AgentRuntimeDbContext db, DocumentIndexingJobEntity job,
+        DocumentEmbeddingBatch batch, DocumentEmbeddingResult result, DateTimeOffset now, CancellationToken token)
+    {
         await DocumentVectorStore.StageAsync(db, batch, result, token);
         job.CompletedBatches++;
         job.VectorCount += batch.Inputs.Count;
@@ -144,9 +158,6 @@ internal sealed partial class DocumentIndexingStore
         }
         else
             job.Status = DocumentIndexingStates.Queued;
-        await db.SaveChangesAsync(token);
-        await transaction.CommitAsync(token);
-        return job.Status is DocumentIndexingStates.Queued or DocumentIndexingStates.Published;
     }
 
     public async Task FailAsync(DocumentIndexingClaim claim, bool submitted, bool interrupted, CancellationToken token)

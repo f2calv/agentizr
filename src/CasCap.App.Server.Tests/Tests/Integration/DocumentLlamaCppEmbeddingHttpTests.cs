@@ -183,35 +183,13 @@ public sealed class DocumentLlamaCppEmbeddingHttpTests
             {
                 Assert.Equal(HttpMethod.Get, request.Method);
                 ModelReads++;
-                if (variation == "metadata-http")
-                    return Response("private-response-body", HttpStatusCode.ServiceUnavailable);
-                var alias = variation == "model" || variation == "changed-after" && Submissions > 0
-                    ? "another-model" : batch.Claim.Manifest.Profile.Model;
-                object? entry = variation == "null-model" ? null : new
-                {
-                    id = alias,
-                    meta = variation == "null-meta" ? null : new { n_embd = variation == "dimensions" ? 9 : 8 },
-                };
-                var response = Response(JsonSerializer.Serialize(new
-                {
-                    data = variation == "empty-models" ? Array.Empty<object?>() : variation == "router" ? new[] { entry, entry } : [entry],
-                }));
-                if (variation == "metadata-too-large")
-                    response.Content.Headers.ContentLength = 1024 * 1024 + 1;
-                if (variation == "metadata-content-type")
-                    response.Content.Headers.ContentType = new("text/plain");
-                return response;
+                return ModelsResponse();
             }
             if (request.RequestUri.AbsolutePath == "/props")
             {
                 Assert.Equal(HttpMethod.Get, request.Method);
                 PropertiesReads++;
-                return Response(JsonSerializer.Serialize(new
-                {
-                    model_alias = variation == "router-properties" ? null
-                        : variation == "properties-model" || variation == "properties-changed-after" && Submissions > 0 ? "another-model"
-                        : batch.Claim.Manifest.Profile.Model,
-                }));
+                return PropertiesResponse();
             }
             Assert.Equal("/v1/embeddings", request.RequestUri.AbsolutePath);
             Assert.Equal(HttpMethod.Post, request.Method);
@@ -240,6 +218,36 @@ public sealed class DocumentLlamaCppEmbeddingHttpTests
                 result.Content.Headers.ContentType = new("text/plain");
             return result;
         }
+
+        private HttpResponseMessage ModelsResponse()
+        {
+            if (variation == "metadata-http")
+                return Response("private-response-body", HttpStatusCode.ServiceUnavailable);
+            var alias = variation == "model" || variation == "changed-after" && Submissions > 0
+                ? "another-model" : batch.Claim.Manifest.Profile.Model;
+            object? entry = variation == "null-model" ? null : new
+            {
+                id = alias,
+                meta = variation == "null-meta" ? null : new { n_embd = variation == "dimensions" ? 9 : 8 },
+            };
+            var response = Response(JsonSerializer.Serialize(new
+            {
+                data = variation == "empty-models" ? Array.Empty<object?>() : variation == "router" ? new[] { entry, entry } : [entry],
+            }));
+            if (variation == "metadata-too-large")
+                response.Content.Headers.ContentLength = 1024 * 1024 + 1;
+            if (variation == "metadata-content-type")
+                response.Content.Headers.ContentType = new("text/plain");
+            return response;
+        }
+
+        private HttpResponseMessage PropertiesResponse() =>
+            Response(JsonSerializer.Serialize(new
+            {
+                model_alias = variation == "router-properties" ? null
+                    : variation == "properties-model" || variation == "properties-changed-after" && Submissions > 0 ? "another-model"
+                    : batch.Claim.Manifest.Profile.Model,
+            }));
 
         private static HttpResponseMessage Response(string body, HttpStatusCode status = HttpStatusCode.OK) =>
             new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };

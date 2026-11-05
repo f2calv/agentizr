@@ -47,6 +47,14 @@ public sealed record DocumentIndexingConfig : IAppConfig, IValidatableObject
         if (ProcessingEnabled && !Enabled)
             yield return new("Indexing processing requires enabled eligibility checks.");
         var profiles = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var result in ValidateProfiles(profiles))
+            yield return result;
+        foreach (var result in ValidateCollections(profiles))
+            yield return result;
+    }
+
+    private IEnumerable<ValidationResult> ValidateProfiles(HashSet<string> profiles)
+    {
         foreach (var profile in Profiles)
         {
             if (profile is null)
@@ -54,49 +62,10 @@ public sealed record DocumentIndexingConfig : IAppConfig, IValidatableObject
                 yield return new("Embedding profiles cannot contain null entries.");
                 continue;
             }
-            var results = new List<ValidationResult>();
-            Validator.TryValidateObject(profile, new ValidationContext(profile), results, validateAllProperties: true);
-            foreach (var result in results)
+            foreach (var result in ValidateObject(profile))
                 yield return result;
-            if (profile.Azure is { } azure)
-            {
-                results.Clear();
-                Validator.TryValidateObject(azure, new ValidationContext(azure), results, validateAllProperties: true);
-                foreach (var result in results)
-                    yield return result;
-                var maximumDimensions = profile.Model switch
-                {
-                    "text-embedding-3-small" => 1_536,
-                    "text-embedding-3-large" => 3_072,
-                    _ => 0,
-                };
-                if (maximumDimensions == 0 || profile.Dimensions > maximumDimensions
-                    || profile.TokenizerEncoding != "cl100k_base" || profile.MaximumTokensPerInput > 8_192)
-                    yield return new("The Azure adapter requires a compatible text-embedding-3 model, dimensions and cl100k_base input ceiling.");
-            }
-            if (profile.Ollama is { } ollama)
-            {
-                results.Clear();
-                Validator.TryValidateObject(ollama, new ValidationContext(ollama), results, validateAllProperties: true);
-                foreach (var result in results)
-                    yield return result;
-                if (string.IsNullOrEmpty(profile.ModelRevision)
-                    || !Regex.IsMatch(profile.ModelRevision, "^[a-f0-9]{64}$", RegexOptions.CultureInvariant)
-                    || string.IsNullOrEmpty(profile.Model)
-                    || !Regex.IsMatch(profile.Model, "^[a-z0-9][a-z0-9._/-]*:[a-z0-9][a-z0-9._-]*$", RegexOptions.CultureInvariant))
-                    yield return new("Ollama embeddings require an explicit model tag and full lowercase SHA256 model digest.");
-            }
-            if (profile.LlamaCpp is { } llamaCpp)
-            {
-                results.Clear();
-                Validator.TryValidateObject(llamaCpp, new ValidationContext(llamaCpp), results, validateAllProperties: true);
-                foreach (var result in results)
-                    yield return result;
-                if (string.IsNullOrEmpty(profile.ModelRevision)
-                    || !Regex.IsMatch(profile.ModelRevision, "^[a-f0-9]{64}$", RegexOptions.CultureInvariant)
-                    || profile.Model != $"{DocumentLlamaCppEmbeddingRoutes.ModelAliasPrefix}{profile.ModelRevision}")
-                    yield return new("llama.cpp embeddings require a full lowercase GGUF SHA256 revision and the matching sha256-<digest> server alias.");
-            }
+            foreach (var result in ValidateBindings(profile))
+                yield return result;
             if (profile.ExecutionBindingCount > 1)
                 yield return new("An embedding profile cannot select multiple provider bindings.");
             if (ProcessingEnabled && !profile.HasExecutionBinding)
@@ -104,6 +73,10 @@ public sealed record DocumentIndexingConfig : IAppConfig, IValidatableObject
             if (!profiles.Add(profile.Id))
                 yield return new("Embedding profile IDs must be unique.");
         }
+    }
+
+    private IEnumerable<ValidationResult> ValidateCollections(HashSet<string> profiles)
+    {
         var collections = new HashSet<(string, string)>();
         foreach (var collection in Collections)
         {
@@ -112,15 +85,70 @@ public sealed record DocumentIndexingConfig : IAppConfig, IValidatableObject
                 yield return new("Collection policies cannot contain null entries.");
                 continue;
             }
-            var results = new List<ValidationResult>();
-            Validator.TryValidateObject(collection, new ValidationContext(collection), results, validateAllProperties: true);
-            foreach (var result in results)
+            foreach (var result in ValidateObject(collection))
                 yield return result;
             if (!collections.Add((collection.TenantId, collection.CollectionId)))
                 yield return new("A tenant collection can have only one indexing policy.");
             if (!profiles.Contains(collection.ProfileId))
                 yield return new("Every collection policy must reference a configured embedding profile.");
         }
+    }
+
+    private static List<ValidationResult> ValidateObject(object value)
+    {
+        var results = new List<ValidationResult>();
+        Validator.TryValidateObject(value, new ValidationContext(value), results, validateAllProperties: true);
+        return results;
+    }
+
+    private static IEnumerable<ValidationResult> ValidateBindings(DocumentEmbeddingProfileConfig profile)
+    {
+        if (profile.Azure is { } azure)
+            foreach (var result in ValidateAzure(profile, azure))
+                yield return result;
+        if (profile.Ollama is { } ollama)
+            foreach (var result in ValidateOllama(profile, ollama))
+                yield return result;
+        if (profile.LlamaCpp is { } llamaCpp)
+            foreach (var result in ValidateLlamaCpp(profile, llamaCpp))
+                yield return result;
+    }
+
+    private static IEnumerable<ValidationResult> ValidateAzure(DocumentEmbeddingProfileConfig profile, DocumentAzureEmbeddingConfig azure)
+    {
+        foreach (var result in ValidateObject(azure))
+            yield return result;
+        var maximumDimensions = profile.Model switch
+        {
+            "text-embedding-3-small" => 1_536,
+            "text-embedding-3-large" => 3_072,
+            _ => 0,
+        };
+        if (maximumDimensions == 0 || profile.Dimensions > maximumDimensions
+            || profile.TokenizerEncoding != "cl100k_base" || profile.MaximumTokensPerInput > 8_192)
+            yield return new("The Azure adapter requires a compatible text-embedding-3 model, dimensions and cl100k_base input ceiling.");
+    }
+
+    private static IEnumerable<ValidationResult> ValidateOllama(DocumentEmbeddingProfileConfig profile, DocumentOllamaEmbeddingConfig ollama)
+    {
+        foreach (var result in ValidateObject(ollama))
+            yield return result;
+        if (string.IsNullOrEmpty(profile.ModelRevision)
+            || !Regex.IsMatch(profile.ModelRevision, "^[a-f0-9]{64}$", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1))
+            || string.IsNullOrEmpty(profile.Model)
+            || !Regex.IsMatch(profile.Model, "^[a-z0-9][a-z0-9._/-]*:[a-z0-9][a-z0-9._-]*$",
+                RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1)))
+            yield return new("Ollama embeddings require an explicit model tag and full lowercase SHA256 model digest.");
+    }
+
+    private static IEnumerable<ValidationResult> ValidateLlamaCpp(DocumentEmbeddingProfileConfig profile, DocumentLlamaCppEmbeddingConfig llamaCpp)
+    {
+        foreach (var result in ValidateObject(llamaCpp))
+            yield return result;
+        if (string.IsNullOrEmpty(profile.ModelRevision)
+            || !Regex.IsMatch(profile.ModelRevision, "^[a-f0-9]{64}$", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1))
+            || profile.Model != $"{DocumentLlamaCppEmbeddingRoutes.ModelAliasPrefix}{profile.ModelRevision}")
+            yield return new("llama.cpp embeddings require a full lowercase GGUF SHA256 revision and the matching sha256-<digest> server alias.");
     }
 }
 

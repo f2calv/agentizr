@@ -149,10 +149,7 @@ public sealed class DocumentOllamaEmbeddingHttpTests
             {
                 Assert.Equal(HttpMethod.Get, request.Method);
                 TagReads++;
-                var digest = variation == "digest" || variation == "changed-after" && Submissions > 0
-                    || variation == "metadata-drift" && TagReads > 1 ? new string('b', 64) : batch.Claim.Manifest.Profile.ModelRevision;
-                var entry = new { name = batch.Claim.Manifest.Profile.Model, digest, remote_host = variation == "remote" ? "https://remote.example.com" : null };
-                return Response(JsonSerializer.Serialize(new { models = variation == "missing-model" ? [] : variation == "duplicate-tag" ? new[] { entry, entry } : [entry] }));
+                return TagsResponse();
             }
             using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
             Assert.Equal(HttpMethod.Post, request.Method);
@@ -160,16 +157,7 @@ public sealed class DocumentOllamaEmbeddingHttpTests
             if (request.RequestUri.AbsolutePath == "/api/show")
             {
                 ShowReads++;
-                return Response(JsonSerializer.Serialize(new
-                {
-                    capabilities = new[] { variation == "chat-model" ? "completion" : "embedding" },
-                    remote_model = variation == "remote-show" ? "example-remote-model" : null,
-                    model_info = new Dictionary<string, object>
-                    {
-                        ["general.architecture"] = "qwen3",
-                        ["qwen3.embedding_length"] = variation == "dimensions" ? 9 : 8,
-                    },
-                }));
+                return ShowResponse();
             }
             Assert.Equal("/api/embed", request.RequestUri.AbsolutePath);
             Submissions++;
@@ -194,6 +182,26 @@ public sealed class DocumentOllamaEmbeddingHttpTests
                 response.Content.Headers.ContentLength = 16 * 1024 * 1024 + 1;
             return response;
         }
+
+        private HttpResponseMessage TagsResponse()
+        {
+            var digest = variation == "digest" || variation == "changed-after" && Submissions > 0
+                || variation == "metadata-drift" && TagReads > 1 ? new string('b', 64) : batch.Claim.Manifest.Profile.ModelRevision;
+            var entry = new { name = batch.Claim.Manifest.Profile.Model, digest, remote_host = variation == "remote" ? "https://remote.example.com" : null };
+            return Response(JsonSerializer.Serialize(new { models = variation == "missing-model" ? [] : variation == "duplicate-tag" ? new[] { entry, entry } : [entry] }));
+        }
+
+        private HttpResponseMessage ShowResponse() =>
+            Response(JsonSerializer.Serialize(new
+            {
+                capabilities = new[] { variation == "chat-model" ? "completion" : "embedding" },
+                remote_model = variation == "remote-show" ? "example-remote-model" : null,
+                model_info = new Dictionary<string, object>
+                {
+                    ["general.architecture"] = "qwen3",
+                    ["qwen3.embedding_length"] = variation == "dimensions" ? 9 : 8,
+                },
+            }));
 
         private static HttpResponseMessage Response(string body, HttpStatusCode status = HttpStatusCode.OK) =>
             new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };

@@ -23,16 +23,24 @@ internal static partial class DocumentPreparationReviewRenderer
             }
             if (source is null)
                 throw new InvalidDataException("A transcription has no original source/page heading.");
-            if (!pages.TryGetValue(source.Value, out var selected))
-                pages.Add(source.Value, selected = []);
-            if (selected.Count != 0 && selected[^1].PageNumber >= pageNumber)
-                throw new InvalidDataException("Export pages must be unique and increasing within each source.");
-            selected.Add(new(pageNumber, WebUtility.HtmlDecode(match.Groups["markdown"].Value)));
+            AppendPage(pages, source.Value, pageNumber, match.Groups["markdown"].Value);
             source = null;
         }
         if (source is not null || pages.Count == 0)
             throw new InvalidDataException("The review export has no complete transcription selection.");
         return pages.ToDictionary(item => item.Key, item => item.Value.ToArray());
+    }
+
+    private static void AppendPage(Dictionary<int, List<DocumentMarkdownPage>> pages, int source, int pageNumber, string encodedMarkdown)
+    {
+        if (pages.TryGetValue(source, out var selected))
+        {
+            if (selected[^1].PageNumber >= pageNumber)
+                throw new InvalidDataException("Export pages must be unique and increasing within each source.");
+        }
+        else
+            pages.Add(source, selected = []);
+        selected.Add(new(pageNumber, WebUtility.HtmlDecode(encodedMarkdown)));
     }
 
     public static string Render(DocumentPreparationCandidate candidate)
