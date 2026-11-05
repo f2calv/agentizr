@@ -1,7 +1,7 @@
 # agentizr
 
 agentizr is a multi-tenant AI agent runtime for .NET 10 applications. It hosts agents backed by
-OpenAI-compatible servers, Azure OpenAI or Ollama, with a versioned HTTP API and typed client for
+OpenAI-compatible servers including llama.cpp, Azure OpenAI or optional Ollama, with a versioned HTTP API and typed client for
 execution, conversation state and controlled definition publication.
 
 [![CI status](https://github.com/f2calv/agentizr/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/f2calv/agentizr/actions/workflows/ci.yml)
@@ -64,6 +64,30 @@ Outside Development, PostgreSQL and JWT tenancy are mandatory; Redis is an optio
 For local persistence debugging and integration-test infrastructure, use the
 [Compose dependencies](docker-compose.yml) and [persistence setup](docs/persistence.md#local-development-and-tests). They do not
 require a GPU or model downloads.
+
+### Provider Terminology
+
+llama.cpp is the preferred self-hosted runtime; Ollama remains an optional self-hosted alternative,
+not another name for the same server. Keep runtime, protocol and connector names distinct:
+
+| Runtime | Interface used by Agentizr | Chat connector/configuration |
+| --- | --- | --- |
+| llama.cpp | OpenAI-compatible `/v1/...` | OpenAI client with `Type=OpenAI` |
+| Ollama | Ollama-native `/api/...` | OllamaSharp with `Type=Ollama` |
+
+[`Microsoft.Extensions.AI`](https://learn.microsoft.com/en-us/dotnet/ai/microsoft-extensions-ai)
+provides provider-neutral abstractions; its
+[OpenAI client adapter](https://learn.microsoft.com/en-us/dotnet/ai/ichatclient#implementation-examples)
+does not require the OpenAI cloud service. The
+[llama.cpp server](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md)
+exposes OpenAI-compatible routes. [Ollama also supports a subset of that API](https://docs.ollama.com/api/openai-compatibility),
+but Agentizr's native Ollama adapter is not interchangeable with its llama.cpp adapter.
+
+Use `llama.cpp` in prose, `LlamaCpp` in C# names and `llama-cpp` in deployment identifiers.
+Keep valid `Ollama` classes, files and configuration values for the actual native integration.
+Compatibility is capability-specific: chat support does not prove embedding, vision or structured
+response support. The [RAG lifecycle](docs/document-rag-lifecycle.md) distinguishes offline adapter
+coverage from deployed Azure acceptance and pending live GPU embedding acceptance.
 
 ### Local AI Provider Profiles
 

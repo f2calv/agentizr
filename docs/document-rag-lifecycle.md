@@ -17,12 +17,15 @@ inputs as 3,072-dimensional vectors using five requests and 15,895 reported inpu
 Processing is back off; both gates still default off. The earlier uncertain job remains quarantined
 and unchanged. There is no indexing browser control or implemented search/model knowledge binding.
 
-**Local GPU boundary:** an Ollama adapter is implemented, but the existing GPU runtime is
-llama.cpp, not Ollama. Read-only discovery found a chat model loaded and no advertised/configured
+**Local GPU boundary:** llama.cpp is the preferred self-hosted runtime; the separate native Ollama
+adapter remains an optional alternative. Read-only discovery found llama.cpp with a chat model loaded and no advertised/configured
 embedding model. Its new single-model adapter/binding is implemented and offline-tested, not deployed;
 real model identity, pooling and dimensions remain unverified. No download, model switch or GPU
 inference is authorized by the completed Azure run or offline implementation approval.
 The Ollama examples below describe that adapter, not the discovered GPU deployment.
+See the [provider terminology](../README.md#provider-terminology): llama.cpp uses OpenAI-compatible
+routes, while the Ollama adapter uses the native Ollama API. Their runtime-specific class/file
+names are intentional, not synonyms that should be mechanically renamed.
 
 ## RAG Basics: Why Two Models?
 
@@ -38,11 +41,11 @@ passages, then writes an answer. These models can come from different providers.
 | --- | --- | --- |
 | Prepare | Extract and normalize a PDF into reviewed Markdown | Preparation workflow |
 | Chunk | Divide approved content into passages, preserving headings and provenance | Agentizr |
-| Embed documents | Convert each included passage into a semantic vector | Embedding model, for example `qwen3-embedding:4b` |
+| Embed documents | Convert each included passage into a semantic vector | Embedding model, for example `text-embedding-3-large` or the Qwen3 Embedding family |
 | Store | Keep vectors and their passage/source bindings | PostgreSQL with pgvector |
 | Embed a question | Convert the question into the **same embedding space** | The same pinned embedding model/profile |
 | Retrieve | Find nearby eligible vectors and return their passages | Authorized pgvector search, still planned |
-| Answer | Read the question plus retrieved passages and cite the evidence | Chat model, for example `qwen3.5:9b`; model binding still planned |
+| Answer | Read the question plus retrieved passages and cite the evidence | Chat model, for example the Qwen3.5 family; model binding still planned |
 
 For example, “How do I reset this device?” can match a passage describing a factory reset even if
 the wording differs. Vector similarity supplies candidates; it does not prove that the passage is
@@ -52,9 +55,10 @@ Adding a document updates the knowledge store, not the chat model's weights.
 
 Stored passages and questions must use compatible model identity/revision, dimensions and input
 conventions. Equal vector lengths alone do not make different models compatible. An Azure-produced
-corpus cannot be searched with an Ollama-produced question vector: changing providers/models requires
+corpus cannot be searched with a different llama.cpp/Ollama profile's question vector: changing the bound provider/model profile requires
 re-embedding the corpus under a new profile and publishing a complete replacement generation.
-Vectors still live in pgvector; Ollama is their producer, not a second vector database.
+Vectors still live in pgvector; Azure OpenAI, llama.cpp and Ollama are vector producers, not
+alternative vector databases.
 
 “Local Ollama” means the server named by the tenant-authorized endpoint. It may already run in
 Docker or directly on a machine; this adapter creates neither. The 4B model's quantized weights
@@ -63,9 +67,9 @@ especially with a chat model resident too. Start with one input per batch and me
 before increasing it. The adapter requests unload after each embedding batch; this trades reload
 latency for lower idle GPU residency and does not control other callers.
 
-Only the embedding stage gains Ollama support here. PDF preparation may still use Azure services,
+The Azure OpenAI, llama.cpp and Ollama bindings concern the embedding stage. PDF preparation may still use Azure services,
 manuals still require verified visual associations, and retrieval/answer integration remains future
-work. Neither adapter means that an end-to-end RAG application has already been deployed.
+work. An implemented adapter does not mean that an end-to-end RAG application has been deployed.
 
 ## Data Flow
 
