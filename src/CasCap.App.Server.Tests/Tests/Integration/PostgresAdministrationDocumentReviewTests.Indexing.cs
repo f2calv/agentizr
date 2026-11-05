@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Constants;
 using CasCap.Client.Services;
 using CasCap.Constants;
@@ -63,4 +62,3 @@ public sealed partial class PostgresAdministrationDocumentReviewTests
         Assert.Equal(1, _provider.ModelCalls);
     }
 }
-#endif

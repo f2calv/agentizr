@@ -1,4 +1,3 @@
-#if DEBUG
 using System.Text.Json;
 
 namespace CasCap.Services;
@@ -32,4 +31,3 @@ internal static class DocumentProviderJson
         }
     }
 }
-#endif

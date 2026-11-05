@@ -1,0 +1,11 @@
+runtime:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/example/agent-runtime
+    tag: "1.2.3"
+
+migrate:
+  enabled: true
+  image:
+    repository: ghcr.io/example/agent-runtime
+    tag: "1.2.3"

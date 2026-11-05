@@ -1,4 +1,3 @@
-#if DEBUG
 using System.Text;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
@@ -248,4 +247,3 @@ public sealed class PdfDocumentPreparationTests
         }
     }
 }
-#endif

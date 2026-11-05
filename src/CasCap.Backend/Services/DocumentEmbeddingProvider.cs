@@ -1,5 +1,5 @@
-#if DEBUG
 using Azure.Core;
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -7,18 +7,26 @@ using System.Text.Json;
 
 namespace CasCap.Services;
 
-/// <summary>Dispatches bounded tenant-authorized Azure or Ollama embeddings without transport replay.</summary>
+/// <summary>Dispatches bounded tenant-authorized Azure, Ollama or llama.cpp embeddings without transport replay.</summary>
 internal sealed class DocumentEmbeddingProvider(
+    ILogger<DocumentEmbeddingProvider> logger,
+    TimeProvider timeProvider,
     IServiceProvider serviceProvider,
     IHttpClientFactory httpClientFactory,
     DocumentPreparationModelVerifier documentPreparationModelVerifier,
-    DocumentOllamaEmbeddingProvider documentOllamaEmbeddingProvider) : IDocumentEmbeddingProvider
+    DocumentOllamaEmbeddingProvider documentOllamaEmbeddingProvider,
+    DocumentLlamaCppEmbeddingProvider documentLlamaCppEmbeddingProvider) : IDocumentEmbeddingProvider
 {
     public async Task VerifyAsync(DocumentIndexingManifest manifest, CancellationToken token)
     {
         if (manifest.Profile.Ollama is not null)
         {
             await documentOllamaEmbeddingProvider.VerifyAsync(manifest, token);
+            return;
+        }
+        if (manifest.Profile.LlamaCpp is not null)
+        {
+            await documentLlamaCppEmbeddingProvider.VerifyAsync(manifest, token);
             return;
         }
         var azure = manifest.Profile.Azure ?? throw new InvalidDataException("The Azure embedding binding is absent.");
@@ -35,6 +43,8 @@ internal sealed class DocumentEmbeddingProvider(
     {
         if (batch.Claim.Manifest.Profile.Ollama is not null)
             return await documentOllamaEmbeddingProvider.GenerateAsync(batch, token);
+        if (batch.Claim.Manifest.Profile.LlamaCpp is not null)
+            return await documentLlamaCppEmbeddingProvider.GenerateAsync(batch, token);
         ValidateAuthority(batch.Claim.Manifest);
         var profile = batch.Claim.Manifest.Profile;
         var azure = profile.Azure ?? throw new InvalidDataException("The Azure embedding binding is absent.");
@@ -66,9 +76,30 @@ internal sealed class DocumentEmbeddingProvider(
         });
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
         if (response.StatusCode != HttpStatusCode.OK)
+        {
+            if (logger.IsEnabled(LogLevel.Warning))
+                logger.LogWarning("{ClassName} submission returned HTTP {HttpStatusCode}; retry-after seconds {RetryAfterSeconds}; automatic replay disabled",
+                    nameof(DocumentEmbeddingProvider), (int)response.StatusCode, RetryAfter(response, timeProvider.GetUtcNow())?.TotalSeconds);
             throw new HttpRequestException("The embedding submission did not return a valid receipt.", null, response.StatusCode);
+        }
         using var json = await DocumentProviderJson.ReadAsync(response, 16 * 1024 * 1024, token);
         return Parse(json.RootElement, batch.Inputs.Count, profile.Dimensions);
+    }
+
+    internal static TimeSpan? RetryAfter(HttpResponseMessage response, DateTimeOffset now)
+    {
+        var retry = response.Headers.RetryAfter;
+        var delay = retry?.Delta ?? (retry?.Date is { } date ? date - now : (TimeSpan?)null);
+        var millisecondsValues = response.Headers.TryGetValues("retry-after-ms", out var values) ? values.Take(2).ToArray() : [];
+        if (millisecondsValues.Length == 1
+            && long.TryParse(millisecondsValues[0], NumberStyles.None, CultureInfo.InvariantCulture, out var milliseconds)
+            && milliseconds <= TimeSpan.MaxValue.Ticks / TimeSpan.TicksPerMillisecond)
+        {
+            var azureDelay = TimeSpan.FromTicks(milliseconds * TimeSpan.TicksPerMillisecond);
+            if (delay is null || azureDelay > delay)
+                delay = azureDelay;
+        }
+        return delay is { } value && value < TimeSpan.Zero ? TimeSpan.Zero : delay;
     }
 
     internal static DocumentEmbeddingResult Parse(JsonElement root, int inputCount, int dimensions)
@@ -93,7 +124,7 @@ internal sealed class DocumentEmbeddingProvider(
         return new(ordered, inputTokens);
     }
 
-    /// <summary>Checks native vector shape and cosine compatibility for either provider.</summary>
+    /// <summary>Checks native vector shape and cosine compatibility for every provider.</summary>
     internal static float[] ParseVector(JsonElement values, int dimensions)
     {
         if (values.ValueKind != JsonValueKind.Array || values.GetArrayLength() != dimensions)
@@ -109,6 +140,31 @@ internal sealed class DocumentEmbeddingProvider(
         if (!vector.Any(value => value != 0))
             throw new InvalidDataException("A zero vector cannot support the configured cosine distance.");
         return vector;
+    }
+
+    /// <summary>Creates a non-retrying local client only after exact tenant/provider/authority authorization.</summary>
+    internal static HttpClient LocalClient(
+        IServiceProvider services,
+        IHttpClientFactory clients,
+        DocumentIndexingManifest manifest,
+        string endpoint,
+        AgentType providerType)
+    {
+        if (!manifest.Profile.HasExecutionBinding)
+            throw new InvalidDataException("The embedding provider binding is ambiguous.");
+        var uri = new Uri(endpoint);
+        var runtime = services.GetRequiredService<IOptions<AgentRuntimeConfig>>().Value;
+        var policy = services.GetRequiredService<IOptions<AgentDefinitionPolicyConfig>>().Value;
+        if (!runtime.Tenants.TryGetValue(manifest.TenantId, out var tenant)
+            || !tenant.Providers.TryGetValue(manifest.Profile.Provider, out var provider) || provider.Type != providerType
+            || provider.Endpoint != uri
+            || !policy.AllowedProviderAuthorities.Contains(uri.GetLeftPart(UriPartial.Authority), StringComparer.OrdinalIgnoreCase)
+            || !string.IsNullOrWhiteSpace(provider.ApiKey) || tenant.EntraIdProviders.Contains(manifest.Profile.Provider))
+            throw new InvalidDataException("The exact local embedding endpoint/provider is not authorized for credential-free access by this tenant.");
+        var client = clients.CreateClient(nameof(DocumentEmbeddingProvider));
+        client.BaseAddress = uri;
+        client.Timeout = Timeout.InfiniteTimeSpan;
+        return client;
     }
 
     private void ValidateAuthority(DocumentIndexingManifest manifest)
@@ -135,4 +191,3 @@ internal sealed class DocumentEmbeddingProvider(
         public string TenantId => tenantId;
     }
 }
-#endif

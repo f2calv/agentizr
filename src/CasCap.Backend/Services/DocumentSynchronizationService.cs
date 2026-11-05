@@ -125,7 +125,8 @@ internal sealed partial class DocumentSynchronizationService(
         if (state.RunId != runId || state.State != DocumentSynchronizationStates.Running)
             return;
         var now = await DocumentIngestionTransactions.GetUtcNowAsync(db, timeProvider, token);
-        failure ??= state.ExpiresAtUtc <= now ? DocumentSynchronizationStates.DeadlineExpired : null;
+        var deadlineExpired = failure is null && state.ExpiresAtUtc <= now;
+        failure ??= deadlineExpired ? DocumentSynchronizationStates.DeadlineExpired : null;
         state.State = failure is null ? DocumentSynchronizationStates.Succeeded : DocumentSynchronizationStates.Failed;
         state.FailureCode = failure;
         state.FinishedAtUtc = now;
@@ -133,6 +134,21 @@ internal sealed partial class DocumentSynchronizationService(
             state.LastSucceededAtUtc = now;
         await db.SaveChangesAsync(token);
         await transaction.CommitAsync(token);
+        if (deadlineExpired)
+            LogFailure(logger, DocumentSynchronizationStates.DeadlineExpired);
+        else if (failure is null)
+            LogCompleted(state, now - (state.StartedAtUtc ?? now));
+    }
+
+    // A scheduled run that changed nothing is routine; only a run that did work is part of the audit trail.
+    private void LogCompleted(DocumentSynchronizationEntity state, TimeSpan elapsed)
+    {
+        var changed = state.AddedCount + state.RepairedCount + state.RemovedCount + state.ConflictCount > 0;
+        if (changed)
+            LogChanged(logger, state.AddedCount, state.RepairedCount, state.RemovedCount, state.UnchangedCount,
+                state.ConflictCount, elapsed);
+        else
+            LogUnchanged(logger, state.UnchangedCount, elapsed);
     }
 
     private async Task<DocumentSynchronizationEntity?> OwnedAsync(
@@ -146,5 +162,14 @@ internal sealed partial class DocumentSynchronizationService(
 
     [LoggerMessage(LogLevel.Warning, "{ClassName} source synchronization failed: {FailureCode}")]
     private static partial void LogFailure(ILogger logger, string failureCode,
+        string className = nameof(DocumentSynchronizationService));
+
+    [LoggerMessage(LogLevel.Information,
+        "{ClassName} source synchronization completed Added={Added} Repaired={Repaired} Removed={Removed} Unchanged={Unchanged} Conflicts={Conflicts} Elapsed={Elapsed}")]
+    private static partial void LogChanged(ILogger logger, int added, int repaired, int removed, int unchanged,
+        int conflicts, TimeSpan elapsed, string className = nameof(DocumentSynchronizationService));
+
+    [LoggerMessage(LogLevel.Debug, "{ClassName} source synchronization found no changes Unchanged={Unchanged} Elapsed={Elapsed}")]
+    private static partial void LogUnchanged(ILogger logger, int unchanged, TimeSpan elapsed,
         string className = nameof(DocumentSynchronizationService));
 }

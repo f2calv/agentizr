@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Constants;
 using System.Text.Json;
 
@@ -199,4 +198,3 @@ public sealed class DocumentMarkdownStructureTests
         new(page.PageNumber, page.Markdown.IndexOf(text, StringComparison.Ordinal),
             page.Markdown.IndexOf(text, StringComparison.Ordinal) + text.Length, DocumentMarkdownReadingOrders.ColumnMajor, "Verified synthetic layout.");
 }
-#endif

@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Constants;
 using CasCap.Client.Models;
 using CasCap.Client.Services;
@@ -263,4 +262,3 @@ public sealed partial class AdministrationDocumentReviewTests
         return selection.Value!;
     }
 }
-#endif

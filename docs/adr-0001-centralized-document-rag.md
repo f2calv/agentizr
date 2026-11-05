@@ -2,11 +2,17 @@
 
 **Status:** Proposed. Debug admission, preparation, source synchronization, chunk review and
 document readiness have deployed acceptance evidence recorded below; the owner confirmed saved
-reviews and assessments survived refresh. Durable Azure/Ollama embedding and pgvector publication
-have local implementation evidence, not verified live activation. Saved readiness does not authorize
+reviews and assessments survived refresh. A separately authorized Azure replacement has published
+65 reviewed, 3,072-dimensional vectors to pgvector; processing is back off and the earlier uncertain
+job remains quarantined. The preferred self-hosted llama.cpp adapter and optional native Ollama
+adapter are implemented and offline-tested, not live GPU-accepted. Saved readiness does not authorize
 indexing. Device manuals remain blocked by the unimplemented verified visual-association gate.
-Protected retrieval and model knowledge bindings remain outstanding.
-**Date:** 2026-11-01.
+Protected retrieval, citations, model knowledge bindings and end-to-end answering remain outstanding.
+Implementation progress does not change this ADR's Proposed decision status.
+Both build configurations now include the opt-in pipeline, using published Common 5.1.0 and Azure
+2.0.0 packages in Release. The deployment evidence remains Debug-specific; Release build support
+does not establish a rollout, live GPU acceptance or end-to-end answering.
+**Date:** 2026-11-05.
 **Scope:** Blazor document management, Azure Blob/Event Grid ingestion and tenant-isolated RAG.
 **Canonical record:** This document. Related issues are historical context or implementation tracking,
 not independently maintained copies of this proposal.
@@ -55,15 +61,19 @@ Issue #73 was closed at the user's request after this proposal was drafted; PR #
 - [AgentDefinition](../src/CasCap.Backend/Models/AgentDefinition.cs),
   [AgentConfig](../src/CasCap.AgentRuntime.Execution/Models/_AgentConfig.cs) and
   [IAgentRuntimeClient](../src/CasCap.AgentRuntime.Client/Abstractions/IAgentRuntimeClient.cs)
-  currently have no dedicated document-ingestion or knowledge-retrieval contract.
-- No embedding generator, vector store or `TextSearchProvider` integration was found in the
-  inspected Agentizr and adjacent shared-library source. Existing tool configuration alone
-  is not a wired document-RAG capability.
-- The existing [Blazor administration frontend](administration-frontend.md) manages agent
-  definitions, not documents. Document management below is proposed functionality.
+  do not yet bind agent execution to protected document retrieval. Dedicated ingestion
+  APIs exist separately; their availability is not a model knowledge binding.
+- The [embedding dispatcher](../src/CasCap.Backend/Services/DocumentEmbeddingProvider.cs)
+  now wires Azure OpenAI, llama.cpp and native Ollama adapters into the durable indexing worker.
+  The [vector migration](../src/CasCap.Data/Migrations/20261030121900_DocumentVectorIndexing.cs)
+  supports native pgvector staging/publication. Azure has live publication acceptance; protected
+  retrieval and framework answer integration remain unimplemented.
+- The [Blazor administration frontend](administration-frontend.md) now supports document upload,
+  preparation/source previews, chunk review and saved document readiness alongside agent
+  definitions. Indexing has protected APIs but no browser control, and no document search UI exists.
 - The adjacent `CasCap.Api.Azure.EventGrid` checkout now has a reusable `BlobStorageEventReader`
-  and normalized `BlobStorageEvent` model. These local APIs are not yet published packages.
-  There is still no shared subscriber or provisioning API; Agentizr owns queue admission.
+  and normalized `BlobStorageEvent` model. Agentizr owns queue admission; cloud provisioning
+  remains a separate infrastructure responsibility.
 - [Role selection](../src/CasCap.Backend/Models/_FeatureConfig.cs) and
   [host composition](../src/CasCap.App.Server/AppHost.cs) now separate API, ingestion and migration
   responsibilities. This is one application host, not three independently built services.
@@ -137,7 +147,7 @@ Provide a protected comparison view inspired by the experimental review panels: 
 available local extraction, managed draft and reconciled Markdown, with physical-page navigation,
 raw/rendered Markdown, provenance, changes and uncertainties. A view reads retained artifacts; it
 must not rerun paid preparation. Keep review-required and reconciliation-required candidates distinct
-from searchable generations. The current local Debug slice provides an admitted-source catalogue,
+from searchable generations. The current implementation provides an admitted-source catalogue,
 escaped page Markdown and contextual chunks, plus confirmed immutable review-snapshot storage.
 Original PDF comparison, rendered Markdown and the other lifecycle controls remain future work.
 For visual-enabled manuals, show associated figures with a protected link to the exact source
@@ -242,13 +252,17 @@ token/overlap settings and captures an immutable preparation profile; a changed 
 new generation rather than mixing old and new chunks. Its current `cl100k_base` tokenizer is a PoC
 choice, not a compatibility claim for an unspecified local or hosted embedding model.
 
-For the first Ollama pilot, retain `qwen3-embedding:4b` as the selected embedding-model candidate,
-independent of the answering model. Prefer an available 12 GB GPU-backed authorized Ollama
-endpoint over the constrained 4 GB workstation GPU, subject to measured memory and latency.
-This is an operational recommendation, not a guaranteed fit or an infrastructure decision:
-verify the installed model digest, native dimensions and workload-network reachability first.
-Keep endpoint coordinates in private configuration; both locations use the same pgvector backend.
-Changing model/profile requires a complete replacement corpus, not mixed embedding spaces.
+llama.cpp is the preferred self-hosted runtime for the next GPU embedding pilot; native Ollama
+remains an optional self-hosted/test alternative. The
+[provider terminology](../README.md#provider-terminology) distinguishes runtime, OpenAI-compatible
+protocol and .NET connector. Accurate `LlamaCpp` and `Ollama` adapter names are retained.
+The discovered chat router is not the implemented single-model embedding adapter's target.
+Qwen3 Embedding 4B remains a candidate, not an installed or approved GGUF artifact: separately
+choose and verify the immutable artifact/quantization, pooling, native dimensions, memory fit and
+worker reachability before inference. An Ollama example tag such as `qwen3-embedding:4b` is not a
+llama.cpp artifact identity. Keep endpoints and deployment coordinates in private configuration;
+either runtime produces vectors for pgvector. Changing the bound model/profile requires a
+separate complete corpus, not mixed embedding spaces or replacement of the Azure comparison baseline.
 
 #### Selectable Document Preparation
 
@@ -474,7 +488,7 @@ fields; older runtime replicas cannot be relied on to enforce them.
 
 Record the strategy identifier as **`markdown-headings`** in the immutable chunking profile,
 alongside its implementation/parser version. This is the intended replacement for the existing
-page-local ingestion splitter. A Debug-only offline/review component now implements the bounded
+page-local ingestion splitter. An offline/review component now implements the bounded
 heading projection below; deployed ingestion still uses the page-local profile.
 Select semantic packing rules by trusted document classification, not application identity:
 
@@ -870,8 +884,8 @@ incompatible selections fail explicitly.
 
 The existing `--migrate` invocation selects migration-only behavior. The same application artifact
 serves every role; no separate entrypoint, Dockerfile or worker image is introduced.
-The ingestion PoC currently requires Debug sibling-project references. Release explicitly rejects
-that selection until the new shared APIs are published and its package path is validated.
+Debug uses sibling-project references; Release now builds the same ingestion pipeline using the
+published Common 5.1.0 and Azure 2.0.0 APIs. Processing and indexing remain explicitly opt-in.
 
 The [ingestion feature](../src/CasCap.Backend/Services/DocumentIngestionFeature.cs) delegates lease
 acquisition, loss, awaited cleanup and reacquisition to the shared `ILeadershipRunner`, not a custom
@@ -908,7 +922,7 @@ escape to host supervision rather than being silently classified as transient.
 
 [Processing orchestration](../src/CasCap.Backend/Services/DocumentIngestionProcessingService.cs)
 is explicitly gated by `ProcessingEnabled=false`. Startup rejects enabling it without a real
-[`IDocumentProcessor`](../src/CasCap.Backend/Abstractions/IDocumentProcessor.cs). The Debug role now
+[`IDocumentProcessor`](../src/CasCap.Backend/Abstractions/IDocumentProcessor.cs). The ingestion role now
 registers [PdfDocumentProcessor](../src/CasCap.Backend/Services/PdfDocumentProcessor.cs) for
 conditional download, bounded preparation and durable staging, not a no-op or a searchable indexer.
 `ProcessingTimeoutSeconds=300` (range 30-900)
@@ -1494,10 +1508,29 @@ resource inventory, repository/release references and raw plan/support evidence 
 
 The infrastructure change set has passed its configured PR checks, merged and been released.
 Subsequent source-provenance-only refresh operations were interrupted before their final
-convergence checks completed. The successful provisioning and earlier no-change plans remain
-evidence; they do not prove final-source metadata convergence. Recheck the existing state and
-a fresh plan before the next apply, preserving any lock until its owning process is confirmed
-stopped. Do not retry service creation, migrate state or widen access to reconcile metadata.
+convergence checks completed. The resulting stale apply locks were released on 2026-11-02 only
+after confirming their owning workstation had no Terraform process and no deployment workflow
+was active, with explicit recovery approval. Fresh saved plans and subsequent embedding applies
+reconciled provenance tags; both roots now report no changes using the same applied metadata.
+Those applies used local, uncommitted embedding configuration, so this is not evidence of
+convergence against a subsequently committed or released source revision.
+
+**Embedding infrastructure handover (2026-11-02):** `text-embedding-3-large`, revision `1`,
+is provisioned in both approved Azure subscriptions through the existing general OpenAI accounts.
+The owner selected the higher-capability supported Azure option rather than the local-model pilot;
+document-specific accuracy remains unmeasured. Both deployments are `GlobalStandard`, capacity
+`10` (10,000 tokens/minute of quota, not a spending limit), and live ARM read-back reports
+`Succeeded` with the exact model/revision/SKU/capacity. Seven focused credential-free Terraform
+mock cases, root validation, formatting and scoped hooks passed. Each inspected apply added only
+one deployment plus provenance-tag updates; no account, access grant, replacement or deletion
+was introduced. Coordinates and raw plans remain in private operator evidence.
+
+No embedding request, PDF submission, runtime profile change or worker activation was performed.
+Use the existing application identity and explicitly bind the selected account/deployment,
+management resource ID, model revision and dimensions; `text-embedding-3-large` supports up to
+3,072 dimensions. Document and future query embeddings must share a compatible pinned profile.
+Application-identity inference access, schema/replica readiness, reviewed-source eligibility,
+paid request/token allowances and retrieval quality remain separate pilot gates.
 
 All approved Terraform mock cases passed. The obsolete application access test was not
 restored: a separately approved isolated diagnostic reused the current runtime's certificate/Key
@@ -1695,7 +1728,7 @@ The infrastructure owner should update the Phase 0 checkboxes with sanitized obs
 The application workstream can continue local admission development while this handoff is
 incomplete. Before a live admission run, apply the additive application migration externally,
 supply shared Redis with distributed locking and the agreed leadership resource, use a compatible
-Debug build until the shared Release APIs are published, and explicitly select `ingestion` or
+build with the published shared APIs, and explicitly select `ingestion` or
 `agentizr,ingestion`. The default API role does not consume notifications. Pgvector activation is
 not required for admission-only persistence, but remains a prerequisite for vector processing and
 retrieval. Read-only follow-up has now verified the extension rollout and a vector operation;
@@ -1706,7 +1739,7 @@ this does not prove full RAG processing.
 - [ ] Accept or amend this ADR; keep acceptance separate from implementation progress.
 - [x] Select stable managed libraries and bounded offline preparation defaults: `PdfPig` 0.1.16,
   `Microsoft.ML.Tokenizers` 2.0.1 and its `Data.Cl100kBase` 2.0.1 vocabulary package. These are
-  Debug-only dependencies; tokenization runs offline without downloading model data.
+  dependencies in both configurations; tokenization runs offline without downloading model data.
   [PDF preparation](../src/CasCap.Backend/Services/PdfDocumentPreparationService.cs) uses
   PdfPig's content-order extraction, not raw `page.Text`.
 - [ ] Select the multilingual embedding profile, live upload/download policy, rights/retention,
@@ -1738,10 +1771,10 @@ this does not prove full RAG processing.
   PostgreSQL source/selection changes while preflight waits for the mutation lock, exact input
   limits, authorization, stale source/assessment and classification-bypass checks. Release builds
   without warnings/errors; isolated fixture databases were removed. This is local implementation
-  evidence only: preflight is disabled by default, is not deployed, always retains
+  evidence only: preflight is disabled by default and always retains
   `IndexingApproved=false`, and neither persists jobs nor invokes embeddings, writes vectors or
   activates retrieval. These original preflight checks alone do not prove a vector adapter;
-  the subsequent local worker/storage slice is recorded below.
+  the subsequent worker/storage slice and live Azure publication are recorded below.
 - [x] Implement the local Debug durable indexing worker and pgvector publication boundary:
   separately confirmed exact manifests/request-token allowances, durable intent and write-once
   usage receipts, database-time claims, no automatic replay of unresolved submissions, current
@@ -1760,17 +1793,28 @@ this does not prove full RAG processing.
   pending model changes; native migration/round-trip/constraint checks cover the SQL-owned table.
   The disposable host and all fixture databases were removed; the existing database service
   remained running. Hooks and privacy scanning, including new files, pass.
-  No rollout, actual embedding deployment/model/allowance selection,
-  search API, model binding or browser indexing control is implied.
+  These local checks alone do not prove rollout or an actual embedding allowance; subsequent
+  deployed Azure acceptance is recorded below. A search API, model binding and browser indexing
+  control remain outstanding.
 - [x] Add a local-model Ollama embedding path using the same durable indexing/publication boundary.
   Exactly one provider binding is required; installed model tag/digest, embedding capability,
   native dimensions and tenant/endpoint authority are verified. Exact included inputs use native
   `/api/embed` without truncation, cloud forwarding, model-management calls or automatic replay.
-  The selected pilot is `qwen3-embedding:4b`, distinct from an answering model; its real endpoint,
+  Its example model is `qwen3-embedding:4b`, distinct from an answering model; its real endpoint,
   digest/dimensions, GPU fit and retrieval quality remain unverified. The
   [Ollama contract](document-rag-lifecycle.md#local-ollama-embeddings) records tokenizer limits,
   tag immutability and unload behavior. Offline/fake-HTTP checks cover Azure preservation and the
   Ollama contract. No live calls, downloads, container startup, rollout or visual-gate bypass occurs.
+- [x] Add an explicit single-model llama.cpp embedding adapter/binding under the same Debug
+  authorization, tenant authority, no-replay and native publication fences. Pin an operator-verified
+  GGUF digest and matching server alias, native dimensions and explicit pooling contract.
+  The [llama.cpp contract](document-rag-lifecycle.md#local-llamacpp-embeddings) distinguishes runtime
+  metadata checks from operator-verified file/launch settings and prohibits implicit router loading.
+  Focused unit/configuration/preflight and fake-HTTP checks pass **192 cases, zero failures/skips**,
+  including Azure/Ollama regression coverage; four additional offline DI composition cases pass,
+  for **196 focused cases** overall. Release builds with zero warnings/errors after
+  configuration-specific dependency restore. This is local implementation, not GPU acceptance:
+  no model download, switch, inference or deployment is authorized or performed.
 - [ ] After accepting the managed/PDF-only/hybrid quality contract, deliver the
   [built-in preparation agent](#built-in-document-preparation-agent) through versioned tenant-local
   definitions and the durable worker. Verify actual runtime PDF/structured-output behavior,
@@ -2007,7 +2051,7 @@ this does not prove full RAG processing.
   synthetic block tests, and persist the approved projection through the generation fence before
   embedding or activation.
 - [x] Add explicit review-required Markdown-generation storage from validated durable receipts,
-  separate from page-local prepared chunks and from approval. The Debug-only
+  separate from page-local prepared chunks and from approval. The
   [store](../src/CasCap.Backend/Services/DocumentPreparationMarkdownStore.cs) retains a versioned
   [snapshot](../src/CasCap.Backend/Models/DocumentMarkdownReviewGeneration.cs) with original
   source/plan hashes, receipt references, normalized page Markdown, separate notes, profile,
@@ -2045,7 +2089,7 @@ this does not prove full RAG processing.
   baseline. The task-started PostgreSQL service was stopped immediately and existing workloads/
   volumes preserved. No deployed database migration, paid call, real-document persistence,
   management authorization, semantic/visual approval, embedding or activation is established.
-- [x] Wire the Debug-only [protected review-management API](../src/CasCap.Backend/Controllers/AdministrationDocumentReviewsController.cs)
+- [x] Wire the [protected review-management API](../src/CasCap.Backend/Controllers/AdministrationDocumentReviewsController.cs)
   and [typed administration client](../src/CasCap.App.Client/Services/AdministrationApiClient.cs).
   Existing configured app administrators act as reviewers through the administration cookie;
   a separate authenticated-reviewer policy denies anonymous Development and machine bearer access.
@@ -2120,7 +2164,7 @@ this does not prove full RAG processing.
   the trusted cumulative CEFR policy in retrieval/source-expansion queries, including missing/invalid
   levels, mixed-level sources, forged tool filters, alternate backends and cache isolation.
   Prove zero higher-level passages reach A1 context and that A2 can retrieve both A1 and A2 (R2, R4).
-- [x] Add a Debug-only [Blob download adapter](../src/CasCap.Backend/Services/DocumentBlobDownloadService.cs)
+- [x] Add a [Blob download adapter](../src/CasCap.Backend/Services/DocumentBlobDownloadService.cs)
   using `CasCap.Api.Azure.Storage`, not an application-owned replacement. The shared library now
   accepts an existing container client without provisioning and offers ETag-conditional streaming
   reads. Agentizr rechecks the claim's tenant/collection/container binding and canonical location,
@@ -2130,8 +2174,8 @@ this does not prove full RAG processing.
   and discard partial output. Its 64 KiB SDK buffer is not a total download limit; consume through
   bounded preparation. The adapter/DI tests passed all 24 offline cases, and the shared library's
   12 SDK HTTP-pipeline cases passed on .NET 10, including a mid-read revision change and read
-  cancellation. No live download, applied migration or deployment is claimed. Shared APIs remain
-  unpublished; durable staging is covered by the separate local processor slice above.
+  cancellation. Those offline cases do not claim a live download, applied migration or deployment.
+  The shared APIs are now published in Azure 2.0.0; durable staging is covered by the processor slice above.
 - [ ] Prove authenticated upload/status/search/source/delete through versioned HTTP and typed-client
   surfaces against isolated PostgreSQL with pgvector, not an in-memory substitute (R1-R4).
 - [ ] Persist and validate the preparation choices through upload intent, document versions,
@@ -2229,7 +2273,7 @@ requirement or replace that acceptance gate.
   [metadata query](../src/CasCap.Backend/Services/DocumentCatalogueAdministrationService.cs)
   derives tenancy from authorization, returns current-job/review availability and a stored-generation
   identity, and excludes source URIs, plans, receipts and content payloads. Cookie-only administrator
-  policies and no-store behavior match the existing review API; these endpoints remain Debug-only.
+  policies and no-store behavior match the existing review API in both build configurations.
 - [x] Link the [catalogue](../src/CasCap.App.Client/Pages/Documents.razor) from app administration and
   add a [review workbench](../src/CasCap.App.Client/Pages/DocumentReview.razor) over the existing protected
   preview/store/read API. Show escaped physical-page Markdown, nonempty separate notes, heading-aware
@@ -2264,63 +2308,228 @@ requirement or replace that acceptance gate.
   semantic approval and search activation through their separately reviewed contracts.
   The current catalogue lists admitted database sources, not every Blob or completed indexing.
 
-### Embedding Pilot Handover (2026-11-01)
+### Embedding Pilot Handover (2026-11-05)
 
-The release train is being handled separately. Resume implementation on the feature branch
-established by that work once its package/dependency and checkout changes have settled; this
-handover neither creates a branch nor authorizes a release, deployment or provider submission.
-Historical local test counts above precede subsequent refactoring and dependency updates and
-must not be treated as validation of the post-release checkout.
+The release train has completed. The current checkout is on the ongoing generic updates feature branch;
+preserve that concurrent work. This handover neither creates a branch nor
+authorizes a release, deployment or provider submission. Post-release focused checks passed
+85 cases without failures or skips; those offline checks do not prove live inference or publication.
+
+Read-only application readiness checks now establish:
+
+- The target database has `vector` version `0.8.6`, migration
+  `20261030121900_DocumentVectorIndexing`, and the native vector/job/batch/publication tables.
+  The pre-pilot read found no indexing jobs, embedding batches, vectors or active indexes;
+  the controlled pilot outcome below supersedes that empty-state observation.
+- The inspected vocabulary snapshot has a current source/preparation binding and matching saved
+  assessment/selection revision `1`. Its German `Vocabulary` assessment records A1 and all
+  requested readiness attestations. One exclusion leaves 65 nonempty inputs, 15,895 captured
+  input tokens and a largest input of 512 tokens. The snapshot pins `cl100k_base` tokenizer
+  version `1.0.0.0`. The authenticated application preflight now independently confirms the same
+  included count, token total and saved review revisions.
+- The existing tenant `DocumentPreparation` Azure OpenAI registration is Entra-enabled and its
+  endpoint is allowlisted. That endpoint matches one of the independently verified
+  `text-embedding-3-large` revision `1` deployments. It can be reused for embedding credentials
+  without changing the preparation/chat model. The subsequent pilot receipts establish inference
+  access; registration checks alone did not.
+- Both ready replicas use the same deployed image digest. Its OCI source revision matches the
+  inspected indexing configuration, durable store and source-retirement implementation. The
+  authenticated preflight endpoint returns HTTP 200, establishing compiled preflight support;
+  the first pilot exercised inference without publication; the separately authorized replacement
+  below completed publication.
+
+Under separate operator approval, GitOps now enables eligibility only and explicitly leaves
+`ProcessingEnabled=false`. The applied profile binds verified Azure deployment coordinates,
+3,072 dimensions, the captured tokenizer, snapshot-specific bounds and at most 16 inputs per batch
+(five requests for this selection). The trusted collection policy permits German A1 vocabulary,
+not exam papers or higher-level content. Both updated replicas are ready and reconciliation reports
+Synced/Healthy. The separately authorized pilot below briefly enabled processing and then restored
+this disabled state.
+
+Playwright completed the assigned-administrator document readback after operator sign-in.
+The first pilot's preflight returned `eligible=true`, no blockers, `indexingApproved=false`, no observed
+active predecessor, and manifest hash
+`7691E458AF5FA3EF9943EB4D9A43B27C65C2CE33A63531AE4268D240B37833A7`.
+Re-read it before job acceptance: changed source/review/policy/profile state invalidates this evidence.
+
+**Controlled Azure pilot outcome (2026-11-04):** The operator authorized one generation, at most
+five requests and 20,000 reported input tokens, plus the enable/disable GitOps commits and a
+configuration/deployment freeze. Acceptance retained the stricter existing profile ceiling of
+15,895 tokens. A fresh authenticated preflight matched the recorded manifest exactly; the
+administration API accepted one durable job while processing was still disabled.
+
+After the temporary gate rollout, three batches completed with 1,788, 2,399 and 5,709 reported
+input tokens respectively: 9,896 confirmed tokens and 48 staged vectors, each 3,072-dimensional.
+The fourth submission produced `HttpRequestException` without a durable successful receipt.
+The job stopped as `ReconciliationRequired`, with four reserved submissions and no fifth request.
+Azure status-code metrics for the selected deployment/window include HTTP 429 alongside successful
+requests, supporting throttling as the likely cause; those aggregated metrics are not a
+request-correlated receipt and do not establish the uncertain submission's usage or bill.
+The deployed pilot worker recorded the exception type but not the HTTP status; the local
+diagnostic changes described below cannot recover that missing evidence retrospectively.
+
+Readback verifies all 48 staged hashes match the authorized manifest, all 65 authorized inputs
+exclude the saved rejected chunk, and no active generation was published. Partial staging remains
+non-searchable. Processing was disabled again through GitOps and both replicas are ready with
+Synced/Healthy reconciliation. No uncertain request was replayed, no audit data was deleted, and
+the application identity has now demonstrated successful embedding inference for the three receipts.
+
+The fourth outcome remains quarantined with its audit/usage history intact. The operator chose a
+separately authorized full replacement rather than recovery tooling or direct job-row edits.
+Auditable administrator reconciliation remains a TODO on
+[`ReconciliationRequired`](../src/CasCap.Backend/Constants/DocumentIndexingStates.cs);
+never reset counters or automatically replay an unresolved paid intent.
+The verified deployment permits 10,000 tokens per
+60 seconds and 10 requests per 10 seconds; the first three receipts consumed 9,896 tokens
+in roughly five seconds. PDF file size is not the quota unit. Application pacing is required
+independently of an optional infrastructure capacity increase.
+Any new profile/manifest, recovery submission or quota increase needs separate review and approval.
+The operator can release the pilot freeze; retrieval and end-to-end answering remain undelivered.
+
+**Deployed durable pacing:** The operator selected a conservative durable
+gate using existing submission/receipt history rather than a process-local
+`System.Threading.RateLimiting` counter. An in-memory limiter alone loses history on leader
+replacement and cannot coordinate replicas or tenant/provider aliases. Adding a second limiter
+would duplicate admission policy without providing the missing durability.
+
+The [gate](../src/CasCap.Backend/Services/DocumentEmbeddingPacing.cs) and
+[worker contract](document-rag-lifecycle.md#local-durable-indexing-implementation) now provide:
+
+- One Azure batch per physical cloud/deployment resource ID per quiet interval, default 65 seconds,
+  with a default ceiling of 10,000 captured input tokens per batch. These operational settings
+  do not rewrite the manifest, change fixed batch boundaries or increase accepted allowances.
+  Oversized batches block preflight; Azure's estimator and other callers can still cause throttling.
+- Admission before claiming and rechecking before intent under the existing PostgreSQL mutation
+  lock. Waiting holds no claim/transaction and consumes no request. Successful receipts anchor the
+  interval; unresolved intents use their claim deadline conservatively. Recent source-retired
+  intents with erased private manifests gate all Azure scopes until their interval expires.
+- Privacy-safe numeric HTTP-status and Retry-After diagnostics, without bodies or credentials.
+  No new retry handler, header-based automatic rescheduler or reconciliation endpoint is introduced.
+  Explicit HTTP rejection and unknown transport outcomes both preserve the existing no-replay
+  quarantine after intent. The original fourth outcome remains uncertain.
+
+Local Debug validation passed 125 focused offline cases and 54 fake-HTTP/native-indexing cases.
+Two further native checks passed for actual competing reservations and the refactored publication
+competition fixture; one repeated earlier coverage, giving 180 distinct passing cases and no skips.
+The native runs used disposable, loopback-only pgvector PostgreSQL 18 containers, fake embedding
+providers and isolated databases; both containers and temporary storage were removed.
+This verifies application pacing, query translation and concurrency, not Azure estimator behavior.
+
+The pacing fix required no schema change or quota increase. Its tested Debug image was subsequently
+deployed under separate approval for the following bounded replacement.
+
+**Successful full Azure replacement (2026-11-05):** A new trusted collection policy revision `2`
+produced a new exact manifest while preserving the original job, staging and counters. A fresh
+authenticated preflight confirmed the same 65 inputs, 15,895 captured tokens and saved
+selection/assessment revisions `1`. The operator separately authorized five requests and
+15,895 reported input tokens; this was an independent allowance, not a reset of the old one.
+
+All five batches completed, reporting 1,788, 2,399, 5,709, 5,822 and 177 input tokens respectively.
+The job reached `Published`, current and active, with exactly 65 vectors of 3,072 dimensions.
+Read-only PostgreSQL acceptance matched every authorized ordinal/input hash, found no missing,
+mismatched or extra vector, and confirmed that both manifests contain the same input set.
+Receipt-to-next-submission intervals were 66.3–67.4 seconds; first submission to final publication
+took approximately 4 minutes 31 seconds. The old uncertain job remains inactive and unchanged.
+
+Processing was restored to `false`; both replicas were ready on the intended image with
+Synced/Healthy reconciliation. No further Azure submission is authorized by this completed run.
+This proves storage/publication acceptance, not retrieval, citations or end-to-end answering.
+
+**Reusable workflow capture:** The centrally managed `ai-rag` skill has been authored and locally
+validated at version `1.0.0`, with a language-neutral lifecycle/provider core and optional .NET
+integration reference. It is not yet a published skill release or an application feature.
+This ADR remains the canonical application decision and acceptance backlog.
+
+**GPU follow-up:** Read-only discovery found an existing llama.cpp runtime on a 12 GB GPU,
+with a chat model loaded but no advertised/configured embedding model. This is not Ollama.
+A dedicated single-model adapter/binding is now implemented and offline-tested, but not deployed;
+the existing multi-model chat router is not a compatible target without separately approved
+reconfiguration. A verified embedding model, artifact hash, dimensions and pooling are still required.
+Downloads, provisioning, model switching and inference need separate approval. Keep the Azure
+generation available during comparison; a different model must use a separate corpus/profile
+rather than mixing vector spaces or accidentally replacing the active Azure generation.
 
 Proceed through the following gates in order:
 
-- [ ] **Re-establish the baseline after the release train.** Confirm the active branch, resolved
+- [x] **Re-establish the Azure baseline after the release train.** Confirm the active branch, resolved
   dependencies, actual role registrations and Debug/Release support. With separate test approval,
   rerun focused adapter, eligibility and native publication checks against isolated storage.
   Preserve concurrent changes and existing services; do not enable workers while the baseline
   or source-writing replicas are changing.
-- [ ] **Verify the execution target without document submission.** Prefer the available 12 GB
-  GPU-backed Ollama endpoint for the selected `qwen3-embedding:4b` pilot; the 4 GB workstation is
-  a fallback only after measured fit. Verify exact tenant registration/authority, reachability
-  from the intended worker, local embedding capability, full model digest and native dimensions.
-  Keep model tags immutable during jobs. Model downloads or new GPU/container provisioning
-  require separate authorization. Start with one input per batch; record peak GPU memory,
-  CPU fallback and batch/load latency rather than assuming model weight size proves fit.
-- [ ] **Verify schema and deployment readiness.** Confirm `vector` and the additive indexing
+- [x] **Verify the Azure execution target without document submission.** The owner selected the
+  provisioned Azure `text-embedding-3-large` revision `1` for the next pilot; verify its exact
+  tenant provider registration, selected endpoint/deployment, management resource ID and
+  dimensions with the application's existing identity. Infrastructure provisioning does not
+  activate a runtime profile or prove inference access.
+- [x] **Implement and offline-test llama.cpp dispatch.** Reuse the durable worker/publication
+  boundary without changing existing Azure/Ollama manifest serialization or enabling live work.
+- [ ] **Verify and authorize llama.cpp GPU embedding separately.** Verify
+  tenant authority, worker reachability, single-model serving, model identity/artifact hash, embedding
+  capability, pooling and native dimensions. Keep model artifacts immutable during jobs. Downloads,
+  provisioning, inference or eviction of the existing chat model need separate authorization.
+  Start with one input per batch; measure GPU memory, CPU fallback and batch/load latency.
+  Preserve the Azure publication during comparison.
+- [x] **Verify schema and deployment readiness.** Confirm `vector` and the additive indexing
   migration on the target database, then verify the intended worker artifact and all source-writing
   replicas support derivative retirement. Apply missing schema externally under separate
   authorization; leave eligibility/processing disabled until these checks pass. A successful
   local build or installed extension alone does not prove worker deployment.
-- [ ] **Read back one exact saved review and preflight.** Prefer an eligible reviewed vocabulary
+- [x] **Read back one exact saved review and preflight.** Prefer an eligible reviewed vocabulary
   document as the first pilot. Confirm current source/snapshot, included/excluded ordinals,
   assessment revision, trusted policy/profile, manifest hash and observed publication predecessor.
   A successful assessment save proves persistence, not readiness, indexing or search availability.
   The manual source is not an eligible shortcut: implement and verify figure/caption/source
   associations before attempting device-manual indexing, without relabeling it to bypass policy.
-- [ ] **Authorize one bounded embedding/publication job.** Select exactly one Azure or Ollama
+- [x] **Authorize one bounded embedding job.** One exact Azure manifest and its ceilings were
+  accepted under separate operator approval. This does not establish publication success.
+- [x] **Complete Azure publication acceptance.** Select exactly one Azure
   profile and separately confirm request/token ceilings and the observed predecessor. Coordinate
   a short deployment/configuration freeze with other sessions during the pilot. Verify received
   native usage, exact included-vector count/dimensions/provenance, excluded-chunk absence and
   atomic complete-generation publication; partial or uncertain work must not activate or replay.
   Record timings and resource use without document/query content in telemetry.
-- [ ] **Close the pilot before broadening it.** Read back durable job/receipt/publication state,
+- [x] **Close the Azure run before broadening it.** Read back durable job/receipt/publication state,
   report any reconciliation requirement and restore the agreed processing/configuration state.
   Do not delete audit history or drop schema for application rollback. Release the coordinated
   freeze explicitly; publication alone does not authorize retrieval or further submissions.
 
 Embedding production is separate from the answering model: Azure can produce vectors for an
-Azure-profile corpus, while Ollama produces vectors for its own pinned profile. Future query
+Azure-profile corpus, while llama.cpp or optional Ollama produces vectors for its own pinned profile. Future query
 embeddings must match the stored profile even if a different provider supplies the chat model.
-Both paths retain Agentizr's tenant-qualified pgvector storage and review/publication fences.
+All paths retain Agentizr's tenant-qualified pgvector storage and review/publication fences.
 The [beginner explanation](document-rag-lifecycle.md#rag-basics-why-two-models),
 [worker contract](document-rag-lifecycle.md#local-durable-indexing-implementation) and
-[Ollama constraints](document-rag-lifecycle.md#local-ollama-embeddings) provide the detailed contracts.
+[llama.cpp contract](document-rag-lifecycle.md#local-llamacpp-embeddings) provide the next pilot's
+details; [native Ollama constraints](document-rag-lifecycle.md#local-ollama-embeddings) remain separate.
 
-After storage/publication acceptance, deliver protected exact search with query-profile binding,
-server-side tenant/collection/current-eligibility filters and bounded cited passages. Then integrate
-opt-in model knowledge bindings and evaluate grounded answers/abstention against the no-retrieval
-baseline. These are distinct milestones: an embedding pilot is not an end-to-end RAG demonstration.
-The Phase 3 checklist remains the authority for consumer acceptance.
+**Remaining delivery order:**
+
+1. **Complete the separately authorized GPU pilot.** Select/verify a single-model llama.cpp
+   embedding endpoint and immutable model/pooling contract; approve any model setup or chat-model
+   eviction explicitly. Deploy the tested adapter through an explicitly approved build variant, authorize one new exact manifest/budget,
+   verify all native receipts/vectors and publish to a separate profile/corpus while preserving
+   the Azure generation. Close out processing and report measured GPU memory/latency.
+2. **Implement protected retrieval.** Bind query embeddings to the selected stored profile,
+   enforce tenant/collection/current-eligibility constraints in exact pgvector search, and return
+   bounded passages with resolvable source/version/page citations. Prove excluded-chunk absence,
+   profile mismatch rejection and revocation/deletion behavior before adding ANN tuning.
+3. **Wire opt-in agent knowledge bindings.** Feed authorized passages to answering agents without
+   changing unbound agents. Verify cited answers and abstention, multi-turn/compaction behavior and
+   a retrieval/answer-quality comparison against the no-retrieval baseline.
+4. **Accept each consumer's gates.** Complete the Phase 3 language-level/lesson validation for
+   learning use cases. Device manuals additionally require verified figure/caption/source
+   associations and preparation fidelity; an Azure or GPU embedding success cannot bypass them.
+5. **Validate the delivery variant and onboard.** Prove the live blob-to-answer flow through the
+   intended deployment, apply migrations externally and onboard one eligible collection per
+   consumer. Release package compilation is now validated; live delivery, production limits and
+   end-to-end consumer acceptance remain separate gates.
+
+The Phase 3 checklist below remains the detailed consumer acceptance authority.
+[Azure AI Search and onboarding automation](#later-gates-optional-search-target-and-bootstrap)
+are later optional lanes, not prerequisites for the immediate pgvector pilot.
+Audited reconciliation tooling remains deliberately deferred under the owning
+[`ReconciliationRequired` TODO](../src/CasCap.Backend/Constants/DocumentIndexingStates.cs);
+do not reset or replay the original uncertain job to accelerate these steps.
 
 ### Phase 3: Integrate Agents And Onboard Consumers
 
@@ -2386,9 +2595,10 @@ The Phase 3 checklist remains the authority for consumer acceptance.
   substitutes for source rights, tenant authorization or separate teaching-language policy.
 - What ingestion/search quotas, retention windows and latency SLO fit measured corpus growth and
   target hardware? These must be resolved before production acceptance.
-- Verify whether the preferred 12 GB GPU execution target has capacity for the embedding pilot
-  alongside existing workloads, and measure whether per-batch model unloading makes reload latency
-  unacceptable. Reconsider residency/batching only with explicit resource and replay bounds.
+- Verify whether the preferred llama.cpp GPU execution target has capacity for a separately
+  configured embedding endpoint alongside existing workloads. Measure residency/batching explicitly;
+  native Ollama's per-batch unload policy is not a llama.cpp protocol option or a shared-router guarantee.
+  Reconsider scheduling only with explicit resource and replay bounds.
 - Does a consumer need user-private documents or licensed cross-application sharing? Design explicit
   ACLs/licensing and revocation before admitting either, rather than weakening tenant isolation.
 - Evaluate the optional Azure AI Search target, another vector service or Redis search if PostgreSQL contention,

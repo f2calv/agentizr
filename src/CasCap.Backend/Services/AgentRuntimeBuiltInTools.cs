@@ -84,10 +84,12 @@ internal sealed class AgentRuntimeBuiltInTools(
         }
         catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException)
         {
-            logger.LogWarning(
-                ex,
-                "Tenant time zone {TimeZoneId} is unavailable; using UTC",
-                timeZoneId);
+            if (logger.IsEnabled(LogLevel.Warning))
+                logger.LogWarning(
+                    ex,
+                    "{ClassName} tenant time zone {TimeZoneId} is unavailable; using UTC",
+                    nameof(AgentRuntimeBuiltInTools),
+                    timeZoneId);
             timeZone = TimeZoneInfo.Utc;
         }
 

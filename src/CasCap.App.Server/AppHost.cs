@@ -37,7 +37,6 @@ public static partial class AppHost
             var runtimeEnabled = features.Contains(FeatureNames.Agentizr);
 
             // Logging
-#if DEBUG
             var runtimeLoggingSwitch = runtimeEnabled ? builder.AddAgentRuntimeLogging() : null;
             var logger = SerilogWebApplicationBuilderExtensions.InitializeSerilog(builder,
                 configureLogger: configuration =>
@@ -45,11 +44,6 @@ public static partial class AppHost
                     if (runtimeLoggingSwitch is not null)
                         configuration.MinimumLevel.ControlledBy(runtimeLoggingSwitch);
                 });
-#else
-            if (runtimeEnabled && builder.Configuration.GetValue<bool>("CasCap:RuntimeConfigurationConfig:Enabled"))
-                throw new InvalidOperationException("The runtime configuration soak requires a Debug build with local source references.");
-            var logger = SerilogWebApplicationBuilderExtensions.InitializeSerilog(builder);
-#endif
 
             // Infrastructure
             builder.Services.AddSingleton(TimeProvider.System);
@@ -64,10 +58,8 @@ public static partial class AppHost
             else
                 builder.AddAgentRuntimeDatabase(required: true);
             var administrationEnabled = runtimeEnabled && builder.AddAgentRuntimeAdministration();
-#if DEBUG
             if (runtimeEnabled)
                 builder.AddAgentRuntimeLoggingManagement();
-#endif
             if (runtimeEnabled)
                 AddFrontend(builder);
             var mcpEnabled = runtimeEnabled && builder.AddAgentRuntimeMcp(migrateOnly);
@@ -96,6 +88,7 @@ public static partial class AppHost
                 }
                 else
                 {
+                    app.UseCasCapRequestLogging();
                     app.MapGet("/status", () => Results.Ok(new { Service = "agentizr", Role = FeatureNames.Ingestion }));
                     app.MapHealthChecks("/healthz");
                 }

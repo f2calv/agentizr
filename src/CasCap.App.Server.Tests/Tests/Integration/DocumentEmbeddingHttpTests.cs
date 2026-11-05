@@ -1,5 +1,5 @@
-#if DEBUG
 using Azure.Core;
+using Microsoft.Extensions.Logging;
 using System.Text;
 using System.Text.Json;
 
@@ -11,10 +11,12 @@ namespace CasCap.Tests.Integration;
 public sealed class DocumentEmbeddingHttpTests
 {
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(true, false)]
-    [InlineData(false, true)]
-    public async Task AzureAdapterBindsTenantDeploymentExactInputsAndOneSubmission(bool entra, bool fail)
+    [InlineData(false, 200)]
+    [InlineData(true, 200)]
+    [InlineData(false, 503)]
+    [InlineData(false, 429)]
+    [InlineData(false, -1)]
+    public async Task AzureAdapterBindsTenantDeploymentExactInputsAndOneSubmission(bool entra, int status)
     {
         var settings = DocumentIndexingTestData.ExecutionConfig();
         var manifest = DocumentIndexingPlanBuilder.Build(settings, DocumentIndexingTestData.Review()).Manifest!;
@@ -46,17 +48,29 @@ public sealed class DocumentEmbeddingHttpTests
             AllowedProviderAuthorities = [new Uri(DocumentIndexingTestData.Azure.Endpoint).GetLeftPart(UriPartial.Authority)],
         }));
         await using var container = services.BuildServiceProvider();
-        using var handler = new AzureHandler(batch, entra, fail);
+        using var handler = new AzureHandler(batch, entra, status);
         var clients = new Clients(handler);
-        var adapter = new DocumentEmbeddingProvider(container, clients, new(clients, container.GetRequiredService<RuntimeEntraCredential>()),
-            new(container, clients));
+        var logger = new CaptureLogger();
+        var adapter = new DocumentEmbeddingProvider(logger, TimeProvider.System, container, clients, new(clients, container.GetRequiredService<RuntimeEntraCredential>()),
+            new(container, clients), new(container, clients));
         await adapter.VerifyAsync(manifest, TestContext.Current.CancellationToken);
         Assert.Equal(2, handler.MetadataReads);
         Assert.Equal(0, handler.Submissions);
-        if (fail)
+        if (status != 200)
         {
             var error = await Assert.ThrowsAsync<HttpRequestException>(() => adapter.GenerateAsync(batch, TestContext.Current.CancellationToken));
+            Assert.Equal(status < 0 ? (HttpStatusCode?)null : (HttpStatusCode)status, error.StatusCode);
             Assert.DoesNotContain("private-response-body", error.Message, StringComparison.Ordinal);
+            if (status > 0)
+            {
+                var entry = Assert.Single(logger.Entries);
+                Assert.Contains($"HTTP {status}", entry, StringComparison.Ordinal);
+                Assert.Contains("retry-after seconds 71", entry, StringComparison.Ordinal);
+                Assert.DoesNotContain("private-response-body", entry, StringComparison.Ordinal);
+                Assert.DoesNotContain("synthetic-embedding-key", entry, StringComparison.Ordinal);
+            }
+            else
+                Assert.Empty(logger.Entries);
         }
         else
         {
@@ -91,7 +105,19 @@ public sealed class DocumentEmbeddingHttpTests
         public HttpClient CreateClient(string name) => new(handler, disposeHandler: false);
     }
 
-    private sealed class AzureHandler(DocumentEmbeddingBatch batch, bool entra, bool fail) : HttpMessageHandler
+    private sealed class CaptureLogger : ILogger<DocumentEmbeddingProvider>
+    {
+        public List<string> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter) => Entries.Add(formatter(state, exception));
+    }
+
+    private sealed class AzureHandler(DocumentEmbeddingBatch batch, bool entra, int status) : HttpMessageHandler
     {
         public int MetadataReads { get; private set; }
 
@@ -132,8 +158,15 @@ public sealed class DocumentEmbeddingHttpTests
                 body.RootElement.GetProperty("input").EnumerateArray().Select(input => input.GetString()));
             Assert.Equal(8, body.RootElement.GetProperty("dimensions").GetInt32());
             Assert.Equal("float", body.RootElement.GetProperty("encoding_format").GetString());
-            if (fail)
-                return Response("private-response-body", HttpStatusCode.ServiceUnavailable);
+            if (status < 0)
+                throw new HttpRequestException("Synthetic unknown transport outcome.");
+            if (status != 200)
+            {
+                var response = Response("private-response-body", (HttpStatusCode)status);
+                response.Headers.RetryAfter = new(TimeSpan.FromSeconds(60));
+                response.Headers.Add("retry-after-ms", "71000");
+                return response;
+            }
             return Response(JsonSerializer.Serialize(new
             {
                 data = batch.Inputs.Select((_, index) => new { index, embedding = new float[] { 1, 2, 3, 4, 5, 6, 7, 8 } }),
@@ -145,4 +178,3 @@ public sealed class DocumentEmbeddingHttpTests
             new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
     }
 }
-#endif

@@ -31,7 +31,8 @@ public sealed class RuntimeLoggingProbe(
     }
 
     /// <summary>Applies an accepted monitor value to the same switch the pipeline consumes.</summary>
-    internal void Apply(RuntimeLoggingControls value)
+    /// <returns><see langword="true"/> when the effective minimum level changed.</returns>
+    internal bool Apply(RuntimeLoggingControls value)
     {
         var minimumLevel = value.MinimumLevel switch
         {
@@ -46,9 +47,11 @@ public sealed class RuntimeLoggingProbe(
         var appliedAtUtc = timeProvider.GetUtcNow();
         lock (_lock)
         {
+            var changed = levelSwitch.MinimumLevel != minimumLevel;
             levelSwitch.MinimumLevel = minimumLevel;
             _applyCount++;
             _lastAppliedAtUtc = appliedAtUtc;
+            return changed;
         }
     }
 }

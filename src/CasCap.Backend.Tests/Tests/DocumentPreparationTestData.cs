@@ -1,4 +1,3 @@
-#if DEBUG
 using System.Globalization;
 using System.Text;
 using UglyToad.PdfPig.Content;
@@ -44,4 +43,3 @@ internal static class DocumentPreparationTestData
         return Encoding.ASCII.GetBytes(content.ToString());
     }
 }
-#endif

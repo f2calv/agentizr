@@ -8,7 +8,7 @@ server executable.
 ## Tests
 
 Counts below are source-declared methods and expanded InlineData cases, not observed run results.
-Debug-only document and logging cases are absent from Release where guarded by `#if DEBUG`.
+Document and logging cases run in both configurations; Release proves the published-package path.
 
 | Class | Method count | Test-case count |
 | --- | ---: | ---: |
@@ -28,10 +28,12 @@ Debug-only document and logging cases are absent from Release where guarded by `
 | `DocumentBlobDownloadTests` | 5 | 21 |
 | `DocumentChunkingTests` | 5 | 15 |
 | `DocumentEmbeddingProviderTests` | 3 | 16 |
-| `DocumentIndexingConfigTests` | 4 | 32 |
+| `DocumentEmbeddingPacingTests` | 6 | 25 |
+| `DocumentIndexingConfigTests` | 6 | 51 |
 | `DocumentIndexingPlanTests` | 6 | 34 |
 | `DocumentIngestionAdmissionTests` | 9 | 20 |
 | `DocumentIngestionConfigTests` | 7 | 23 |
+| `DocumentLlamaCppEmbeddingProviderTests` | 2 | 19 |
 | `DocumentMarkdownChunkingTests` | 17 | 30 |
 | `DocumentMarkdownReviewTests` | 10 | 32 |
 | `DocumentMarkdownStructureTests` | 10 | 33 |
@@ -63,7 +65,7 @@ remain in [Server.Tests](../CasCap.App.Server.Tests/README.md).
 
 ## Skipped Tests
 
-One Debug case requires explicit retained-document review approval:
+One case requires explicit retained-document review approval:
 `DocumentPreparationOfflineReviewTests.RetainedCandidatesToChunks` is gated by
 `CASCAP_RUN_DOCUMENT_OFFLINE_REVIEW=true` and requires local review input plus a fresh private
 output directory. Ordinary runs must not read operator documents. See the

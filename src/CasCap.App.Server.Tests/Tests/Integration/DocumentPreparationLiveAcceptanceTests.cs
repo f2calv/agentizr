@@ -1,4 +1,3 @@
-#if DEBUG
 using Azure.Storage.Blobs;
 using CasCap.Common.Abstractions;
 using CasCap.Common.Extensions;
@@ -64,12 +63,7 @@ public sealed class DocumentPreparationLiveAcceptanceTests(ITestOutputHelper out
             ?? throw new InvalidOperationException("Runtime provider configuration is required.");
         var policy = configuration.GetSection(AgentDefinitionPolicyConfig.ConfigurationSectionName).Get<AgentDefinitionPolicyConfig>()
             ?? throw new InvalidOperationException("Runtime provider policy is required.");
-        var candidates = metadata.Deployments
-            .Where(item => item.Model == metadata.ApprovedModel && item.Revision == metadata.ApprovedRevision)
-            .SelectMany(item => item.Endpoints.Where(endpoint =>
-                policy.AllowedProviderAuthorities.Contains(new Uri(endpoint).GetLeftPart(UriPartial.Authority), StringComparer.OrdinalIgnoreCase))
-                .Select(endpoint => (Deployment: item, Endpoint: new Uri(endpoint))))
-            .DistinctBy(item => (item.Deployment.DeploymentResourceId, item.Endpoint)).ToArray();
+        var candidates = ApprovedDeployments(metadata, policy);
         Assert.Single(candidates.Select(item => item.Deployment.Model));
         var deployment = candidates[0].Deployment;
         var provider = new ProviderConfig
@@ -103,7 +97,7 @@ public sealed class DocumentPreparationLiveAcceptanceTests(ITestOutputHelper out
             .AddSingleton<IDbContextFactory<AgentRuntimeDbContext>>(factory)
             .AddSingleton(Options.Create(runtime))
             .AddSingleton(Options.Create(policy))
-            .AddSingleton(Options.Create(new ApiAuthConfig { Username = "unused", Password = "unused" }))
+            .AddSingleton(Options.Create(new ApiAuthConfig { Username = string.Empty, Password = string.Empty }))
             .AddSingleton(credential);
         foreach (var name in new[] { nameof(DocumentPreparationProvider), nameof(DocumentPreparationModelVerifier) })
             services.AddHttpClient(name).RemoveAllLoggers()
@@ -151,17 +145,7 @@ public sealed class DocumentPreparationLiveAcceptanceTests(ITestOutputHelper out
             };
             await preparationProvider.VerifyModelAsync(plan, Token);
             var blobs = new BlobContainerClient(new Uri(source.ContainerUri), credential.Credential);
-            var names = new List<string>();
-            await foreach (var blob in blobs.GetBlobsAsync(cancellationToken: Token))
-                if (blob.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
-                {
-                    names.Add(blob.Name);
-                    if (names.Count == 2)
-                        break;
-                }
-            if (names.Count != 1)
-                throw new InvalidOperationException("Acceptance requires exactly one existing PDF per approved source.");
-            var client = blobs.GetBlobClient(names[0]);
+            var client = await SingleSourcePdfAsync(blobs);
             var properties = (await client.GetPropertiesAsync(cancellationToken: Token)).Value;
             Assert.InRange(properties.ContentLength, 5, limits.MaximumPdfBytes);
             var preflight = new DocumentIngestionClaim
@@ -300,6 +284,30 @@ public sealed class DocumentPreparationLiveAcceptanceTests(ITestOutputHelper out
         Assert.Empty(await verification.AgentRuns.ToArrayAsync(Token));
     }
 
+    private static async Task<BlobClient> SingleSourcePdfAsync(BlobContainerClient blobs)
+    {
+        var names = new List<string>();
+        await foreach (var blob in blobs.GetBlobsAsync(cancellationToken: Token))
+            if (blob.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+            {
+                names.Add(blob.Name);
+                if (names.Count == 2)
+                    break;
+            }
+        if (names.Count != 1)
+            throw new InvalidOperationException("Acceptance requires exactly one existing PDF per approved source.");
+        return blobs.GetBlobClient(names[0]);
+    }
+
+    private static (DeploymentMetadata Deployment, Uri Endpoint)[] ApprovedDeployments(
+        AzureMetadata metadata, AgentDefinitionPolicyConfig policy) =>
+        metadata.Deployments
+            .Where(item => item.Model == metadata.ApprovedModel && item.Revision == metadata.ApprovedRevision)
+            .SelectMany(item => item.Endpoints.Where(endpoint =>
+                policy.AllowedProviderAuthorities.Contains(new Uri(endpoint).GetLeftPart(UriPartial.Authority), StringComparer.OrdinalIgnoreCase))
+                .Select(endpoint => (Deployment: item, Endpoint: new Uri(endpoint))))
+            .DistinctBy(item => (item.Deployment.DeploymentResourceId, item.Endpoint)).ToArray();
+
     private static string Required(string name) =>
         Environment.GetEnvironmentVariable(name) is { Length: > 0 } value
             ? value : throw new InvalidOperationException($"Explicit {name} is required.");
@@ -309,4 +317,3 @@ public sealed class DocumentPreparationLiveAcceptanceTests(ITestOutputHelper out
     private sealed record SourceInput(DocumentSourceConfig Source, DocumentPreparationPlan Plan, BlobClient Blob,
         string ETag, DateTimeOffset ModifiedAtUtc, byte[] Bytes, int PageCount);
 }
-#endif

@@ -1,4 +1,3 @@
-#if DEBUG
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
@@ -41,4 +40,3 @@ internal static class DocumentVectorStore
             throw new InvalidDataException("The staged vector generation does not match its exact approved inputs.");
     }
 }
-#endif

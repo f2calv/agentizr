@@ -25,12 +25,13 @@ internal sealed class CachedAgentDefinitionStore(
         try
         {
             var cached = await distributedCache.Get<AgentDefinition>(key);
+            ReportCacheAvailable();
             if (cached is not null)
                 return cached;
         }
         catch (RedisException)
         {
-            LogCacheUnavailable();
+            ReportCacheUnavailable();
         }
 
         var definition = (await innerStore.GetVersionAsync(agentName, definitionVersion, cancellationToken))?.Definition;
@@ -42,10 +43,11 @@ internal sealed class CachedAgentDefinitionStore(
                     key,
                     definition,
                     slidingExpiration: TimeSpan.FromMinutes(runtimeConfig.Value.DefinitionCacheExpirationMinutes));
+                ReportCacheAvailable();
             }
             catch (RedisException)
             {
-                LogCacheUnavailable();
+                ReportCacheUnavailable();
             }
         }
         return definition;
@@ -160,12 +162,13 @@ internal sealed class CachedAgentDefinitionStore(
         try
         {
             var cached = await distributedCache.Get<ActivePointer>(key);
+            ReportCacheAvailable();
             if (cached is not null && cached.ExpiresAtUtc > observedAt)
                 return cached.Version;
         }
         catch (RedisException)
         {
-            LogCacheUnavailable();
+            ReportCacheUnavailable();
         }
         var version = await innerStore.GetActiveVersionAsync(agentName, cancellationToken);
         var expiresAt = observedAt.AddSeconds(runtimeConfig.Value.ActiveDefinitionCacheSeconds);
@@ -174,10 +177,11 @@ internal sealed class CachedAgentDefinitionStore(
             try
             {
                 await distributedCache.Set(key, new ActivePointer(version, expiresAt), absoluteExpiration: expiresAt);
+                ReportCacheAvailable();
             }
             catch (RedisException)
             {
-                LogCacheUnavailable();
+                ReportCacheUnavailable();
             }
         }
         return version;
@@ -188,18 +192,19 @@ internal sealed class CachedAgentDefinitionStore(
         try
         {
             await distributedCache.Delete(AgentDefinitionCacheKey.CreateActive(tenantContext.TenantId, agentName));
+            ReportCacheAvailable();
         }
         catch (RedisException)
         {
-            LogCacheUnavailable();
+            ReportCacheUnavailable();
         }
     }
 
-    private void LogCacheUnavailable()
-    {
-        if (logger.IsEnabled(LogLevel.Warning))
-            logger.LogWarning("{ClassName} Definition cache unavailable; using PostgreSQL", nameof(CachedAgentDefinitionStore));
-    }
+    private void ReportCacheUnavailable() =>
+        RedisCacheAvailability.ReportFailure(logger, nameof(CachedAgentDefinitionStore), timeProvider);
+
+    private void ReportCacheAvailable() =>
+        RedisCacheAvailability.ReportSuccess(logger, nameof(CachedAgentDefinitionStore), timeProvider);
 
     private sealed record ActivePointer(string? Version, DateTimeOffset ExpiresAtUtc);
 }

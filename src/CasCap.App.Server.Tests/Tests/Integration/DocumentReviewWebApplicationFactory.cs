@@ -1,4 +1,3 @@
-#if DEBUG
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
@@ -64,4 +63,3 @@ internal sealed class DocumentReviewWebApplicationFactory(
         }
     }
 }
-#endif

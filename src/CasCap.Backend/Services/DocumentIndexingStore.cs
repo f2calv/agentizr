@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Models;
 using CasCap.Constants;
 using CasCap.Entities;
@@ -109,28 +108,30 @@ internal sealed partial class DocumentIndexingStore(
                 .SetProperty(item => item.ClaimId, (Guid?)null).SetProperty(item => item.FinishedAtUtc, now), token);
         await expired.ExecuteUpdateAsync(update => update.SetProperty(item => item.Status, DocumentIndexingStates.Queued)
             .SetProperty(item => item.ClaimId, (Guid?)null), token);
-        var job = await db.DocumentIndexingJobs.Where(item => item.Status == DocumentIndexingStates.Queued)
-            .OrderBy(item => item.AcceptedAtUtc).ThenBy(item => item.Id).FirstOrDefaultAsync(token);
-        if (job is null)
+        var queued = await db.DocumentIndexingJobs.Where(item => item.Status == DocumentIndexingStates.Queued)
+            .OrderBy(item => item.AcceptedAtUtc).ThenBy(item => item.Id).ToArrayAsync(token);
+        foreach (var job in queued)
         {
-            await transaction.CommitAsync(token);
-            return null;
-        }
-        var manifest = await CurrentManifestAsync(db, job, token);
-        if (manifest is null)
-        {
-            job.Status = DocumentIndexingStates.Revoked;
-            job.FinishedAtUtc = now;
+            var manifest = await CurrentManifestAsync(db, job, token);
+            if (manifest is null)
+            {
+                job.Status = DocumentIndexingStates.Revoked;
+                job.FinishedAtUtc = now;
+                continue;
+            }
+            now = await DocumentIngestionTransactions.GetUtcNowAsync(db, timeProvider, token);
+            if (await DocumentEmbeddingPacing.IsPendingAsync(db, config.Value, manifest, now, token))
+                continue;
+            job.ClaimId = Guid.NewGuid();
+            job.ClaimExpiresAtUtc = now.AddSeconds(config.Value.ProcessingTimeoutSeconds);
+            job.Status = DocumentIndexingStates.Processing;
             await db.SaveChangesAsync(token);
             await transaction.CommitAsync(token);
-            return null;
+            return new(job.Id, job.ClaimId.Value, job.ClaimExpiresAtUtc.Value, manifest);
         }
-        job.ClaimId = Guid.NewGuid();
-        job.ClaimExpiresAtUtc = now.AddSeconds(config.Value.ProcessingTimeoutSeconds);
-        job.Status = DocumentIndexingStates.Processing;
         await db.SaveChangesAsync(token);
         await transaction.CommitAsync(token);
-        return new(job.Id, job.ClaimId.Value, job.ClaimExpiresAtUtc.Value, manifest);
+        return null;
     }
 
     private async Task<DocumentIndexingManifest?> CurrentManifestAsync(
@@ -207,4 +208,3 @@ internal sealed partial class DocumentIndexingStore(
         db.ActiveDocumentIndexes.SingleOrDefaultAsync(item => item.TenantId == manifest.TenantId
             && item.CollectionId == manifest.CollectionId && item.DocumentId == manifest.DocumentId, token);
 }
-#endif

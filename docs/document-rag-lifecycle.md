@@ -10,11 +10,27 @@ and document-level readiness assessments are deployed in the Debug workflow. Kno
 and model knowledge bindings are not implemented.
 Saving an assessment does not start indexing or make a document available to a model.
 
-**Local-only indexing:** protected preflight, separately confirmed durable jobs, a non-retrying
-Azure OpenAI and local-model Ollama embedding adapters, native pgvector staging and guarded atomic publication are
-implemented. Both indexing gates default off. This slice is not deployed; no live deployment,
-model digest/dimensions or paid allowance has been activated. The selected Ollama pilot model is
-`qwen3-embedding:4b`; its installed metadata still needs verification. There is no indexing browser control.
+Both Debug and Release now compile the same opt-in ingestion, review and indexing implementation.
+Release uses verified Common 5.1.0 and Azure 2.0.0 packages. This removes a build restriction only:
+the deployment evidence below remains Debug-specific, processing/indexing remain off by default,
+and protected retrieval, agent knowledge bindings and live GPU acceptance remain unfinished.
+
+**Deployed Azure indexing:** protected preflight, separately confirmed durable jobs, non-retrying
+Azure embeddings, durable pacing, native pgvector staging and guarded atomic publication are deployed
+in the Debug workflow. On 2026-11-05, a separately authorized full replacement published all 65 reviewed
+inputs as 3,072-dimensional vectors using five requests and 15,895 reported input tokens.
+Processing is back off; both gates still default off. The earlier uncertain job remains quarantined
+and unchanged. There is no indexing browser control or implemented search/model knowledge binding.
+
+**Local GPU boundary:** llama.cpp is the preferred self-hosted runtime; the separate native Ollama
+adapter remains an optional alternative. Read-only discovery found llama.cpp with a chat model loaded and no advertised/configured
+embedding model. Its new single-model adapter/binding is implemented and offline-tested, not deployed;
+real model identity, pooling and dimensions remain unverified. No download, model switch or GPU
+inference is authorized by the completed Azure run or offline implementation approval.
+The Ollama examples below describe that adapter, not the discovered GPU deployment.
+See the [provider terminology](../README.md#provider-terminology): llama.cpp uses OpenAI-compatible
+routes, while the Ollama adapter uses the native Ollama API. Their runtime-specific class/file
+names are intentional, not synonyms that should be mechanically renamed.
 
 ## RAG Basics: Why Two Models?
 
@@ -30,11 +46,11 @@ passages, then writes an answer. These models can come from different providers.
 | --- | --- | --- |
 | Prepare | Extract and normalize a PDF into reviewed Markdown | Preparation workflow |
 | Chunk | Divide approved content into passages, preserving headings and provenance | Agentizr |
-| Embed documents | Convert each included passage into a semantic vector | Embedding model, for example `qwen3-embedding:4b` |
+| Embed documents | Convert each included passage into a semantic vector | Embedding model, for example `text-embedding-3-large` or the Qwen3 Embedding family |
 | Store | Keep vectors and their passage/source bindings | PostgreSQL with pgvector |
 | Embed a question | Convert the question into the **same embedding space** | The same pinned embedding model/profile |
 | Retrieve | Find nearby eligible vectors and return their passages | Authorized pgvector search, still planned |
-| Answer | Read the question plus retrieved passages and cite the evidence | Chat model, for example `qwen3.5:9b`; model binding still planned |
+| Answer | Read the question plus retrieved passages and cite the evidence | Chat model, for example the Qwen3.5 family; model binding still planned |
 
 For example, “How do I reset this device?” can match a passage describing a factory reset even if
 the wording differs. Vector similarity supplies candidates; it does not prove that the passage is
@@ -44,9 +60,10 @@ Adding a document updates the knowledge store, not the chat model's weights.
 
 Stored passages and questions must use compatible model identity/revision, dimensions and input
 conventions. Equal vector lengths alone do not make different models compatible. An Azure-produced
-corpus cannot be searched with an Ollama-produced question vector: changing providers/models requires
+corpus cannot be searched with a different llama.cpp/Ollama profile's question vector: changing the bound provider/model profile requires
 re-embedding the corpus under a new profile and publishing a complete replacement generation.
-Vectors still live in pgvector; Ollama is their producer, not a second vector database.
+Vectors still live in pgvector; Azure OpenAI, llama.cpp and Ollama are vector producers, not
+alternative vector databases.
 
 “Local Ollama” means the server named by the tenant-authorized endpoint. It may already run in
 Docker or directly on a machine; this adapter creates neither. The 4B model's quantized weights
@@ -55,15 +72,15 @@ especially with a chat model resident too. Start with one input per batch and me
 before increasing it. The adapter requests unload after each embedding batch; this trades reload
 latency for lower idle GPU residency and does not control other callers.
 
-Only the embedding stage gains Ollama support here. PDF preparation may still use Azure services,
+The Azure OpenAI, llama.cpp and Ollama bindings concern the embedding stage. PDF preparation may still use Azure services,
 manuals still require verified visual associations, and retrieval/answer integration remains future
-work. Neither adapter means that an end-to-end RAG application has already been deployed.
+work. An implemented adapter does not mean that an end-to-end RAG application has been deployed.
 
 ## Data Flow
 
 **Current** means deployed in the Debug workflow, subject to configuration and authorization,
-not enabled for every collection. **Local only** means implemented and locally validated, not
-deployed. **Planned** means unimplemented. **Blocked** means no downstream publication is permitted.
+not enabled for every collection. **Planned** means unimplemented.
+**Blocked** means no downstream publication is permitted.
 Labels carry these distinctions independently of color.
 
 ```mermaid
@@ -102,15 +119,15 @@ flowchart TD
         Hold -.->|After correction| Selection
     end
 
-    subgraph indexing["4. Locally implemented indexing and publication"]
-        Policy{"Local only: trusted policy, profile and current revisions pass?"}
-        Manifest["Local only: exact included-chunk input manifest"]
-        Authorize["Local only: separate confirmation and request/token allowance"]
-        IndexJob["Local only: durable indexing job and bounded embedding batches"]
-        Staged[("Local only: inactive complete pgvector generation")]
-        Activate{"Local only: recheck eligibility and atomically activate"}
-        Vectors[("Local only: published pgvector generation")]
-        IndexFailure["Local only: explicit failure; no partial activation"]
+    subgraph indexing["4. Deployed Azure indexing and publication"]
+        Policy{"Current: trusted policy, profile and current revisions pass?"}
+        Manifest["Current: exact included-chunk input manifest"]
+        Authorize["Current: separate confirmation and request/token allowance"]
+        IndexJob["Current: durable indexing job and bounded embedding batches"]
+        Staged[("Current: inactive complete pgvector generation")]
+        Activate{"Current: recheck eligibility and atomically activate"}
+        Vectors[("Current: published pgvector generation")]
+        IndexFailure["Current: explicit failure; no partial activation"]
         Ready -->|Yes, but not indexing approval| Policy
         Policy -->|No| Hold
         Policy -->|Yes| Manifest --> Authorize --> IndexJob --> Staged --> Activate
@@ -135,18 +152,17 @@ flowchart TD
         Validate -->|Unsupported or invalid answer| Unavailable
     end
 
-    Change["Local only: source, review or policy change invalidates indexing eligibility"]
+    Change["Current: source, review or policy change invalidates indexing eligibility"]
     Vectors -.-> Change
     Change -.->|Planned query-time checks must reject stale generations| Search
     Change -.-> Hold
 
     classDef current fill:#e8f5e9,stroke:#2e7d32,color:#111111
     classDef planned fill:#e3f2fd,stroke:#1565c0,color:#111111,stroke-dasharray:5 5
-    classDef local fill:#f3e5f5,stroke:#6a1b9a,color:#111111
     classDef blocked fill:#fff3e0,stroke:#a64b00,color:#111111
     class Upload,Blob,Event,Sync,Admission,Job,Prepare,Receipts,Snapshot,Selection,Assessment,Ready current
     class BrowserUpload,Request,Scope,Query,Search,Evidence,Model,Validate,Answer planned
-    class Policy,Manifest,Authorize,IndexJob,Staged,Activate,Vectors,Change local
+    class Policy,Manifest,Authorize,IndexJob,Staged,Activate,Vectors,Change current
     class Hold,PrepareFailure,IndexFailure,Unavailable blocked
 ```
 
@@ -163,10 +179,10 @@ it must not silently authorize paid processing or publication.
 | Prepared | Receipts and derived review content exist; fidelity still needs review. | Yes, for explicitly enabled preparation |
 | Selection saved | A reviewer chose which snapshot candidates to include; excluded candidates and the original are not rewritten. | Yes |
 | Readiness approved | The current assessment passes implemented review gates for the exact saved selection. | Yes; the preparation job remains `ReviewRequired` |
-| Indexing preflight eligible | Current saved inputs satisfy configured trusted classification/profile and token bounds; a manifest identity can be derived. | Local only; never paid-operation approval |
-| Indexing authorized | Trusted policy, exact revisions and separately confirmed logical request/token ceilings permit embedding. | Local only; worker gate remains separate |
-| Indexed | Every expected included chunk has a compatible vector in a validated generation. | Local only |
-| Published | A complete generation was atomically selected; its current eligibility must still be checked. | Local only; not a search endpoint |
+| Indexing preflight eligible | Current saved inputs satisfy configured trusted classification/profile and token bounds; a manifest identity can be derived. | Yes, for configured collections; never paid-operation approval |
+| Indexing authorized | Trusted policy, exact revisions and separately confirmed logical request/token ceilings permit embedding. | Yes; worker gate remains separate |
+| Indexed | Every expected included chunk has a compatible vector in a validated generation. | Verified for the Azure vocabulary pilot |
+| Published | A complete generation was atomically selected; its current eligibility must still be checked. | Verified for the Azure pilot; not a search endpoint |
 | Searchable | An authorized query can obtain eligible passages. | Planned |
 | Available to a model | An opted-in agent has an authorized binding and successfully obtains eligible evidence. | Planned; never implied by upload or approval |
 
@@ -203,7 +219,7 @@ No embedding provider, model, dimensions or spending allowance is selected by th
 
 ### Local Preflight Implementation
 
-The Debug-only protected review API exposes `GET .../generations/{generationId}/indexing-preflight`,
+The protected review API exposes `GET .../generations/{generationId}/indexing-preflight`,
 with the same signed-in assigned-administrator boundary and `no-store` response policy as review.
 The [typed client](../src/CasCap.App.Client/Services/AdministrationApiClient.cs) and
 [request collection](../requests/document-reviews.http) expose the check; there is no new browser
@@ -261,6 +277,32 @@ the worker. The existing elected ingestion loop runs at most one bounded batch p
 `ProcessingTimeoutSeconds` defaults to 300 and permits 30–900; cleanup has a separate ten-second
 bound. Provider calls are not made while holding a database transaction.
 
+Azure pacing is separate from the immutable profile and paid authorization. Operator settings
+`AzureMinimumBatchIntervalSeconds` (default 65, range 65–86400) and `AzureMaximumBatchTokens`
+(default 10,000 captured tokens) bound one batch per deployment per quiet interval. Preflight
+rejects an oversized fixed batch; reduce `MaximumBatchInputs` rather than silently repartitioning
+an authorized generation or granting more requests. Ollama is unaffected.
+
+The [durable pacing gate](../src/CasCap.Backend/Services/DocumentEmbeddingPacing.cs) runs under the
+shared mutation lock before claiming and again before reserving intent. It identifies the physical
+Azure deployment by cloud/ARM resource ID, not tenant, profile or provider alias. A successful
+receipt starts the quiet interval; an unresolved intent conservatively uses its claim deadline
+as the latest possible dispatch time. Waiting consumes no request allowance and holds no claim,
+transaction or process-local timer. Restarting or replacing the leader does not reset history.
+Retirement erases private manifests, so a recent unidentifiable intent temporarily gates **all**
+Azure deployments rather than losing its quota history. An unrelated identifiable deployment
+can continue while another waits.
+
+These are conservative application admission bounds, not Azure's own token estimator, a monetary
+cap or coordination with other applications sharing the deployment. Set the token ceiling within
+the verified deployment quota, leave estimator headroom where needed, and retain at least the
+quota window plus a margin between batches. HTTP failures report only status and validated numeric
+`Retry-After`/`retry-after-ms` metadata; bodies, credentials and provider coordinates are not logged.
+Headers are diagnostic only: there is no automatic replay or durable header-based rescheduler.
+Even an explicit 429 after intent remains `ReconciliationRequired`, without resetting counters
+or inventing a zero-usage receipt. Reconciliation/new authorization and any longer cooldown must
+be an explicit operator decision. Do not repair an uncertain job by changing its database rows.
+
 An accepted higher collection-policy revision advances durable authority across replicas;
 older accepted revisions cannot dispatch or publish. Equal-revision/different-profile contents
 conflict. Configuration edits alone are not distributed policy activation.
@@ -304,7 +346,7 @@ existing local database services are not upgraded or recreated.
 
 The [Ollama adapter](../src/CasCap.Backend/Services/DocumentOllamaEmbeddingProvider.cs) uses
 the same durable jobs, receipts, budgets, staging and atomic pgvector publication as Azure.
-A profile selects exactly one `Azure` or `Ollama` binding. The registered tenant provider must be
+A profile selects exactly one `Azure`, `Ollama` or `LlamaCpp` binding. The registered Ollama provider must be
 `Ollama` with the exact configured endpoint, and the authority must be allowed by server policy.
 Its chat `ModelName` can remain different; the embedding profile explicitly names its own model.
 This first local adapter supports credential-free endpoints on a trusted network, not API-key/Entra
@@ -335,7 +377,7 @@ Its ceilings are admission/packing checks, not a guarantee of Ollama context len
 Native aggregate usage is recorded and an overrun prevents activation, but computation already
 performed cannot be undone.
 
-For the selected `qwen3-embedding:4b` pilot, verify the installed digest and dimensions rather than
+For an Ollama `qwen3-embedding:4b` example, verify the installed digest and dimensions rather than
 copying a chat-model binding. Start with `MaximumBatchInputs=1` for the constrained GPU. This
 **profile-only template**, not a complete enablement configuration, keeps a synthetic digest and
 tokenizer-version placeholder; both must be replaced with observed values:
@@ -369,6 +411,78 @@ See the official [embedding API](https://docs.ollama.com/api/embed),
 [installed-model inventory](https://docs.ollama.com/api/tags),
 [model metadata API](https://docs.ollama.com/api-reference/show-model-details) and
 [Qwen3 embedding models](https://ollama.com/library/qwen3-embedding).
+
+### Local llama.cpp Embeddings
+
+The [llama.cpp adapter](../src/CasCap.Backend/Services/DocumentLlamaCppEmbeddingProvider.cs) reuses the
+same durable authorization, native receipts, staging and atomic pgvector publication. It targets an
+already-provisioned **single-model embedding server**, not the existing multi-model chat router.
+It does not load/select models through router-management endpoints or infer a model from chat defaults.
+Reconfiguring a server, evicting a chat model, downloading a GGUF or running inference requires
+separate approval.
+
+The exact tenant provider registration must have `Type=OpenAI`, its explicit endpoint equal to
+`LlamaCpp.Endpoint`, no API key and no Entra binding. Its authority must be allowlisted. This is
+an embedding-only registration on a trusted network, not an instruction to use the chat SDK.
+Credential-bearing proxies and arbitrary OpenAI-compatible servers are not supported.
+
+Before enabling processing, the operator must verify the GGUF's SHA256, mount it immutably, start
+llama.cpp with embeddings enabled and the chosen pooling mode, and set its server alias to
+`sha256-<full-lowercase-GGUF-SHA256>`. Pin that digest as `ModelRevision` and the alias as `Model`.
+The profile's required `LlamaCpp.Pooling` (`mean`, `cls` or `last`) records the operator-verified server
+setting and participates in the manifest hash; it is not an unsupported request parameter.
+
+Bounded `GET /v1/models` requires exactly one model, the pinned alias and matching native `meta.n_embd`.
+`GET /props` must independently identify the same `model_alias`, without a router model-selection
+query. Both checks run before reservation and immediately before/after embedding submission.
+Metadata does **not** expose the GGUF's content hash, embedding-enable flag or effective pooling:
+an alias is not cryptographic attestation. Operators must verify the file/launch settings and
+keep them immutable for the job. A separately approved live probe must establish embedding support
+and output dimensions before authorizing a whole document; a chat model is not a substitute.
+
+`POST /v1/embeddings` sends only the pinned model, exact included input strings and
+`encoding_format=float`, without dimensional reduction or automatic retries. JSON responses require
+the exact model, complete indexed finite nonzero vectors and positive matching
+`usage.prompt_tokens`/`total_tokens`. Metadata is bounded to 1 MiB and results to 16 MiB.
+The existing cooperative deadline, disabled redirects and suppressed HTTP logging apply.
+Any rejected/uncertain post-intent result or observed metadata drift keeps the existing quarantine;
+it never publishes partial results or silently retries through another provider.
+
+Native llama.cpp embeddings reject over-context inputs; non-splittable pooling also requires the
+input to fit one physical batch. Unlike Ollama, there is no `truncate=false` request parameter to send.
+Captured snapshot tokens are not
+the GGUF tokenizer's native count. Verify native context and physical batch settings, start with
+`MaximumBatchInputs=1`, and record native usage rather than treating captured counts as proof of fit.
+
+This **profile-only template** is not enablement or deployment configuration. Replace its synthetic
+digest/alias, dimensions and tokenizer version with verified values:
+
+```json
+{
+  "Id": "local-gpu-embedding",
+  "Provider": "local-llama-cpp",
+  "Model": "sha256-0000000000000000000000000000000000000000000000000000000000000000",
+  "ModelRevision": "0000000000000000000000000000000000000000000000000000000000000000",
+  "Dimensions": 2560,
+  "DistanceMetric": "cosine",
+  "TokenizerEncoding": "cl100k_base",
+  "TokenizerVersion": "replace-with-snapshot-tokenizer-version",
+  "MaximumTokensPerInput": 512,
+  "MaximumChunks": 5000,
+  "MaximumTotalTokens": 100000,
+  "MaximumBatchInputs": 1,
+  "LlamaCpp": {
+    "Endpoint": "http://embedding.example.com:8080/",
+    "Pooling": "last"
+  }
+}
+```
+
+Keep the Azure generation available during GPU comparison: use a separately authorized corpus,
+not the same active document-index pointer. Equal dimensions do not make the vector spaces compatible.
+No live llama.cpp embedding, download, model switch or rollout was performed for this implementation.
+See the official [embedding and metadata contracts](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md)
+and [server-side checks](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/server-context.cpp).
 
 ### Eligibility Authority
 
@@ -482,16 +596,17 @@ telemetry. Use bounded, payload-free outcome/cost/latency diagnostics instead.
 
 ## Proposed Delivery Sequence
 
-Phases 1–3 have a local implementation, not a rollout. Search/model access and a bounded live pilot
-remain planned. None grants permission for paid/live work.
+Phases 1–3 are deployed and have bounded Azure storage/publication acceptance.
+Search/model access and retrieval-quality acceptance remain planned. GPU embedding is a separate
+follow-up, not a fallback or permission for further paid/live work.
 
 | Phase | Deliverable | Acceptance gate |
 | --- | --- | --- |
-| 1. Policy and profiles | Local preflight, exact manifests and confirmed request/token authorization implemented | Classification bypass, exact revisions, cumulative CEFR, input ceilings and stale authorization checks pass locally |
-| 2. Durable indexing | Local job lifecycle, Azure/Ollama adapters, batch intent/receipts and inactive generations implemented | Duplicate claims/receipts, cancellation, uncertain reservation acknowledgements and unknown paid outcomes cannot automatically replay or publish partial data |
-| 3. Native pgvector | Local parameterized native vectors, additive migration and atomic publication implemented; no ANN or search endpoint | Isolated real-pgvector checks cover fresh/upgrade schema, round-trips, dimensions, tenant constraints, competing publication and concurrent revocation |
+| 1. Policy and profiles | Deployed preflight, exact manifests and confirmed request/token authorization | Classification bypass, exact revisions, cumulative CEFR, input ceilings and stale authorization checks pass locally; exact Azure replacement accepted live |
+| 2. Durable indexing | Deployed Azure job lifecycle, pacing, intent/receipts and inactive generations; Ollama/llama.cpp adapters locally validated | Five Azure batches completed within independent allowance; uncertain earlier intent stayed quarantined; concurrency/failure checks pass locally |
+| 3. Native pgvector | Deployed parameterized native vectors, additive migration and atomic publication; no ANN or search endpoint | Live Azure acceptance matched all 65 input hashes and vector dimensions; isolated checks cover schema, tenant constraints, competing publication and revocation |
 | 4. Protected search | Authorized API with compatible query embedding, cumulative CEFR and bounded cited results | Cross-tenant/collection denial, A1/A2/B1 boundary fixtures, no-match versus failure, citation/source authorization and no payload logging |
-| 5. Bounded live pilot | One eligible approved vocabulary source and explicit embedding/query budget | Separately approved calls; expected included chunks only; excluded chunks absent; real citations and revocation verified without changing originals |
+| 5. Bounded retrieval pilot | Azure vocabulary embeddings published; query budget and retrieval evaluation still pending | Expected included chunks and excluded-chunk absence verified for storage; real citations and query-time revocation remain unverified |
 | 6. Opt-in model use | Versioned knowledge bindings and evaluation through actual runtime paths | Grounding, abstention, prompt-injection resistance, history retention and streaming tested; strict tutoring separately gated on output validation |
 
 Agree the profile/model, budget and evaluation thresholds before the live pilot. Proposed minimum

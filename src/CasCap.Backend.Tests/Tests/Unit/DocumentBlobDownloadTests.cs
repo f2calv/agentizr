@@ -1,4 +1,3 @@
-#if DEBUG
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
@@ -141,4 +140,3 @@ public sealed class DocumentBlobDownloadTests
         }
     }
 }
-#endif

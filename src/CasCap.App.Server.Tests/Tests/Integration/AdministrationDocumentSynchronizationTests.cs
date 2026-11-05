@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Constants;
 using CasCap.Client.Models;
 using CasCap.Client.Services;
@@ -248,4 +247,3 @@ public sealed class AdministrationDocumentSynchronizationTests : IAsyncLifetime
         public AgentRuntimeDbContext CreateDbContext() => new(options);
     }
 }
-#endif

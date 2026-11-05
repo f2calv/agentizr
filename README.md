@@ -1,7 +1,7 @@
 # agentizr
 
 agentizr is a multi-tenant AI agent runtime for .NET 10 applications. It hosts agents backed by
-OpenAI-compatible servers, Azure OpenAI or Ollama, with a versioned HTTP API and typed client for
+OpenAI-compatible servers including llama.cpp, Azure OpenAI or optional Ollama, with a versioned HTTP API and typed client for
 execution, conversation state and controlled definition publication.
 
 [![CI status](https://github.com/f2calv/agentizr/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/f2calv/agentizr/actions/workflows/ci.yml)
@@ -53,10 +53,11 @@ dotnet run --project src\CasCap.App.Server\CasCap.App.Server.csproj --configurat
 The tracked defaults start an empty host: `/status` identifies it and `/healthz` reports host health.
 In Development, `/` opens the [administration frontend](docs/administration-frontend.md) without
 sign-in.
-Debug builds can additionally embed the [typed runtime logging editor](docs/runtime-configuration-management.md)
+Both build configurations can embed the [typed runtime logging editor](docs/runtime-configuration-management.md)
 behind explicitly configured host-wide operator permissions.
-Document ingestion and preparation are still in development and run only in Debug builds; a Release
-build rejects the `Ingestion` feature at startup.
+The opt-in document-ingestion/review pipeline is also available in Release using published Common
+5.1.0 and Azure 2.0.0 dependencies. Processing and indexing remain disabled by default; this build
+support does not complete live GPU acceptance, protected retrieval or agent knowledge bindings.
 Before running an agent, add the [Development configuration](src/CasCap.Backend/README.md#configuration-examples)
 and start its model provider. A health response does not verify provider, database or Redis readiness.
 Outside Development, PostgreSQL and JWT tenancy are mandatory; Redis is an optional cache.
@@ -64,6 +65,30 @@ Outside Development, PostgreSQL and JWT tenancy are mandatory; Redis is an optio
 For local persistence debugging and integration-test infrastructure, use the
 [Compose dependencies](docker-compose.yml) and [persistence setup](docs/persistence.md#local-development-and-tests). They do not
 require a GPU or model downloads.
+
+### Provider Terminology
+
+llama.cpp is the preferred self-hosted runtime; Ollama remains an optional self-hosted alternative,
+not another name for the same server. Keep runtime, protocol and connector names distinct:
+
+| Runtime | Interface used by Agentizr | Chat connector/configuration |
+| --- | --- | --- |
+| llama.cpp | OpenAI-compatible `/v1/...` | OpenAI client with `Type=OpenAI` |
+| Ollama | Ollama-native `/api/...` | OllamaSharp with `Type=Ollama` |
+
+[`Microsoft.Extensions.AI`](https://learn.microsoft.com/en-us/dotnet/ai/microsoft-extensions-ai)
+provides provider-neutral abstractions; its
+[OpenAI client adapter](https://learn.microsoft.com/en-us/dotnet/ai/ichatclient#implementation-examples)
+does not require the OpenAI cloud service. The
+[llama.cpp server](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md)
+exposes OpenAI-compatible routes. [Ollama also supports a subset of that API](https://docs.ollama.com/api/openai-compatibility),
+but Agentizr's native Ollama adapter is not interchangeable with its llama.cpp adapter.
+
+Use `llama.cpp` in prose, `LlamaCpp` in C# names and `llama-cpp` in deployment identifiers.
+Keep valid `Ollama` classes, files and configuration values for the actual native integration.
+Compatibility is capability-specific: chat support does not prove embedding, vision or structured
+response support. The [RAG lifecycle](docs/document-rag-lifecycle.md) distinguishes offline adapter
+coverage from deployed Azure acceptance and pending live GPU embedding acceptance.
 
 ### Local AI Provider Profiles
 
@@ -182,7 +207,7 @@ definitions, runtime state and optional debugging history; Redis caches payloads
 
 ## Runtime Boundaries
 
-The host supplies no frontend and does not acquire tokens for its callers. Deployments supply
+The host serves its administration frontend but does not acquire tokens for API callers. Deployments supply
 tenant mappings, allowed provider/tool authorities, credentials and initial definitions.
 
 Version 1 execution accepts optional binary content and session bypass, and returns model identity,
@@ -254,6 +279,36 @@ See [HA observability](docs/high-availability.md#observability) and the
 The [`agentizr-dashboards`](charts/agentizr-dashboards/README.md) subchart ships the
 `Agentizr` Grafana dashboard with tenant, agent, provider, and model selectors inside the
 application chart. It is enabled by default and can be disabled with `dashboards.enabled=false`.
+
+## CI and Releases
+
+The [CI workflow](.github/workflows/ci.yml) builds the Release solution and runs unit and isolated
+PostgreSQL/Redis integration tests. Pull requests also validate multi-architecture images and the
+Helm package without publishing them. Default-branch builds publish both NuGet packages, the image
+and the chart before creating an immutable release. Publication does not deploy the application.
+
+```mermaid
+flowchart LR
+    classDef validation fill:#dbeafe,stroke:#1d4ed8,color:#1e3a8a
+    classDef publication fill:#fef3c7,stroke:#d97706,color:#78350f
+
+    Version[Version discovery]:::validation --> Build[Release build and tests]:::validation
+    Version --> Package[NuGet packages<br/>main only]:::publication
+    Version --> Image[Multi-architecture image]:::validation
+    Version --> Chart[Helm lint and package]:::validation
+    Build --> Package
+    Build --> Image
+    Image --> Chart
+    Lint[Repository lint]:::validation --> Release[Immutable release<br/>main only]:::publication
+    Version --> Release
+    Build --> Release
+    Package --> Release
+    Image --> Release
+    Chart --> Release
+```
+
+SonarQube and configured CodeQL analyses provide additional pull-request merge gates. Manual
+non-PR runs can publish versioned images/charts; NuGet publication and releases require `main`.
 
 ## Documentation
 

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 
 namespace CasCap.Tests.Integration;
@@ -26,7 +27,10 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
     {
         DbContextFactory = CreateDbContextFactory();
         await using var dbContext = await DbContextFactory.CreateDbContextAsync();
-        await dbContext.GetService<IMigrator>().MigrateAsync(InitialMigration);
+        var token = TestContext.Current.CancellationToken;
+        await dbContext.GetService<IRelationalDatabaseCreator>().CreateAsync(token);
+        await dbContext.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS vector", token);
+        await dbContext.GetService<IMigrator>().MigrateAsync(InitialMigration, token);
     }
 
     /// <summary>Creates contexts for the same isolated database with optional transaction checkpoints.</summary>

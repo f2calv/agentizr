@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Constants;
 using CasCap.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -338,4 +337,3 @@ public sealed class PostgresDocumentPreparationIntegrationTests : IAsyncLifetime
         public override DateTimeOffset GetUtcNow() => now;
     }
 }
-#endif

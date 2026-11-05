@@ -13,6 +13,10 @@ keeps agent construction independent of the ASP.NET Core host, and uses the
 
 Provides the shared infrastructure for building multi-agent AI systems with support for multiple providers (Azure OpenAI, OpenAI, Ollama), automatic MCP tool discovery from `[McpServerTool]`-decorated service types, sub-agent delegation (fan-out pattern), and context-window compaction for edge GPU devices.
 
+`OpenAI` selects the protocol/client, including OpenAI-compatible llama.cpp servers; it does not
+mean that every request targets OpenAI's cloud. `Ollama` selects the native Ollama integration.
+See the [provider terminology](../../README.md#provider-terminology) for runtime and connector naming.
+
 This project contains **no domain-specific MCP query services**. Applications call the
 [runtime API or typed client](../CasCap.AgentRuntime.Client/README.md), rather than constructing
 agents or binding `AIConfig` in their own processes. The runtime host passes tenant-qualified
@@ -190,6 +194,13 @@ Each invocation uses a framework `AgentSession`. Sub-agents invoked through `Too
 create a fresh stateless session per invocation rather than sharing their parent's conversation.
 The runtime host owns persistence keys, including tenant, agent, definition version and caller
 session identity; this project does not establish an independent persistence namespace.
+
+### Logging
+
+`RunAnalysisAsync` logs one Information summary per agent run, including sub-agent runs with their
+`NestingDepth`; discovery, delegation and attachment handling log at Debug. Tool-call Trace events
+record only the function name, argument names and the result kind and length, never argument
+values, results or attachment names, because they can carry user or document content.
 
 ## Configuration Examples
 

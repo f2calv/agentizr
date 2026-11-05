@@ -1,4 +1,3 @@
-#if DEBUG
 using System.Text.Json;
 
 namespace CasCap.Tests;
@@ -55,4 +54,3 @@ internal static class DocumentIngestionTestData
             CollectionId = "manuals",
         };
 }
-#endif

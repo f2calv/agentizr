@@ -1,4 +1,3 @@
-#if DEBUG
 using Azure;
 using CasCap.Constants;
 using Microsoft.Data.Sqlite;
@@ -22,7 +21,7 @@ public sealed class DocumentSynchronizationTests
 
     [Theory]
     [InlineData(false)]
-    [InlineData(true)]
+    [InlineData(true, Traits = ["Category", "PostgreSQL"])]
     public Task MissingOriginalAndRepeatedRequests(bool postgres) => WithDatabaseAsync(postgres, async database =>
     {
         var inventory = new Inventory();
@@ -53,7 +52,7 @@ public sealed class DocumentSynchronizationTests
 
     [Theory]
     [InlineData(false)]
-    [InlineData(true)]
+    [InlineData(true, Traits = ["Category", "PostgreSQL"])]
     public Task MissingWorkAndUnattemptedPlanRepair(bool postgres) => WithDatabaseAsync(postgres, async database =>
     {
         await new DocumentIngestionInboxService(TimeProvider.System, database)
@@ -84,7 +83,7 @@ public sealed class DocumentSynchronizationTests
 
     [Theory]
     [InlineData(false)]
-    [InlineData(true)]
+    [InlineData(true, Traits = ["Category", "PostgreSQL"])]
     public Task ConfirmedDeletionPurgesChunksAndFencesActiveWriter(bool postgres) => WithDatabaseAsync(postgres, async database =>
     {
         var claim = await ClaimAsync(database);
@@ -108,7 +107,7 @@ public sealed class DocumentSynchronizationTests
 
     [Theory]
     [InlineData(false)]
-    [InlineData(true)]
+    [InlineData(true, Traits = ["Category", "PostgreSQL"])]
     public Task DeletionPurgesReviewContentButPreservesUsageAudit(bool postgres) => WithDatabaseAsync(postgres, async database =>
     {
         var provider = new DocumentHybridPreparationTestData.Provider();
@@ -134,7 +133,7 @@ public sealed class DocumentSynchronizationTests
 
     [Theory]
     [InlineData(false)]
-    [InlineData(true)]
+    [InlineData(true, Traits = ["Category", "PostgreSQL"])]
     public Task PartialInventoryNeverInfersDeletion(bool postgres) => WithDatabaseAsync(postgres, async database =>
     {
         var claim = await ClaimAsync(database);
@@ -161,9 +160,9 @@ public sealed class DocumentSynchronizationTests
     [InlineData(false, 403)]
     [InlineData(false, 404)]
     [InlineData(false, 503)]
-    [InlineData(true, 403)]
-    [InlineData(true, 404)]
-    [InlineData(true, 503)]
+    [InlineData(true, 403, Traits = ["Category", "PostgreSQL"])]
+    [InlineData(true, 404, Traits = ["Category", "PostgreSQL"])]
+    [InlineData(true, 503, Traits = ["Category", "PostgreSQL"])]
     public Task MetadataFailuresAreNotDeletions(bool postgres, int status) => WithDatabaseAsync(postgres, async database =>
     {
         var claim = await ClaimAsync(database);
@@ -180,7 +179,7 @@ public sealed class DocumentSynchronizationTests
 
     [Theory]
     [InlineData(false)]
-    [InlineData(true)]
+    [InlineData(true, Traits = ["Category", "PostgreSQL"])]
     public Task InventoryRepairsMissedChangeAndIgnoresDelayedEvents(bool postgres) => WithDatabaseAsync(postgres, async database =>
     {
         var inventory = new Inventory();
@@ -205,7 +204,7 @@ public sealed class DocumentSynchronizationTests
 
     [Theory]
     [InlineData(false)]
-    [InlineData(true)]
+    [InlineData(true, Traits = ["Category", "PostgreSQL"])]
     public Task SameRevisionEventAndTombstoneAreRepeatSafe(bool postgres) => WithDatabaseAsync(postgres, async database =>
     {
         var inventory = new Inventory();
@@ -243,6 +242,7 @@ public sealed class DocumentSynchronizationTests
     });
 
     [Fact]
+    [Trait("Category", "PostgreSQL")]
     public async Task AdditiveMigrationPreservesExistingAdmission()
     {
         await using var database = new PostgreSqlFixture { InitialMigration = "20261028120307_DocumentMarkdownReviewGenerations" };
@@ -265,6 +265,7 @@ public sealed class DocumentSynchronizationTests
     }
 
     [Fact]
+    [Trait("Category", "PostgreSQL")]
     public Task ConcurrentOwnersAndExpiredRunCannotPublish() => WithDatabaseAsync(true, async database =>
     {
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -391,4 +392,3 @@ public sealed class DocumentSynchronizationTests
         }
     }
 }
-#endif

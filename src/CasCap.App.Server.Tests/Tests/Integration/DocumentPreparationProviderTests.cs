@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Common.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -29,7 +28,7 @@ public sealed class DocumentPreparationProviderTests
             .AddSingleton<TimeProvider>(new UnusedClock())
             .AddSingleton<ITenantContext, UnusedTenant>()
             .AddSingleton<IDbContextFactory<AgentRuntimeDbContext>, UnusedDatabase>()
-            .AddSingleton(Options.Create(new ApiAuthConfig { Username = "unused", Password = "unused" }))
+            .AddSingleton(Options.Create(new ApiAuthConfig { Username = string.Empty, Password = string.Empty }))
             .AddSingleton(Options.Create(new AgentRuntimeConfig
             {
                 Tenants = new()
@@ -117,4 +116,3 @@ public sealed class DocumentPreparationProviderTests
         public AgentRuntimeDbContext CreateDbContext() => throw new InvalidOperationException("The pinned definition must not be re-resolved.");
     }
 }
-#endif

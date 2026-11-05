@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Common.Abstractions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
@@ -60,6 +59,11 @@ public sealed class DocumentIngestionCompositionTests
             using var scope = provider.CreateScope();
             Assert.IsType(registered ? typeof(UnusedProcessor) : typeof(DocumentPreparationProcessor),
                 Assert.Single(scope.ServiceProvider.GetServices<IDocumentProcessor>()));
+            Assert.IsType<DocumentEmbeddingProvider>(scope.ServiceProvider.GetRequiredService<IDocumentEmbeddingProvider>());
+            var llamaCpp = scope.ServiceProvider.GetRequiredService<DocumentLlamaCppEmbeddingProvider>();
+            Assert.Same(llamaCpp, scope.ServiceProvider.GetRequiredService<DocumentLlamaCppEmbeddingProvider>());
+            using var nextScope = provider.CreateScope();
+            Assert.NotSame(llamaCpp, nextScope.ServiceProvider.GetRequiredService<DocumentLlamaCppEmbeddingProvider>());
         }
         else
         {
@@ -80,4 +84,3 @@ public sealed class DocumentIngestionCompositionTests
             throw new NotSupportedException();
     }
 }
-#endif

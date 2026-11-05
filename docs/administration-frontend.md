@@ -200,10 +200,11 @@ provider is invoked and nothing is embedded or searchable. Classification record
 decision; it does not implement trusted-collection policy or cumulative CEFR retrieval enforcement.
 Those remain separate prerequisites when retrieval is implemented.
 
-Local Debug development includes protected indexing preflight, explicit budgeted indexing requests
-and status APIs with typed clients. The durable worker uses Azure OpenAI or local Ollama embeddings and native pgvector,
-with complete-generation publication only. These additions have no browser control and have not
-been rolled out; both gates default off. Preflight still retains `IndexingApproved=false`, and saving
+The deployed Debug workflow includes protected indexing preflight, explicit budgeted indexing requests
+and status APIs with typed clients. Its Azure OpenAI path has published a complete reviewed generation
+to pgvector; processing is back off and both gates default off. The preferred self-hosted llama.cpp
+adapter and optional native Ollama adapter have offline coverage, not live GPU embedding acceptance.
+These indexing APIs have no browser control. Preflight still retains `IndexingApproved=false`, and saving
 an assessment never queues embeddings. See the [preflight contract](document-rag-lifecycle.md#local-preflight-implementation)
 and [local worker contract](document-rag-lifecycle.md#local-durable-indexing-implementation).
 
@@ -248,10 +249,10 @@ the identity provider an `http://` callback it would reject.
 
 [ADR 0001](adr-0001-centralized-document-rag.md) proposes app-scoped PDF upload, document management
 and ingestion status in this frontend, backed by private Azure Blob Storage and background RAG
-processing. Upload/replace/delete and provisioning controls remain unimplemented; the Debug frontend
+processing. Upload/replace/delete and provisioning controls remain unimplemented; the frontend
 already offers an admitted-source catalogue, review workbench and synchronization panel.
 
-A Debug-only [protected review API](../src/CasCap.Backend/README.md#protected-review-management)
+A [protected review API](../src/CasCap.Backend/README.md#protected-review-management)
 and typed administration-client methods now preview/store/read existing receipt-derived review
 generations. They require a signed-in assigned app administrator and antiforgery protection, not
 open Development access. These controls do not approve indexing. Synchronization has local HTTP

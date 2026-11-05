@@ -243,8 +243,8 @@ public static partial class AgentExtensions
                         loggerFactory),
                 });
             if (agentLogger.IsEnabled(LogLevel.Debug))
-                agentLogger.LogDebug("Agent {AgentName} configured with automatic compaction (target={TargetMessageCount}, trigger={TriggerMessageCount})",
-                    agentConfig.Name, sessionCompaction.TargetMessageCount, sessionCompaction.TriggerMessageCount);
+                agentLogger.LogDebug("{ClassName} agent {AgentName} configured with automatic compaction (target={TargetMessageCount}, trigger={TriggerMessageCount})",
+                    nameof(AgentExtensions), agentConfig.Name, sessionCompaction.TargetMessageCount, sessionCompaction.TriggerMessageCount);
         }
 
         var agentBuilder = new ChatClientAgent(chatClient, agentOptions)
@@ -306,8 +306,8 @@ public static partial class AgentExtensions
         logger ??= NullLogger.Instance;
         var sw = Stopwatch.StartNew();
         if (logger.IsEnabled(LogLevel.Debug))
-            logger.LogDebug("Agent run starting for {AgentName}, model={ModelName}, endpoint={Endpoint}",
-                agentConfig.Name, provider.ModelName, provider.Endpoint.MaskEndpoint());
+            logger.LogDebug("{ClassName} agent run starting for {AgentName}, model={ModelName}, endpoint={Endpoint}",
+                nameof(AgentExtensions), agentConfig.Name, provider.ModelName, provider.Endpoint.MaskEndpoint());
 
         // Establish the run scope. A caller-supplied scope wins; a sub-agent delegation will
         // already have installed a child scope; otherwise start a fresh top-level one.
@@ -345,8 +345,8 @@ public static partial class AgentExtensions
                 })
                 .Where(t => !string.IsNullOrWhiteSpace(t)));
             if (reasoningMarkupRemoved > 0 && logger.IsEnabled(LogLevel.Warning))
-                logger.LogWarning("Agent {AgentName} output contained reasoning markup; removed {RemovedCharacters} character(s), provider={ProviderKey}, model={ModelName}",
-                    agentConfig.Name, reasoningMarkupRemoved, agentConfig.Provider, provider.ModelName);
+                logger.LogWarning("{ClassName} agent {AgentName} output contained reasoning markup; removed {RemovedCharacters} character(s), provider={ProviderKey}, model={ModelName}",
+                    nameof(AgentExtensions), agentConfig.Name, reasoningMarkupRemoved, agentConfig.Provider, provider.ModelName);
             var formattedResult = $"Model: {provider.ModelName}" + Environment.NewLine
                 + $"Endpoint: {provider.Endpoint.MaskEndpoint()}" + Environment.NewLine
                 + $"Output: {outputText}" + Environment.NewLine
@@ -389,7 +389,8 @@ public static partial class AgentExtensions
             }
 
             if (logger.IsEnabled(LogLevel.Debug))
-                logger.LogDebug("Agent run usage for {AgentName}: hasUsage={HasUsage}, input={InputTokens}, output={OutputTokens}, total={TotalTokens}",
+                logger.LogDebug("{ClassName} agent run usage for {AgentName}: hasUsage={HasUsage}, input={InputTokens}, output={OutputTokens}, total={TotalTokens}",
+                    nameof(AgentExtensions),
                     agentConfig.Name,
                     result.Usage is not null,
                     result.Usage?.InputTokenCount,
@@ -404,14 +405,15 @@ public static partial class AgentExtensions
                 if (drained.Count > 0)
                 {
                     if (logger.IsEnabled(LogLevel.Debug))
-                        logger.LogDebug("Draining {AttachmentCount} attachment(s) from sub-agent fan-out", drained.Count);
+                        logger.LogDebug("{ClassName} draining {AttachmentCount} attachment(s) from sub-agent fan-out",
+                            nameof(AgentExtensions), drained.Count);
                     result.Attachments.AddRange(drained);
                 }
             }
 
             if (logger.IsEnabled(LogLevel.Information))
-                logger.LogInformation("Agent run completed for {AgentName} in {Duration}, toolCalls={ToolCallCount}, toolErrors={ToolErrorCount}, attachments={AttachmentCount}, outputLength={OutputLength}",
-                    agentConfig.Name, elapsed, result.ToolCallCount, result.ToolErrorCount, result.Attachments.Count, outputText.Length);
+                logger.LogInformation("{ClassName} agent run completed for {AgentName} in {Duration}, depth={NestingDepth}, toolCalls={ToolCallCount}, toolErrors={ToolErrorCount}, attachments={AttachmentCount}, outputLength={OutputLength}",
+                    nameof(AgentExtensions), agentConfig.Name, elapsed, activeScope.Depth, result.ToolCallCount, result.ToolErrorCount, result.Attachments.Count, outputText.Length);
 
             return result;
         }
@@ -444,10 +446,11 @@ public static partial class AgentExtensions
             ? nameProp.GetString()
             : null;
 
+        // Blob names can identify people or places, so log only the size.
         var sizeKb = base64.Length * 3 / 4 / 1024;
         if (logger.IsEnabled(LogLevel.Debug))
-            logger.LogDebug("Extracted image attachment {FileName} (~{SizeKb}KB) from tool result",
-                fileName ?? "(unnamed)", sizeKb);
+            logger.LogDebug("{ClassName} extracted image attachment (~{SizeKb}KB) from tool result",
+                nameof(AgentExtensions), sizeKb);
 
         result.Attachments.Add(new AgentRunAttachment
         {

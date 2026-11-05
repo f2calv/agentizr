@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Models;
 using CasCap.Client.Services;
 using CasCap.Constants;
@@ -209,4 +208,3 @@ public sealed class RetainedDocumentReviewAcceptanceTests(ITestOutputHelper outp
     private sealed record SourceInput(int Ordinal, DocumentIngestionJobEntity Job, string SourceSha256,
         DocumentMarkdownPage[] Pages, DocumentMarkdownChunkingResult Projection, DocumentMarkdownSourceReview Review);
 }
-#endif

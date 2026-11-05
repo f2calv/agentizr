@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Models;
 using CasCap.Constants;
 using Microsoft.EntityFrameworkCore;
@@ -199,4 +198,3 @@ public sealed partial class DocumentReviewAdministrationService
             Projection = JsonSerializer.SerializeToElement(snapshot.Projection, JsonSerializerOptions.Web),
         };
 }
-#endif

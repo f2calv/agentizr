@@ -23,13 +23,11 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
     public Task<ApiResult<IReadOnlyList<AppSummaryResponse>>> GetAppsAsync(CancellationToken cancellationToken) =>
         GetAsync<IReadOnlyList<AppSummaryResponse>>(AdministrationRoutes.Apps, cancellationToken);
 
-#if DEBUG
     /// <summary>Reads the fixed runtime logging destination after host-wide operator authorization.</summary>
     public Task<ApiResult<CasCap.Common.Configuration.Management.Contracts.Models.RuntimeConfigurationDestination>>
         GetRuntimeLoggingDestinationAsync(CancellationToken cancellationToken) =>
         GetAsync<CasCap.Common.Configuration.Management.Contracts.Models.RuntimeConfigurationDestination>(
             RuntimeLoggingRoutes.Destination, cancellationToken);
-#endif
 
     /// <summary>Lists one bounded page of admitted sources and their current jobs, optionally within one exact collection.</summary>
     public Task<ApiResult<DocumentCataloguePageResponse>> GetDocumentsAsync(

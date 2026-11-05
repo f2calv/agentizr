@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Models;
 
 namespace CasCap.Models;
@@ -12,4 +11,3 @@ public sealed record DocumentIndexingPreflightOutcome
     /// <summary>Gets the metadata-only check, or null when the source/snapshot is unavailable.</summary>
     public DocumentIndexingPreflightResponse? Preflight { get; init; }
 }
-#endif

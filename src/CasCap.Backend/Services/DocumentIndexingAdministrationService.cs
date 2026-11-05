@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Models;
 
 namespace CasCap.Services;
@@ -38,4 +37,3 @@ public sealed class DocumentIndexingAdministrationService
         return source is null ? new() : await _store.ReadAsync(source, generationId, indexingJobId, token);
     }
 }
-#endif

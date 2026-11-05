@@ -1,4 +1,3 @@
-#if DEBUG
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -176,4 +175,3 @@ public sealed class DocumentIngestionAdmissionTests
         }
     }
 }
-#endif

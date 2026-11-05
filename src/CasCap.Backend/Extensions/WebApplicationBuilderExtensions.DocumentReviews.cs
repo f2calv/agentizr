@@ -6,7 +6,6 @@ public static partial class WebApplicationBuilderExtensions
 {
     private static void AddDocumentReviews(WebApplicationBuilder builder, bool databaseEnabled)
     {
-#if DEBUG
         AddDocumentIngestionConfiguration(builder);
         builder.Services.AddOptionsWithValidateOnStart<DocumentIngestionConfig>()
             .Validate(options => !options.SynchronizationEnabled
@@ -41,6 +40,5 @@ public static partial class WebApplicationBuilderExtensions
             .BindConfiguration(DocumentPreparationConfig.ConfigurationSectionName).ValidateDataAnnotations();
         builder.Services.TryAddScoped<DocumentPreparationMarkdownStore>();
         builder.Services.TryAddScoped<DocumentIndexingStore>();
-#endif
     }
 }

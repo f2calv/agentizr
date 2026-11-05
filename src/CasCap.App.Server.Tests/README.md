@@ -27,6 +27,23 @@ Configuration is loaded before the scripted evaluation substitute is registered.
 prevents an inherited vault setting from triggering remote discovery or invalid placeholder URI
 parsing; it does not disable the runtime's evaluation or activation checks.
 
+## Release Validation
+
+The full Release solution passed **1,346 tests**, with **10 explicitly gated skips** and zero
+failures, using local PostgreSQL/Redis and isolated fixture databases. Both Debug and Release
+graphs build successfully. The skipped live/provider/retained-artifact cases remain separate
+acceptance gates; this run does not establish live GPU embedding or end-to-end answering.
+
+After the quality-gate refactoring, focused Release validation passed **683 offline cases**
+(two gated skips), **60 scripted HTTP/provider cases** and **29 native indexing lifecycle cases**.
+The native cases cover publication, rejected or obsolete receipts, immutable retries and competing
+generations. The Debug solution also rebuilt with zero warnings or errors.
+
+On Linux, suites creating many application hosts can exhaust the per-user inotify instance limit.
+CI passes `--environment DOTNET_USE_POLLING_FILE_WATCHER=1` to the native test runner; use the same
+option when reproducing CI locally. Configuration reload remains enabled without changing host
+limits.
+
 ## Tests
 
 | Class | Method count | Test-case count | Description |
@@ -46,24 +63,24 @@ parsing; it does not disable the runtime's evaluation or activation checks.
 | `AgentRunHistoryTests` | 4 | 7 | Durable messages/tools, redaction/binary exclusion, success/failure/cancellation, interruption recovery, opt-in and archive preservation after reset |
 | `PostgresAgentDefinitionStoreIntegrationTests` | 9 | 9 | Against real PostgreSQL: migrations, `jsonb` storage and round trip, sequential and concurrent duplicate-version conflicts, advisory-lock-serialised concurrent activation, the tenant-scoped activation lock, audited deactivation, tenant isolation, discovery queries and stale active-version conflicts |
 | `LiveAgentRuntimeSmokeTests` | 1 | 1 | Opt-in authenticated run, streaming, session inspection and cleanup against a complete live runtime |
-| `RuntimeLoggingTests` (Debug only) | 1 | 2 | Real PostgreSQL verifies application database-name override, actual-switch status, forwarding, category overrides, cache retention and expiry to Information or Debug startup baselines |
-| `RuntimeLoggingBootstrapTests` (Debug only) | 4 | 6 | Offline bootstrap selection, missing/ambiguous connection rejection, normalized application target and unchanged disabled HTTP status shape |
-| `RuntimeLoggingManagementTests` (Debug only) | 2 | 5 | Named cookie/operator authorization, JSON antiforgery, read/preview/publish through isolated PostgreSQL and actual reader changes |
-| `RuntimeLoggingUiTests` (Debug only) | 3 | 6 | Actual WASM page/RCL rendering, typed levels, exact revisions, read-only loading, failure states and compatible browser-neutral wire DTO |
+| `RuntimeLoggingTests` | 1 | 2 | Real PostgreSQL verifies application database-name override, actual-switch status, forwarding, category overrides, cache retention and expiry to Information or Debug startup baselines |
+| `RuntimeLoggingBootstrapTests` | 6 | 8 | Offline bootstrap selection, missing/ambiguous connection rejection, normalized application target, unchanged disabled HTTP status shape and retained last-valid state after rejected updates |
+| `RuntimeLoggingManagementTests` | 2 | 5 | Named cookie/operator authorization, JSON antiforgery, read/preview/publish through isolated PostgreSQL and actual reader changes |
+| `RuntimeLoggingUiTests` | 3 | 6 | Actual WASM page/RCL rendering, typed levels, exact revisions, read-only loading, failure states and compatible browser-neutral wire DTO |
 
-The runtime logging soak is Debug-only. Run its focused cases with:
+The opt-in runtime logging reader and editor are covered in both configurations. Run their focused cases with:
 
 ```powershell
-dotnet test --project src\CasCap.App.Server.Tests --configuration Debug `
+dotnet test --project src\CasCap.App.Server.Tests --configuration Release `
   --filter-class '*RuntimeLogging*'
 ```
 
 Observed targeted Debug results: all 28 logging/bootstrap/editor cases passed. Logging fixtures
 apply only the real Common configuration migrations, without unrelated application/vector schema.
 Previously, nine existing endpoint smoke cases passed with runtime configuration
-disabled. This does not claim
-a complete Debug or Release suite run. The default Release CI path does not execute this provisional
-Debug-only application case; the reusable providers' acceptance suite is wired into their own CI.
+disabled. Those earlier results do not claim a complete suite run. The Release CI path now includes
+these application cases using published Common packages; reusable provider acceptance remains in
+the shared libraries' CI.
 
 Counts expand every `[InlineData]` row; this project uses no `MemberData` or `ClassData` providers.
 
@@ -82,7 +99,7 @@ These additional role/ingestion tests are separate from the runtime baseline inv
 | `DocumentIngestionInboxTests` | 16 | 19 | SQLite admission, disabled/missing processors, terminal outcomes, exact retry delay/attempt limit, expired and replaced claims, supersession, cancellation, deadline cleanup and unknown faults |
 | `DocumentIngestionLeadershipTests` | 3 | 4 | Fake-runner ownership, cancellation on loss, gated processing resolution and clock-driven startup/hourly durable synchronization |
 | `DocumentIngestionCompositionTests` | 1 | 4 | Real local/hybrid-router DI, idempotent API/ingestion source binding, disabled/enabled gates, explicitly removed processor rejection and test substitution; no transport starts |
-| **Role/ingestion subtotal** | **39** | **81** | All but the role-parser class are Debug-only |
+| **Role/ingestion subtotal** | **39** | **81** | Available in both build configurations |
 
 Run the focused credential-free selection from the repository root:
 
@@ -118,7 +135,7 @@ SQLite; no live-provider race test or blob-to-answer flow is claimed.
 | --- | ---: | ---: | --- |
 | [`DocumentSynchronizationTests`](Tests/Integration/DocumentSynchronizationTests.cs) | 11 | 23 | Matching SQLite/native PostgreSQL contracts, failed inventories, content retirement, late-event coalescing, deadline takeover and additive migration upgrade |
 
-These Debug-only cases use a fake read-only Blob inventory and synthetic documents/providers; no
+These cases use a fake read-only Blob inventory and synthetic documents/providers; no
 Azure or paid call occurs. PostgreSQL cases create, migrate and drop only uniquely named test-owned
 databases using the existing fixture. The upgrade case preserves an admitted row from
 `20261028120307_DocumentMarkdownReviewGenerations`. A completed scan is not permission to delete
@@ -144,7 +161,7 @@ to its required Redis service and is not included in that passing selection.
 
 ### Offline PDF Preparation
 
-These additional Debug-only cases use generated synthetic PDFs and the packaged tokenizer
+These additional cases use generated synthetic PDFs and the packaged tokenizer
 vocabulary; they need no network, credentials, live documents or external services.
 
 | Class | Methods | Cases | Scope |
@@ -168,10 +185,10 @@ solution built with zero warnings/errors; neither check ran the complete applica
 
 | Class | Methods | Cases | Scope |
 | --- | ---: | ---: | --- |
-| [`DocumentMarkdownChunkingTests`](../CasCap.Backend.Tests/Tests/Unit/DocumentMarkdownChunkingTests.cs) | 17 | 30 | Debug-only synthetic heading projection, tagged `MarkdownChunking` |
+| [`DocumentMarkdownChunkingTests`](../CasCap.Backend.Tests/Tests/Unit/DocumentMarkdownChunkingTests.cs) | 17 | 30 | synthetic heading projection, tagged `MarkdownChunking` |
 | [`DocumentMarkdownReviewTests`](../CasCap.Backend.Tests/Tests/Unit/DocumentMarkdownReviewTests.cs) | 10 | 32 | Explicit source-role exclusions, unchanged provenance, atomic blocks, audit/identity, stale/invalid annotation rejection; tagged `MarkdownChunking` |
 | [`DocumentMarkdownStructureTests`](../CasCap.Backend.Tests/Tests/Unit/DocumentMarkdownStructureTests.cs) | 10 | 33 | Reviewed heading levels, paragraph promotion, layout/relational distinction, column-major entries, empty/additional cells, exact Unicode/inline spans, atomic budgets and invalid decisions; tagged `MarkdownChunking` |
-| **Projection subtotal** | **37** | **95** | Synthetic, Debug-only; no provider or database access |
+| **Projection subtotal** | **37** | **95** | Synthetic,; no provider or database access |
 
 Synthetic Markdown covers ATX/Setext ancestry,
 sibling transitions, contiguous/missing physical pages, code fences and nested pseudo-headings,
@@ -181,7 +198,7 @@ resource limits and cancellation. The existing 15 page-local cases remain unchan
 
 The earlier combined chunking, hybrid, template and definition-UI selection passed **133 cases**, zero
 failed/skipped. The full Debug solution and Release server build passed with zero warnings/errors;
-Release excludes this projection and its Markdig dependency. No Azure call, paid acceptance,
+Release now includes this projection and its Markdig dependency. No Azure call, paid acceptance,
 Docker service, generation persistence or searchable activation was performed.
 
 Parser regressions intentionally use raw heading source spans: normal Markdig inline processing
@@ -303,7 +320,7 @@ retrieval-quality approval.
 
 ### Conditional Blob Downloads
 
-`DocumentBlobDownloadTests` adds **5 methods / 21 Debug-only cases**, tagged `BlobDownload`.
+`DocumentBlobDownloadTests` adds **5 methods / 21 cases**, tagged `BlobDownload`.
 They verify delegation to `CasCap.Api.Azure.Storage`, source/tenant/collection revalidation,
 canonical URLs, exactly-once name decoding, required ETags, cancellation and failure propagation.
 The shared library is exercised with an SDK-client test double; the library's separate tests
@@ -320,7 +337,7 @@ conditional Blob access, durable output or generation activation is established 
 
 ### Prepared Document Persistence
 
-`DocumentPreparationPersistenceTests` adds **17 methods / 36 Debug-only cases**, tagged
+`DocumentPreparationPersistenceTests` adds **17 methods / 36 cases**, tagged
 `PreparedDocuments` and `Integration`. A private in-memory SQLite connection, manual clock,
 save interceptors and fake Blob streams exercise the real PDF processor and relational store.
 Coverage includes original-byte/profile/page metadata, immutable retry deduplication, exact
@@ -341,7 +358,7 @@ JSONB storage, embeddings, searchable activation or cleanup/retention behavior.
 ### Review-Required Markdown Persistence
 
 [`DocumentMarkdownGenerationTests`](Tests/Integration/DocumentMarkdownGenerationTests.cs) adds
-**18 methods / 47 Debug-only cases**, tagged `PreparedDocuments` and `Integration`.
+**18 methods / 47 cases**, tagged `PreparedDocuments` and `Integration`.
 The real hybrid processor writes synthetic managed/agent receipts to a private SQLite database;
 explicit storage then preserves normalized Markdown, separate notes, structural review, profile,
 heading hierarchy and cell/body spans without another provider call.
@@ -371,7 +388,7 @@ still separate requirements.
 ### PostgreSQL Review-Required Generations
 
 [`PostgresDocumentMarkdownGenerationTests`](Tests/Integration/PostgresDocumentMarkdownGenerationTests.cs)
-adds **11 methods / 26 Debug-only cases**, tagged `PreparedDocuments`, `Integration` and `PostgreSQL`.
+adds **11 methods / 26 cases**, tagged `PreparedDocuments`, `Integration` and `PostgreSQL`.
 It reuses the real synthetic hybrid producer and an isolated migrated database per case.
 Coverage includes actual JSONB snapshots and unchanged archived raw receipt hashes, exact
 source/job/plan reads and writes, eight-way immutable retries and changed review/profile writes,
@@ -409,9 +426,19 @@ write-once receipts, exact vector round-trips, tenant foreign keys, competing pu
 source/selection revocation while receipt persistence waits for the mutation lock, policy
 supersession, input-token overruns, expired claims and ownership cancellation. An uncertain
 reservation acknowledgement is classified from durable intent, not a local submitted flag.
+The [native pacing cases](Tests/Integration/PostgresAdministrationDocumentReviewTests.Pacing.cs)
+add six expanded cases across five methods for fresh-store deferral without provider verification
+or budget consumption, competing native reservations admitting only one intent, shared deployment aliases, retirement audit,
+exact interval boundaries and unresolved claim deadlines without replay. Publication tests advance
+only synthetic receipt timestamps to avoid real minute-long waits; the competing-generation test
+uses the local-provider profile to isolate publication concurrency from Azure quota admission.
 The [Azure HTTP cases](Tests/Integration/DocumentEmbeddingHttpTests.cs) use synthetic credentials
 and a fake handler to check exact ARM/deployment/input bindings, API-key/Entra paths and one
-non-retried submission. [Response tests](../CasCap.Backend.Tests/Tests/Unit/DocumentEmbeddingProviderTests.cs) cover
+non-retried submission. Its five expanded cases (one method) cover success, 429, 503 and unknown
+transport outcomes, with status/Retry-After diagnostics and response-body/credential exclusion.
+[Offline pacing tests](../CasCap.Backend.Tests/Tests/Unit/DocumentEmbeddingPacingTests.cs) cover
+deployment identity, timing, fixed-batch token ceilings, unchanged manifest identity and safe header
+parsing. [Response tests](../CasCap.Backend.Tests/Tests/Unit/DocumentEmbeddingProviderTests.cs) cover
 indexes, finite nonzero dimensions, native usage, malformed JSON kinds and byte limits.
 The [Ollama HTTP cases](Tests/Integration/DocumentOllamaEmbeddingHttpTests.cs) exercise actual
 provider dispatch, tenant/authority denial before HTTP, installed digest/capability/dimensions,
@@ -421,6 +448,25 @@ transport failure/cancellation and single-attempt behavior. The
 native usage and malformed results. These classes use only fake HTTP and need no running Ollama,
 GPU or model download. Run them with `--filter-class
 CasCap.Tests.Unit.DocumentOllamaEmbeddingProviderTests CasCap.Tests.Integration.DocumentOllamaEmbeddingHttpTests`.
+
+The [llama.cpp HTTP cases](Tests/Integration/DocumentLlamaCppEmbeddingHttpTests.cs) use synthetic
+single-model metadata and a fake handler: exact tenant/authority/digest-alias checks, native
+dimensions, router rejection, pre/post-submission identity drift, exact inputs, bounded JSON,
+HTTP rejection/cancellation and single-attempt behavior. The
+[response cases](../CasCap.Backend.Tests/Tests/Unit/DocumentLlamaCppEmbeddingProviderTests.cs) reuse
+the indexed-vector contract and require the exact model and positive native usage. No GGUF, GPU,
+external endpoint or model-management operation is used. The existing ingestion composition cases
+also resolve actual dispatch registration and verify the llama.cpp adapter's scoped lifetime.
+
+| Class | Methods | Expanded cases |
+| --- | ---: | ---: |
+| `DocumentLlamaCppEmbeddingHttpTests` | 4 | 30 |
+| `DocumentLlamaCppEmbeddingProviderTests` (Backend.Tests) | 2 | 19 |
+
+Observed focused results: 192 offline cases passed with no skips (136 unit/configuration/preflight
+cases and 56 Azure/Ollama/llama.cpp fake-HTTP cases). This does not establish a deployed llama.cpp
+embedding model, actual file hashes/pooling, GPU fit or end-to-end retrieval.
+Four additional offline composition cases passed, bringing the focused total to 196 with no skips.
 
 **Prerequisite:** latest PostgreSQL migrations now require the operator-installed `vector`
 extension in every fixture database. Use a disposable pgvector-capable PostgreSQL host and
@@ -441,7 +487,7 @@ The indexing/processing gates remain disabled by default.
 ### Protected Document Review Management
 
 [`AdministrationDocumentReviewTests`](Tests/Integration/AdministrationDocumentReviewTests.cs)
-covers the Debug-only contract, tagged `Integration` and `DocumentReviewManagement`.
+covers the contract, tagged `Integration` and `DocumentReviewManagement`.
 It uses the actual host, authorization policies, antiforgery, typed browser client and production
 review store with per-case SQLite and synthetic receipts. No identity-provider, Azure, paid-model,
 PostgreSQL service or deployment is contacted.
@@ -473,7 +519,7 @@ Before the catalogue additions, this selection passed **94 cases**, zero failed/
 SQLite generation and 21 existing administration cases.
 
 [`PostgresAdministrationDocumentReviewTests`](Tests/Integration/PostgresAdministrationDocumentReviewTests.cs)
-covers the Debug-only native contract, also tagged `PostgreSQL`. Both management classes reuse
+covers the native contract, also tagged `PostgreSQL`. Both management classes reuse
 the [cookie-authenticated host](Tests/Integration/DocumentReviewWebApplicationFactory.cs), with
 per-fixture native databases for this class. Synthetic preparation uses fake providers, not Azure.
 Native coverage verifies JSONB source-plan materialization, eight-way immutable retries, profile
@@ -577,7 +623,7 @@ At 390px there was no horizontal page overflow with long filenames and 64-charac
 No mutation requests were made. This is not authenticated deployed or real-document acceptance.
 
 [`AdministrationDocumentSynchronizationTests`](Tests/Integration/AdministrationDocumentSynchronizationTests.cs)
-adds **7 methods / 13 Debug-only cases**, tagged `Integration` and
+adds **7 methods / 13 cases**, tagged `Integration` and
 `DocumentSynchronizationManagement`. The API-only host verifies administrator/cookie/antiforgery
 boundaries, tenant isolation, safe progress, forged-body rejection, request coalescing and
 disabled/unmapped/storage outcomes without resolving Blob/queue/processor transports.
@@ -595,7 +641,7 @@ dotnet test --project src\CasCap.App.Server.Tests --configuration Debug --filter
 #### Retained Real-Document HTTP Acceptance
 
 [`RetainedDocumentReviewAcceptanceTests`](Tests/Integration/RetainedDocumentReviewAcceptanceTests.cs)
-adds **1 method / 1 Debug-only case**, tagged `Integration`, `PostgreSQL` and
+adds **1 method / 1 case**, tagged `Integration`, `PostgreSQL` and
 `RetainedDocumentReview`. It is skipped unless `CASCAP_RUN_RETAINED_DOCUMENT_REVIEW=true` after
 explicit approval of both migration and storage in the existing retained local acceptance ledger.
 It never creates/drops that ledger, downloads sources or calls preparation providers.
@@ -643,7 +689,7 @@ embeddings, retrieval eligibility, deployed migration or deployed authentication
 ### PostgreSQL Prepared Generations
 
 [`PostgresDocumentPreparationPersistenceTests`](Tests/Integration/PostgresDocumentPreparationPersistenceTests.cs)
-adds **11 methods / 24 Debug-only cases**, tagged `PreparedDocuments`, `Integration` and `PostgreSQL`.
+adds **11 methods / 24 cases**, tagged `PreparedDocuments`, `Integration` and `PostgreSQL`.
 Each uses the existing fixture's fresh, migrated, disposable database and synthetic PDFs through
 the production processor/store. Coverage includes eight-way generation/profile writes, immutable
 retry deduplication, competing original digests, exact claim/source/plan fences, JSONB metadata,
@@ -676,7 +722,7 @@ prepared generations.
 
 ### Durable Hybrid Preparation
 
-These Debug-only tests are tagged `HybridPreparation`. They use synthetic configuration and PDFs,
+These tests are tagged `HybridPreparation`. They use synthetic configuration and PDFs,
 an isolated SQLite database and fake HTTP/providers; they never start a live worker or call Azure.
 
 | Class | Methods | Cases | Scope |
@@ -711,7 +757,7 @@ task-started PostgreSQL was stopped immediately after the run.
 ### Live Production Preparation Acceptance
 
 [`DocumentPreparationLiveAcceptanceTests`](Tests/Integration/DocumentPreparationLiveAcceptanceTests.cs)
-has **one Debug-only case**, tagged `LiveDocumentPreparation`, `Integration` and `PostgreSQL`.
+has **one case**, tagged `LiveDocumentPreparation`, `Integration` and `PostgreSQL`.
 It is skipped unless `CASCAP_RUN_DOCUMENT_PREPARATION_ACCEPTANCE=true`; enabling it is not spending
 approval. Obtain explicit approval for each source/model/page/request/token/deadline scope first.
 It calls the production worker, provider, built-in template and durable ledger, not another
@@ -762,7 +808,7 @@ paid preparation to bypass that rejection.
 
 ### PostgreSQL And Redis Preparation Acceptance
 
-These Debug-only cases use the real local providers, not SQLite or a fake leadership runner.
+These cases use the real local providers, not SQLite or a fake leadership runner.
 They are tagged `PreparationProviders`, `Integration` and `PostgreSQL`; the host case also has `Redis`.
 
 | Class | Methods | Cases | Scope |
@@ -810,22 +856,22 @@ acceptance and deployed assigned-administrator browser checks remain separate ga
 | `Generation` | 7 | Credential-free definition-version suggestions with a fixed clock |
 | `Agent Runtime` | 54 | Runtime orchestration, tools, metrics, evaluation, persistence, caching, locking and compaction |
 | `Document Preparation` | 3 | Secret-free preparation template, editor constraint preservation and stateless runtime execution |
-| `HybridPreparation` | 76 Debug-only | Bounded worker/runtime, selected original pages, Markdown/review separation, review-only heading projection, paid receipts/recovery, profile authorization and fake read-only model metadata; 35 cases also tagged `Integration` |
-| `MarkdownChunking` | 95 Debug-only | Synthetic heading hierarchy, semantic units, reviewed exclusions/structural decisions, cell/source/page spans, identity and complete-input token bounds |
-| `OfflineDocumentReview` | 14 Debug-only | Thirteen synthetic export/coverage checks and one separately approved retained-artifact projection without providers or databases |
-| `LiveDocumentPreparation` | 1 Debug-only | Separately approved real-source/provider acceptance with a retained local ledger; disabled by default |
-| `RetainedDocumentReview` | 1 Debug-only | Separately approved migration and protected HTTP storage of reviewed real-document projections in the retained local ledger; disabled by default |
-| `DocumentReviewManagement` | 170 (119 Debug-only) | 97 SQLite HTTP, 22 native PostgreSQL HTTP, 48 synthetic UI and three pure draft cases; all but the draft cases also `Integration` |
-| `DocumentSynchronizationManagement` | 13 Debug-only | API-only administrator authorization, safe status and coalesced requests; also `Integration` |
-| `DocumentSynchronization` | 23 Debug-only | SQLite/native PostgreSQL inventory, repair, deletion, migration and takeover contracts |
-| `PreparationProviders` | 22 Debug-only | Real isolated PostgreSQL ledger/recovery and two-host Redis startup/handover; all also `Integration` and `PostgreSQL`, one also `Redis` |
+| `HybridPreparation` | 76 | Bounded worker/runtime, selected original pages, Markdown/review separation, review-only heading projection, paid receipts/recovery, profile authorization and fake read-only model metadata; 35 cases also tagged `Integration` |
+| `MarkdownChunking` | 95 | Synthetic heading hierarchy, semantic units, reviewed exclusions/structural decisions, cell/source/page spans, identity and complete-input token bounds |
+| `OfflineDocumentReview` | 14 | Thirteen synthetic export/coverage checks and one separately approved retained-artifact projection without providers or databases |
+| `LiveDocumentPreparation` | 1 | Separately approved real-source/provider acceptance with a retained local ledger; disabled by default |
+| `RetainedDocumentReview` | 1 | Separately approved migration and protected HTTP storage of reviewed real-document projections in the retained local ledger; disabled by default |
+| `DocumentReviewManagement` | 170 | 97 SQLite HTTP, 22 native PostgreSQL HTTP, 48 synthetic UI and three pure draft cases; all but the draft cases also `Integration` |
+| `DocumentSynchronizationManagement` | 13 | API-only administrator authorization, safe status and coalesced requests; also `Integration` |
+| `DocumentSynchronization` | 23 | SQLite/native PostgreSQL inventory, repair, deletion, migration and takeover contracts |
+| `PreparationProviders` | 22 | Real isolated PostgreSQL ledger/recovery and two-host Redis startup/handover; all also `Integration` and `PostgreSQL`, one also `Redis` |
 | `Tenant Isolation` | 38 | Cross-tenant state, JWT permissions, caller mappings, administrator assignment, MCP and provider credentials and identity isolation |
 | `PostgreSQL` | 25 | Definitions, durable state, run history and shared Data Protection keys against local Compose PostgreSQL |
 | `Redis` | 8 | Revision-qualified state caching against local Compose Redis; also tagged `Integration` and `PostgreSQL` |
 | `Local Agent Runtime` | 1 | Explicitly enabled smoke test against a complete running runtime |
 
-The category inventory above covers the runtime baseline. Debug adds one case to each of
-`Integration` and `PostgreSQL` for the runtime logging soak; role/ingestion, PDF preparation and
+The category inventory above covers the runtime baseline. Runtime logging runs in both
+configurations; role/ingestion, PDF preparation and
 Blob download/prepared-document, review management, hybrid and provider-acceptance categories and counts are listed
 separately above.
 
@@ -835,9 +881,9 @@ separately above.
 | --- | ---: |
 | Live runtime tests require `CASCAP_RUN_LOCAL_AGENTRUNTIME_TESTS=true` outside CI | 1 |
 | Once enabled, missing/invalid live base address, agent name or requested certificate-auth settings | 1 (same case) |
-| Live preparation requires separate approval and `CASCAP_RUN_DOCUMENT_PREPARATION_ACCEPTANCE=true` | 1 Debug-only |
-| Retained-document review requires explicit approval and `CASCAP_RUN_DOCUMENT_OFFLINE_REVIEW=true` | 1 Debug-only |
-| Retained-ledger HTTP storage requires explicit migration/storage approval and `CASCAP_RUN_RETAINED_DOCUMENT_REVIEW=true` | 1 Debug-only |
+| Live preparation requires separate approval and `CASCAP_RUN_DOCUMENT_PREPARATION_ACCEPTANCE=true` | 1 |
+| Retained-document review requires explicit approval and `CASCAP_RUN_DOCUMENT_OFFLINE_REVIEW=true` | 1 |
+| Retained-ledger HTTP storage requires explicit migration/storage approval and `CASCAP_RUN_RETAINED_DOCUMENT_REVIEW=true` | 1 |
 
 These are conditional skips, not observed outcomes. PostgreSQL/Redis cases do not automatically
 skip without their services: start the local Compose services or exclude both categories.
@@ -852,7 +898,9 @@ dotnet test --project src\CasCap.App.Server.Tests --configuration Release --filt
 docker compose stop postgres redis
 ```
 
-Fixtures create/drop only their own random test databases and use tenant-qualified Redis keys.
+Fixtures create/drop only their own random test databases, install pgvector in each application
+test database before applying migrations, and use tenant-qualified Redis keys. This test-only
+bootstrap never changes the production migration's operator-installed-extension requirement.
 Localhost connection settings use the shared `Test`-environment loader with optional
 `appsettings.Test.json`, test-local overrides, user secrets and final environment-variable overrides.
 Compose credentials are loaded
@@ -899,6 +947,9 @@ Root fixture/helper sources are linked from that project, not copied or referenc
 Use the .NET 10 SDK and repository-selected Microsoft.Testing.Platform runner. Run from the
 repository root only when you intend to execute tests. Debug references need adjacent
 `CasCap.Common` and `CasCap.Api.Azure` checkouts; Release uses published dependencies.
+
+The synchronization theories attach `PostgreSQL` only to their native-provider data rows, so
+excluding that category still runs their SQLite variants without a database service.
 
 Select the credential-free in-memory protocol category without PostgreSQL or local cases:
 

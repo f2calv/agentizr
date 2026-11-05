@@ -9,7 +9,8 @@ black box; topic documents linked below hold the detailed runtime flows.
 One release image provides every agentizr process. Configuration selects its role: the runtime API
 (with optional document ingestion), an ingestion-only worker, or a one-shot schema migration. The
 [Helm chart](../charts/agentizr/README.md) deploys the runtime as a Deployment and the migration as a
-Job. PostgreSQL is the authority for all durable state; Redis only caches payloads.
+Job. PostgreSQL is the authority for all durable state. Redis caches runtime payloads and is
+required for ingestion leadership; the optional logging reader owns a separate configuration schema.
 
 ```mermaid
 flowchart LR
@@ -23,10 +24,10 @@ flowchart LR
     subgraph agentizr [agentizr]
         frontend[Administration frontend<br/>Blazor WebAssembly]:::container -->|"/admin/api, cookie"| runtime[Runtime host<br/>ASP.NET Core; API and ingestion roles]:::container
         migrate[Migration job<br/>same image, --migrate]:::container
-        pg[(PostgreSQL<br/>definitions, state, history, documents, vectors)]:::store
-        redis[(Redis<br/>optional payload cache)]:::store
+        pg[(PostgreSQL<br/>runtime data and separate logging journal)]:::store
+        redis[(Redis<br/>payload cache and ingestion leadership)]:::store
         runtime -->|EF Core| pg
-        runtime -->|cache| redis
+        runtime -->|cache and ingestion lease| redis
         migrate -->|schema| pg
     end
     runtime -->|"chat completions"| models[Model providers<br/>OpenAI-compatible, Azure OpenAI, Ollama]:::external
@@ -44,7 +45,7 @@ The runtime host composes components from [CasCap.Backend](../src/CasCap.Backend
 [CasCap.AgentRuntime.Execution](../src/CasCap.AgentRuntime.Execution/README.md),
 [CasCap.AgentRuntime.Evaluation](../src/CasCap.AgentRuntime.Evaluation/README.md) and
 [CasCap.Data](../src/CasCap.Data/README.md). Labels list the interfaces each component provides to
-the others. The Debug-only runtime logging editor is omitted.
+the others. Both configurations include the opt-in logging reader and authorized editor.
 
 ```mermaid
 flowchart TB
@@ -63,6 +64,7 @@ flowchart TB
         credentials[Credentials<br/>IProviderCredentialStore, IMcpCredentialStore]:::component
         administration[Administration]:::component
         documents[Document ingestion and indexing<br/>IDocumentIngestionInbox, IDocumentProcessor]:::component
+        logging[Runtime logging<br/>typed configuration monitor and operator API]:::component
 
         endpoints --> execution
         endpoints --> publication
@@ -79,12 +81,14 @@ flowchart TB
         administration --> publication
         administration --> documents
         administration --> tenancy
+        endpoints --> logging
     end
     definitions --> pg[(PostgreSQL)]:::store
     definitions --> redis[(Redis)]:::store
     sessions --> pg
     sessions --> redis
     documents --> pg
+    logging -->|separate configuration schema| pg
     execution --> models[Model providers and remote MCP servers]:::external
     documents --> blob[Blob storage and AI providers]:::external
 ```
@@ -108,6 +112,7 @@ Most components live in flat folders inside `CasCap.Backend`, identified by file
 | Credentials | Resolves provider and MCP credentials from private configuration | `Services/Configuration*CredentialStore.cs`, `Services/RuntimeEntraCredential.cs` | `IProviderCredentialStore`, `IMcpCredentialStore` | Configuration providers |
 | Administration | Browser administration API, app access and setup | `Services/Administration*.cs`, `Services/Document*AdministrationService*.cs` | `/admin/api` operations | Definition publication, Document ingestion and indexing, `IActorContext` |
 | Document ingestion and indexing | Admits blob events, prepares and chunks documents, embeds and publishes vectors | `Services/Document*.cs`, `Services/Pdf*.cs`, `Services/HybridDocumentProcessor.cs`, `Services/AzureDocument*.cs` | `IDocumentIngestionInbox`, `IDocumentProcessor` | PostgreSQL, Blob storage, embedding and preparation providers |
+| Runtime logging | Reads the optional typed logging minimum and authorizes host-wide operator publication | `RuntimeConfiguration/`, `Extensions/WebApplicationBuilderExtensions.RuntimeConfiguration*.cs` | Typed monitor, operator management API | Separate Common PostgreSQL configuration schema, administration cookie/operator policy |
 | Persistence model | EF Core context, entities and migrations shared by every store | `CasCap.Data` | `AgentRuntimeDbContext` | PostgreSQL |
 
 ## Runtime Scenarios

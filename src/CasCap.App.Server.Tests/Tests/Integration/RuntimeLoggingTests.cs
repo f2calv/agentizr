@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Common.Configuration.PostgreSql;
 using CasCap.AgentRuntime.Contracts.RuntimeConfiguration;
 using CasCap.Common.Configuration.PostgreSql.Services;
@@ -20,7 +19,7 @@ using System.Text.Json;
 
 namespace CasCap.Tests.Integration;
 
-/// <summary>Verifies the unpublished Debug soak through the real PostgreSQL, monitor and logging pipeline.</summary>
+/// <summary>Verifies opt-in runtime logging through the real PostgreSQL, monitor and logging pipeline.</summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "PostgreSQL")]
 [Collection(HostIntegrationCollection.Name)]
@@ -151,4 +150,3 @@ public sealed class RuntimeLoggingTests(RuntimeLoggingPostgreSqlFixture postgres
         public void Dispose() { }
     }
 }
-#endif

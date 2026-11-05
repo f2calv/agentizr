@@ -11,7 +11,8 @@ internal static class DocumentIndexingStates
     public const string Revoked = nameof(Revoked);
     public const string Failed = nameof(Failed);
     public const string Conflict = nameof(Conflict);
-    // TODO: Add privileged receipt reconciliation after a provider-side operation/usage lookup is available;
-    // an unresolved paid intent must remain terminal rather than offering an unsafe automatic retry.
+    // TODO: Add auditable administrator reconciliation with explicit recovery budgets when larger corpora justify it
+    // and provider-side operation/usage lookup is available. The pilot uses a separately authorized full replacement;
+    // never reset counters or automatically replay an unresolved paid intent.
     public const string ReconciliationRequired = nameof(ReconciliationRequired);
 }

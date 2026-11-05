@@ -36,6 +36,8 @@ jobs:
     with:
       version: ${{ needs.versioning.outputs.version }}
       solution-name: agentizr.Release.slnx
+      #Use framework polling for the many in-process test hosts, without exhausting Linux inotify instances.
+      dotnet-test-args: '["--environment", "DOTNET_USE_POLLING_FILE_WATCHER=1"]'
       test-compose-file: docker-compose.yml
       test-compose-services: '["postgres", "redis"]'
 

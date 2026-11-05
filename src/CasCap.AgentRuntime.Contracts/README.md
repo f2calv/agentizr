@@ -14,8 +14,8 @@ The package targets `net10.0`. Applications using `CasCap.AgentRuntime.Client` r
 transitively.
 
 The source also contains the browser-neutral
-[`RuntimeLoggingControls`](RuntimeConfiguration/RuntimeLoggingControls.cs) contract used by the
-optional [Debug logging editor](../../docs/runtime-configuration-management.md), outside the
+[`RuntimeLoggingControls`](https://github.com/f2calv/agentizr/blob/main/src/CasCap.AgentRuntime.Contracts/RuntimeConfiguration/RuntimeLoggingControls.cs) contract used by the
+optional [logging editor](https://github.com/f2calv/agentizr/blob/main/docs/runtime-configuration-management.md), outside the
 versioned execution API. Its minimum is a typed enum serialized with the existing string names;
 it contains no credentials, provider configuration or Serilog/database dependency.
 

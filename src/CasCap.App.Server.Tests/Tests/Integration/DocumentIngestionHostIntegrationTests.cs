@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Common.Abstractions;
 using CasCap.Constants;
 using Microsoft.AspNetCore.Routing;
@@ -171,4 +170,3 @@ public sealed class DocumentIngestionHostIntegrationTests : IClassFixture<Postgr
             throw new NotSupportedException();
     }
 }
-#endif

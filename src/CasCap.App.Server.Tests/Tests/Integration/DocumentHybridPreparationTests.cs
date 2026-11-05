@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Constants;
 using CasCap.Entities;
 using Microsoft.Data.Sqlite;
@@ -386,4 +385,3 @@ public sealed class DocumentHybridPreparationTests : IAsyncLifetime
     }
 
 }
-#endif

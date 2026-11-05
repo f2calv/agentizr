@@ -1,3 +1,5 @@
+using Serilog;
+
 namespace CasCap.Extensions;
 
 /// <summary>Maps the HTTP endpoint baseline.</summary>
@@ -9,6 +11,8 @@ public static partial class WebApplicationExtensions
     /// <param name="administrationEnabled">Whether administration authentication is enabled.</param>
     public static void MapAgentRuntimeEndpoints(this WebApplication app, bool tenantAuthenticationEnabled, bool administrationEnabled)
     {
+        // First, so one route-template summary times the whole pipeline and leaves exception events to the handler.
+        app.UseCasCapRequestLogging();
         app.UseExceptionHandler();
         if (tenantAuthenticationEnabled || administrationEnabled)
             app.UseAuthentication();
@@ -30,22 +34,18 @@ public static partial class WebApplicationExtensions
         app.MapHealthChecks("/healthz");
     }
 
-    /// <summary>Maps baseline status with payload-free logging evidence only for an enabled Debug soak.</summary>
+    /// <summary>Maps baseline status with payload-free logging evidence only for an enabled runtime logging reader.</summary>
     internal static void MapStatusEndpoint(WebApplication app)
     {
-#if DEBUG
         var probe = app.Services.GetService<CasCap.RuntimeConfiguration.Services.RuntimeLoggingProbe>();
-#endif
         app.MapGet("/status", () =>
         {
-#if DEBUG
             if (probe is not null)
                 return Results.Ok(new
                 {
                     Service = "agentizr",
                     RuntimeLogging = probe.ReadStatus(),
                 });
-#endif
             return Results.Ok(new
             {
                 Service = "agentizr",

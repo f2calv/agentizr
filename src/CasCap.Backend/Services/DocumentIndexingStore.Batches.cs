@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Constants;
 using CasCap.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -26,9 +25,15 @@ internal sealed partial class DocumentIndexingStore
             await transaction.CommitAsync(token);
             return null;
         }
+        now = await DocumentIngestionTransactions.GetUtcNowAsync(db, timeProvider, token);
+        if (job.ClaimExpiresAtUtc <= now)
+            return null;
         var inputs = claim.Manifest.Inputs.Skip(job.VectorCount).Take(claim.Manifest.Profile.MaximumBatchInputs).ToArray();
         if (inputs.Length == 0)
             throw new InvalidDataException("A completed generation cannot submit an additional batch.");
+        if (claim.Manifest.Profile.Azure is not null
+            && inputs.Sum(input => (long)input.Chunk.TokenCount) > config.Value.AzureMaximumBatchTokens)
+            throw new InvalidDataException("The Azure batch exceeds the deployment pacing token ceiling.");
         if (job.SubmittedRequests >= job.MaximumRequests
             || job.ReceivedInputTokens + claim.Manifest.Inputs.Skip(job.VectorCount).Sum(input => (long)input.Chunk.TokenCount) > job.MaximumInputTokens)
         {
@@ -42,6 +47,15 @@ internal sealed partial class DocumentIndexingStore
         if (await db.DocumentEmbeddingBatches.AnyAsync(item => item.TenantId == job.TenantId
                 && item.JobId == job.Id && item.Status == DocumentIndexingStates.Submitting, token))
             throw new InvalidOperationException("The indexing request has no remaining authorized submission.");
+        if (await DocumentEmbeddingPacing.IsPendingAsync(db, config.Value, claim.Manifest, now, token))
+        {
+            job.Status = DocumentIndexingStates.Queued;
+            job.ClaimId = null;
+            job.ClaimExpiresAtUtc = null;
+            await db.SaveChangesAsync(token);
+            await transaction.CommitAsync(token);
+            return null;
+        }
         var batch = new DocumentEmbeddingBatch(claim, job.CompletedBatches, inputs);
         db.DocumentEmbeddingBatches.Add(new()
         {
@@ -90,14 +104,28 @@ internal sealed partial class DocumentIndexingStore
         var eligible = owned && await CurrentManifestAsync(db, job, token) is not null;
         if (!eligible || job.ReceivedInputTokens > job.MaximumInputTokens)
         {
-            if (job.Status != DocumentIndexingStates.Revoked)
-                job.Status = eligible ? DocumentIndexingStates.Failed : DocumentIndexingStates.ReconciliationRequired;
-            job.ClaimId = null;
-            job.FinishedAtUtc = now;
+            RejectReceipt(job, eligible, now);
             await db.SaveChangesAsync(token);
             await transaction.CommitAsync(token);
             return false;
         }
+        await CompleteBatchAsync(db, job, batch, result, now, token);
+        await db.SaveChangesAsync(token);
+        await transaction.CommitAsync(token);
+        return job.Status is DocumentIndexingStates.Queued or DocumentIndexingStates.Published;
+    }
+
+    private static void RejectReceipt(DocumentIndexingJobEntity job, bool eligible, DateTimeOffset now)
+    {
+        if (job.Status != DocumentIndexingStates.Revoked)
+            job.Status = eligible ? DocumentIndexingStates.Failed : DocumentIndexingStates.ReconciliationRequired;
+        job.ClaimId = null;
+        job.FinishedAtUtc = now;
+    }
+
+    private static async Task CompleteBatchAsync(AgentRuntimeDbContext db, DocumentIndexingJobEntity job,
+        DocumentEmbeddingBatch batch, DocumentEmbeddingResult result, DateTimeOffset now, CancellationToken token)
+    {
         await DocumentVectorStore.StageAsync(db, batch, result, token);
         job.CompletedBatches++;
         job.VectorCount += batch.Inputs.Count;
@@ -130,9 +158,6 @@ internal sealed partial class DocumentIndexingStore
         }
         else
             job.Status = DocumentIndexingStates.Queued;
-        await db.SaveChangesAsync(token);
-        await transaction.CommitAsync(token);
-        return job.Status is DocumentIndexingStates.Queued or DocumentIndexingStates.Published;
     }
 
     public async Task FailAsync(DocumentIndexingClaim claim, bool submitted, bool interrupted, CancellationToken token)
@@ -178,4 +203,3 @@ internal sealed partial class DocumentIndexingStore
             throw new InvalidDataException("Embedding results must contain complete finite nonzero vectors with the pinned dimensions and valid native usage.");
     }
 }
-#endif

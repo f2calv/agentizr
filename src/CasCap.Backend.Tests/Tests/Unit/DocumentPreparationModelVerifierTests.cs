@@ -1,4 +1,3 @@
-#if DEBUG
 using Azure.Core;
 using System.Net;
 using System.Text;
@@ -99,8 +98,26 @@ public sealed class DocumentPreparationModelVerifierTests
             var isDeployment = request.RequestUri.AbsolutePath.Contains("/deployments/", StringComparison.Ordinal);
             var resource = isDeployment ? plan.Settings.DeploymentResourceId
                 : plan.Settings.DeploymentResourceId[..plan.Settings.DeploymentResourceId.LastIndexOf("/deployments/", StringComparison.Ordinal)];
+            var json = JsonSerializer.Serialize(new
+            {
+                id = variation == "account" && !isDeployment || variation == "resource" && isDeployment ? "wrong" : resource,
+                name = plan.Definition.Provider.ModelName,
+                properties = Properties(plan, isDeployment),
+            });
+            if (variation is "malformed" or "error")
+                json = "private-response-body";
+            if (variation == "oversized")
+                json = new string('x', 1_048_577);
+            return Task.FromResult(new HttpResponseMessage(variation == "error" ? HttpStatusCode.Forbidden : HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+            });
+        }
+
+        private JsonElement Properties(DocumentPreparationPlan plan, bool isDeployment)
+        {
             var endpoint = variation == "endpoint" ? "https://different.example.com/" : plan.Definition.Provider.Endpoint!.AbsoluteUri;
-            var properties = isDeployment
+            return isDeployment
                 ? JsonSerializer.SerializeToElement(new
                 {
                     provisioningState = variation == "state" ? "Updating" : "Succeeded",
@@ -117,21 +134,6 @@ public sealed class DocumentPreparationModelVerifierTests
                     endpoint = variation == "dictionary" ? "https://different.example.com/" : endpoint,
                     endpoints = new { OpenAI = endpoint },
                 });
-            var json = JsonSerializer.Serialize(new
-            {
-                id = variation == "account" && !isDeployment || variation == "resource" && isDeployment ? "wrong" : resource,
-                name = plan.Definition.Provider.ModelName,
-                properties,
-            });
-            if (variation is "malformed" or "error")
-                json = "private-response-body";
-            if (variation == "oversized")
-                json = new string('x', 1_048_577);
-            return Task.FromResult(new HttpResponseMessage(variation == "error" ? HttpStatusCode.Forbidden : HttpStatusCode.OK)
-            {
-                Content = new StringContent(json, Encoding.UTF8, "application/json"),
-            });
         }
     }
 }
-#endif

@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Models;
 
 namespace CasCap.Models;
@@ -18,4 +17,3 @@ public sealed record DocumentReviewGenerationOutcome
     /// <summary>Gets the authorized projection, or null when unavailable.</summary>
     public DocumentReviewGenerationResponse? Generation { get; init; }
 }
-#endif

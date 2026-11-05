@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Client.Models;
 
 namespace CasCap.Services;
@@ -20,4 +19,3 @@ public sealed partial class DocumentReviewAdministrationService
         };
     }
 }
-#endif

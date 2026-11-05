@@ -1,4 +1,3 @@
-#if DEBUG
 using CasCap.Constants;
 using System.Text.Json;
 
@@ -184,4 +183,3 @@ public sealed class DocumentMarkdownReviewTests
     private static DocumentMarkdownSourceReview Review(DocumentMarkdownPage[] pages, params DocumentMarkdownExclusion[] exclusions) =>
         new(2, "synthetic-review", DocumentPreparationIdentity.Hash(JsonSerializer.Serialize(pages)), exclusions, [], []);
 }
-#endif

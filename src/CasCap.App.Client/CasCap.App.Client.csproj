@@ -24,9 +24,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)' != 'Debug'">
-    <Compile Remove="Pages\RuntimeLoggingSettings.razor.cs" />
-    <Content Remove="Pages\RuntimeLoggingSettings.razor" />
-    <RazorComponent Remove="Pages\RuntimeLoggingSettings.razor" />
+    <PackageReference Include="CasCap.Common.Configuration.Blazor" />
   </ItemGroup>
 
 </Project>

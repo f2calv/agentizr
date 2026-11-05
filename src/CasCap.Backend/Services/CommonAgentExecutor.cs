@@ -277,10 +277,11 @@ internal sealed class CommonAgentExecutor(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex,
-                "{ClassName} could not reach remote MCP source {McpAuthority}; its included tools fail when called",
-                nameof(CommonAgentExecutor),
-                new Uri(source.Endpoint!).GetLeftPart(UriPartial.Authority));
+            if (logger.IsEnabled(LogLevel.Warning))
+                logger.LogWarning(ex,
+                    "{ClassName} could not reach remote MCP source {McpAuthority}; its included tools fail when called",
+                    nameof(CommonAgentExecutor),
+                    new Uri(source.Endpoint!).GetLeftPart(UriPartial.Authority));
             return CreateUnavailableTools(source, composedTools);
         }
         toolLeases.Add(client);
@@ -332,8 +333,8 @@ internal sealed class CommonAgentExecutor(
                 continue;
             }
 
-            if (logger.IsEnabled(LogLevel.Information))
-                logger.LogInformation(
+            if (logger.IsEnabled(LogLevel.Debug))
+                logger.LogDebug(
                     "{ClassName} withheld non-read-only tool {ToolName}; name it in the definition's include list to expose it",
                     nameof(CommonAgentExecutor),
                     tool.Name);
@@ -373,11 +374,12 @@ internal sealed class CommonAgentExecutor(
                 continue;
             }
 
-            logger.LogWarning(
-                "{ClassName} skipped duplicate tool {ToolName} from {ToolSource}",
-                nameof(CommonAgentExecutor),
-                tool.Name,
-                source);
+            if (logger.IsEnabled(LogLevel.Warning))
+                logger.LogWarning(
+                    "{ClassName} skipped duplicate tool {ToolName} from {ToolSource}",
+                    nameof(CommonAgentExecutor),
+                    tool.Name,
+                    source);
         }
     }
 
@@ -433,9 +435,16 @@ internal sealed class CommonAgentExecutor(
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 // The tool-invocation layer hands this exception to the parent model only, so record it here.
-                loggerFactory.CreateLogger<CommonAgentExecutor>().LogError(ex,
-                    "{ClassName} delegation to {AgentName} failed at depth {Depth}",
-                    nameof(CommonAgentExecutor), agentName, childScope.Depth);
+                // TODO: Stop logging and rethrowing here once the function-calling middleware always has a logger.
+                // A stateful parent's middleware logs the same exception again, but stateless definitions run it
+                // with NullLogger to keep document content out of logs. Options: pass a content-free logger to the
+                // middleware for every definition, or mark the exception as logged. Revisit with the next
+                // AgentExtensions.CreateAgent signature change.
+                var delegationLogger = loggerFactory.CreateLogger<CommonAgentExecutor>();
+                if (delegationLogger.IsEnabled(LogLevel.Error))
+                    delegationLogger.LogError(ex,
+                        "{ClassName} delegation to {AgentName} failed at depth {Depth}",
+                        nameof(CommonAgentExecutor), agentName, childScope.Depth);
                 throw;
             }
 
