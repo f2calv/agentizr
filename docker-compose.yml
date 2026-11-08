@@ -54,7 +54,7 @@ x-agentizr-environment: &agentizr-environment
   CasCap__AgentRuntimeConfig__Tenants__default__Agents__ollama__Instructions: You are a concise local development assistant.
 
 x-agentizr: &agentizr
-  #RC3 has no stable major alias; match the preview SDK selected in global.json.
+  #No usable major alias is available yet; match the SDK selected in global.json.
   image: mcr.microsoft.com/dotnet/sdk:11.0.100-rc.3-resolute
   working_dir: /workspace/agentizr
   command:
