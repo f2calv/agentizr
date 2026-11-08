@@ -1,6 +1,6 @@
 # CasCap.Backend
 
-The internal .NET 10 application backend for agentizr. It owns execution orchestration, definition
+The internal .NET 11 application backend for agentizr. It owns execution orchestration, definition
 administration, HTTP/MCP adapters, document processing, Development configuration adapters and
 persistence policy. The [server](../CasCap.App.Server/README.md) owns lifecycle and the browser shell;
 [Data](../CasCap.Data/README.md) owns the EF Core model and migrations.

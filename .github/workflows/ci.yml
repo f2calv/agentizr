@@ -32,6 +32,7 @@ jobs:
     needs: [versioning]
     permissions:
       contents: read
+    #TODO: After .NET 11 GA, adopt released SDK 11 support in the shared build/package workflows; retain major refs until then.
     uses: f2calv/gha-workflows/.github/workflows/app-build-dotnet.yml@v1
     with:
       version: ${{ needs.versioning.outputs.version }}

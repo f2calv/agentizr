@@ -944,7 +944,7 @@ Root fixture/helper sources are linked from that project, not copied or referenc
 
 ## Run
 
-Use the .NET 10 SDK and repository-selected Microsoft.Testing.Platform runner. Run from the
+Use the SDK selected by `global.json` and repository-selected Microsoft.Testing.Platform runner. Run from the
 repository root only when you intend to execute tests. Debug references need adjacent
 `CasCap.Common` and `CasCap.Api.Azure` checkouts; Release uses published dependencies.
 

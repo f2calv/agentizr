@@ -1,6 +1,6 @@
 # agentizr
 
-agentizr is a multi-tenant AI agent runtime for .NET 10 applications. It hosts agents backed by
+agentizr is a multi-tenant AI agent runtime with a typed client for .NET 10 and .NET 11 applications. It hosts agents backed by
 OpenAI-compatible servers including llama.cpp, Azure OpenAI or optional Ollama, with a versioned HTTP API and typed client for
 execution, conversation state and controlled definition publication.
 
@@ -41,7 +41,9 @@ Use `/runs/stream` for live events followed by the final response.
 
 ### Run from Source
 
-Install the .NET 10 SDK. Release builds use published dependencies and need no adjacent checkouts:
+Use the .NET 11 RC3 SDK selected by [global.json](global.json). This source upgrade is prerelease;
+GA package alignment and final compatibility validation remain pending. Release builds use
+published dependencies and need no adjacent checkouts:
 
 ```powershell
 dotnet build agentizr.Release.slnx --configuration Release
@@ -125,11 +127,11 @@ and `OpenAI`; there is no dedicated Azure AI Foundry provider implementation.
 | Component | Purpose | Delivery |
 | --- | --- | --- |
 | [CasCap.App.Server](src/CasCap.App.Server/README.md) | Runtime lifecycle, role composition and administration frontend shell | ASP.NET Core application |
-| [CasCap.Backend](src/CasCap.Backend/README.md) | Execution orchestration, administration, HTTP/MCP adapters, document processing and persistence policy | Internal .NET 10 library |
-| [CasCap.Data](src/CasCap.Data/README.md) | EF Core context, entities, migrations and shared Data Protection key model | Internal .NET 10 persistence library |
+| [CasCap.Backend](src/CasCap.Backend/README.md) | Execution orchestration, administration, HTTP/MCP adapters, document processing and persistence policy | Internal .NET 11 library |
+| [CasCap.Data](src/CasCap.Data/README.md) | EF Core context, entities, migrations and shared Data Protection key model | Internal .NET 11 persistence library |
 | [CasCap.App.Client](src/CasCap.App.Client/README.md) | Browser administration frontend and its API contracts | Blazor WebAssembly client served by the server |
-| [CasCap.AgentRuntime.Client](src/CasCap.AgentRuntime.Client/README.md) | Typed execution and administration clients | Packable .NET 10 library |
-| [CasCap.AgentRuntime.Contracts](src/CasCap.AgentRuntime.Contracts/README.md) | Version 1 wire DTOs | Packable .NET 10 library |
+| [CasCap.AgentRuntime.Client](src/CasCap.AgentRuntime.Client/README.md) | Typed execution and administration clients | Packable .NET 10/.NET 11 library |
+| [CasCap.AgentRuntime.Contracts](src/CasCap.AgentRuntime.Contracts/README.md) | Version 1 wire DTOs | Packable .NET 10/.NET 11 library |
 | [CasCap.AgentRuntime.Execution](src/CasCap.AgentRuntime.Execution/README.md) | Model clients, tools, delegation and history reduction | Internal project |
 | [CasCap.AgentRuntime.Evaluation](src/CasCap.AgentRuntime.Evaluation/README.md) | Fixture tools, grading and recording for definition evaluation | Internal project |
 | [CasCap.App.Server.Tests](src/CasCap.App.Server.Tests/README.md) | Protocol, tenancy, state and persistence coverage | Contributor tests; external cases need opt-in/setup |

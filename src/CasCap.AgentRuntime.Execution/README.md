@@ -1,6 +1,6 @@
 # CasCap.AgentRuntime.Execution
 
-Internal .NET 10 execution infrastructure for agentizr: model-client construction, MCP tool
+Internal .NET 11 execution infrastructure for agentizr: model-client construction, MCP tool
 composition, sub-agent delegation and chat-history compaction using Microsoft Agent Framework.
 
 ## Ownership
@@ -22,7 +22,7 @@ This project contains **no domain-specific MCP query services**. Applications ca
 agents or binding `AIConfig` in their own processes. The runtime host passes tenant-qualified
 definitions and separately resolved credentials into this execution layer.
 
-**Target frameworks:** `net10.0`
+**Target frameworks:** `net11.0`
 
 ### Services
 

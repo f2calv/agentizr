@@ -1,6 +1,6 @@
 # CasCap.Data
 
-Internal, non-packable .NET 10 PostgreSQL model and migrations for Agent Runtime definitions,
+Internal, non-packable .NET 11 PostgreSQL model and migrations for Agent Runtime definitions,
 durable state, document processing and shared Data Protection keys. Application authorization,
 orchestration and transaction ownership belong to [CasCap.Backend](../CasCap.Backend/README.md).
 

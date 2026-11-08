@@ -1,6 +1,6 @@
 # CasCap.AgentRuntime.Contracts
 
-Versioned request and response DTOs for .NET 10 applications calling the CasCap multi-tenant Agent
+Versioned request and response DTOs for .NET 10 and .NET 11 applications calling the CasCap multi-tenant Agent
 Runtime HTTP API. The contracts carry execution, conversation-state and definition-administration
 messages without trusting caller-supplied tenant or actor identity.
 
@@ -10,8 +10,8 @@ messages without trusting caller-supplied tenant or actor identity.
 dotnet package add CasCap.AgentRuntime.Contracts
 ```
 
-The package targets `net10.0`. Applications using `CasCap.AgentRuntime.Client` receive it
-transitively.
+The source targets `net10.0` and `net11.0`. Applications using `CasCap.AgentRuntime.Client` receive it
+transitively. The .NET 11 assets are prerelease and await publication after GA.
 
 The source also contains the browser-neutral
 [`RuntimeLoggingControls`](https://github.com/f2calv/agentizr/blob/main/src/CasCap.AgentRuntime.Contracts/RuntimeConfiguration/RuntimeLoggingControls.cs) contract used by the

@@ -12,8 +12,8 @@ Everything below is specific to this repository.
 
 ## Current Baseline
 
-- This repository owns a public .NET 10 multi-tenant Agent Runtime, its versioned contracts, and its
-  typed client.
+- This repository owns a public .NET 11 RC3 multi-tenant Agent Runtime. Its versioned contracts and
+  typed client retain .NET 10 and .NET 11 targets.
 - Preserve the split `AppHost` bootstrap and the `WebApplicationFactory<Program>` test boundary.
 - Keep Debug references pointed at the adjacent `CasCap.Common` checkout and Release references on
   centrally versioned packages.

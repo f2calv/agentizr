@@ -1,6 +1,6 @@
 # CasCap.AgentRuntime.Evaluation
 
-Internal .NET 10 fixture-backed tool sandboxing and deterministic grading for definition evaluation.
+Internal .NET 11 fixture-backed tool sandboxing and deterministic grading for definition evaluation.
 Administrators evaluate immutable definitions through the runtime API or typed administration client,
 without executing the definition's external tool actions.
 
