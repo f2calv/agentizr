@@ -690,7 +690,9 @@ and never reach the browser. Register the exact HTTPS `CallbackPath` (`/signin-o
 `SignedOutCallbackPath` (`/signout-callback-oidc`) redirect URIs. Behind a TLS-terminating proxy, set
 `ASPNETCORE_FORWARDEDHEADERS_ENABLED=true` so the callbacks keep their HTTPS scheme. Administration
 mutations and sign-out require the antiforgery token from `/admin/api/session`, sent in the
-`X-XSRF-TOKEN` header or the sign-out form. With PostgreSQL configured, the Data Protection key ring
+`X-XSRF-TOKEN` header or the sign-out form. Runtime and control-plane policies authenticate only JWT
+bearer tokens, never the administration cookie, so a browser's ambient credential cannot reach them
+and they need no antiforgery token. With PostgreSQL configured, the Data Protection key ring
 that protects cookies and antiforgery tokens is shared through the `data_protection_keys` table, so
 any replica accepts them; the keys are not yet encrypted at rest.
 

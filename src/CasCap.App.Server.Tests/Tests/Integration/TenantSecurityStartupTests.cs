@@ -1,5 +1,6 @@
 using CasCap.Constants;
 using CasCap.Tests.Integration;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
@@ -126,6 +127,22 @@ public sealed class TenantSecurityStartupTests
             Assert.Equal(expectedPolicies.Order(StringComparer.Ordinal), policies.Order(StringComparer.Ordinal));
             Assert.Null(endpoint.Metadata.GetMetadata<IAllowAnonymous>());
         });
+    }
+
+    [Theory]
+    [InlineData(AgentRuntimePolicies.Execute)]
+    [InlineData(AgentRuntimePolicies.DefinitionRead)]
+    [InlineData(AgentRuntimePolicies.DefinitionPublish)]
+    [InlineData(AgentRuntimePolicies.DefinitionActivate)]
+    [InlineData(AgentRuntimePolicies.Realtime)]
+    public async Task DevelopmentWithTenantAuthentication_MachinePoliciesAuthenticateBearerTokensOnly(string policyName)
+    {
+        // Bearer-only authentication is what makes these endpoints immune to cross-site request forgery.
+        using var factory = CreateAuthenticatedFactory("Development");
+        var policy = await factory.Services.GetRequiredService<IAuthorizationPolicyProvider>().GetPolicyAsync(policyName);
+
+        Assert.NotNull(policy);
+        Assert.Equal([JwtBearerDefaults.AuthenticationScheme], policy.AuthenticationSchemes);
     }
 
     [Fact]

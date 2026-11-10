@@ -1,4 +1,5 @@
 using CasCap.Constants;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 
 namespace CasCap.Extensions;
@@ -30,40 +31,28 @@ public static partial class ServiceCollectionExtensions
             services.GetRequiredService<IOptions<DatabaseConfig>>(),
             services.GetRequiredService<AdministrationAccessService>(),
             services.GetRequiredService<AgentDefinitionAdministrationService>()));
-        services.AddAuthorization(options =>
+        services.AddAuthorization();
+        services.AddOptions<AuthorizationOptions>().Configure<IOptions<TenantAuthenticationConfig>>((options, tenantAuthenticationConfig) =>
         {
-            options.AddPolicy(AgentRuntimePolicies.Execute, policy =>
-            {
-                policy.RequireAuthenticatedUser();
-                policy.RequireAssertion(context => AgentRuntimeAuthorization.HasPermission(
-                    context.User, AgentRuntimePermissions.Execute));
-            });
-            options.AddPolicy(AgentRuntimePolicies.DefinitionRead, policy =>
-            {
-                policy.RequireAuthenticatedUser();
-                policy.RequireAssertion(context => AgentRuntimeAuthorization.HasPermission(
-                    context.User, AgentRuntimePermissions.DefinitionRead));
-            });
-            options.AddPolicy(AgentRuntimePolicies.DefinitionPublish, policy =>
-            {
-                policy.RequireAuthenticatedUser();
-                policy.RequireAssertion(context => AgentRuntimeAuthorization.HasPermission(
-                    context.User, AgentRuntimePermissions.DefinitionPublish));
-                policy.RequireAssertion(context => AgentRuntimeAuthorization.HasActorIdentifier(context.User));
-            });
-            options.AddPolicy(AgentRuntimePolicies.DefinitionActivate, policy =>
-            {
-                policy.RequireAuthenticatedUser();
-                policy.RequireAssertion(context => AgentRuntimeAuthorization.HasPermission(
-                    context.User, AgentRuntimePermissions.DefinitionActivate));
-                policy.RequireAssertion(context => AgentRuntimeAuthorization.HasActorIdentifier(context.User));
-            });
-            options.AddPolicy(AgentRuntimePolicies.Realtime, policy =>
-            {
-                policy.RequireAuthenticatedUser();
-                policy.RequireAssertion(context => AgentRuntimeAuthorization.HasPermission(
-                    context.User, AgentRuntimePermissions.Realtime));
-            });
+            // Machine policies authenticate bearer tokens only, never the administration cookie, so a browser's ambient
+            // credential cannot reach them and they need no antiforgery token. Without tenant authentication no bearer
+            // scheme exists and Development opens these endpoints anonymously instead.
+            void AddMachinePolicy(string name, string permission, bool requireActor = false) =>
+                options.AddPolicy(name, policy =>
+                {
+                    if (tenantAuthenticationConfig.Value.Enabled)
+                        policy.AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme);
+                    policy.RequireAuthenticatedUser();
+                    policy.RequireAssertion(context => AgentRuntimeAuthorization.HasPermission(context.User, permission));
+                    if (requireActor)
+                        policy.RequireAssertion(context => AgentRuntimeAuthorization.HasActorIdentifier(context.User));
+                });
+
+            AddMachinePolicy(AgentRuntimePolicies.Execute, AgentRuntimePermissions.Execute);
+            AddMachinePolicy(AgentRuntimePolicies.DefinitionRead, AgentRuntimePermissions.DefinitionRead);
+            AddMachinePolicy(AgentRuntimePolicies.DefinitionPublish, AgentRuntimePermissions.DefinitionPublish, requireActor: true);
+            AddMachinePolicy(AgentRuntimePolicies.DefinitionActivate, AgentRuntimePermissions.DefinitionActivate, requireActor: true);
+            AddMachinePolicy(AgentRuntimePolicies.Realtime, AgentRuntimePermissions.Realtime);
         });
         services.AddOptions<AuthorizationOptions>().Configure<IOptions<AdministrationConfig>>((options, administrationConfig) =>
         {
