@@ -90,9 +90,10 @@ section rejects realtime calls.
   `Location` for ending the call. JSON keeps the endpoint consistent with the rest of the API and
   its validation problem details. The Azure call id is never returned.
 - `DELETE /api/v1/agents/{agentName}/realtime/calls/{callId}` ends the call.
-- A dedicated permission, `agent.realtime`, granted as a delegated scope or application role and
-  checked like the existing `agent.execute`. The tenant comes from the validated `azp` mapping,
-  never from the request.
+- A dedicated permission, `agent.realtime`, checked like the existing `agent.execute`. Voice clients
+  act for a signed-in user, so it is granted as a delegated scope. Microsoft Entra shares one value
+  namespace between delegated scopes and application roles, so a future machine caller needs a
+  differently named role. The tenant comes from the validated `azp` mapping, never from the request.
 - Matching `IAgentRuntimeClient` methods in [the typed client](../src/CasCap.AgentRuntime.Client/Abstractions/IAgentRuntimeClient.cs).
 
 ### Call Setup
@@ -179,13 +180,14 @@ Delivery order:
 
 ## Handover
 
-- Branch `f2calv/2026-11-realtime-calls` (local, from `main`) holds this record and the first slice:
-  contracts, typed client, the `realtime` definition section, setup service, in-memory controller
-  registry and unit tests. Delivery steps 1 and 2 are implemented; step 3 (leased call record and
-  sweeper) is not, so realtime calls currently require a single runtime replica.
-- Entra and Azure changes are prepared as a separate operator handover, not executed by this work:
-  a public client registration for the tutor app, a realtime scope on the Agentizr API, the
-  `azp` tenant mapping, and a data-plane role for Agentizr's identity on the realtime resource.
+- Branch `f2calv/2026-11-realtime-calls` ([#29](https://github.com/f2calv/agentizr/pull/29)) holds this
+  record and the first slice: contracts, typed client, the `realtime` definition section, setup
+  service, in-memory controller registry and unit tests. Delivery steps 1 and 2 are implemented;
+  step 3 (leased call record and sweeper) is not, so realtime calls currently require a single
+  runtime replica.
+- Identity is provisioned separately: a public client registration for the tutor app, the delegated
+  `agent.realtime` scope on the Agentizr API, and a data-plane role for Agentizr's identity on the
+  realtime resource. The `azp` tenant mapping and the realtime provider configuration remain.
 - The .NET 11 migration branch is pending GA; this work targets the current `main`.
 
 ## Open Questions And Reconsideration
