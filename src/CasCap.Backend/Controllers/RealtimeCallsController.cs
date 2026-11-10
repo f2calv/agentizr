@@ -1,9 +1,9 @@
+using CasCap.AgentRuntime.Contracts.V1;
 using CasCap.AgentRuntime.Contracts.V1.Constants;
 using CasCap.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
-using System.Text;
 
 namespace CasCap.Controllers;
 
@@ -13,34 +13,27 @@ namespace CasCap.Controllers;
 [Authorize(Policy = AgentRuntimePolicies.Realtime)]
 public sealed class RealtimeCallsController(RealtimeCallService realtimeCallSvc) : ControllerBase
 {
-    private const int MaximumSdpOfferCharacters = 64 * 1024;
-
     /// <summary>Exchanges a WebRTC SDP offer for an answer; the runtime controls the call until it ends.</summary>
     [HttpPost(AgentRuntimeRoutes.AgentGroup + AgentRuntimeRoutes.RealtimeCalls, Name = "CreateRealtimeCallV1")]
-    [Consumes(RealtimeMediaTypes.Sdp)]
     [EndpointSummary("Starts a brokered realtime voice call from an SDP offer")]
-    [ProducesResponseType<string>(StatusCodes.Status201Created, RealtimeMediaTypes.Sdp)]
-    public async Task<Results<ContentHttpResult, BadRequest, NotFound, StatusCodeHttpResult>> CreateAsync(
-        string agentName, CancellationToken cancellationToken)
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    public async Task<Results<Created<RealtimeCallResponse>, NotFound, StatusCodeHttpResult>> CreateAsync(
+        string agentName, [FromBody] CreateRealtimeCallRequest request, CancellationToken cancellationToken)
     {
-        using var reader = new StreamReader(Request.Body, Encoding.UTF8);
-        var buffer = new char[MaximumSdpOfferCharacters + 1];
-        var length = await reader.ReadBlockAsync(buffer, cancellationToken);
-        if (length is 0 or > MaximumSdpOfferCharacters)
-            return TypedResults.BadRequest();
-
-        var outcome = await realtimeCallSvc.CreateAsync(agentName, new string(buffer, 0, length), cancellationToken);
+        var outcome = await realtimeCallSvc.CreateAsync(agentName, request.SdpOffer, cancellationToken);
         if (outcome is null)
             return TypedResults.NotFound();
         if (outcome.IsAtCapacity)
             return TypedResults.StatusCode(StatusCodes.Status429TooManyRequests);
-        if (outcome.IsProviderUnavailable || outcome.CallId is null)
+        if (outcome.Response is not { } response)
             return TypedResults.StatusCode(StatusCodes.Status502BadGateway);
 
-        Response.Headers.Location = (AgentRuntimeRoutes.AgentGroup + AgentRuntimeRoutes.RealtimeCall)
+        var location = (AgentRuntimeRoutes.AgentGroup + AgentRuntimeRoutes.RealtimeCall)
             .Replace("{agentName}", Uri.EscapeDataString(agentName), StringComparison.Ordinal)
-            .Replace("{callId}", outcome.CallId, StringComparison.Ordinal);
-        return TypedResults.Content(outcome.SdpAnswer, RealtimeMediaTypes.Sdp, Encoding.UTF8, StatusCodes.Status201Created);
+            .Replace("{callId}", response.CallId, StringComparison.Ordinal);
+        return TypedResults.Created(location, response);
     }
 
     /// <summary>Ends a realtime voice call owned by the caller's tenant.</summary>

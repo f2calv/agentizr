@@ -101,9 +101,11 @@ public sealed class TenantSecurityStartupTests
             ["ActivateAgentDefinitionV1"] = AgentRuntimePolicies.DefinitionActivate,
             ["GetAgentDefinitionActivationHistoryV1"] = AgentRuntimePolicies.DefinitionRead,
             ["DeactivateAgentDefinitionV1"] = AgentRuntimePolicies.DefinitionActivate,
+            ["CreateRealtimeCallV1"] = AgentRuntimePolicies.Realtime,
+            ["EndRealtimeCallV1"] = AgentRuntimePolicies.Realtime,
         };
 
-        Assert.Equal(19, protectedEndpoints.Count(endpoint => !AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
+        Assert.Equal(21, protectedEndpoints.Count(endpoint => !AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
         Assert.Equal(22, protectedEndpoints.Count(endpoint => AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
         // Session description, sign-in and sign-out must be reachable before an administrator signs in.
         Assert.Equal(3, sessionEndpoints.Length);

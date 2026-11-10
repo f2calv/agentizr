@@ -1,13 +1,12 @@
+using CasCap.AgentRuntime.Contracts.V1;
+
 namespace CasCap.Models;
 
 /// <summary>Result of starting a brokered realtime call.</summary>
 public sealed record RealtimeCallOutcome
 {
-    /// <summary>Gets the runtime call identifier when the call started.</summary>
-    public string? CallId { get; init; }
-
-    /// <summary>Gets the SDP answer when the call started.</summary>
-    public string? SdpAnswer { get; init; }
+    /// <summary>Gets the call identifier and SDP answer when the call started.</summary>
+    public RealtimeCallResponse? Response { get; init; }
 
     /// <summary>Gets whether this instance has no capacity for another call.</summary>
     public bool IsAtCapacity { get; init; }

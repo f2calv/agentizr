@@ -1,3 +1,4 @@
+using CasCap.AgentRuntime.Contracts.V1;
 using Microsoft.Extensions.AI;
 
 namespace CasCap.Services;
@@ -95,13 +96,15 @@ public sealed class RealtimeCallService
                 return new RealtimeCallOutcome { IsAtCapacity = true };
             }
             call.Start();
-            return new RealtimeCallOutcome { CallId = call.CallId, SdpAnswer = sdpAnswer };
+            return new RealtimeCallOutcome
+            {
+                Response = new RealtimeCallResponse { CallId = call.CallId, SdpAnswer = sdpAnswer },
+            };
         }
         catch (HttpRequestException ex)
         {
             if (logger.IsEnabled(LogLevel.Warning))
-                logger.LogWarning(ex, "{ClassName} could not start a realtime call for agent {AgentName}",
-                    nameof(RealtimeCallService), agentName);
+                logger.LogWarning(ex, "{ClassName} could not start a realtime call", nameof(RealtimeCallService));
             return new RealtimeCallOutcome { IsProviderUnavailable = true };
         }
         finally

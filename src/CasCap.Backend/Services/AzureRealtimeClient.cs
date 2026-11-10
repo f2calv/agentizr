@@ -1,4 +1,3 @@
-using CasCap.AgentRuntime.Contracts.V1.Constants;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -10,6 +9,8 @@ namespace CasCap.Services;
 /// <remarks>Ephemeral keys, SDP and provider call identifiers are returned to the caller and never logged.</remarks>
 internal sealed class AzureRealtimeClient(HttpClient httpClient)
 {
+    private const string SdpMediaType = "application/sdp";
+
     /// <summary>Mints a short-lived client secret bound to the complete session configuration.</summary>
     public async Task<string> CreateClientSecretAsync(
         Uri endpoint,
@@ -44,7 +45,7 @@ internal sealed class AzureRealtimeClient(HttpClient httpClient)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(endpoint, "openai/v1/realtime/calls?webrtcfilter=on"))
         {
-            Content = new StringContent(sdpOffer, Encoding.UTF8, RealtimeMediaTypes.Sdp),
+            Content = new StringContent(sdpOffer, Encoding.UTF8, SdpMediaType),
         };
         request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {clientSecret}");
         using var response = await httpClient.SendAsync(request, cancellationToken);

@@ -655,7 +655,8 @@ and definition publication rejects embedded API keys.
 An agent definition's optional `realtime` section, or `AgentRuntimeConfig.Tenants:<tenant>:Realtime:<agent>`
 for configuration-backed tenants, offers brokered WebRTC calls, as proposed in
 [ADR 0002](../../docs/adr-0002-realtime-voice-calls.md). [`RealtimeCallsController`](Controllers/RealtimeCallsController.cs)
-accepts an `application/sdp` offer and returns the answer with a `Location` naming a runtime call id.
+accepts a JSON `CreateRealtimeCallRequest` carrying the SDP offer and returns `201` with a
+`RealtimeCallResponse` (runtime call id and SDP answer) and a `Location` for ending the call.
 [`RealtimeCallService`](Services/RealtimeCallService.cs) builds the session from the definition's
 instructions and the allowlisted subset of its remote MCP tools, mints a client secret and negotiates the
 call with the client data channel filtered. [`RealtimeCallSession`](Services/RealtimeCallSession.cs)

@@ -85,8 +85,7 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
                 ["session"] = _options.Session.DeepClone(),
             }, cancellationToken);
             if (_logger.IsEnabled(LogLevel.Information))
-                _logger.LogInformation("{ClassName} controls a realtime call for agent {AgentName}",
-                    nameof(RealtimeCallSession), AgentName);
+                _logger.LogInformation("{ClassName} controls a realtime call", nameof(RealtimeCallSession));
             await ReceiveAsync(socket, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -96,8 +95,7 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
         catch (Exception ex) when (ex is WebSocketException or HttpRequestException or InvalidOperationException or JsonException)
         {
             if (_logger.IsEnabled(LogLevel.Warning))
-                _logger.LogWarning(ex, "{ClassName} lost control of a realtime call for agent {AgentName}",
-                    nameof(RealtimeCallSession), AgentName);
+                _logger.LogWarning(ex, "{ClassName} lost control of a realtime call", nameof(RealtimeCallSession));
         }
         finally
         {
@@ -195,14 +193,14 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
         {
             var accepted = await _azure.HangUpAsync(_options.Endpoint, _options.Credential, _options.ProviderCallId, timeout.Token);
             if (_logger.IsEnabled(LogLevel.Information))
-                _logger.LogInformation("{ClassName} ended a realtime call for agent {AgentName}; provider hang-up accepted {Accepted}",
-                    nameof(RealtimeCallSession), AgentName, accepted);
+                _logger.LogInformation("{ClassName} ended a realtime call; provider hang-up accepted {Accepted}",
+                    nameof(RealtimeCallSession), accepted);
         }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException)
         {
             if (_logger.IsEnabled(LogLevel.Warning))
-                _logger.LogWarning(ex, "{ClassName} could not ask the provider to end a realtime call for agent {AgentName}",
-                    nameof(RealtimeCallSession), AgentName);
+                _logger.LogWarning(ex, "{ClassName} could not ask the provider to end a realtime call",
+                    nameof(RealtimeCallSession));
         }
     }
 }

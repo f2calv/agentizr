@@ -85,6 +85,7 @@ public sealed class EndpointSmokeTests(AgentizrWebApplicationFactory factory)
             "GetAgentInstructionsV1", "PublishAgentDefinitionV1", "GetAgentDefinitionHistoryV1",
             "GetActiveAgentDefinitionV1", "GetAgentDefinitionVersionV1", "EvaluateAgentDefinitionV1",
             "ActivateAgentDefinitionV1", "GetAgentDefinitionActivationHistoryV1", "DeactivateAgentDefinitionV1",
+            "CreateRealtimeCallV1", "EndRealtimeCallV1",
         ];
 
         Assert.Equal(expectedNames.Order(StringComparer.Ordinal),
@@ -131,6 +132,8 @@ public sealed class EndpointSmokeTests(AgentizrWebApplicationFactory factory)
             ("ActivateAgentDefinitionV1", 204, typeof(void)),
             ("GetAgentDefinitionActivationHistoryV1", 200, typeof(IReadOnlyList<AgentDefinitionActivationResponse>)),
             ("DeactivateAgentDefinitionV1", 204, typeof(void)),
+            ("CreateRealtimeCallV1", 201, typeof(RealtimeCallResponse)),
+            ("EndRealtimeCallV1", 204, typeof(void)),
         ];
         string[] noNotFound =
         [
@@ -146,6 +149,15 @@ public sealed class EndpointSmokeTests(AgentizrWebApplicationFactory factory)
             var responses = descriptions[name].SupportedResponseTypes;
             Assert.Equal(body, Assert.Single(responses, response => response.StatusCode == status).Type);
             var action = Assert.IsType<ControllerActionDescriptor>(descriptions[name].ActionDescriptor);
+            if (action.ControllerName == "RealtimeCalls")
+            {
+                // Realtime calls neither take a session lock nor report conflicts.
+                Assert.Contains(responses, response => response.StatusCode == 404);
+                if (name == "CreateRealtimeCallV1")
+                    Assert.Equal(typeof(ValidationProblemDetails),
+                        Assert.Single(responses, response => response.StatusCode == 400).Type);
+                continue;
+            }
             var isRuntime = action.ControllerName == "AgentRuntime";
             if (!isRuntime || runtimeValidated.Contains(name))
                 Assert.Equal(typeof(ValidationProblemDetails),

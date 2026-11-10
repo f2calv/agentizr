@@ -85,9 +85,10 @@ section rejects realtime calls.
 
 ### Contract (illustrative names)
 
-- `POST /api/v1/agents/{agentName}/realtime/calls?sessionId=` with an `application/sdp` body.
-  Returns `201 Created` with the SDP answer and a `Location` naming an Agentizr-issued opaque call
-  id. The Azure call id is never returned.
+- `POST /api/v1/agents/{agentName}/realtime/calls` with a JSON body carrying the SDP offer.
+  Returns `201 Created` with the SDP answer and an Agentizr-issued opaque call id, plus a
+  `Location` for ending the call. JSON keeps the endpoint consistent with the rest of the API and
+  its validation problem details. The Azure call id is never returned.
 - `DELETE /api/v1/agents/{agentName}/realtime/calls/{callId}` ends the call.
 - A dedicated permission, `agent.realtime`, granted as a delegated scope or application role and
   checked like the existing `agent.execute`. The tenant comes from the validated `azp` mapping,
