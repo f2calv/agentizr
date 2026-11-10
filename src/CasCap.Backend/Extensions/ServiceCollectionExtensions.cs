@@ -58,6 +58,12 @@ public static partial class ServiceCollectionExtensions
                     context.User, AgentRuntimePermissions.DefinitionActivate));
                 policy.RequireAssertion(context => AgentRuntimeAuthorization.HasActorIdentifier(context.User));
             });
+            options.AddPolicy(AgentRuntimePolicies.Realtime, policy =>
+            {
+                policy.RequireAuthenticatedUser();
+                policy.RequireAssertion(context => AgentRuntimeAuthorization.HasPermission(
+                    context.User, AgentRuntimePermissions.Realtime));
+            });
         });
         services.AddOptions<AuthorizationOptions>().Configure<IOptions<AdministrationConfig>>((options, administrationConfig) =>
         {

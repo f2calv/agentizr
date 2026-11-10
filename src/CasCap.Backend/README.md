@@ -644,10 +644,37 @@ is missing.
 
 Execution and session operations require `agent.execute`. Definition administration uses separate
 `agent.definition.read`, `agent.definition.publish` and `agent.definition.activate` permissions.
+Realtime voice calls require `agent.realtime`.
 Permissions are accepted from delegated `scope`/`scp` claims or application `roles`. Publisher and
 activation actor identifiers come from validated principal claims, never request bodies. Provider credentials remain behind
 [`IProviderCredentialStore`](https://github.com/f2calv/agentizr/blob/13aa4a19180b9dbd0f14fa08fbf95f67039b69f0/src/CasCap.App.Server/Abstractions/IProviderCredentialStore.cs)
 and definition publication rejects embedded API keys.
+
+### Realtime Voice Calls
+
+An agent definition's optional `realtime` section, or `AgentRuntimeConfig.Tenants:<tenant>:Realtime:<agent>`
+for configuration-backed tenants, offers brokered WebRTC calls, as proposed in
+[ADR 0002](../../docs/adr-0002-realtime-voice-calls.md). [`RealtimeCallsController`](Controllers/RealtimeCallsController.cs)
+accepts an `application/sdp` offer and returns the answer with a `Location` naming a runtime call id.
+[`RealtimeCallService`](Services/RealtimeCallService.cs) builds the session from the definition's
+instructions and the allowlisted subset of its remote MCP tools, mints a client secret and negotiates the
+call with the client data channel filtered. [`RealtimeCallSession`](Services/RealtimeCallSession.cs)
+holds the server-side control connection, executes tool calls once per call id and hangs up on `DELETE`,
+at `MaximumDurationMinutes`, on host shutdown or when control is lost.
+
+| Setting | Purpose |
+| --- | --- |
+| `provider` | Tenant provider name in `EntraIdProviders` or `Providers` that authenticates to the realtime resource |
+| `endpoint`, `deployment` | HTTPS root endpoint and realtime deployment; the authority must be allowed by `AllowedProviderAuthorities` |
+| `voice`, `turnDetection`, `eagerness` | Output voice and `semantic_vad` or `server_vad` turn detection |
+| `transcriptionModel`, `transcriptionLanguage` | Optional user-speech transcription |
+| `maximumDurationMinutes` | Hang-up deadline, 1 to 120 minutes |
+| `tools` | Remote MCP tool names a call may execute; only tools the text agent exposes qualify |
+
+`AgentRuntimeConfig.MaximumRealtimeCallsPerInstance` bounds concurrent calls per instance. Calls are
+controlled in memory by the instance that started them, so run one replica with realtime calls until the
+leased call record in ADR 0002 exists. SDP, ephemeral keys, provider call ids, transcripts and tool payloads
+are never logged.
 
 `AdministrationConfig` binds from `CasCap:AdministrationConfig` and controls the browser frontend.
 `AppAdministrators` maps each app to the user identifiers, read from `AdministratorClaimType`

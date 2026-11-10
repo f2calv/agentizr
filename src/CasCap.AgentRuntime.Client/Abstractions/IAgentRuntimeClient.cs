@@ -73,4 +73,19 @@ public interface IAgentRuntimeClient
         string agentName,
         string sessionId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Starts a brokered realtime voice call from a WebRTC SDP offer, or returns <see langword="null" /> when the
+    /// agent is unavailable or has no realtime configuration.
+    /// </summary>
+    public Task<RealtimeCallResponse?> CreateRealtimeCallAsync(
+        string agentName,
+        string sdpOffer,
+        CancellationToken cancellationToken);
+
+    /// <summary>Ends a realtime voice call, returning <see langword="false" /> when it is not active.</summary>
+    public Task<bool> EndRealtimeCallAsync(
+        string agentName,
+        string callId,
+        CancellationToken cancellationToken);
 }

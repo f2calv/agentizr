@@ -37,6 +37,11 @@ public sealed record AgentRuntimeConfig : IAppConfig, IValidatableObject
     [Range(1, 1_000)]
     public int MaximumToolInvocationsPerRun { get; init; } = 50;
 
+    /// <summary>Gets the maximum concurrent realtime voice calls one runtime instance controls.</summary>
+    /// <remarks>Each call holds a provider control connection in this instance until it ends.</remarks>
+    [Range(1, 100)]
+    public int MaximumRealtimeCallsPerInstance { get; init; } = 4;
+
     /// <summary>Gets session compaction policies keyed by provider name, shared by every tenant.</summary>
     /// <remarks>
     /// A tenant entry in <see cref="TenantAgentConfig.SessionCompaction"/> replaces the entry here; a
@@ -64,6 +69,18 @@ public sealed record AgentRuntimeConfig : IAppConfig, IValidatableObject
                 continue;
             foreach (var result in results)
                 yield return new ValidationResult($"{path}: {result.ErrorMessage}", [path]);
+        }
+        foreach (var (tenantId, tenant) in Tenants)
+        {
+            foreach (var (agentName, realtime) in tenant.Realtime)
+            {
+                var path = $"{nameof(Tenants)}:{tenantId}:{nameof(TenantAgentConfig.Realtime)}:{agentName}";
+                var results = new List<ValidationResult>();
+                if (Validator.TryValidateObject(realtime, new ValidationContext(realtime), results, validateAllProperties: true))
+                    continue;
+                foreach (var result in results)
+                    yield return new ValidationResult($"{path}: {result.ErrorMessage}", [path]);
+            }
         }
     }
 }
@@ -110,6 +127,9 @@ public sealed record TenantAgentConfig
 
     /// <summary>Gets agents keyed by stable agent name.</summary>
     public Dictionary<string, AgentConfig> Agents { get; init; } = [];
+
+    /// <summary>Gets realtime voice call settings keyed by agent name, for agents that offer calls.</summary>
+    public Dictionary<string, AgentRealtimeConfig> Realtime { get; init; } = [];
 
     /// <summary>Gets remote MCP credentials keyed by logical definition reference.</summary>
     public Dictionary<string, McpCredentialConfig> McpCredentials { get; init; } = [];

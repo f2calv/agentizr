@@ -72,8 +72,8 @@ a server-side controller.
 
 ### Definition
 
-The agent definition gains an optional `realtime` section; the definition schema version increases.
-The section holds:
+The agent definition gains an optional `realtime` section. It is additive, so the definition schema
+version stays at 1. The section holds:
 
 - a logical provider name and deployment;
 - voice, turn detection settings, and transcription model and language;
@@ -157,9 +157,11 @@ consumer passes a session id dedicated to voice. Sharing context between voice a
 
 Acceptance evidence, not yet observed:
 
-- [ ] Contract and controller unit tests: setup authorization, the definition without a `realtime`
-  section, allowlist rejection, repeated tool call ids, maximum duration and hang-up paths, with a
-  fake Azure realtime endpoint.
+- [x] Unit tests for session configuration, allowlist refusal, repeated tool call ids, argument
+  validation and provider brokering against a fake HTTP handler
+  ([RealtimeCallTests](../src/CasCap.Backend.Tests/Tests/Unit/RealtimeCallTests.cs), 10 passing locally).
+- [ ] Controller-level tests: setup authorization, the definition without a `realtime` section, maximum
+  duration and hang-up paths, with a fake Azure realtime endpoint.
 - [ ] Integration test on the local Compose services: call record, lease renewal, `DELETE` from a
   non-owning instance and expired-lease sweep.
 - [ ] Live smoke from the tutor's Windows client: instructions applied without client knowledge, one
@@ -176,7 +178,10 @@ Delivery order:
 
 ## Handover
 
-- Branch `f2calv/2026-11-realtime-calls` (local, from `main`) holds this record only.
+- Branch `f2calv/2026-11-realtime-calls` (local, from `main`) holds this record and the first slice:
+  contracts, typed client, the `realtime` definition section, setup service, in-memory controller
+  registry and unit tests. Delivery steps 1 and 2 are implemented; step 3 (leased call record and
+  sweeper) is not, so realtime calls currently require a single runtime replica.
 - Entra and Azure changes are prepared as a separate operator handover, not executed by this work:
   a public client registration for the tutor app, a realtime scope on the Agentizr API, the
   `azp` tenant mapping, and a data-plane role for Agentizr's identity on the realtime resource.

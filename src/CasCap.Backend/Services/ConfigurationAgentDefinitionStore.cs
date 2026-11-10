@@ -21,6 +21,7 @@ internal sealed class ConfigurationAgentDefinitionStore(
             Version = tenant.DefinitionVersion,
             Agent = agent,
             Provider = provider with { ApiKey = null },
+            Realtime = tenant.Realtime.GetValueOrDefault(agentName),
         });
     }
 

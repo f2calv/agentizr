@@ -84,6 +84,7 @@ internal sealed class AgentDefinitionAdministrationService(
             Version = request.DefinitionVersion,
             Agent = validatedPayload.Agent,
             Provider = validatedPayload.Provider with { ApiKey = null },
+            Realtime = validatedPayload.Realtime,
         };
         try
         {
@@ -400,6 +401,17 @@ internal sealed class AgentDefinitionAdministrationService(
         }
         if (payload.Provider.Type is not AgentType.OpenAI && payload.Provider.Endpoint is null)
             return $"Provider type {payload.Provider.Type} requires an endpoint.";
+        if (payload.Realtime is { } realtime)
+        {
+            validationResults.Clear();
+            if (!Validator.TryValidateObject(realtime, new ValidationContext(realtime), validationResults, validateAllProperties: true))
+                return validationResults[0].ErrorMessage ?? "Realtime configuration is invalid.";
+            if (!realtime.Endpoint.IsAbsoluteUri || realtime.Endpoint.Scheme != Uri.UriSchemeHttps
+                || realtime.Endpoint.AbsolutePath != "/")
+                return "Realtime endpoint must be an HTTPS root endpoint without an API path.";
+            if (ValidateEndpoint(realtime.Endpoint, policyConfig.Value.AllowedProviderAuthorities) is { } realtimeError)
+                return $"Realtime endpoint {realtimeError}";
+        }
 
         foreach (var tool in payload.Agent.Tools)
         {

@@ -30,6 +30,12 @@ public static class AgentRuntimeRoutes
     /// <summary>Gets the route for the effective instructions of one agent session.</summary>
     public const string SessionInstructions = "/sessions/{sessionId}/instructions";
 
+    /// <summary>Gets the route for starting a brokered realtime voice call with an SDP offer.</summary>
+    public const string RealtimeCalls = "/realtime/calls";
+
+    /// <summary>Gets the route for ending one realtime voice call.</summary>
+    public const string RealtimeCall = "/realtime/calls/{callId}";
+
     /// <summary>Gets the route for publishing and listing immutable definitions.</summary>
     public const string Definitions = "/definitions";
 

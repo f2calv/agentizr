@@ -112,5 +112,16 @@ public static partial class WebApplicationBuilderExtensions
         builder.Services.AddScoped<IEvaluationAgentFactory, EvaluationAgentFactory>();
         builder.Services.AddScoped<AgentDefinitionEvaluator>();
         builder.Services.AddScoped<AgentDefinitionAdministrationService>();
+        builder.Services.AddHttpClient<AzureRealtimeClient>();
+        builder.Services.AddSingleton<RealtimeCallRegistry>();
+        builder.Services.AddHostedService(services => services.GetRequiredService<RealtimeCallRegistry>());
+        builder.Services.AddScoped(services => new RealtimeCallService(
+            services.GetRequiredService<IAgentDefinitionStore>(),
+            services.GetRequiredService<IProviderCredentialStore>(),
+            services.GetRequiredService<IMcpCredentialStore>(),
+            services.GetRequiredService<ITenantContext>(),
+            services.GetRequiredService<AzureRealtimeClient>(),
+            services.GetRequiredService<RealtimeCallRegistry>(),
+            services.GetRequiredService<ILoggerFactory>()));
     }
 }

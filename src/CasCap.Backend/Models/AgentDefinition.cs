@@ -16,4 +16,7 @@ public sealed record AgentDefinition
 
     /// <summary>Gets the provider configuration without credentials.</summary>
     public required ProviderConfig Provider { get; init; }
+
+    /// <summary>Gets the realtime voice call settings, or <see langword="null"/> when calls are not offered.</summary>
+    public AgentRealtimeConfig? Realtime { get; init; }
 }

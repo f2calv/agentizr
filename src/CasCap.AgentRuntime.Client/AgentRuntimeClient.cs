@@ -3,6 +3,7 @@ using CasCap.AgentRuntime.Contracts.V1.Constants;
 using System.Net;
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 
 namespace CasCap.AgentRuntime.Client;
@@ -150,6 +151,47 @@ public sealed class AgentRuntimeClient(HttpClient httpClient) : IAgentRuntimeCli
         GetAsync<AgentInstructionsResponse>(
             BuildPath(agentName, AgentRuntimeRoutes.SessionInstructions, sessionId),
             cancellationToken);
+
+    /// <inheritdoc/>
+    public async Task<RealtimeCallResponse?> CreateRealtimeCallAsync(
+        string agentName,
+        string sdpOffer,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sdpOffer);
+
+        using var message = new HttpRequestMessage(HttpMethod.Post, BuildPath(agentName, AgentRuntimeRoutes.RealtimeCalls))
+        {
+            Content = new StringContent(sdpOffer, Encoding.UTF8, RealtimeMediaTypes.Sdp),
+        };
+        using var response = await httpClient.SendAsync(message, cancellationToken).ConfigureAwait(false);
+        if (response.StatusCode is HttpStatusCode.NotFound)
+            return null;
+        response.EnsureSuccessStatusCode();
+
+        var location = response.Headers.Location
+            ?? throw new InvalidDataException("Agent Runtime did not return the realtime call location.");
+        var path = location.IsAbsoluteUri ? location.AbsolutePath : location.OriginalString;
+        return new RealtimeCallResponse
+        {
+            CallId = Uri.UnescapeDataString(path[(path.LastIndexOf('/') + 1)..]),
+            SdpAnswer = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false),
+        };
+    }
+
+    /// <inheritdoc/>
+    public Task<bool> EndRealtimeCallAsync(
+        string agentName,
+        string callId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(callId);
+        return SendNoContentAsync(
+            HttpMethod.Delete,
+            BuildPath(agentName, AgentRuntimeRoutes.RealtimeCall)
+                .Replace("{callId}", Uri.EscapeDataString(callId), StringComparison.Ordinal),
+            cancellationToken);
+    }
 
     private async Task<TResponse?> GetAsync<TResponse>(string path, CancellationToken cancellationToken)
     {
