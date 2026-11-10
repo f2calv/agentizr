@@ -142,6 +142,36 @@ public sealed class RealtimeCallTests
         Assert.False(valid);
     }
 
+    [Fact]
+    public async Task LoadToolsAsync_AllowlistedBuiltInOutlivesTheSetupRequest()
+    {
+        // The datetime built-in is not an MCP tool; a call must still expose it and answer after setup returns.
+        var tenant = new RequestTenantContext();
+        var services = new ServiceCollection()
+            .AddSingleton(Options.Create(new AgentRuntimeConfig
+            {
+                Tenants = { ["tenant-a"] = new() { TimeZoneId = "UTC" } },
+            }))
+            .AddSingleton(TimeProvider.System)
+            .AddLogging()
+            .BuildServiceProvider();
+        var definition = CreateDefinition() with
+        {
+            Agent = CreateDefinition().Agent with { IncludeRuntimeContext = true },
+            Realtime = CreateDefinition().Realtime! with { Tools = ["get_current_datetime_state"] },
+        };
+        var service = new RealtimeCallService(
+            new SingleDefinitionStore(definition), null!, null!, tenant, null!,
+            new RealtimeCallRegistry(Options.Create(new AgentRuntimeConfig())), services, NullLoggerFactory.Instance);
+
+        var tools = await service.LoadToolsAsync(definition, definition.Realtime!, [], NullLogger.Instance, TestContext.Current.CancellationToken);
+        tenant.EndRequest();
+        var result = await Assert.Single(tools).InvokeAsync([], TestContext.Current.CancellationToken);
+
+        Assert.Equal("get_current_datetime_state", tools[0].Name);
+        Assert.Contains("UTC", JsonSerializer.Serialize(result), StringComparison.Ordinal);
+    }
+
     private static AgentDefinition CreateDefinition() => new()
     {
         Name = "tutor",
@@ -171,5 +201,20 @@ public sealed class RealtimeCallTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             send(request);
+    }
+
+    private sealed class RequestTenantContext : ITenantContext
+    {
+        private bool _ended;
+
+        public string TenantId => _ended ? throw new UnauthorizedAccessException("The request has ended.") : "tenant-a";
+
+        public void EndRequest() => _ended = true;
+    }
+
+    private sealed class SingleDefinitionStore(AgentDefinition definition) : IAgentDefinitionStore
+    {
+        public ValueTask<AgentDefinition?> GetAsync(string agentName, CancellationToken cancellationToken) =>
+            ValueTask.FromResult<AgentDefinition?>(string.Equals(agentName, definition.Name, StringComparison.OrdinalIgnoreCase) ? definition : null);
     }
 }

@@ -17,6 +17,7 @@ public sealed class RealtimeCallService
     private readonly ITenantContext tenantContext;
     private readonly AzureRealtimeClient azure;
     private readonly RealtimeCallRegistry registry;
+    private readonly IServiceProvider serviceProvider;
     private readonly ILoggerFactory loggerFactory;
 
     internal RealtimeCallService(
@@ -26,6 +27,7 @@ public sealed class RealtimeCallService
         ITenantContext tenantContext,
         AzureRealtimeClient azure,
         RealtimeCallRegistry registry,
+        IServiceProvider serviceProvider,
         ILoggerFactory loggerFactory)
     {
         this.definitionStore = definitionStore;
@@ -34,6 +36,7 @@ public sealed class RealtimeCallService
         this.tenantContext = tenantContext;
         this.azure = azure;
         this.registry = registry;
+        this.serviceProvider = serviceProvider;
         this.loggerFactory = loggerFactory;
     }
 
@@ -133,7 +136,7 @@ public sealed class RealtimeCallService
             : null;
     }
 
-    private async ValueTask<List<AIFunction>> LoadToolsAsync(
+    internal async ValueTask<List<AIFunction>> LoadToolsAsync(
         AgentDefinition definition,
         AgentRealtimeConfig realtime,
         List<IAsyncDisposable> toolLeases,
@@ -144,6 +147,15 @@ public sealed class RealtimeCallService
         var tools = new List<AITool>();
         if (allowed.Count == 0)
             return [];
+
+        // Built-ins run after the setup request ends, so they bind the tenant now rather than reading the request.
+        if (definition.Agent.IncludeRuntimeContext)
+        {
+            var builtIns = ActivatorUtilities.CreateInstance<AgentRuntimeBuiltInTools>(
+                serviceProvider, new FixedTenantContext(tenantContext.TenantId), definitionStore);
+            CommonAgentExecutor.AddUniqueTools(
+                tools, await builtIns.CreateAsync(definition, cancellationToken), "runtime built-ins", logger);
+        }
 
         // A call can use only tools the text agent itself exposes, narrowed further by the realtime allowlist.
         foreach (var source in definition.Agent.Tools.Where(source => source.Endpoint is not null))
