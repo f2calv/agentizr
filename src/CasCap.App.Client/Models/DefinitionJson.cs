@@ -31,4 +31,12 @@ public static class DefinitionJson
             && agent.TryGetProperty("tools", out var tools)
                 ? JsonSerializer.Serialize(tools, IndentedOptions)
                 : "[]";
+
+    /// <summary>Gets the realtime voice section as indented JSON, or <see langword="null" /> when the version has none.</summary>
+    public static string? GetRealtimeJson(JsonElement definition) =>
+        definition.ValueKind == JsonValueKind.Object
+            && definition.TryGetProperty("realtime", out var realtime)
+            && realtime.ValueKind == JsonValueKind.Object
+                ? JsonSerializer.Serialize(realtime, IndentedOptions)
+                : null;
 }

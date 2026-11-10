@@ -185,6 +185,12 @@ public partial class DefinitionEditor(
     {
         if (_form is null || _draft is null || _catalogue is null || _messages is null || _editContext is null || _publishing)
             return;
+        if (!DefinitionDraft.TryParseRealtime(_form.RealtimeJson, out _, out var realtimeError))
+        {
+            _messages.Add(() => _form.RealtimeJson, realtimeError!);
+            _editContext.NotifyValidationStateChanged();
+            return;
+        }
         if (!_draft.TryCreatePayload(_form, out var payload, out var payloadError))
         {
             _messages.Add(() => _form.ToolsJson, payloadError!);

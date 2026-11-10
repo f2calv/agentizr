@@ -14,11 +14,13 @@ public sealed class DefinitionDraft
 
     private readonly JsonObject _agent;
     private readonly JsonObject _provider;
+    private readonly JsonObject? _realtime;
 
-    private DefinitionDraft(JsonObject agent, JsonObject provider)
+    private DefinitionDraft(JsonObject agent, JsonObject provider, JsonObject? realtime = null)
     {
         _agent = agent;
         _provider = provider;
+        _realtime = realtime;
     }
 
     /// <summary>Starts a draft from a published snapshot definition.</summary>
@@ -27,7 +29,10 @@ public sealed class DefinitionDraft
         JsonNode.Parse(definition.GetRawText()) is JsonObject root
             && root["agent"] is JsonObject agent
             && root["provider"] is JsonObject provider
-                ? new DefinitionDraft((JsonObject)agent.DeepClone(), (JsonObject)provider.DeepClone())
+                ? new DefinitionDraft(
+                    (JsonObject)agent.DeepClone(),
+                    (JsonObject)provider.DeepClone(),
+                    root["realtime"] is JsonObject realtime ? (JsonObject)realtime.DeepClone() : null)
                 : throw new FormatException("The definition has no agent or provider object.");
 
     /// <summary>Starts an empty draft for a new agent.</summary>
@@ -59,7 +64,32 @@ public sealed class DefinitionDraft
         ReasoningEffort = Text(_provider, "reasoningEffort"),
         UseResponsesApi = _provider["useResponsesApi"]?.GetValue<bool>() ?? false,
         ToolsJson = _agent["tools"]?.ToJsonString(IndentedOptions) ?? "[]",
+        RealtimeJson = _realtime?.ToJsonString(IndentedOptions) ?? string.Empty,
     };
+
+    /// <summary>Parses the optional realtime section; blank text means the version offers no realtime calls.</summary>
+    /// <param name="json">The edited realtime JSON.</param>
+    /// <param name="realtime">The parsed object, or <see langword="null" /> when blank.</param>
+    /// <param name="error">Why the text is not a JSON object.</param>
+    public static bool TryParseRealtime(string? json, out JsonObject? realtime, out string? error)
+    {
+        realtime = null;
+        error = null;
+        if (string.IsNullOrWhiteSpace(json))
+            return true;
+        try
+        {
+            realtime = JsonNode.Parse(json) as JsonObject;
+        }
+        catch (JsonException ex)
+        {
+            error = $"Realtime must be a JSON object: {ex.Message}";
+            return false;
+        }
+        if (realtime is null)
+            error = "Realtime must be a JSON object.";
+        return realtime is not null;
+    }
 
     /// <summary>Applies the form to a copy of the draft and returns the <c>{ agent, provider }</c> publication payload.</summary>
     /// <param name="form">The edited fields.</param>
@@ -83,6 +113,8 @@ public sealed class DefinitionDraft
             error = "Tools must be a JSON array.";
             return false;
         }
+        if (!TryParseRealtime(form.RealtimeJson, out var realtime, out error))
+            return false;
 
         var agent = (JsonObject)_agent.DeepClone();
         agent["name"] = form.DisplayName.Trim();
@@ -101,7 +133,10 @@ public sealed class DefinitionDraft
         provider["reasoningEffort"] = string.IsNullOrWhiteSpace(form.ReasoningEffort) ? null : form.ReasoningEffort;
         provider["useResponsesApi"] = form.UseResponsesApi;
 
-        payload = JsonSerializer.SerializeToElement(new JsonObject { ["agent"] = agent, ["provider"] = provider });
+        var root = new JsonObject { ["agent"] = agent, ["provider"] = provider };
+        if (realtime is not null)
+            root["realtime"] = realtime;
+        payload = JsonSerializer.SerializeToElement(root);
         error = null;
         return true;
     }

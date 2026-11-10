@@ -86,7 +86,7 @@ Debug uses the equivalent sibling-project reference.
 | [`DocumentApprovalRequest`](Models/DocumentApprovalRequest.cs) | Explicit classification/attestations and observed source, selection and assessment revisions |
 | [`DocumentApprovalResponse`](Models/DocumentApprovalResponse.cs) | Current/stale readiness, derived blockers and fixed denied indexing approval |
 | [`DocumentApprovalDraft`](Models/DocumentApprovalDraft.cs) | Mutable assessment form requiring fresh attestations and rationale |
-| [`DefinitionDraft`](Models/DefinitionDraft.cs) | Builds a publication payload that keeps fields the editor does not change |
+| [`DefinitionDraft`](Models/DefinitionDraft.cs) | Builds a publication payload that keeps fields the editor does not change, including the optional realtime section edited as JSON |
 
 Definition snapshots, history and evaluation reuse the
 [versioned contracts](../CasCap.AgentRuntime.Contracts/README.md).

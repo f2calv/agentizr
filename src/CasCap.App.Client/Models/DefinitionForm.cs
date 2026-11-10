@@ -65,6 +65,10 @@ public sealed class DefinitionForm
     [Display(Name = "Tools")]
     public string ToolsJson { get; set; } = "[]";
 
+    /// <summary>Gets or sets the optional realtime voice section as a JSON object, or blank for none.</summary>
+    [Display(Name = "Realtime")]
+    public string RealtimeJson { get; set; } = string.Empty;
+
     /// <summary>Gets or sets the publication reason recorded with the version.</summary>
     [Required, StringLength(2_000, MinimumLength = 1)]
     [Display(Name = "Publication reason")]
