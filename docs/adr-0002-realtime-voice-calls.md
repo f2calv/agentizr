@@ -174,8 +174,9 @@ Acceptance evidence:
   the `Realtime` policy is pinned by
   [TenantSecurityStartupTests](../src/CasCap.App.Server.Tests/Tests/Integration/TenantSecurityStartupTests.cs)
   and the maximum duration was verified live.
-- [ ] Integration test on the local Compose services: call record, lease renewal, `DELETE` from a
-  non-owning instance and expired-lease sweep.
+- [x] Integration test on the local Compose PostgreSQL: call record, lease renewal, `DELETE` from a
+  non-owning registry, one claimant among concurrent sweepers and the expired-lease sweep
+  ([PostgresRealtimeCallStoreTests](../src/CasCap.App.Server.Tests/Tests/Integration/PostgresRealtimeCallStoreTests.cs)).
 - [x] Live smoke from a browser WebRTC page with a delegated token (2026-11-11): 401 without a token,
   404 for an unknown agent, instructions applied without client knowledge, read and write MCP tools
   executed by the runtime (including model recovery from a tool error), user and assistant
