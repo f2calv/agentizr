@@ -61,7 +61,9 @@ internal sealed class RealtimeToolDispatcher(IReadOnlyCollection<AIFunction> too
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex, "{ClassName} realtime tool {ToolName} failed", nameof(RealtimeToolDispatcher), name);
+            // A tool error message can echo learner content, so only the exception type is logged.
+            logger.LogWarning("{ClassName} realtime tool {ToolName} failed with {ExceptionType}",
+                nameof(RealtimeToolDispatcher), name, ex.GetType().Name);
             return Error($"Tool '{name}' failed.");
         }
     }

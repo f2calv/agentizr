@@ -1,4 +1,5 @@
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
@@ -74,6 +75,24 @@ public sealed class RealtimeCallTests
         var output = await dispatcher.InvokeAsync("call-1", "get_learner_profile", "[1]", TestContext.Current.CancellationToken);
 
         Assert.Contains("error", output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_FailingToolLogsNeitherItsMessageNorArguments()
+    {
+        // Tool errors and arguments can carry learner content, which must stay out of logs (ADR 0002 G6).
+        const string learnerContent = "private learner sentence";
+        var tool = AIFunctionFactory.Create(
+            new Func<string, string>(term => throw new InvalidOperationException($"{learnerContent}: {term}")), "add_vocabulary");
+        var logger = new CapturingLogger();
+        var dispatcher = new RealtimeToolDispatcher([tool], TimeSpan.FromSeconds(5), logger);
+
+        var output = await dispatcher.InvokeAsync(
+            "call-1", "add_vocabulary", $$"""{"term":"{{learnerContent}}"}""", TestContext.Current.CancellationToken);
+
+        Assert.Contains("failed", output, StringComparison.Ordinal);
+        Assert.NotEmpty(logger.Entries);
+        Assert.DoesNotContain(logger.Entries, entry => entry.Contains(learnerContent, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -353,6 +372,20 @@ public sealed class RealtimeCallTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             send(request);
+    }
+
+    /// <summary>Records each formatted log entry with its exception, as an exporter would see it.</summary>
+    private sealed class CapturingLogger : ILogger
+    {
+        public List<string> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Entries.Add($"{formatter(state, exception)} {exception}");
     }
 
     private sealed class RequestTenantContext : ITenantContext

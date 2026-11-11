@@ -192,7 +192,15 @@ Acceptance evidence:
   application-ID redirect, settings entered on the device, microphone capture, transcripts and the
   call summary with end reason and token usage.
 - [ ] Live smoke from a physical Android phone away from the private network.
-- [ ] Log and telemetry review showing none of the data in G6.
+- [x] Log and telemetry review for G6 (2026-11-11). Realtime log templates carry only class, tool and
+  provider names, error codes, end reasons, durations and token counts; exceptions from the provider
+  client carry status codes only. A failing tool logged its exception message, which can echo learner
+  content, so it now logs only the exception type
+  ([RealtimeCallTests](../src/CasCap.Backend.Tests/Tests/Unit/RealtimeCallTests.cs)). The runtime
+  traces no outbound HTTP; `System` logging stays at `Warning`, which keeps `HttpClient` request lines,
+  whose hang-up path contains the Azure call id, out of the logs. Request logging records route
+  templates only. Logs from the day's live calls on both replicas contained no call ids, keys, SDP or
+  transcripts.
 
 Delivery order:
 
