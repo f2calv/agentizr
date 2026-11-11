@@ -170,7 +170,13 @@ internal sealed class RealtimeCallRegistry(
         _calls.TryRemove(call.CallId, out _);
         try
         {
-            await store.CompleteAsync(call.CallId, call.Summary!, timeProvider.GetUtcNow(), CancellationToken.None);
+            var summary = call.Summary!;
+            // The client usually tears down media before its DELETE reaches the owning replica.
+            if (summary.EndReason == RealtimeCallEndReason.ProviderClosed
+                && (await store.GetAsync(call.TenantId, call.AgentName, call.CallId, CancellationToken.None))?.Status
+                    == RealtimeCallStatus.Ending)
+                summary = summary with { EndReason = RealtimeCallEndReason.ClientRequested };
+            await store.CompleteAsync(call.CallId, summary, timeProvider.GetUtcNow(), CancellationToken.None);
         }
         catch (Exception ex) when (ex is DbException or DbUpdateException or InvalidOperationException or TimeoutException)
         {

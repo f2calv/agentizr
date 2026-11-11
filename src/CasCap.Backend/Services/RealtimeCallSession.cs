@@ -29,6 +29,7 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
     private Task _run = Task.CompletedTask;
     private long _startedAt;
     private int _endReason = NoReason;
+    private bool _providerClosed;
 
     /// <summary>Initializes a call that has been answered by the provider but is not yet controlled.</summary>
     public RealtimeCallSession(
@@ -115,6 +116,7 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
             if (_logger.IsEnabled(LogLevel.Information))
                 _logger.LogInformation("{ClassName} controls a realtime call", nameof(RealtimeCallSession));
             await ReceiveAsync(socket, cancellationToken);
+            _providerClosed = true;
             Interlocked.CompareExchange(ref _endReason, (int)RealtimeCallEndReason.ProviderClosed, NoReason);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -130,7 +132,9 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
         finally
         {
             _deadline?.Dispose();
-            await HangUpAsync();
+            // A call the provider already closed does not answer a hang-up; it would only wait out the timeout.
+            if (!_providerClosed)
+                await HangUpAsync();
             foreach (var lease in _toolLeases)
                 await lease.DisposeAsync();
             Summary = CreateSummary();
