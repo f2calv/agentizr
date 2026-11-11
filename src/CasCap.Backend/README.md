@@ -663,9 +663,9 @@ call with the client data channel filtered. [`RealtimeCallSession`](Services/Rea
 holds the server-side control connection, executes tool calls once per call id, sums the token usage of each
 `response.done` event and hangs up on `DELETE`, at `MaximumDurationMinutes`, on host shutdown or when control is lost.
 `DELETE` returns `200` with a `RealtimeCallSummaryResponse`: the `EndReason`, duration, token usage and, when
-`AgentRuntimeConfig.RealtimePricing` has prices for the deployment, an estimated cost for debugging. A call the
-runtime ended itself keeps its summary for ten minutes, so the client's clean-up `DELETE` after media drops still
-learns why; unknown, foreign or expired calls return `404`.
+`AgentRuntimeConfig.RealtimePricing` has prices for the deployment, an estimated cost for debugging. An ended call's
+summary is kept for ten minutes, so the client's clean-up `DELETE` after media drops still learns why; unknown,
+foreign or expired calls return `404`.
 
 | Setting | Purpose |
 | --- | --- |
@@ -676,9 +676,13 @@ learns why; unknown, foreign or expired calls return `404`.
 | `maximumDurationMinutes` | Hard ceiling from call start, 1 to 120 minutes; speech and tool activity do not extend it |
 | `tools` | Remote MCP tool names a call may execute; only tools the text agent exposes qualify |
 
-`AgentRuntimeConfig.MaximumRealtimeCallsPerInstance` bounds concurrent calls per instance. Calls are
-controlled in memory by the instance that started them, so run one replica with realtime calls until the
-leased call record in ADR 0002 exists. SDP, ephemeral keys, provider call ids, transcripts and tool payloads
+`AgentRuntimeConfig.MaximumRealtimeCallsPerInstance` bounds concurrent calls per instance. The instance that
+starts a call holds its control connection and renews a 20-second lease on the call's record every 5 seconds;
+with PostgreSQL the record is shared (`realtime_calls`), otherwise it is in memory and only one replica may run.
+`DELETE` on another replica marks the call ending and waits for the owner, or for the sweeper when the owner is
+gone, to hang up and record the summary. Any replica sweeps calls whose lease expired: it hangs them up with the
+tenant's provider credential and records them as `ControlLost` with the last reported usage. On shutdown an
+instance hangs up the calls it owns. SDP, ephemeral keys, provider call ids, transcripts and tool payloads
 are never logged.
 
 `AdministrationConfig` binds from `CasCap:AdministrationConfig` and controls the browser frontend.

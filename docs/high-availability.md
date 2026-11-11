@@ -4,9 +4,9 @@ Agentizr can serve consecutive turns of a session from different replicas. Postg
 durable state and session lock; Redis is an optional payload cache, not another source of truth.
 There is no sticky-session requirement.
 
-[ADR 0002](adr-0002-realtime-voice-calls.md#ownership-and-replicas) proposes the first exception:
+[ADR 0002](adr-0002-realtime-voice-calls.md#ownership-and-replicas) adds the first exception:
 a realtime voice call controller holds a connection in one pod, with a leased call record so any
-replica can end it.
+replica can end it and sweep calls whose owner was lost.
 
 ## Why Routing Alone Is Not Enough
 

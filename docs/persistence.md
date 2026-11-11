@@ -22,6 +22,7 @@ All tables live in the `agent_runtime` schema.
 | `agent_states` | Version-qualified sessions, named snapshots and overrides; opaque key, owning tenant/agent/session, revision and JSONB payload | Until explicitly deleted/replaced |
 | `agent_runs` | Opt-in turn identity, tenant/agent/session, definition/model, timestamps, status, safe error type and output/usage/event summary | Retained independently of session state |
 | `agent_run_activities` | Opt-in ordered user/model messages, tool arguments, results/failures and delegation depth, committed as execution proceeds | Retained independently of session state |
+| `realtime_calls` | Realtime call ownership: tenant/agent, owning instance, status, lease expiry, provider call id, last usage and end summary; no audio, transcripts or credentials | Deleted ten minutes after the call ends |
 
 State keys include tenant, agent, definition version and session (plus snapshot name where relevant).
 Activating a new definition therefore selects a separate state namespace. Returning to an old version

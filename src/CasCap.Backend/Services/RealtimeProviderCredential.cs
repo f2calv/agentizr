@@ -27,6 +27,17 @@ internal sealed class RealtimeProviderCredential
         return new(null, apiKey);
     }
 
+    /// <summary>Resolves a tenant provider's Entra or API-key credential, or <see langword="null"/> when it has neither.</summary>
+    public static async ValueTask<RealtimeProviderCredential?> ResolveAsync(
+        IProviderCredentialStore credentialStore, string providerName, CancellationToken cancellationToken)
+    {
+        if (credentialStore.GetTokenCredential(providerName) is { } tokenCredential)
+            return FromTokenCredential(tokenCredential);
+        return await credentialStore.GetApiKeyAsync(providerName, cancellationToken) is { Length: > 0 } apiKey
+            ? FromApiKey(apiKey)
+            : null;
+    }
+
     /// <summary>Gets the authentication header name and value for one request or connection.</summary>
     public async ValueTask<KeyValuePair<string, string>> GetHeaderAsync(CancellationToken cancellationToken)
     {

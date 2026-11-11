@@ -164,6 +164,10 @@ Acceptance evidence:
 - [x] Unit tests for session configuration, allowlist refusal, repeated tool call ids, argument
   validation, provider brokering against a fake HTTP handler and allowlisted runtime built-ins that
   outlive the setup request ([RealtimeCallTests](../src/CasCap.Backend.Tests/Tests/Unit/RealtimeCallTests.cs)).
+- [x] Unit tests for the leased call record: tenant-scoped end requests stop the owner's renewal, an
+  expired lease is claimed once, `DELETE` on a non-owning registry returns the owner's summary, and the
+  sweeper hangs up an expired call with the tenant credential and records `ControlLost`
+  ([RealtimeCallTests](../src/CasCap.Backend.Tests/Tests/Unit/RealtimeCallTests.cs)).
 - [ ] Controller-level tests: setup authorization, the definition without a `realtime` section, maximum
   duration and hang-up paths, with a fake Azure realtime endpoint.
 - [ ] Integration test on the local Compose services: call record, lease renewal, `DELETE` from a
@@ -189,9 +193,9 @@ Delivery order:
 
 - Branch `f2calv/2026-11-realtime-calls` ([#29](https://github.com/f2calv/agentizr/pull/29)) holds this
   record and the first slice: contracts, typed client, the `realtime` definition section, setup
-  service, in-memory controller registry and unit tests. Delivery steps 1 and 2 are implemented;
-  step 3 (leased call record and sweeper) is not, so realtime calls currently require a single
-  runtime replica.
+  service, controller registry and unit tests. Delivery steps 1 to 4 are implemented. Step 3 stores
+  the call record in `agent_runtime.realtime_calls` with a 20-second lease renewed every 5 seconds;
+  ownership transitions are conditional updates, so concurrent replicas agree on one owner or sweeper.
 - Identity and configuration are provisioned separately: a public client registration for the tutor
   app, the delegated `agent.realtime` scope on the Agentizr API, a data-plane role for Agentizr's
   identity on the realtime resource, the `azp` tenant mapping and the realtime provider.

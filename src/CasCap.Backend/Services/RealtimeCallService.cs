@@ -56,7 +56,7 @@ public sealed class RealtimeCallService
             return new RealtimeCallOutcome { IsAtCapacity = true };
 
         var logger = loggerFactory.CreateLogger<RealtimeCallService>();
-        var credential = await GetCredentialAsync(realtime.Provider, cancellationToken);
+        var credential = await RealtimeProviderCredential.ResolveAsync(credentialStore, realtime.Provider, cancellationToken);
         if (credential is null)
         {
             if (logger.IsEnabled(LogLevel.Warning))
@@ -83,6 +83,7 @@ public sealed class RealtimeCallService
                     CallId = Guid.NewGuid().ToString("N"),
                     TenantId = tenantContext.TenantId,
                     AgentName = agentName,
+                    ProviderName = realtime.Provider,
                     Endpoint = realtime.Endpoint,
                     ProviderCallId = providerCallId,
                     Credential = credential,
@@ -95,14 +96,21 @@ public sealed class RealtimeCallService
                 toolLeases,
                 loggerFactory.CreateLogger<RealtimeCallSession>());
             transferred = true;
-            if (!registry.TryAdd(call))
+            bool started;
+            try
             {
-                // Started by the provider but not controllable here: hang it up rather than leave it uncontrolled.
-                call.Start();
-                await call.DisposeAsync();
+                started = await registry.TryStartAsync(call, cancellationToken);
+            }
+            catch
+            {
+                await HangUpUncontrolledAsync(call);
+                throw;
+            }
+            if (!started)
+            {
+                await HangUpUncontrolledAsync(call);
                 return new RealtimeCallOutcome { IsAtCapacity = true };
             }
-            call.Start();
             return new RealtimeCallOutcome
             {
                 Response = new RealtimeCallResponse { CallId = call.CallId, SdpAnswer = sdpAnswer },
@@ -126,16 +134,14 @@ public sealed class RealtimeCallService
     /// Ends an active call owned by the tenant and agent, or reports how a recently ended one ended; returns
     /// <see langword="null"/> for an unknown or expired call.
     /// </summary>
-    public Task<RealtimeCallSummaryResponse?> EndAsync(string agentName, string callId) =>
-        registry.EndAsync(tenantContext.TenantId, agentName, callId);
+    public Task<RealtimeCallSummaryResponse?> EndAsync(string agentName, string callId, CancellationToken cancellationToken) =>
+        registry.EndAsync(tenantContext.TenantId, agentName, callId, cancellationToken);
 
-    private async ValueTask<RealtimeProviderCredential?> GetCredentialAsync(string providerName, CancellationToken cancellationToken)
+    // Started by the provider but not controllable here: hang it up rather than leave it uncontrolled.
+    private static async Task HangUpUncontrolledAsync(RealtimeCallSession call)
     {
-        if (credentialStore.GetTokenCredential(providerName) is { } tokenCredential)
-            return RealtimeProviderCredential.FromTokenCredential(tokenCredential);
-        return await credentialStore.GetApiKeyAsync(providerName, cancellationToken) is { Length: > 0 } apiKey
-            ? RealtimeProviderCredential.FromApiKey(apiKey)
-            : null;
+        call.Start();
+        await call.DisposeAsync();
     }
 
     internal async ValueTask<List<AIFunction>> LoadToolsAsync(

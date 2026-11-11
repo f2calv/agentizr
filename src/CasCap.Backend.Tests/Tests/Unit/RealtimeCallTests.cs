@@ -196,7 +196,7 @@ public sealed class RealtimeCallTests
         };
         var service = new RealtimeCallService(
             new SingleDefinitionStore(definition), null!, null!, tenant, null!,
-            new RealtimeCallRegistry(Options.Create(new AgentRuntimeConfig()), TimeProvider.System),
+            CreateRegistry(new InMemoryRealtimeCallStore(), services),
             Options.Create(new AgentRuntimeConfig()), services, NullLoggerFactory.Instance);
 
         var tools = await service.LoadToolsAsync(definition, definition.Realtime!, [], NullLogger.Instance, TestContext.Current.CancellationToken);
@@ -206,6 +206,123 @@ public sealed class RealtimeCallTests
         Assert.Equal("get_current_datetime_state", tools[0].Name);
         Assert.Contains("UTC", JsonSerializer.Serialize(result), StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task CallStore_EndRequestIsTenantScopedAndStopsTheOwnersRenewal()
+    {
+        var store = new InMemoryRealtimeCallStore();
+        var now = DateTimeOffset.UtcNow;
+        await store.AddAsync(CreateRecord("owner-a", now.AddSeconds(20)), TestContext.Current.CancellationToken);
+
+        var foreign = await store.RequestEndAsync("tenant-b", "tutor", "call-1", TestContext.Current.CancellationToken);
+        var renewed = await store.RenewAsync("call-1", "owner-a", now.AddSeconds(40), new RealtimeCallUsage(), TestContext.Current.CancellationToken);
+        var requested = await store.RequestEndAsync("tenant-a", "tutor", "call-1", TestContext.Current.CancellationToken);
+        var renewedAfterEnd = await store.RenewAsync("call-1", "owner-a", now.AddSeconds(60), new RealtimeCallUsage(), TestContext.Current.CancellationToken);
+
+        Assert.Null(foreign);
+        Assert.True(renewed);
+        Assert.Equal(RealtimeCallStatus.Ending, requested!.Status);
+        Assert.False(renewedAfterEnd);
+    }
+
+    [Fact]
+    public async Task CallStore_ClaimsAnExpiredLeaseOnce()
+    {
+        var store = new InMemoryRealtimeCallStore();
+        var now = DateTimeOffset.UtcNow;
+        await store.AddAsync(CreateRecord("owner-a", now.AddSeconds(-1)), TestContext.Current.CancellationToken);
+
+        var first = await store.ClaimExpiredAsync("owner-b", now, now.AddSeconds(20), TestContext.Current.CancellationToken);
+        var second = await store.ClaimExpiredAsync("owner-c", now, now.AddSeconds(20), TestContext.Current.CancellationToken);
+
+        Assert.Equal("owner-b", Assert.Single(first).OwnerId);
+        Assert.Empty(second);
+    }
+
+    [Fact]
+    public async Task Registry_EndOnANonOwningReplicaReturnsTheOwnersSummary()
+    {
+        var store = new InMemoryRealtimeCallStore();
+        await store.AddAsync(CreateRecord("other-replica", DateTimeOffset.UtcNow.AddSeconds(20)), TestContext.Current.CancellationToken);
+        var registry = CreateRegistry(store, new ServiceCollection().BuildServiceProvider());
+        var summary = new RealtimeCallSummaryResponse
+        {
+            EndReason = RealtimeCallEndReason.ClientRequested,
+            DurationSeconds = 42,
+            Usage = new RealtimeCallUsage { TotalTokens = 1000 },
+        };
+
+        var ending = registry.EndAsync("tenant-a", "tutor", "call-1", TestContext.Current.CancellationToken);
+        // The owning replica sees the end request on its next renewal, hangs up and records the summary.
+        while ((await store.GetAsync("tenant-a", "tutor", "call-1", TestContext.Current.CancellationToken))!.Status != RealtimeCallStatus.Ending)
+            await Task.Delay(50, TestContext.Current.CancellationToken);
+        await store.CompleteAsync("call-1", summary, DateTimeOffset.UtcNow, TestContext.Current.CancellationToken);
+
+        Assert.Equal(summary, await ending);
+    }
+
+    [Fact]
+    public async Task Registry_SweepHangsUpAnExpiredOwnersCallAndRecordsItsEnd()
+    {
+        HttpRequestMessage? hangUp = null;
+        var handler = new StubHandler(request =>
+        {
+            hangUp = request;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+        });
+        var services = new ServiceCollection()
+            .AddSingleton(Options.Create(new AgentRuntimeConfig
+            {
+                Tenants =
+                {
+                    ["tenant-a"] = new()
+                    {
+                        Providers =
+                        {
+                            ["realtime"] = new ProviderConfig { Type = AgentType.AzureOpenAI, ModelName = "gpt-realtime", ApiKey = "example-key" },
+                        },
+                    },
+                },
+            }))
+            .AddSingleton(new RuntimeEntraCredential(() => null))
+            .AddSingleton(new AzureRealtimeClient(new HttpClient(handler)))
+            .BuildServiceProvider();
+        var store = new InMemoryRealtimeCallStore();
+        await store.AddAsync(CreateRecord("lost-replica", DateTimeOffset.UtcNow.AddSeconds(-1)) with
+        {
+            Usage = new RealtimeCallUsage { TotalTokens = 500 },
+        }, TestContext.Current.CancellationToken);
+
+        await CreateRegistry(store, services).MaintainAsync(TestContext.Current.CancellationToken);
+
+        var record = await store.GetAsync("tenant-a", "tutor", "call-1", TestContext.Current.CancellationToken);
+        Assert.Equal(RealtimeCallStatus.Ended, record!.Status);
+        Assert.Equal(RealtimeCallEndReason.ControlLost, record.Summary!.EndReason);
+        Assert.Equal(500, record.Summary.Usage.TotalTokens);
+        Assert.Contains("rtc_example", hangUp!.RequestUri!.ToString(), StringComparison.Ordinal);
+        Assert.Equal("example-key", Assert.Single(hangUp.Headers.GetValues("api-key")));
+    }
+
+    private static RealtimeCallRegistry CreateRegistry(IRealtimeCallStore store, IServiceProvider services) => new(
+        Options.Create(new AgentRuntimeConfig()),
+        store,
+        services.GetRequiredService<IServiceScopeFactory>(),
+        TimeProvider.System,
+        NullLogger<RealtimeCallRegistry>.Instance);
+
+    private static RealtimeCallRecord CreateRecord(string ownerId, DateTimeOffset leaseExpiresAt) => new()
+    {
+        CallId = "call-1",
+        TenantId = "tenant-a",
+        AgentName = "tutor",
+        OwnerId = ownerId,
+        Status = RealtimeCallStatus.Active,
+        ProviderName = "realtime",
+        Endpoint = new Uri("https://example.openai.azure.com/"),
+        ProviderCallId = "rtc_example",
+        StartedAt = DateTimeOffset.UtcNow.AddMinutes(-1),
+        LeaseExpiresAt = leaseExpiresAt,
+    };
 
     private static AgentDefinition CreateDefinition() => new()
     {

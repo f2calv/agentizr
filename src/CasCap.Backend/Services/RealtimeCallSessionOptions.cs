@@ -14,6 +14,9 @@ internal sealed record RealtimeCallSessionOptions
     /// <summary>Gets the agent the call belongs to.</summary>
     public required string AgentName { get; init; }
 
+    /// <summary>Gets the tenant provider name whose credential controls and hangs up the call.</summary>
+    public required string ProviderName { get; init; }
+
     /// <summary>Gets the realtime resource endpoint.</summary>
     public required Uri Endpoint { get; init; }
 

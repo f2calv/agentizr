@@ -54,8 +54,14 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
     /// <summary>Gets the agent the call belongs to.</summary>
     public string AgentName => _options.AgentName;
 
-    /// <summary>Raised once after the call has ended and its resources are released.</summary>
-    public event EventHandler? Ended;
+    /// <summary>Gets everything the call was started with.</summary>
+    public RealtimeCallSessionOptions Options => _options;
+
+    /// <summary>Gets a task that completes once the call has ended and its summary is set.</summary>
+    public Task Completion => _run;
+
+    /// <summary>Gets the token usage reported so far.</summary>
+    public RealtimeCallUsage CurrentUsage => _meter.ToUsage();
 
     /// <summary>Gets how the call ended and what it used, or <see langword="null"/> while it is active.</summary>
     public RealtimeCallSummaryResponse? Summary { get; private set; }
@@ -86,8 +92,8 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
         _sendLock.Dispose();
     }
 
-    // The first reason wins, so a later hang-up request cannot relabel a call that already ended.
-    private void RequestEnd(RealtimeCallEndReason reason)
+    /// <summary>Asks the call to end without waiting; the first reason wins, so a call that ended keeps its reason.</summary>
+    public void RequestEnd(RealtimeCallEndReason reason)
     {
         Interlocked.CompareExchange(ref _endReason, (int)reason, NoReason);
         _lifetime.Cancel();
@@ -123,6 +129,7 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
         }
         finally
         {
+            _deadline?.Dispose();
             await HangUpAsync();
             foreach (var lease in _toolLeases)
                 await lease.DisposeAsync();
@@ -131,7 +138,6 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
                 _logger.LogInformation(
                     "{ClassName} realtime call ended by {EndReason} after {DurationSeconds}s using {TotalTokens} tokens",
                     nameof(RealtimeCallSession), Summary.EndReason, Summary.DurationSeconds, Summary.Usage.TotalTokens);
-            Ended?.Invoke(this, EventArgs.Empty);
         }
     }
 

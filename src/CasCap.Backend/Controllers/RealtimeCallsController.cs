@@ -42,8 +42,9 @@ public sealed class RealtimeCallsController(RealtimeCallService realtimeCallSvc)
     /// </summary>
     [HttpDelete(AgentRuntimeRoutes.AgentGroup + AgentRuntimeRoutes.RealtimeCall, Name = "EndRealtimeCallV1")]
     [EndpointSummary("Ends a realtime voice call and returns its summary")]
-    public async Task<Results<Ok<RealtimeCallSummaryResponse>, NotFound>> EndAsync(string agentName, string callId) =>
-        await realtimeCallSvc.EndAsync(agentName, callId) is { } summary
+    public async Task<Results<Ok<RealtimeCallSummaryResponse>, NotFound>> EndAsync(
+        string agentName, string callId, CancellationToken cancellationToken) =>
+        await realtimeCallSvc.EndAsync(agentName, callId, cancellationToken) is { } summary
             ? TypedResults.Ok(summary)
             : TypedResults.NotFound();
 }
