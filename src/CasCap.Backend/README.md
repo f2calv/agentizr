@@ -669,7 +669,7 @@ at `MaximumDurationMinutes`, on host shutdown or when control is lost.
 | `endpoint`, `deployment` | HTTPS root endpoint and realtime deployment; the authority must be allowed by `AllowedProviderAuthorities` |
 | `voice`, `turnDetection`, `eagerness` | Output voice and `semantic_vad` or `server_vad` turn detection |
 | `transcriptionModel`, `transcriptionLanguage` | Optional user-speech transcription |
-| `maximumDurationMinutes` | Hang-up deadline, 1 to 120 minutes |
+| `maximumDurationMinutes` | Hard ceiling from call start, 1 to 120 minutes; speech and tool activity do not extend it |
 | `tools` | Remote MCP tool names a call may execute; only tools the text agent exposes qualify |
 
 `AgentRuntimeConfig.MaximumRealtimeCallsPerInstance` bounds concurrent calls per instance. Calls are

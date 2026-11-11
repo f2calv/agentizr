@@ -38,7 +38,7 @@ public sealed record AgentRealtimeConfig : IValidatableObject
     [MaxLength(10)]
     public string? TranscriptionLanguage { get; init; }
 
-    /// <summary>Gets the maximum call duration after which the runtime hangs up.</summary>
+    /// <summary>Gets the hard ceiling on call length, counted from call start; activity does not extend it.</summary>
     [Range(1, 120)]
     public int MaximumDurationMinutes { get; init; } = 30;
 

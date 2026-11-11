@@ -170,7 +170,9 @@ Acceptance evidence:
   404 for an unknown agent, instructions applied without client knowledge, read and write MCP tools
   executed by the runtime (including model recovery from a tool error), user and assistant
   transcripts on the filtered data channel, interruption, and hang-up on End.
-- [ ] Live smoke from the tutor's Windows client, and hang-up on duration expiry.
+- [x] Live smoke from the tutor's Windows client (2026-11-11): WebRTC in a hosted web view with a
+  delegated token, a read tool, local mute and hang-up on End; with a 1-minute ceiling the runtime hung
+  up 59 seconds after call start despite tool activity.
 - [ ] Log and telemetry review showing none of the data in G6.
 
 Delivery order:
