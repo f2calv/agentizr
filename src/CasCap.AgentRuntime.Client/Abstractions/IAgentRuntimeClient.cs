@@ -83,8 +83,11 @@ public interface IAgentRuntimeClient
         string sdpOffer,
         CancellationToken cancellationToken);
 
-    /// <summary>Ends a realtime voice call, returning <see langword="false" /> when it is not active.</summary>
-    public Task<bool> EndRealtimeCallAsync(
+    /// <summary>
+    /// Ends a realtime voice call and returns why it ended and what it used, or <see langword="null" /> when the call
+    /// is unknown or its summary has expired. A call the runtime already ended reports its retained summary.
+    /// </summary>
+    public Task<RealtimeCallSummaryResponse?> EndRealtimeCallAsync(
         string agentName,
         string callId,
         CancellationToken cancellationToken);

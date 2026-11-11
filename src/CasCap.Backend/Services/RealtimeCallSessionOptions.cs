@@ -26,6 +26,9 @@ internal sealed record RealtimeCallSessionOptions
     /// <summary>Gets the session configuration reapplied when control starts.</summary>
     public required JsonObject Session { get; init; }
 
-    /// <summary>Gets the duration after which the call is ended.</summary>
+    /// <summary>Gets the hard ceiling on call length, counted from call start.</summary>
     public required TimeSpan MaximumDuration { get; init; }
+
+    /// <summary>Gets the deployment's configured token prices, or <see langword="null"/> when cost is not estimated.</summary>
+    public RealtimeTokenPricing? Pricing { get; init; }
 }

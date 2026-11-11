@@ -143,6 +143,40 @@ public sealed class RealtimeCallTests
     }
 
     [Fact]
+    public void UsageMeter_SumsResponsesAndEstimatesCostFromConfiguredPrices()
+    {
+        // Two response.done usage blocks: cached input is priced at the cached rate, not counted twice.
+        var meter = new RealtimeCallUsageMeter();
+        meter.Add(JsonDocument.Parse("""
+            {"usage":{"total_tokens":1700,"input_token_details":{"text_tokens":400,"audio_tokens":600,
+              "cached_tokens_details":{"text_tokens":100,"audio_tokens":200}},
+              "output_token_details":{"text_tokens":100,"audio_tokens":600}}}
+            """).RootElement);
+        meter.Add(JsonDocument.Parse("""{"usage":{"output_token_details":{"audio_tokens":600}}}""").RootElement);
+        meter.Add(JsonDocument.Parse("""{"status":"cancelled"}""").RootElement);
+
+        var usage = meter.ToUsage();
+        var cost = meter.EstimateCost(new RealtimeTokenPricing
+        {
+            Currency = "EUR",
+            TextInputPerMillion = 4m,
+            CachedTextInputPerMillion = 0.4m,
+            AudioInputPerMillion = 32m,
+            CachedAudioInputPerMillion = 0.4m,
+            TextOutputPerMillion = 16m,
+            AudioOutputPerMillion = 64m,
+        });
+
+        Assert.Equal(2300, usage.TotalTokens);
+        Assert.Equal(300, usage.CachedInputTokens);
+        Assert.Equal(1200, usage.OutputAudioTokens);
+        // 300*4 + 100*0.4 + 400*32 + 200*0.4 + 100*16 + 1200*64 = 92520 per million tokens.
+        Assert.Equal(0.0925m, cost!.Amount);
+        Assert.Equal("EUR", cost.Currency);
+        Assert.Null(meter.EstimateCost(null));
+    }
+
+    [Fact]
     public async Task LoadToolsAsync_AllowlistedBuiltInOutlivesTheSetupRequest()
     {
         // The datetime built-in is not an MCP tool; a call must still expose it and answer after setup returns.
@@ -162,7 +196,8 @@ public sealed class RealtimeCallTests
         };
         var service = new RealtimeCallService(
             new SingleDefinitionStore(definition), null!, null!, tenant, null!,
-            new RealtimeCallRegistry(Options.Create(new AgentRuntimeConfig())), services, NullLoggerFactory.Instance);
+            new RealtimeCallRegistry(Options.Create(new AgentRuntimeConfig()), TimeProvider.System),
+            Options.Create(new AgentRuntimeConfig()), services, NullLoggerFactory.Instance);
 
         var tools = await service.LoadToolsAsync(definition, definition.Realtime!, [], NullLogger.Instance, TestContext.Current.CancellationToken);
         tenant.EndRequest();

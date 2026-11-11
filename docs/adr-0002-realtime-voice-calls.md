@@ -89,7 +89,9 @@ section rejects realtime calls.
   Returns `201 Created` with the SDP answer and an Agentizr-issued opaque call id, plus a
   `Location` for ending the call. JSON keeps the endpoint consistent with the rest of the API and
   its validation problem details. The Azure call id is never returned.
-- `DELETE /api/v1/agents/{agentName}/realtime/calls/{callId}` ends the call.
+- `DELETE /api/v1/agents/{agentName}/realtime/calls/{callId}` ends the call and returns its end reason, duration,
+  token usage and an optional estimated cost; a call the runtime ended itself, for example at its maximum
+  duration, returns the same summary for a short retention period so the client can explain the hang-up.
 - A dedicated permission, `agent.realtime`, checked like the existing `agent.execute`. Voice clients
   act for a signed-in user, so it is granted as a delegated scope. Microsoft Entra shares one value
   namespace between delegated scopes and application roles, so a future machine caller needs a

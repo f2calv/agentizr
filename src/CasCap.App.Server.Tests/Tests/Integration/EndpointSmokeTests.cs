@@ -133,7 +133,7 @@ public sealed class EndpointSmokeTests(AgentizrWebApplicationFactory factory)
             ("GetAgentDefinitionActivationHistoryV1", 200, typeof(IReadOnlyList<AgentDefinitionActivationResponse>)),
             ("DeactivateAgentDefinitionV1", 204, typeof(void)),
             ("CreateRealtimeCallV1", 201, typeof(RealtimeCallResponse)),
-            ("EndRealtimeCallV1", 204, typeof(void)),
+            ("EndRealtimeCallV1", 200, typeof(RealtimeCallSummaryResponse)),
         ];
         string[] noNotFound =
         [

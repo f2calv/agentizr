@@ -166,17 +166,18 @@ public sealed class AgentRuntimeClient(HttpClient httpClient) : IAgentRuntimeCli
     }
 
     /// <inheritdoc/>
-    public Task<bool> EndRealtimeCallAsync(
+    public async Task<RealtimeCallSummaryResponse?> EndRealtimeCallAsync(
         string agentName,
         string callId,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(callId);
-        return SendNoContentAsync(
+        using var request = new HttpRequestMessage(
             HttpMethod.Delete,
             BuildPath(agentName, AgentRuntimeRoutes.RealtimeCall)
-                .Replace("{callId}", Uri.EscapeDataString(callId), StringComparison.Ordinal),
-            cancellationToken);
+                .Replace("{callId}", Uri.EscapeDataString(callId), StringComparison.Ordinal));
+        using var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        return await ReadResponseAsync<RealtimeCallSummaryResponse>(response, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<TResponse?> GetAsync<TResponse>(string path, CancellationToken cancellationToken)

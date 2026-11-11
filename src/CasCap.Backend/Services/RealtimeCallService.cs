@@ -17,6 +17,7 @@ public sealed class RealtimeCallService
     private readonly ITenantContext tenantContext;
     private readonly AzureRealtimeClient azure;
     private readonly RealtimeCallRegistry registry;
+    private readonly IOptions<AgentRuntimeConfig> runtimeConfig;
     private readonly IServiceProvider serviceProvider;
     private readonly ILoggerFactory loggerFactory;
 
@@ -27,6 +28,7 @@ public sealed class RealtimeCallService
         ITenantContext tenantContext,
         AzureRealtimeClient azure,
         RealtimeCallRegistry registry,
+        IOptions<AgentRuntimeConfig> runtimeConfig,
         IServiceProvider serviceProvider,
         ILoggerFactory loggerFactory)
     {
@@ -36,6 +38,7 @@ public sealed class RealtimeCallService
         this.tenantContext = tenantContext;
         this.azure = azure;
         this.registry = registry;
+        this.runtimeConfig = runtimeConfig;
         this.serviceProvider = serviceProvider;
         this.loggerFactory = loggerFactory;
     }
@@ -85,6 +88,7 @@ public sealed class RealtimeCallService
                     Credential = credential,
                     Session = RealtimeSessionConfiguration.Build(definition, tools, includeModel: false),
                     MaximumDuration = TimeSpan.FromMinutes(realtime.MaximumDurationMinutes),
+                    Pricing = runtimeConfig.Value.RealtimePricing.GetValueOrDefault(realtime.Deployment),
                 },
                 azure,
                 new RealtimeToolDispatcher(tools, ToolTimeout, loggerFactory.CreateLogger<RealtimeToolDispatcher>()),
@@ -118,14 +122,12 @@ public sealed class RealtimeCallService
         }
     }
 
-    /// <summary>Ends a call owned by the tenant and agent, returning <see langword="false"/> when it is not active here.</summary>
-    public async ValueTask<bool> EndAsync(string agentName, string callId)
-    {
-        if (registry.Find(tenantContext.TenantId, agentName, callId) is not { } call)
-            return false;
-        await call.EndAsync();
-        return true;
-    }
+    /// <summary>
+    /// Ends an active call owned by the tenant and agent, or reports how a recently ended one ended; returns
+    /// <see langword="null"/> for an unknown or expired call.
+    /// </summary>
+    public Task<RealtimeCallSummaryResponse?> EndAsync(string agentName, string callId) =>
+        registry.EndAsync(tenantContext.TenantId, agentName, callId);
 
     private async ValueTask<RealtimeProviderCredential?> GetCredentialAsync(string providerName, CancellationToken cancellationToken)
     {

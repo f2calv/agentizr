@@ -36,11 +36,14 @@ public sealed class RealtimeCallsController(RealtimeCallService realtimeCallSvc)
         return TypedResults.Created(location, response);
     }
 
-    /// <summary>Ends a realtime voice call owned by the caller's tenant.</summary>
+    /// <summary>
+    /// Ends a realtime voice call owned by the caller's tenant and reports why it ended and what it used; a call the
+    /// runtime already ended, for example at its maximum duration, reports its retained summary.
+    /// </summary>
     [HttpDelete(AgentRuntimeRoutes.AgentGroup + AgentRuntimeRoutes.RealtimeCall, Name = "EndRealtimeCallV1")]
-    [EndpointSummary("Ends a realtime voice call")]
-    public async Task<Results<NoContent, NotFound>> EndAsync(string agentName, string callId) =>
-        await realtimeCallSvc.EndAsync(agentName, callId)
-            ? TypedResults.NoContent()
+    [EndpointSummary("Ends a realtime voice call and returns its summary")]
+    public async Task<Results<Ok<RealtimeCallSummaryResponse>, NotFound>> EndAsync(string agentName, string callId) =>
+        await realtimeCallSvc.EndAsync(agentName, callId) is { } summary
+            ? TypedResults.Ok(summary)
             : TypedResults.NotFound();
 }

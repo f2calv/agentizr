@@ -122,6 +122,7 @@ public static partial class WebApplicationBuilderExtensions
             services.GetRequiredService<ITenantContext>(),
             services.GetRequiredService<AzureRealtimeClient>(),
             services.GetRequiredService<RealtimeCallRegistry>(),
+            services.GetRequiredService<IOptions<AgentRuntimeConfig>>(),
             services,
             services.GetRequiredService<ILoggerFactory>()));
     }

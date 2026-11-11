@@ -42,6 +42,9 @@ public sealed record AgentRuntimeConfig : IAppConfig, IValidatableObject
     [Range(1, 100)]
     public int MaximumRealtimeCallsPerInstance { get; init; } = 4;
 
+    /// <summary>Gets optional token prices keyed by realtime deployment name, used to estimate call cost for debugging.</summary>
+    public Dictionary<string, RealtimeTokenPricing> RealtimePricing { get; init; } = new(StringComparer.Ordinal);
+
     /// <summary>Gets session compaction policies keyed by provider name, shared by every tenant.</summary>
     /// <remarks>
     /// A tenant entry in <see cref="TenantAgentConfig.SessionCompaction"/> replaces the entry here; a
@@ -81,6 +84,15 @@ public sealed record AgentRuntimeConfig : IAppConfig, IValidatableObject
                 foreach (var result in results)
                     yield return new ValidationResult($"{path}: {result.ErrorMessage}", [path]);
             }
+        }
+        foreach (var (deployment, pricing) in RealtimePricing)
+        {
+            var path = $"{nameof(RealtimePricing)}:{deployment}";
+            var results = new List<ValidationResult>();
+            if (Validator.TryValidateObject(pricing, new ValidationContext(pricing), results, validateAllProperties: true))
+                continue;
+            foreach (var result in results)
+                yield return new ValidationResult($"{path}: {result.ErrorMessage}", [path]);
         }
     }
 }

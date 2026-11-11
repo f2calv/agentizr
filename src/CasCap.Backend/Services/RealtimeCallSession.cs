@@ -1,4 +1,6 @@
+using CasCap.AgentRuntime.Contracts.V1;
 using System.Buffers;
+using System.Diagnostics;
 using System.Net.WebSockets;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -7,10 +9,12 @@ namespace CasCap.Services;
 
 /// <summary>
 /// Controls one brokered realtime call through its server-side WebSocket: reapplies the definition's session,
-/// executes allowlisted tool calls and hangs up on request, at the maximum duration or when control is lost.
+/// executes allowlisted tool calls, meters token usage and hangs up on request, at the maximum duration or when
+/// control is lost.
 /// </summary>
 internal sealed class RealtimeCallSession : IAsyncDisposable
 {
+    private const int NoReason = -1;
     private static readonly TimeSpan HangUpTimeout = TimeSpan.FromSeconds(5);
 
     private readonly RealtimeCallSessionOptions _options;
@@ -20,7 +24,11 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
     private readonly ILogger _logger;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly SemaphoreSlim _sendLock = new(1, 1);
+    private readonly RealtimeCallUsageMeter _meter = new();
+    private CancellationTokenSource? _deadline;
     private Task _run = Task.CompletedTask;
+    private long _startedAt;
+    private int _endReason = NoReason;
 
     /// <summary>Initializes a call that has been answered by the provider but is not yet controlled.</summary>
     public RealtimeCallSession(
@@ -49,26 +57,40 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
     /// <summary>Raised once after the call has ended and its resources are released.</summary>
     public event EventHandler? Ended;
 
+    /// <summary>Gets how the call ended and what it used, or <see langword="null"/> while it is active.</summary>
+    public RealtimeCallSummaryResponse? Summary { get; private set; }
+
     /// <summary>Starts controlling the call in the background until it ends.</summary>
     public void Start()
     {
-        _lifetime.CancelAfter(_options.MaximumDuration);
+        _startedAt = Stopwatch.GetTimestamp();
+        _deadline = new CancellationTokenSource(_options.MaximumDuration);
+        _deadline.Token.Register(() => RequestEnd(RealtimeCallEndReason.MaximumDuration));
         _run = Task.Run(() => RunAsync(_lifetime.Token), CancellationToken.None);
     }
 
-    /// <summary>Ends the call and waits for its resources to be released.</summary>
-    public async Task EndAsync()
+    /// <summary>Ends the call for the given reason, unless it already ended, and returns its summary.</summary>
+    public async Task<RealtimeCallSummaryResponse> EndAsync(RealtimeCallEndReason reason)
     {
-        await _lifetime.CancelAsync();
+        RequestEnd(reason);
         await _run;
+        return Summary!;
     }
 
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
-        await EndAsync();
+        await EndAsync(RealtimeCallEndReason.HostShutdown);
+        _deadline?.Dispose();
         _lifetime.Dispose();
         _sendLock.Dispose();
+    }
+
+    // The first reason wins, so a later hang-up request cannot relabel a call that already ended.
+    private void RequestEnd(RealtimeCallEndReason reason)
+    {
+        Interlocked.CompareExchange(ref _endReason, (int)reason, NoReason);
+        _lifetime.Cancel();
     }
 
     private async Task RunAsync(CancellationToken cancellationToken)
@@ -87,13 +109,15 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
             if (_logger.IsEnabled(LogLevel.Information))
                 _logger.LogInformation("{ClassName} controls a realtime call", nameof(RealtimeCallSession));
             await ReceiveAsync(socket, cancellationToken);
+            Interlocked.CompareExchange(ref _endReason, (int)RealtimeCallEndReason.ProviderClosed, NoReason);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // Ended on request or at the maximum duration.
+            // Ended on request, at the maximum duration or on shutdown; the reason is already recorded.
         }
         catch (Exception ex) when (ex is WebSocketException or HttpRequestException or InvalidOperationException or JsonException)
         {
+            Interlocked.CompareExchange(ref _endReason, (int)RealtimeCallEndReason.ControlLost, NoReason);
             if (_logger.IsEnabled(LogLevel.Warning))
                 _logger.LogWarning(ex, "{ClassName} lost control of a realtime call", nameof(RealtimeCallSession));
         }
@@ -102,8 +126,25 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
             await HangUpAsync();
             foreach (var lease in _toolLeases)
                 await lease.DisposeAsync();
+            Summary = CreateSummary();
+            if (_logger.IsEnabled(LogLevel.Information))
+                _logger.LogInformation(
+                    "{ClassName} realtime call ended by {EndReason} after {DurationSeconds}s using {TotalTokens} tokens",
+                    nameof(RealtimeCallSession), Summary.EndReason, Summary.DurationSeconds, Summary.Usage.TotalTokens);
             Ended?.Invoke(this, EventArgs.Empty);
         }
+    }
+
+    private RealtimeCallSummaryResponse CreateSummary()
+    {
+        var reason = Volatile.Read(ref _endReason);
+        return new RealtimeCallSummaryResponse
+        {
+            EndReason = reason == NoReason ? RealtimeCallEndReason.ControlLost : (RealtimeCallEndReason)reason,
+            DurationSeconds = (int)Stopwatch.GetElapsedTime(_startedAt).TotalSeconds,
+            Usage = _meter.ToUsage(),
+            EstimatedCost = _meter.EstimateCost(_options.Pricing),
+        };
     }
 
     private async Task ReceiveAsync(ClientWebSocket socket, CancellationToken cancellationToken)
@@ -127,7 +168,9 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
             switch (root.GetProperty("type").GetString())
             {
                 case "response.done":
-                    await ExecuteFunctionCallsAsync(socket, root.GetProperty("response"), cancellationToken);
+                    var response = root.GetProperty("response");
+                    _meter.Add(response);
+                    await ExecuteFunctionCallsAsync(socket, response, cancellationToken);
                     break;
                 case "error":
                     var code = root.GetProperty("error").TryGetProperty("code", out var codeElement) ? codeElement.GetString() : null;

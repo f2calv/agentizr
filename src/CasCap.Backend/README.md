@@ -660,8 +660,12 @@ accepts a JSON `CreateRealtimeCallRequest` carrying the SDP offer and returns `2
 [`RealtimeCallService`](Services/RealtimeCallService.cs) builds the session from the definition's
 instructions and the allowlisted subset of its remote MCP tools, mints a client secret and negotiates the
 call with the client data channel filtered. [`RealtimeCallSession`](Services/RealtimeCallSession.cs)
-holds the server-side control connection, executes tool calls once per call id and hangs up on `DELETE`,
-at `MaximumDurationMinutes`, on host shutdown or when control is lost.
+holds the server-side control connection, executes tool calls once per call id, sums the token usage of each
+`response.done` event and hangs up on `DELETE`, at `MaximumDurationMinutes`, on host shutdown or when control is lost.
+`DELETE` returns `200` with a `RealtimeCallSummaryResponse`: the `EndReason`, duration, token usage and, when
+`AgentRuntimeConfig.RealtimePricing` has prices for the deployment, an estimated cost for debugging. A call the
+runtime ended itself keeps its summary for ten minutes, so the client's clean-up `DELETE` after media drops still
+learns why; unknown, foreign or expired calls return `404`.
 
 | Setting | Purpose |
 | --- | --- |
