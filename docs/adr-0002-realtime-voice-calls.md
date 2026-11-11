@@ -179,6 +179,14 @@ Acceptance evidence:
 - [x] Live smoke from the tutor's Windows client (2026-11-11): WebRTC in a hosted web view with a
   delegated token, a read tool, local mute and hang-up on End; with a 1-minute ceiling the runtime hung
   up 59 seconds after call start despite tool activity.
+- [x] Live smoke with two runtime replicas (2026-11-11): three calls whose `DELETE` reached the
+  non-owning replica each returned the owner's summary. The first run reported `ProviderClosed` and
+  took 5 to 7 seconds because the client closed media before ending the call and the owner then waited
+  out a hang-up of an already closed call; both were fixed and redeployed.
+- [x] Live smoke from the tutor's Android client on the emulator (2026-11-11): sign-in through the
+  application-ID redirect, settings entered on the device, microphone capture, transcripts and the
+  call summary with end reason and token usage.
+- [ ] Live smoke from a physical Android phone away from the private network.
 - [ ] Log and telemetry review showing none of the data in G6.
 
 Delivery order:
@@ -192,19 +200,39 @@ Delivery order:
 ## Handover
 
 - Branch `f2calv/2026-11-realtime-calls` ([#29](https://github.com/f2calv/agentizr/pull/29)) holds this
-  record and the first slice: contracts, typed client, the `realtime` definition section, setup
-  service, controller registry and unit tests. Delivery steps 1 to 4 are implemented. Step 3 stores
-  the call record in `agent_runtime.realtime_calls` with a 20-second lease renewed every 5 seconds;
-  ownership transitions are conditional updates, so concurrent replicas agree on one owner or sweeper.
+  record and delivery steps 1 to 4: contracts, typed client, the `realtime` definition section, setup
+  service, controller, leased call registry and unit tests. Step 3 stores the call record in
+  `agent_runtime.realtime_calls` with a 20-second lease renewed every 5 seconds; ownership transitions
+  are conditional updates, so concurrent replicas agree on one owner or sweeper. The runtime now runs
+  two replicas with realtime calls.
+- A call summary reports the end reason, duration, token usage and, when the deployment's prices are
+  configured, an estimated cost. A provider close after a recorded end request is reported as
+  `ClientRequested`, and the controller skips the provider hang-up once the provider has closed the
+  call, because Azure does not answer it.
+- The tutor client runs on Windows and Android. Its CI jobs are ready but gated until a released
+  client package carries the realtime calls.
 - Identity and configuration are provisioned separately: a public client registration for the tutor
-  app, the delegated `agent.realtime` scope on the Agentizr API, a data-plane role for Agentizr's
-  identity on the realtime resource, the `azp` tenant mapping and the realtime provider.
+  app with Windows loopback and Android application-ID redirects, the delegated `agent.realtime` scope
+  on the Agentizr API, a data-plane role for Agentizr's identity on the realtime resource, the `azp`
+  tenant mapping and the realtime provider.
 - The .NET 11 migration branch is pending GA; this work targets the current `main`.
+
+### Remaining Work
+
+- Controller-level tests, the Compose integration test and the log and telemetry review above.
+- Step 5: release the contracts, typed client, image and chart; then pin the client in the tutor app,
+  enable its CI jobs and move the runtime deployment off Debug images.
+- Public reachability for use away from the private network: expose only the realtime call routes on a
+  public host with a public certificate, keep administration internal, and drop the client's trust of
+  user-installed certificate authorities. Media already flows directly between the client and Azure.
+- Configure per-deployment token prices so summaries carry an estimated cost.
+- Persist the Windows client's token cache; Android already keeps it.
 
 ## Open Questions And Reconsideration
 
-- Azure accepts a server-side hang-up of a WebRTC call from the controller (observed live). Whether a
-  non-owning replica can do the same without the control WebSocket remains to be verified.
+- Azure accepts a server-side hang-up of a WebRTC call from the controller (observed live). A hang-up
+  of a call the provider already closed is not answered. Whether a non-owning replica's sweeper can
+  hang up a live call without the control WebSocket is implemented but not yet observed live.
 - Can a second control WebSocket attach to an existing call after the owner is lost? If so, a
   replica could take over a call instead of ending it.
 - How long do ephemeral keys and calls live, and what does Azure enforce? Verify on the deployed
