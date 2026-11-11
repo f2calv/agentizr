@@ -168,8 +168,12 @@ Acceptance evidence:
   expired lease is claimed once, `DELETE` on a non-owning registry returns the owner's summary, and the
   sweeper hangs up an expired call with the tenant credential and records `ControlLost`
   ([RealtimeCallTests](../src/CasCap.Backend.Tests/Tests/Unit/RealtimeCallTests.cs)).
-- [ ] Controller-level tests: setup authorization, the definition without a `realtime` section, maximum
-  duration and hang-up paths, with a fake Azure realtime endpoint.
+- [x] Controller-level tests against a fake Azure realtime endpoint: no `realtime` section, setup with
+  the runtime credential, hang-up after lost control and an unknown call
+  ([RealtimeCallProtocolTests](../src/CasCap.App.Server.Tests/Tests/Integration/RealtimeCallProtocolTests.cs));
+  the `Realtime` policy is pinned by
+  [TenantSecurityStartupTests](../src/CasCap.App.Server.Tests/Tests/Integration/TenantSecurityStartupTests.cs)
+  and the maximum duration was verified live.
 - [ ] Integration test on the local Compose services: call record, lease renewal, `DELETE` from a
   non-owning instance and expired-lease sweep.
 - [x] Live smoke from a browser WebRTC page with a delegated token (2026-11-11): 401 without a token,

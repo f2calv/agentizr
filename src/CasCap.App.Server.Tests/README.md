@@ -57,6 +57,7 @@ limits.
 | `AdministrationReplicaTests` | 1 | 1 | Against real PostgreSQL: an antiforgery token issued by one host replica is accepted by another through the shared Data Protection key ring |
 | `AgentizrMcpEndpointTests` | 3 | 3 | Verifies MCP discovery of only the read-only status tool, its structured result, and `Origin` rejection |
 | `AgentRuntimeProtocolTests` | 9 | 12 | Verifies typed-client execution, streaming, DTO/JSON validation problems, session controls and instruction disclosure |
+| `RealtimeCallProtocolTests` | 4 | 4 | Against a fake Azure realtime endpoint: 404 without a `realtime` section, setup with the runtime credential and definition instructions, hang-up after lost control reported as `ControlLost`, and 404 for an unknown call |
 | `AgentDefinitionAdministrationProtocolTests` | 13 | 23 | Verifies publication Location, evaluation/activation, rollback, deactivation, audit attribution, policy/credential rejection, conflicts and bounded query binding |
 | `TenantSecurityStartupTests` | 9 | 17 | Verifies anonymous rejection, policy separation on all runtime and administration controller actions, bearer-only machine policies, the setup page shown instead of an unusable frontend, required JWT/PostgreSQL and optional Redis in Production |
 | `AgentSessionConflictTests` | 1 | 8 | Verifies all session mutation routes return HTTP 409 on overlap, including streaming before headers |
