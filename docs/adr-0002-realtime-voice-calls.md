@@ -157,17 +157,20 @@ consumer passes a session id dedicated to voice. Sharing context between voice a
 
 ## Validation And Delivery
 
-Acceptance evidence, not yet observed:
+Acceptance evidence:
 
 - [x] Unit tests for session configuration, allowlist refusal, repeated tool call ids, argument
-  validation and provider brokering against a fake HTTP handler
-  ([RealtimeCallTests](../src/CasCap.Backend.Tests/Tests/Unit/RealtimeCallTests.cs), 10 passing locally).
+  validation, provider brokering against a fake HTTP handler and allowlisted runtime built-ins that
+  outlive the setup request ([RealtimeCallTests](../src/CasCap.Backend.Tests/Tests/Unit/RealtimeCallTests.cs)).
 - [ ] Controller-level tests: setup authorization, the definition without a `realtime` section, maximum
   duration and hang-up paths, with a fake Azure realtime endpoint.
 - [ ] Integration test on the local Compose services: call record, lease renewal, `DELETE` from a
   non-owning instance and expired-lease sweep.
-- [ ] Live smoke from the tutor's Windows client: instructions applied without client knowledge, one
-  read tool and one write tool executed, interruption and hang-up on End and on duration expiry.
+- [x] Live smoke from a browser WebRTC page with a delegated token (2026-11-11): 401 without a token,
+  404 for an unknown agent, instructions applied without client knowledge, read and write MCP tools
+  executed by the runtime (including model recovery from a tool error), user and assistant
+  transcripts on the filtered data channel, interruption, and hang-up on End.
+- [ ] Live smoke from the tutor's Windows client, and hang-up on duration expiry.
 - [ ] Log and telemetry review showing none of the data in G6.
 
 Delivery order:
@@ -185,15 +188,15 @@ Delivery order:
   service, in-memory controller registry and unit tests. Delivery steps 1 and 2 are implemented;
   step 3 (leased call record and sweeper) is not, so realtime calls currently require a single
   runtime replica.
-- Identity is provisioned separately: a public client registration for the tutor app, the delegated
-  `agent.realtime` scope on the Agentizr API, and a data-plane role for Agentizr's identity on the
-  realtime resource. The `azp` tenant mapping and the realtime provider configuration remain.
+- Identity and configuration are provisioned separately: a public client registration for the tutor
+  app, the delegated `agent.realtime` scope on the Agentizr API, a data-plane role for Agentizr's
+  identity on the realtime resource, the `azp` tenant mapping and the realtime provider.
 - The .NET 11 migration branch is pending GA; this work targets the current `main`.
 
 ## Open Questions And Reconsideration
 
-- Does Azure expose a server hang-up operation for a WebRTC call, or must the controller close its
-  WebSocket and rely on Azure ending the call? This changes how a non-owning replica ends a call.
+- Azure accepts a server-side hang-up of a WebRTC call from the controller (observed live). Whether a
+  non-owning replica can do the same without the control WebSocket remains to be verified.
 - Can a second control WebSocket attach to an existing call after the owner is lost? If so, a
   replica could take over a call instead of ending it.
 - How long do ephemeral keys and calls live, and what does Azure enforce? Verify on the deployed
