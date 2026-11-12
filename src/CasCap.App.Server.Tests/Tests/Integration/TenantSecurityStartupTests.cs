@@ -107,7 +107,7 @@ public sealed class TenantSecurityStartupTests
         };
 
         Assert.Equal(21, protectedEndpoints.Count(endpoint => !AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
-        Assert.Equal(22, protectedEndpoints.Count(endpoint => AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
+        Assert.Equal(25, protectedEndpoints.Count(endpoint => AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
         // Session description, sign-in and sign-out must be reachable before an administrator signs in.
         Assert.Equal(3, sessionEndpoints.Length);
         Assert.All(sessionEndpoints, endpoint => Assert.Empty(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()));
