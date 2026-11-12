@@ -125,8 +125,7 @@ public sealed class RealtimeCallService
         finally
         {
             if (!transferred)
-                foreach (var lease in toolLeases)
-                    await lease.DisposeAsync();
+                await DisposeLeasesAsync(toolLeases);
         }
     }
 
@@ -142,6 +141,13 @@ public sealed class RealtimeCallService
     {
         call.Start();
         await call.DisposeAsync();
+    }
+
+    // Leases are filled by tool loading through a shared list, so they exist even when loading fails part-way.
+    private static async ValueTask DisposeLeasesAsync(List<IAsyncDisposable> leases)
+    {
+        foreach (var lease in leases)
+            await lease.DisposeAsync();
     }
 
     internal async ValueTask<List<AIFunction>> LoadToolsAsync(
