@@ -1,7 +1,7 @@
 # ADR 0002: Broker And Control Realtime Voice Calls In Agentizr
 
-**Status:** Proposed.
-**Date:** 2026-11-10.
+**Status:** Accepted; implemented and validated live, release pending.
+**Date:** 2026-11-10; updated 2026-11-12.
 **Scope:** Live speech-to-speech agent calls: agent definition, call setup, server-side session
 control, tool execution, authorization and call lifecycle. Client media capture and playback belong
 to consuming applications.
@@ -191,7 +191,12 @@ Acceptance evidence:
 - [x] Live smoke from the tutor's Android client on the emulator (2026-11-11): sign-in through the
   application-ID redirect, settings entered on the device, microphone capture, transcripts and the
   call summary with end reason and token usage.
-- [ ] Live smoke from a physical Android phone away from the private network.
+- [ ] Live smoke from a physical Android phone away from the private network, through the public host.
+- [x] Usage and cost reconciliation (2026-11-12). A 36-second Android call reported 5,952 tokens: 4,723
+  input text, 322 input audio, 215 output text and 692 output audio. Azure Monitor's `InputTokens`,
+  `AudioInputTokens`, `OutputTokens` and `AudioOutputTokens` for that hour sum to the same total, so the
+  runtime's per-call usage matches the provider. At Global Standard list prices that call cost about
+  EUR 0.07; re-sent instructions and tool schemas make text input the largest token class.
 - [x] Log and telemetry review for G6 (2026-11-11). Realtime log templates carry only class, tool and
   provider names, error codes, end reasons, durations and token counts; exceptions from the provider
   client carry status codes only. A failing tool logged its exception message, which can echo learner
@@ -222,8 +227,16 @@ Delivery order:
   configured, an estimated cost. A provider close after a recorded end request is reported as
   `ClientRequested`, and the controller skips the provider hang-up once the provider has closed the
   call, because Azure does not answer it.
-- The tutor client runs on Windows and Android. Its CI jobs are ready but gated until a released
-  client package carries the realtime calls.
+- The call record is deleted ten minutes after a call ends, so the end-of-call log line is the durable
+  per-call record: it carries the token breakdown and the estimate, counts only. Deployment prices are
+  configured as `AgentRuntimeConfig.RealtimePricing` in the deployment's settings; Azure Monitor token
+  metrics and billed cost remain the authority for totals.
+- The tutor's active definition allows calls of up to 10 minutes.
+- The tutor client runs on Windows and Android and keeps its sign-in across restarts on both. Its CI
+  jobs are ready but gated until a released client package carries the realtime calls.
+- The create and end call routes are also published on a public host with a public certificate for
+  use away from home. Administration, MCP and the other runtime APIs stay on internal hosts, and the
+  public routes still require the delegated `agent.realtime` token.
 - Identity and configuration are provisioned separately: a public client registration for the tutor
   app with Windows loopback and Android application-ID redirects, the delegated `agent.realtime` scope
   on the Agentizr API, a data-plane role for Agentizr's identity on the realtime resource, the `azp`
@@ -232,14 +245,11 @@ Delivery order:
 
 ### Remaining Work
 
-- Controller-level tests, the Compose integration test and the log and telemetry review above.
 - Step 5: release the contracts, typed client, image and chart; then pin the client in the tutor app,
   enable its CI jobs and move the runtime deployment off Debug images.
-- Public reachability for use away from the private network: expose only the realtime call routes on a
-  public host with a public certificate, keep administration internal, and drop the client's trust of
-  user-installed certificate authorities. Media already flows directly between the client and Azure.
-- Configure per-deployment token prices so summaries carry an estimated cost.
-- Persist the Windows client's token cache; Android already keeps it.
+- Point the tutor client at the public host and run the physical-phone smoke test away from home.
+  The client keeps trusting user-installed certificate authorities, because the same phone uses other
+  services behind the private CA on the home network.
 
 ## Open Questions And Reconsideration
 
