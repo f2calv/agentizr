@@ -123,13 +123,17 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
     public Task<ApiResult<ProviderCatalogueResponse>> GetProvidersAsync(string appId, CancellationToken cancellationToken) =>
         GetAsync<ProviderCatalogueResponse>(AdministrationRoutes.Format(AdministrationRoutes.Providers, appId), cancellationToken);
 
-    /// <summary>Gets an agent's newest-first published versions.</summary>
-    public Task<ApiResult<IReadOnlyList<AgentDefinitionHistoryItemResponse>>> GetHistoryAsync(
+    /// <summary>Gets one newest-first page of an agent's published versions.</summary>
+    public Task<ApiResult<AdministrationDefinitionHistoryPageResponse>> GetHistoryAsync(
         string appId,
         string agentName,
+        DefinitionHistoryFilter filter,
+        int page,
+        int pageSize,
         CancellationToken cancellationToken) =>
-        GetAsync<IReadOnlyList<AgentDefinitionHistoryItemResponse>>(
-            AdministrationRoutes.Format(AdministrationRoutes.Definitions, appId, agentName),
+        GetAsync<AdministrationDefinitionHistoryPageResponse>(
+            AdministrationRoutes.Format(AdministrationRoutes.Definitions, appId, agentName)
+                + $"?filter={filter}&page={page}&pageSize={pageSize}",
             cancellationToken);
 
     /// <summary>Suggests an unused version, checking snapshots outside the bounded history window too.</summary>
@@ -139,10 +143,10 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
         string agentName,
         CancellationToken cancellationToken)
     {
-        var history = await GetHistoryAsync(appId, agentName, cancellationToken);
+        var history = await GetHistoryAsync(appId, agentName, DefinitionHistoryFilter.All, 1, 100, cancellationToken);
         if (!history.IsSuccess)
             return new ApiResult<string>(history.Status, Errors: history.Errors);
-        var existingVersions = history.Value!.Select(item => item.DefinitionVersion).ToHashSet(StringComparer.Ordinal);
+        var existingVersions = history.Value!.Items.Select(item => item.DefinitionVersion).ToHashSet(StringComparer.Ordinal);
         while (true)
         {
             var version = DefinitionDraft.SuggestVersion(existingVersions);
@@ -220,18 +224,49 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
             request,
             cancellationToken);
 
+    /// <summary>Archives or restores an inactive version.</summary>
+    public Task<ApiResult<bool>> SetArchivedAsync(
+        string appId,
+        string agentName,
+        string definitionVersion,
+        bool archived,
+        CancellationToken cancellationToken) =>
+        SendMutationAsync<bool>(
+            HttpMethod.Post,
+            AdministrationRoutes.Format(
+                archived ? AdministrationRoutes.DefinitionArchive : AdministrationRoutes.DefinitionRestore,
+                appId,
+                agentName,
+                definitionVersion),
+            body: null,
+            cancellationToken);
+
+    /// <summary>Permanently deletes a version that is not active and was never activated.</summary>
+    public Task<ApiResult<bool>> DeleteVersionAsync(
+        string appId,
+        string agentName,
+        string definitionVersion,
+        CancellationToken cancellationToken) =>
+        SendMutationAsync<bool>(
+            HttpMethod.Delete,
+            AdministrationRoutes.Format(AdministrationRoutes.DefinitionVersion, appId, agentName, definitionVersion),
+            body: null,
+            cancellationToken);
+
     private Task<ApiResult<T>> GetAsync<T>(string path, CancellationToken cancellationToken) =>
         SendAsync<T>(new HttpRequestMessage(HttpMethod.Get, path), cancellationToken);
 
     private async Task<ApiResult<T>> SendMutationAsync<T>(
         HttpMethod method,
         string path,
-        object body,
+        object? body,
         CancellationToken cancellationToken)
     {
         if (sessionState.Current is null && !(await GetSessionAsync(cancellationToken)).IsSuccess)
             return new ApiResult<T>(ApiStatus.Unavailable, Errors: ["The administration session could not be loaded."]);
-        var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body, options: JsonSerializerOptions.Web) };
+        var request = new HttpRequestMessage(method, path);
+        if (body is not null)
+            request.Content = JsonContent.Create(body, options: JsonSerializerOptions.Web);
         request.Headers.Add(AdministrationRoutes.AntiforgeryHeaderName, sessionState.Current!.AntiforgeryToken);
         return await SendAsync<T>(request, cancellationToken);
     }

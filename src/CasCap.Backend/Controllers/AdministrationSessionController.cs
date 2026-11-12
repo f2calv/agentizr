@@ -1,6 +1,7 @@
 using CasCap.Client.Constants;
 using CasCap.Client.Models;
 using CasCap.Constants;
+using CasCap.Filters;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -34,17 +35,14 @@ public sealed class AdministrationSessionController(AdministrationSessionService
                 [AdministrationAuthenticationSchemes.OpenIdConnect]);
     }
 
-    /// <summary>Ends the administrator session after validating the posted antiforgery token.</summary>
+    /// <summary>Ends the administrator session; the antiforgery filter rejects a missing or invalid posted token.</summary>
     [HttpPost(AdministrationRoutes.Logout, Name = "AdministrationLogout")]
+    [ValidateAdministrationAntiforgery]
     [ApiExplorerSettings(IgnoreApi = true)]
-    public async Task<Results<SignOutHttpResult, RedirectHttpResult, BadRequest>> LogoutAsync()
-    {
-        if (!sessionSvc.SignInRequired)
-            return TypedResults.LocalRedirect("/");
-        if (!await sessionSvc.IsSignOutRequestValidAsync(HttpContext))
-            return TypedResults.BadRequest();
-        return TypedResults.SignOut(
-            new AuthenticationProperties { RedirectUri = "/" },
-            [AdministrationAuthenticationSchemes.Cookie, AdministrationAuthenticationSchemes.OpenIdConnect]);
-    }
+    public Results<SignOutHttpResult, RedirectHttpResult> Logout() =>
+        sessionSvc.SignInRequired
+            ? TypedResults.SignOut(
+                new AuthenticationProperties { RedirectUri = "/" },
+                [AdministrationAuthenticationSchemes.Cookie, AdministrationAuthenticationSchemes.OpenIdConnect])
+            : TypedResults.LocalRedirect("/");
 }

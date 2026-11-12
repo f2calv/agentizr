@@ -41,6 +41,7 @@ public class AgentDefinitionAdministrationWebApplicationFactory : AgentizrWebApp
         private readonly Dictionary<(string AgentName, string Version), AgentDefinitionSnapshotItem> _snapshots = [];
         private readonly Dictionary<string, string> _activeVersions = new(StringComparer.Ordinal);
         private readonly List<(string AgentName, AgentDefinitionActivationItem Item)> _activations = [];
+        private readonly HashSet<(string AgentName, string Version)> _archived = [];
 
         public TestDefinitionStore()
         {
@@ -143,6 +144,76 @@ public class AgentDefinitionAdministrationWebApplicationFactory : AgentizrWebApp
 
         public ValueTask<IAsyncDisposable> AcquireTenantActivationLockAsync(CancellationToken cancellationToken) =>
             ValueTask.FromResult<IAsyncDisposable>(new NoOpLock());
+
+        public async ValueTask<AgentDefinitionHistoryPage> GetHistoryPageAsync(
+            string agentName,
+            AgentDefinitionHistoryFilter filter,
+            int skip,
+            int take,
+            CancellationToken cancellationToken)
+        {
+            var history = await GetHistoryAsync(agentName, int.MaxValue, cancellationToken);
+            lock (_lock)
+            {
+                var items = history
+                    .Select(item => item with
+                    {
+                        IsArchived = _archived.Contains((agentName, item.DefinitionVersion)),
+                        WasActivated = item.IsActive || _activations.Any(activation =>
+                            activation.AgentName == agentName && activation.Item.DefinitionVersion == item.DefinitionVersion),
+                    })
+                    .Where(item => filter switch
+                    {
+                        AgentDefinitionHistoryFilter.Current => !item.IsArchived,
+                        AgentDefinitionHistoryFilter.Archived => item.IsArchived,
+                        _ => true,
+                    })
+                    .ToArray();
+                return new AgentDefinitionHistoryPage([.. items.Skip(skip).Take(take)], items.Length);
+            }
+        }
+
+        public ValueTask<AgentDefinitionVersionChangeResult> SetArchivedAsync(
+            string agentName,
+            string definitionVersion,
+            bool archived,
+            string? changedBy,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_lock)
+            {
+                if (!_snapshots.ContainsKey((agentName, definitionVersion)))
+                    return ValueTask.FromResult(AgentDefinitionVersionChangeResult.NotFound);
+                if (archived && _activeVersions.GetValueOrDefault(agentName) == definitionVersion)
+                    return ValueTask.FromResult(AgentDefinitionVersionChangeResult.Active);
+                if (archived)
+                    _archived.Add((agentName, definitionVersion));
+                else
+                    _archived.Remove((agentName, definitionVersion));
+                return ValueTask.FromResult(AgentDefinitionVersionChangeResult.Applied);
+            }
+        }
+
+        public ValueTask<AgentDefinitionVersionChangeResult> DeleteAsync(
+            string agentName,
+            string definitionVersion,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_lock)
+            {
+                if (!_snapshots.ContainsKey((agentName, definitionVersion)))
+                    return ValueTask.FromResult(AgentDefinitionVersionChangeResult.NotFound);
+                if (_activeVersions.GetValueOrDefault(agentName) == definitionVersion)
+                    return ValueTask.FromResult(AgentDefinitionVersionChangeResult.Active);
+                if (_activations.Any(activation => activation.AgentName == agentName && activation.Item.DefinitionVersion == definitionVersion))
+                    return ValueTask.FromResult(AgentDefinitionVersionChangeResult.PreviouslyActivated);
+                _snapshots.Remove((agentName, definitionVersion));
+                _archived.Remove((agentName, definitionVersion));
+                return ValueTask.FromResult(AgentDefinitionVersionChangeResult.Applied);
+            }
+        }
 
         public ValueTask<bool> ActivateAsync(
             string agentName,

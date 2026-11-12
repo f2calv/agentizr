@@ -58,7 +58,7 @@ Publishing and activation stay separate, as they are in the machine API:
 
 1. **Publish** creates a new immutable, inactive version from the editor. Callers keep using the
    active version. The editor copies an existing version and changes only the fields it edits, so
-   tools and other fields without a dedicated control are kept.
+   tools and other fields without a dedicated control are kept. The publication reason is optional.
 2. **Activate** points the agent at one published version, with an audited reason and, where the
    app's policy requires it, a passing fixture evaluation. Rolling back is activating an older
    version.
@@ -72,8 +72,9 @@ without changing the existing version.
 
 The editor's **Make this definition active after publishing** checkbox is off by default. Selecting
 it changes the submit action to **Publish and activate** and requests confirmation before either
-operation. The confirmation includes an activation reason and optional evaluation scenarios,
-required when the app's policy demands evaluation. Canceling publishes nothing. Publication still
+operation. The confirmation offers an optional activation reason, prefilled from the publication
+reason, and optional evaluation scenarios, required when the app's policy demands evaluation.
+Canceling publishes nothing. Publication still
 appends an inactive snapshot first, followed by a separate guarded activation request. If activation
 is rejected, the snapshot stays published and can be activated from the agent page; an unknown
 activation outcome requires refreshing that page before retrying, not republishing.
@@ -81,8 +82,22 @@ activation outcome requires refreshing that page before retrying, not republishi
 The agent page distinguishes the agent's active version from the selected snapshot. Selecting an
 inactive version exposes **Activate {version}** in the toolbar; selecting the active version exposes
 **Deactivate {version}** instead. Version history retains its per-version activation buttons.
-The active pointer is loaded separately, so a version outside the displayed history window is not
+The active pointer is loaded separately, so a version outside the displayed history page is not
 mistaken for an inactive agent.
+
+The version list is paged on the server, newest first, and filtered to **Current**, **Archived** or
+**All** versions. Each row shows its publication time, with the publisher's subject identifier in a
+tooltip, and the properties that differ from the previously published version, such as
+`instructions, model`. Housekeeping never changes a definition:
+
+- **Archive** hides an inactive version from the current list; **Restore** returns it. The active
+  version cannot be archived.
+- **Delete** permanently removes a version that is not active and was never activated. Versions that
+  were ever activated stay, because the activation audit refers to them.
+
+The apps page lists each app's caller applications by the display name configured in
+`TenantAuthenticationConfig:CallerApplicationNames`, with the identifier in a tooltip; an
+application without a configured name shows its identifier.
 
 Activation and deactivation send the active version the page displayed. If another administrator
 changed it first, the server answers 409 and the page refreshes instead of overwriting their

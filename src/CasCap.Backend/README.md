@@ -644,10 +644,47 @@ is missing.
 
 Execution and session operations require `agent.execute`. Definition administration uses separate
 `agent.definition.read`, `agent.definition.publish` and `agent.definition.activate` permissions.
+Realtime voice calls require `agent.realtime`.
 Permissions are accepted from delegated `scope`/`scp` claims or application `roles`. Publisher and
 activation actor identifiers come from validated principal claims, never request bodies. Provider credentials remain behind
 [`IProviderCredentialStore`](https://github.com/f2calv/agentizr/blob/13aa4a19180b9dbd0f14fa08fbf95f67039b69f0/src/CasCap.App.Server/Abstractions/IProviderCredentialStore.cs)
 and definition publication rejects embedded API keys.
+
+### Realtime Voice Calls
+
+An agent definition's optional `realtime` section, or `AgentRuntimeConfig.Tenants:<tenant>:Realtime:<agent>`
+for configuration-backed tenants, offers brokered WebRTC calls, as proposed in
+[ADR 0002](../../docs/adr-0002-realtime-voice-calls.md). [`RealtimeCallsController`](Controllers/RealtimeCallsController.cs)
+accepts a JSON `CreateRealtimeCallRequest` carrying the SDP offer and returns `201` with a
+`RealtimeCallResponse` (runtime call id and SDP answer) and a `Location` for ending the call.
+[`RealtimeCallService`](Services/RealtimeCallService.cs) builds the session from the definition's
+instructions and the allowlisted subset of its remote MCP tools, mints a client secret and negotiates the
+call with the client data channel filtered. [`RealtimeCallSession`](Services/RealtimeCallSession.cs)
+holds the server-side control connection, executes tool calls once per call id, sums the token usage of each
+`response.done` event and hangs up on `DELETE`, at `MaximumDurationMinutes`, on host shutdown or when control is lost.
+`DELETE` returns `200` with a `RealtimeCallSummaryResponse`: the `EndReason`, duration, token usage and, when
+`AgentRuntimeConfig.RealtimePricing` has prices for the deployment, an estimated cost for debugging. An ended call's
+summary is kept for ten minutes, so the client's clean-up `DELETE` after media drops still learns why; unknown,
+foreign or expired calls return `404`. The end-of-call Information log carries the same token breakdown and
+estimate, which is the durable per-call record; it contains counts only, never transcripts or tool content.
+
+| Setting | Purpose |
+| --- | --- |
+| `provider` | Tenant provider name in `EntraIdProviders` or `Providers` that authenticates to the realtime resource |
+| `endpoint`, `deployment` | HTTPS root endpoint and realtime deployment; the authority must be allowed by `AllowedProviderAuthorities` |
+| `voice`, `turnDetection`, `eagerness` | Output voice and `semantic_vad` or `server_vad` turn detection |
+| `transcriptionModel`, `transcriptionLanguage` | Optional user-speech transcription |
+| `maximumDurationMinutes` | Hard ceiling from call start, 1 to 120 minutes; speech and tool activity do not extend it |
+| `tools` | Remote MCP tool names a call may execute; only tools the text agent exposes qualify |
+
+`AgentRuntimeConfig.MaximumRealtimeCallsPerInstance` bounds concurrent calls per instance. The instance that
+starts a call holds its control connection and renews a 20-second lease on the call's record every 5 seconds;
+with PostgreSQL the record is shared (`realtime_calls`), otherwise it is in memory and only one replica may run.
+`DELETE` on another replica marks the call ending and waits for the owner, or for the sweeper when the owner is
+gone, to hang up and record the summary. Any replica sweeps calls whose lease expired: it hangs them up with the
+tenant's provider credential and records them as `ControlLost` with the last reported usage. On shutdown an
+instance hangs up the calls it owns. SDP, ephemeral keys, provider call ids, transcripts and tool payloads
+are never logged.
 
 `AdministrationConfig` binds from `CasCap:AdministrationConfig` and controls the browser frontend.
 `AppAdministrators` maps each app to the user identifiers, read from `AdministratorClaimType`
@@ -662,7 +699,9 @@ and never reach the browser. Register the exact HTTPS `CallbackPath` (`/signin-o
 `SignedOutCallbackPath` (`/signout-callback-oidc`) redirect URIs. Behind a TLS-terminating proxy, set
 `ASPNETCORE_FORWARDEDHEADERS_ENABLED=true` so the callbacks keep their HTTPS scheme. Administration
 mutations and sign-out require the antiforgery token from `/admin/api/session`, sent in the
-`X-XSRF-TOKEN` header or the sign-out form. With PostgreSQL configured, the Data Protection key ring
+`X-XSRF-TOKEN` header or the sign-out form. Runtime and control-plane policies authenticate only JWT
+bearer tokens, never the administration cookie, so a browser's ambient credential cannot reach them
+and they need no antiforgery token. With PostgreSQL configured, the Data Protection key ring
 that protects cookies and antiforgery tokens is shared through the `data_protection_keys` table, so
 any replica accepts them; the keys are not yet encrypted at rest.
 
@@ -855,6 +894,9 @@ and credentials:
       "Audience": "api://example-runtime",
       "TenantCallers": {
         "example-tenant": ["00000000-0000-0000-0000-000000000000"]
+      },
+      "CallerApplicationNames": {
+        "00000000-0000-0000-0000-000000000000": "Example host"
       }
     },
     "AdministrationConfig": {

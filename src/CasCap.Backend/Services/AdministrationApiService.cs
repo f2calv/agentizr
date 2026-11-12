@@ -105,6 +105,56 @@ public sealed class AdministrationApiService
         };
     }
 
+    /// <summary>Gets one newest-first page of the agent's versions with archive state and changed properties.</summary>
+    public async Task<AdministrationDefinitionHistoryPageResponse> GetHistoryPageAsync(
+        string agentName,
+        DefinitionHistoryFilter filter,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var storeFilter = filter switch
+        {
+            DefinitionHistoryFilter.Archived => AgentDefinitionHistoryFilter.Archived,
+            DefinitionHistoryFilter.All => AgentDefinitionHistoryFilter.All,
+            _ => AgentDefinitionHistoryFilter.Current,
+        };
+        var result = await _administrationSvc.GetHistoryPageAsync(
+            agentName, storeFilter, (page - 1) * pageSize, pageSize, cancellationToken);
+        return new AdministrationDefinitionHistoryPageResponse
+        {
+            Items = [.. result.Items.Select(item => new AdministrationDefinitionVersionResponse
+            {
+                DefinitionVersion = item.DefinitionVersion,
+                PublishedAtUtc = item.PublishedAtUtc,
+                PublishedBy = item.PublishedBy,
+                ChangeReason = item.ChangeReason,
+                IsActive = item.IsActive,
+                IsArchived = item.IsArchived,
+                WasActivated = item.WasActivated,
+                ChangedProperties = item.ChangedProperties,
+            })],
+            TotalCount = result.TotalCount,
+            Page = page,
+            PageSize = pageSize,
+        };
+    }
+
+    /// <summary>Archives or restores an inactive version.</summary>
+    public ValueTask<AgentDefinitionVersionChangeResult> SetArchivedAsync(
+        string agentName,
+        string definitionVersion,
+        bool archived,
+        CancellationToken cancellationToken) =>
+        _administrationSvc.SetArchivedAsync(agentName, definitionVersion, archived, cancellationToken);
+
+    /// <summary>Permanently deletes a version that is not active and was never activated.</summary>
+    public ValueTask<AgentDefinitionVersionChangeResult> DeleteAsync(
+        string agentName,
+        string definitionVersion,
+        CancellationToken cancellationToken) =>
+        _administrationSvc.DeleteAsync(agentName, definitionVersion, cancellationToken);
+
     /// <summary>Activates or rolls back to a version only if the administrator's observed active version is current.</summary>
     public ValueTask<AgentDefinitionActivationOutcome> ActivateAsync(
         string agentName,

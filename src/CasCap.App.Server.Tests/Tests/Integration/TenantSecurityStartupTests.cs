@@ -1,5 +1,6 @@
 using CasCap.Constants;
 using CasCap.Tests.Integration;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
@@ -101,10 +102,12 @@ public sealed class TenantSecurityStartupTests
             ["ActivateAgentDefinitionV1"] = AgentRuntimePolicies.DefinitionActivate,
             ["GetAgentDefinitionActivationHistoryV1"] = AgentRuntimePolicies.DefinitionRead,
             ["DeactivateAgentDefinitionV1"] = AgentRuntimePolicies.DefinitionActivate,
+            ["CreateRealtimeCallV1"] = AgentRuntimePolicies.Realtime,
+            ["EndRealtimeCallV1"] = AgentRuntimePolicies.Realtime,
         };
 
-        Assert.Equal(19, protectedEndpoints.Count(endpoint => !AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
-        Assert.Equal(22, protectedEndpoints.Count(endpoint => AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
+        Assert.Equal(21, protectedEndpoints.Count(endpoint => !AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
+        Assert.Equal(25, protectedEndpoints.Count(endpoint => AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
         // Session description, sign-in and sign-out must be reachable before an administrator signs in.
         Assert.Equal(3, sessionEndpoints.Length);
         Assert.All(sessionEndpoints, endpoint => Assert.Empty(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()));
@@ -124,6 +127,22 @@ public sealed class TenantSecurityStartupTests
             Assert.Equal(expectedPolicies.Order(StringComparer.Ordinal), policies.Order(StringComparer.Ordinal));
             Assert.Null(endpoint.Metadata.GetMetadata<IAllowAnonymous>());
         });
+    }
+
+    [Theory]
+    [InlineData(AgentRuntimePolicies.Execute)]
+    [InlineData(AgentRuntimePolicies.DefinitionRead)]
+    [InlineData(AgentRuntimePolicies.DefinitionPublish)]
+    [InlineData(AgentRuntimePolicies.DefinitionActivate)]
+    [InlineData(AgentRuntimePolicies.Realtime)]
+    public async Task DevelopmentWithTenantAuthentication_MachinePoliciesAuthenticateBearerTokensOnly(string policyName)
+    {
+        // Bearer-only authentication is what makes these endpoints immune to cross-site request forgery.
+        using var factory = CreateAuthenticatedFactory("Development");
+        var policy = await factory.Services.GetRequiredService<IAuthorizationPolicyProvider>().GetPolicyAsync(policyName);
+
+        Assert.NotNull(policy);
+        Assert.Equal([JwtBearerDefaults.AuthenticationScheme], policy.AuthenticationSchemes);
     }
 
     [Fact]

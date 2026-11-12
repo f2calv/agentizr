@@ -131,10 +131,16 @@ public sealed class AdministrationDefinitionUiTests
                         PublicationSupported = true,
                     }),
                 var value when value == AdministrationRoutes.Format(AdministrationRoutes.Definitions, AppId, AgentName) =>
-                    Json(new[]
+                    Json(new AdministrationDefinitionHistoryPageResponse
                     {
-                        new AgentDefinitionHistoryItemResponse { DefinitionVersion = "v2", IsActive = activeVersion == "v2" },
-                        new AgentDefinitionHistoryItemResponse { DefinitionVersion = "v1", IsActive = activeVersion == "v1" },
+                        Items =
+                        [
+                            new() { DefinitionVersion = "v2", IsActive = activeVersion == "v2", ChangedProperties = ["instructions"] },
+                            new() { DefinitionVersion = "v1", IsActive = activeVersion == "v1", ChangedProperties = ["initial version"] },
+                        ],
+                        TotalCount = 2,
+                        Page = 1,
+                        PageSize = 20,
                     }),
                 var value when value == AdministrationRoutes.Format(AdministrationRoutes.ActiveDefinition, AppId, AgentName) =>
                     activeVersion is null ? new HttpResponseMessage(HttpStatusCode.NotFound) : Json(Snapshot(activeVersion)),

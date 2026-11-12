@@ -49,6 +49,49 @@ internal sealed class AgentDefinitionAdministrationService(
         CancellationToken cancellationToken) =>
         administrationStore.GetActivationHistoryAsync(agentName, limit, cancellationToken);
 
+    /// <summary>Gets one newest-first page of versions with archive state, activation use and changed properties.</summary>
+    public ValueTask<AgentDefinitionHistoryPage> GetHistoryPageAsync(
+        string agentName,
+        AgentDefinitionHistoryFilter filter,
+        int skip,
+        int take,
+        CancellationToken cancellationToken) =>
+        administrationStore.GetHistoryPageAsync(agentName, filter, skip, take, cancellationToken);
+
+    /// <summary>Archives or restores a version and records the authenticated actor; the active version stays visible.</summary>
+    public async ValueTask<AgentDefinitionVersionChangeResult> SetArchivedAsync(
+        string agentName,
+        string definitionVersion,
+        bool archived,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await administrationStore.SetArchivedAsync(
+                agentName, definitionVersion, archived, actorContext.ActorId, cancellationToken);
+        }
+        catch (NotSupportedException)
+        {
+            return AgentDefinitionVersionChangeResult.NotSupported;
+        }
+    }
+
+    /// <summary>Permanently deletes a version that is not active and was never activated.</summary>
+    public async ValueTask<AgentDefinitionVersionChangeResult> DeleteAsync(
+        string agentName,
+        string definitionVersion,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await administrationStore.DeleteAsync(agentName, definitionVersion, cancellationToken);
+        }
+        catch (NotSupportedException)
+        {
+            return AgentDefinitionVersionChangeResult.NotSupported;
+        }
+    }
+
     /// <summary>Publishes one validated immutable definition snapshot without activating it.</summary>
     public async ValueTask<AgentDefinitionPublishOutcome> PublishAsync(
         string agentName,
@@ -84,6 +127,7 @@ internal sealed class AgentDefinitionAdministrationService(
             Version = request.DefinitionVersion,
             Agent = validatedPayload.Agent,
             Provider = validatedPayload.Provider with { ApiKey = null },
+            Realtime = validatedPayload.Realtime,
         };
         try
         {
@@ -400,6 +444,17 @@ internal sealed class AgentDefinitionAdministrationService(
         }
         if (payload.Provider.Type is not AgentType.OpenAI && payload.Provider.Endpoint is null)
             return $"Provider type {payload.Provider.Type} requires an endpoint.";
+        if (payload.Realtime is { } realtime)
+        {
+            validationResults.Clear();
+            if (!Validator.TryValidateObject(realtime, new ValidationContext(realtime), validationResults, validateAllProperties: true))
+                return validationResults[0].ErrorMessage ?? "Realtime configuration is invalid.";
+            if (!realtime.Endpoint.IsAbsoluteUri || realtime.Endpoint.Scheme != Uri.UriSchemeHttps
+                || realtime.Endpoint.AbsolutePath != "/")
+                return "Realtime endpoint must be an HTTPS root endpoint without an API path.";
+            if (ValidateEndpoint(realtime.Endpoint, policyConfig.Value.AllowedProviderAuthorities) is { } realtimeError)
+                return $"Realtime endpoint {realtimeError}";
+        }
 
         foreach (var tool in payload.Agent.Tools)
         {

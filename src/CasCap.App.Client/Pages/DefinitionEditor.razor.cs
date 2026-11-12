@@ -185,6 +185,12 @@ public partial class DefinitionEditor(
     {
         if (_form is null || _draft is null || _catalogue is null || _messages is null || _editContext is null || _publishing)
             return;
+        if (!DefinitionDraft.TryParseRealtime(_form.RealtimeJson, out _, out var realtimeError))
+        {
+            _messages.Add(() => _form.RealtimeJson, realtimeError!);
+            _editContext.NotifyValidationStateChanged();
+            return;
+        }
         if (!_draft.TryCreatePayload(_form, out var payload, out var payloadError))
         {
             _messages.Add(() => _form.ToolsJson, payloadError!);
@@ -210,7 +216,7 @@ public partial class DefinitionEditor(
                         DefinitionVersion = version,
                         SchemaVersion = _catalogue.SupportedSchemaVersions.Max(),
                         Definition = payload,
-                        ChangeReason = _form.ChangeReason.Trim(),
+                        ChangeReason = string.IsNullOrWhiteSpace(_form.ChangeReason) ? null : _form.ChangeReason.Trim(),
                     },
                     cancellationToken);
                 switch (result.Status)
@@ -259,6 +265,7 @@ public partial class DefinitionEditor(
                 { component => component.Message, message },
                 { component => component.ConfirmText, "Publish and activate" },
                 { component => component.InitialReason, _form!.ChangeReason.Trim() },
+                { component => component.ReasonRequired, false },
                 { component => component.ShowEvaluation, true },
                 { component => component.EvaluationRequired, _catalogue!.EvaluationRequiredForActivation },
             });

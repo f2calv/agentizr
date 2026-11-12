@@ -26,6 +26,8 @@ public sealed class PersistenceModelTests
             "20261030054010_DocumentChunkReviews",
             "20261030094946_DocumentApprovals",
             "20261030121900_DocumentVectorIndexing",
+            "20261111042918_RealtimeCallRecords",
+            "20261112032521_DefinitionArchiving",
         ];
 
         Assert.Equal("CasCap.Data", typeof(AgentRuntimeDbContext).Assembly.GetName().Name);

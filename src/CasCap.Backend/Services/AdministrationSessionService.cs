@@ -47,19 +47,13 @@ public sealed class AdministrationSessionService
         };
     }
 
-    /// <summary>Returns whether a sign-out request carries a valid antiforgery token for the signed-in administrator.</summary>
-    public async Task<bool> IsSignOutRequestValidAsync(HttpContext httpContext)
-    {
-        await UseAdministratorPrincipalAsync(httpContext);
-        return await _antiforgery.IsRequestValidAsync(httpContext);
-    }
-
     /// <summary>Returns the requested path when it stays on this host, otherwise the root path.</summary>
     public static string GetLocalReturnUrl(string? returnUrl) =>
         returnUrl is ['/', not ('/' or '\\'), ..] or "/" ? returnUrl : "/";
 
-    // The default scheme authenticates machine callers; administration endpoints use the cookie principal.
-    private async Task UseAdministratorPrincipalAsync(HttpContext httpContext)
+    /// <summary>Replaces the request principal with the administration cookie principal when sign-in is enabled.</summary>
+    /// <remarks>The default scheme authenticates machine callers; administration endpoints use the cookie principal.</remarks>
+    internal async Task UseAdministratorPrincipalAsync(HttpContext httpContext)
     {
         if (!SignInRequired)
             return;

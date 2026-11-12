@@ -3,10 +3,10 @@ namespace CasCap.Client.Models;
 /// <summary>Activates or rolls back to an immutable version only if the active version is still as expected.</summary>
 public sealed record AdministrationActivationRequest
 {
-    /// <summary>Gets the operator-supplied activation or rollback reason.</summary>
+    /// <summary>Gets the operator-supplied activation or rollback reason, optional when activating on publication.</summary>
     /// <example>Roll back after a provider regression.</example>
-    [Required, MinLength(1), MaxLength(2_000)]
-    public required string ChangeReason { get; init; }
+    [MaxLength(2_000)]
+    public string? ChangeReason { get; init; }
 
     /// <summary>
     /// Gets the version the administrator saw as active, or <see langword="null" /> when no version was active.

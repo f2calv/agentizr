@@ -14,4 +14,7 @@ public static class AgentRuntimePolicies
 
     /// <summary>Allows activating or rolling back definition versions.</summary>
     public const string DefinitionActivate = nameof(DefinitionActivate);
+
+    /// <summary>Allows starting and ending brokered realtime voice calls.</summary>
+    public const string Realtime = nameof(Realtime);
 }

@@ -8,11 +8,16 @@ namespace CasCap.Client.Pages;
 public partial class AgentDetails(
     AdministrationApiClient apiClient,
     IDialogService dialogService,
+    NavigationManager navigationManager,
     ISnackbar snackbar) : CancellableComponentBase
 {
+    private const int HistoryPageSize = 20;
+
     private (string AppId, string AgentName)? _loadedAgent;
     private string? _loadedVersion;
-    private ApiResult<IReadOnlyList<AgentDefinitionHistoryItemResponse>>? _history;
+    private ApiResult<AdministrationDefinitionHistoryPageResponse>? _history;
+    private DefinitionHistoryFilter _historyFilter = DefinitionHistoryFilter.Current;
+    private int _historyPage = 1;
     private ApiResult<IReadOnlyList<AgentDefinitionActivationResponse>>? _activations;
     private ApiResult<AgentDefinitionSnapshotResponse>? _active;
     private ApiResult<AgentDefinitionSnapshotResponse>? _selected;
@@ -33,7 +38,10 @@ public partial class AgentDetails(
 
     private string? ActiveVersion => _active?.Value?.DefinitionVersion;
 
-    private string? SelectedVersion => Version ?? ActiveVersion ?? _history?.Value?.FirstOrDefault()?.DefinitionVersion;
+    private string? SelectedVersion => Version ?? ActiveVersion ?? _history?.Value?.Items.FirstOrDefault()?.DefinitionVersion;
+
+    private int HistoryPageCount =>
+        _history?.Value is { } page ? (int)Math.Ceiling(page.TotalCount / (double)HistoryPageSize) : 0;
 
     private bool CanChange => !_busy && _catalogue?.PublicationSupported == true
         && _active is { IsSuccess: true } or { Status: ApiStatus.NotFound };
@@ -71,7 +79,7 @@ public partial class AgentDetails(
             _history = null;
             _selected = null;
             _active = null;
-            var history = apiClient.GetHistoryAsync(AppId, AgentName, cancellationToken);
+            var history = apiClient.GetHistoryAsync(AppId, AgentName, _historyFilter, _historyPage, HistoryPageSize, cancellationToken);
             var activations = apiClient.GetActivationsAsync(AppId, AgentName, cancellationToken);
             var catalogue = apiClient.GetProvidersAsync(AppId, cancellationToken);
             var active = apiClient.GetActiveAsync(AppId, AgentName, cancellationToken);
@@ -84,6 +92,49 @@ public partial class AgentDetails(
         renew: true);
 
     private Task LoadSelectedAsync() => RunAsync(LoadSelectedCoreAsync);
+
+    private Task LoadHistoryAsync() => RunAsync(async cancellationToken =>
+    {
+        _history = null;
+        _history = await apiClient.GetHistoryAsync(AppId, AgentName, _historyFilter, _historyPage, HistoryPageSize, cancellationToken);
+    });
+
+    private Task HistoryFilterChanged(DefinitionHistoryFilter filter)
+    {
+        _historyFilter = filter;
+        _historyPage = 1;
+        return LoadHistoryAsync();
+    }
+
+    private Task HistoryPageChanged(int page)
+    {
+        _historyPage = page;
+        return LoadHistoryAsync();
+    }
+
+    private static string DescribeChanges(AdministrationDefinitionVersionResponse item) =>
+        item.ChangedProperties.Count == 0 ? "no definition changes" : string.Join(", ", item.ChangedProperties);
+
+    private Task SetArchivedAsync(string version, bool archived) =>
+        ChangeAsync(
+            cancellationToken => apiClient.SetArchivedAsync(AppId, AgentName, version, archived, cancellationToken),
+            archived ? $"Archived {version}." : $"Restored {version}.");
+
+    private async Task DeleteVersionAsync(string version)
+    {
+        var confirmed = await dialogService.ShowMessageBoxAsync(
+            $"Delete {version}?",
+            $"Version {version} was never activated and will be permanently deleted. This cannot be undone.",
+            yesText: "Delete permanently",
+            cancelText: "Cancel");
+        if (confirmed != true)
+            return;
+        await ChangeAsync(
+            cancellationToken => apiClient.DeleteVersionAsync(AppId, AgentName, version, cancellationToken),
+            $"Deleted {version}.");
+        if (Version == version)
+            navigationManager.NavigateTo(AgentPath);
+    }
 
     private async Task LoadSelectedCoreAsync(CancellationToken cancellationToken)
     {
@@ -133,7 +184,7 @@ public partial class AgentDetails(
             cancellationToken => apiClient.DeactivateAsync(
                 AppId,
                 AgentName,
-                new AdministrationDeactivationRequest { ChangeReason = confirmed.Reason, ExpectedActiveVersion = activeVersion },
+                new AdministrationDeactivationRequest { ChangeReason = confirmed.Reason!, ExpectedActiveVersion = activeVersion },
                 cancellationToken),
             $"Deactivated {AgentName}.");
     }

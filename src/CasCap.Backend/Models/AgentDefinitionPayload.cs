@@ -8,4 +8,7 @@ public sealed record AgentDefinitionPayload
 
     /// <summary>Gets secret-free provider infrastructure.</summary>
     public required ProviderConfig Provider { get; init; }
+
+    /// <summary>Gets the optional realtime voice call settings.</summary>
+    public AgentRealtimeConfig? Realtime { get; init; }
 }

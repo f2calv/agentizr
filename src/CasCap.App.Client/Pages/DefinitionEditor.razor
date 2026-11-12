@@ -123,10 +123,18 @@ else
                         <MudTextField @bind-Value="_form.ToolsJson" For="() => _form.ToolsJson" Label="Tools" Lines="10"
                                       Variant="Variant.Outlined" />
                     </MudExpansionPanel>
+                    <MudExpansionPanel Text="Advanced: realtime voice calls (JSON)">
+                        <MudText Typo="Typo.body2" Class="mb-2">
+                            Copied from the base version; leave blank to offer no realtime calls. The provider must be a
+                            tenant provider name, and realtime tools must be a subset of the remote MCP tools above.
+                        </MudText>
+                        <MudTextField @bind-Value="_form.RealtimeJson" For="() => _form.RealtimeJson" Label="Realtime" Lines="10"
+                                      Variant="Variant.Outlined" />
+                    </MudExpansionPanel>
                 </MudExpansionPanels>
             </MudItem>
             <MudItem xs="12">
-                <MudTextField @bind-Value="_form.ChangeReason" For="() => _form.ChangeReason" Label="Publication reason"
+                <MudTextField @bind-Value="_form.ChangeReason" For="() => _form.ChangeReason" Label="Publication reason (optional)"
                               HelperText="Recorded with the version" />
             </MudItem>
             <MudItem xs="12">

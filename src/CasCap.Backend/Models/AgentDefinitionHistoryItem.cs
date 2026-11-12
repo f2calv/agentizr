@@ -20,4 +20,13 @@ public sealed record AgentDefinitionHistoryItem
 
     /// <summary>Gets whether this snapshot is active.</summary>
     public bool IsActive { get; init; }
+
+    /// <summary>Gets whether an administrator archived this snapshot.</summary>
+    public bool IsArchived { get; init; }
+
+    /// <summary>Gets whether this snapshot was ever activated.</summary>
+    public bool WasActivated { get; init; }
+
+    /// <summary>Gets labels of the definition properties that differ from the previously published version.</summary>
+    public IReadOnlyList<string> ChangedProperties { get; init; } = [];
 }
