@@ -665,7 +665,8 @@ holds the server-side control connection, executes tool calls once per call id, 
 `DELETE` returns `200` with a `RealtimeCallSummaryResponse`: the `EndReason`, duration, token usage and, when
 `AgentRuntimeConfig.RealtimePricing` has prices for the deployment, an estimated cost for debugging. An ended call's
 summary is kept for ten minutes, so the client's clean-up `DELETE` after media drops still learns why; unknown,
-foreign or expired calls return `404`.
+foreign or expired calls return `404`. The end-of-call Information log carries the same token breakdown and
+estimate, which is the durable per-call record; it contains counts only, never transcripts or tool content.
 
 | Setting | Purpose |
 | --- | --- |

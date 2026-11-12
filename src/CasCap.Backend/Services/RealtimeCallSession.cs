@@ -139,9 +139,14 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
                 await lease.DisposeAsync();
             Summary = CreateSummary();
             if (_logger.IsEnabled(LogLevel.Information))
+            {
+                var usage = Summary.Usage;
                 _logger.LogInformation(
-                    "{ClassName} realtime call ended by {EndReason} after {DurationSeconds}s using {TotalTokens} tokens",
-                    nameof(RealtimeCallSession), Summary.EndReason, Summary.DurationSeconds, Summary.Usage.TotalTokens);
+                    "{ClassName} realtime call ended by {EndReason} after {DurationSeconds}s using {TotalTokens} tokens: input text {InputTextTokens}, input audio {InputAudioTokens}, cached input {CachedInputTokens}, output text {OutputTextTokens}, output audio {OutputAudioTokens}; estimated cost {EstimatedCost} {Currency}",
+                    nameof(RealtimeCallSession), Summary.EndReason, Summary.DurationSeconds, usage.TotalTokens,
+                    usage.InputTextTokens, usage.InputAudioTokens, usage.CachedInputTokens, usage.OutputTextTokens,
+                    usage.OutputAudioTokens, Summary.EstimatedCost?.Amount, Summary.EstimatedCost?.Currency ?? "unpriced");
+            }
         }
     }
 
