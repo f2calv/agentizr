@@ -14,4 +14,7 @@ public static class AgentRuntimePermissions
 
     /// <summary>Allows activating or rolling back definition versions.</summary>
     public const string DefinitionActivate = "agent.definition.activate";
+
+    /// <summary>Allows starting and ending brokered realtime voice calls.</summary>
+    public const string Realtime = "agent.realtime";
 }

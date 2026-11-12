@@ -66,6 +66,12 @@ public static class AdministrationRoutes
     /// <summary>Gets the route for activating or rolling back to one immutable definition version.</summary>
     public const string DefinitionActivation = DefinitionVersion + "/activate";
 
+    /// <summary>Gets the route for hiding one inactive version from the default history.</summary>
+    public const string DefinitionArchive = DefinitionVersion + "/archive";
+
+    /// <summary>Gets the route for returning one archived version to the default history.</summary>
+    public const string DefinitionRestore = DefinitionVersion + "/restore";
+
     /// <summary>Builds a request path by escaping and substituting route values into a template.</summary>
     /// <param name="template">One of the route templates in this class.</param>
     /// <param name="appId">The administered app.</param>

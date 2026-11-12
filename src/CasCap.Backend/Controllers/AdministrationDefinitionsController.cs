@@ -45,14 +45,46 @@ public sealed class AdministrationDefinitionsController(AdministrationApiService
             snapshot);
     }
 
-    /// <inheritdoc cref="AgentDefinitionApiService.GetHistoryAsync"/>
+    /// <inheritdoc cref="AdministrationApiService.GetHistoryPageAsync"/>
     [HttpGet(AdministrationRoutes.Definitions, Name = "GetAdministeredDefinitionHistory")]
-    [EndpointSummary("Gets newest-first immutable definition history")]
-    public async Task<Ok<IReadOnlyList<AgentDefinitionHistoryItemResponse>>> GetHistoryAsync(
+    [EndpointSummary("Gets one newest-first page of definition versions with archive state and changed properties")]
+    public async Task<Ok<AdministrationDefinitionHistoryPageResponse>> GetHistoryAsync(
         [StringLength(200, MinimumLength = 1)] string agentName,
         CancellationToken cancellationToken,
-        [FromQuery, Range(1, 1_000)] int limit = 100) =>
-        TypedResults.Ok(await administrationApiSvc.Definitions.GetHistoryAsync(agentName, cancellationToken, limit));
+        [FromQuery] DefinitionHistoryFilter filter = DefinitionHistoryFilter.Current,
+        [FromQuery, Range(1, 10_000)] int page = 1,
+        [FromQuery, Range(1, 100)] int pageSize = 20) =>
+        TypedResults.Ok(await administrationApiSvc.GetHistoryPageAsync(agentName, filter, page, pageSize, cancellationToken));
+
+    /// <inheritdoc cref="AdministrationApiService.SetArchivedAsync"/>
+    [HttpPost(AdministrationRoutes.DefinitionArchive, Name = "ArchiveAdministeredDefinition")]
+    [EndpointSummary("Hides an inactive version from the default history without changing it")]
+    [ProducesResponseType(StatusCodes.Status501NotImplemented)]
+    public async Task<Results<NoContent, NotFound, ValidationProblem, StatusCodeHttpResult>> ArchiveAsync(
+        [StringLength(200, MinimumLength = 1)] string agentName,
+        [StringLength(100, MinimumLength = 1)] string definitionVersion,
+        CancellationToken cancellationToken) =>
+        ToResult(await administrationApiSvc.SetArchivedAsync(agentName, definitionVersion, archived: true, cancellationToken));
+
+    /// <inheritdoc cref="AdministrationApiService.SetArchivedAsync"/>
+    [HttpPost(AdministrationRoutes.DefinitionRestore, Name = "RestoreAdministeredDefinition")]
+    [EndpointSummary("Returns an archived version to the default history")]
+    [ProducesResponseType(StatusCodes.Status501NotImplemented)]
+    public async Task<Results<NoContent, NotFound, ValidationProblem, StatusCodeHttpResult>> RestoreAsync(
+        [StringLength(200, MinimumLength = 1)] string agentName,
+        [StringLength(100, MinimumLength = 1)] string definitionVersion,
+        CancellationToken cancellationToken) =>
+        ToResult(await administrationApiSvc.SetArchivedAsync(agentName, definitionVersion, archived: false, cancellationToken));
+
+    /// <inheritdoc cref="AdministrationApiService.DeleteAsync"/>
+    [HttpDelete(AdministrationRoutes.DefinitionVersion, Name = "DeleteAdministeredDefinition")]
+    [EndpointSummary("Permanently deletes a version that is not active and was never activated")]
+    [ProducesResponseType(StatusCodes.Status501NotImplemented)]
+    public async Task<Results<NoContent, NotFound, ValidationProblem, StatusCodeHttpResult>> DeleteAsync(
+        [StringLength(200, MinimumLength = 1)] string agentName,
+        [StringLength(100, MinimumLength = 1)] string definitionVersion,
+        CancellationToken cancellationToken) =>
+        ToResult(await administrationApiSvc.DeleteAsync(agentName, definitionVersion, cancellationToken));
 
     /// <inheritdoc cref="AgentDefinitionApiService.GetActiveAsync"/>
     [HttpGet(AdministrationRoutes.ActiveDefinition, Name = "GetAdministeredActiveDefinition")]
@@ -134,6 +166,23 @@ public sealed class AdministrationDefinitionsController(AdministrationApiService
             { ValidationError: { } validationError } => TypedResults.ValidationProblem(
                 new Dictionary<string, string[]> { [nameof(agentName)] = [validationError] }),
             { Deactivated: true } => TypedResults.NoContent(),
+            _ => TypedResults.NotFound(),
+        };
+
+    private static Results<NoContent, NotFound, ValidationProblem, StatusCodeHttpResult> ToResult(
+        AgentDefinitionVersionChangeResult result) =>
+        result switch
+        {
+            AgentDefinitionVersionChangeResult.Applied => TypedResults.NoContent(),
+            AgentDefinitionVersionChangeResult.NotSupported => TypedResults.StatusCode(StatusCodes.Status501NotImplemented),
+            AgentDefinitionVersionChangeResult.Active => TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["definitionVersion"] = ["The active version cannot be archived or deleted. Activate another version first."],
+            }),
+            AgentDefinitionVersionChangeResult.PreviouslyActivated => TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["definitionVersion"] = ["A version that was ever activated stays in the audit history. Archive it instead."],
+            }),
             _ => TypedResults.NotFound(),
         };
 }

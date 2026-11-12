@@ -166,6 +166,164 @@ internal sealed class PostgresAgentDefinitionStore(
     }
 
     /// <inheritdoc/>
+    public async ValueTask<AgentDefinitionHistoryPage> GetHistoryPageAsync(
+        string agentName,
+        AgentDefinitionHistoryFilter filter,
+        int skip,
+        int take,
+        CancellationToken cancellationToken)
+    {
+        ValidateKey(agentName, nameof(agentName), 200);
+        ArgumentOutOfRangeException.ThrowIfNegative(skip);
+        ArgumentOutOfRangeException.ThrowIfLessThan(take, 1);
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var snapshots = dbContext.AgentDefinitionSnapshots
+            .AsNoTracking()
+            .Where(snapshot => snapshot.TenantId == tenantContext.TenantId && snapshot.AgentName == agentName);
+        var filtered = filter switch
+        {
+            AgentDefinitionHistoryFilter.Current => snapshots.Where(snapshot => snapshot.ArchivedAtUtc == null),
+            AgentDefinitionHistoryFilter.Archived => snapshots.Where(snapshot => snapshot.ArchivedAtUtc != null),
+            _ => snapshots,
+        };
+        var totalCount = await filtered.CountAsync(cancellationToken);
+        var page = await filtered
+            .OrderByDescending(snapshot => snapshot.Id)
+            .Skip(skip)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+        if (page.Count == 0)
+            return new AgentDefinitionHistoryPage([], totalCount);
+
+        // Changes compare with the previously published version, whether or not the filter lists it.
+        var orderedIds = await snapshots.OrderBy(snapshot => snapshot.Id).Select(snapshot => snapshot.Id).ToListAsync(cancellationToken);
+        var previousIds = page.ToDictionary(
+            snapshot => snapshot.Id,
+            snapshot => orderedIds.BinarySearch(snapshot.Id) is > 0 and var index ? orderedIds[index - 1] : (long?)null);
+        var pageJson = page.ToDictionary(snapshot => snapshot.Id, snapshot => snapshot.DefinitionJson);
+        var missingIds = previousIds.Values.OfType<long>().Where(id => !pageJson.ContainsKey(id)).ToArray();
+        var previousJson = await snapshots
+            .Where(snapshot => missingIds.Contains(snapshot.Id))
+            .ToDictionaryAsync(snapshot => snapshot.Id, snapshot => snapshot.DefinitionJson, cancellationToken);
+        foreach (var (id, json) in pageJson)
+            previousJson.TryAdd(id, json);
+
+        var pageIds = page.Select(snapshot => snapshot.Id).ToArray();
+        var activatedIds = (await dbContext.AgentDefinitionActivations
+            .AsNoTracking()
+            .Where(activation => activation.TenantId == tenantContext.TenantId
+                && activation.AgentName == agentName
+                && !activation.IsDeactivation
+                && pageIds.Contains(activation.SnapshotId))
+            .Select(activation => activation.SnapshotId)
+            .Distinct()
+            .ToListAsync(cancellationToken)).ToHashSet();
+        var activeSnapshotId = await dbContext.ActiveAgentDefinitions
+            .AsNoTracking()
+            .Where(pointer => pointer.TenantId == tenantContext.TenantId && pointer.AgentName == agentName)
+            .Select(pointer => (long?)pointer.SnapshotId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return new AgentDefinitionHistoryPage(
+            [.. page.Select(snapshot => new AgentDefinitionHistoryItem
+            {
+                DefinitionVersion = snapshot.DefinitionVersion,
+                SchemaVersion = snapshot.SchemaVersion,
+                PublishedAtUtc = snapshot.PublishedAtUtc,
+                PublishedBy = snapshot.PublishedBy,
+                ChangeReason = snapshot.ChangeReason,
+                IsActive = snapshot.Id == activeSnapshotId,
+                IsArchived = snapshot.ArchivedAtUtc is not null,
+                WasActivated = activatedIds.Contains(snapshot.Id),
+                ChangedProperties = AgentDefinitionChanges.Describe(
+                    previousIds[snapshot.Id] is { } previousId ? previousJson[previousId] : null,
+                    snapshot.DefinitionJson),
+            })],
+            totalCount);
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask<AgentDefinitionVersionChangeResult> SetArchivedAsync(
+        string agentName,
+        string definitionVersion,
+        bool archived,
+        string? changedBy,
+        CancellationToken cancellationToken)
+    {
+        ValidateKey(agentName, nameof(agentName), 200);
+        ValidateKey(definitionVersion, nameof(definitionVersion), 100);
+        ValidateOptional(changedBy, nameof(changedBy), 200);
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        await AcquireAgentLockAsync(dbContext, agentName, cancellationToken);
+        var snapshot = await FindSnapshotAsync(dbContext, agentName, definitionVersion, cancellationToken);
+        if (snapshot is null)
+            return AgentDefinitionVersionChangeResult.NotFound;
+        if (archived && await IsActiveAsync(dbContext, agentName, snapshot.Id, cancellationToken))
+            return AgentDefinitionVersionChangeResult.Active;
+        if (archived == (snapshot.ArchivedAtUtc is not null))
+            return AgentDefinitionVersionChangeResult.Applied;
+
+        snapshot.ArchivedAtUtc = archived ? timeProvider.GetUtcNow() : null;
+        snapshot.ArchivedBy = archived ? changedBy : null;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return AgentDefinitionVersionChangeResult.Applied;
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask<AgentDefinitionVersionChangeResult> DeleteAsync(
+        string agentName,
+        string definitionVersion,
+        CancellationToken cancellationToken)
+    {
+        ValidateKey(agentName, nameof(agentName), 200);
+        ValidateKey(definitionVersion, nameof(definitionVersion), 100);
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        await AcquireAgentLockAsync(dbContext, agentName, cancellationToken);
+        var snapshot = await FindSnapshotAsync(dbContext, agentName, definitionVersion, cancellationToken);
+        if (snapshot is null)
+            return AgentDefinitionVersionChangeResult.NotFound;
+        if (await IsActiveAsync(dbContext, agentName, snapshot.Id, cancellationToken))
+            return AgentDefinitionVersionChangeResult.Active;
+        var referenced = await dbContext.AgentDefinitionActivations.AnyAsync(
+            activation => activation.TenantId == tenantContext.TenantId
+                && activation.AgentName == agentName
+                && activation.SnapshotId == snapshot.Id,
+            cancellationToken);
+        if (referenced)
+            return AgentDefinitionVersionChangeResult.PreviouslyActivated;
+
+        dbContext.AgentDefinitionSnapshots.Remove(snapshot);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return AgentDefinitionVersionChangeResult.Applied;
+    }
+
+    private Task<AgentDefinitionSnapshotEntity?> FindSnapshotAsync(
+        AgentRuntimeDbContext dbContext,
+        string agentName,
+        string definitionVersion,
+        CancellationToken cancellationToken) =>
+        dbContext.AgentDefinitionSnapshots.SingleOrDefaultAsync(
+            snapshot => snapshot.TenantId == tenantContext.TenantId
+                && snapshot.AgentName == agentName
+                && snapshot.DefinitionVersion == definitionVersion,
+            cancellationToken);
+
+    private Task<bool> IsActiveAsync(
+        AgentRuntimeDbContext dbContext,
+        string agentName,
+        long snapshotId,
+        CancellationToken cancellationToken) =>
+        dbContext.ActiveAgentDefinitions.AnyAsync(
+            pointer => pointer.TenantId == tenantContext.TenantId
+                && pointer.AgentName == agentName
+                && pointer.SnapshotId == snapshotId,
+            cancellationToken);
+
+    /// <inheritdoc/>
     /// <remarks>
     /// Holds a session-level PostgreSQL advisory lock on a dedicated connection. Other providers, used
     /// only by tests, receive a no-op handle.

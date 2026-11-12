@@ -117,6 +117,14 @@ need not receive those permissions.
 The server can require a passing evaluation before activation. Deactivation requires a reason and
 is refused while another active agent delegates to the target.
 
+## Realtime Voice Calls
+
+`CreateRealtimeCallAsync` sends a WebRTC SDP offer and returns the SDP answer and a runtime call id;
+`EndRealtimeCallAsync` ends the call and returns its `RealtimeCallSummaryResponse` (end reason, duration, token
+usage and optional estimated cost), including for a call the runtime already ended. Audio flows directly between
+the client and the provider, while the runtime applies the agent's instructions and executes its allowlisted tools.
+Both require `agent.realtime`.
+
 ## Documentation
 
 - [Runtime source and project catalogue](https://github.com/f2calv/agentizr)

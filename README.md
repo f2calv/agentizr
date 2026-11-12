@@ -314,6 +314,8 @@ non-PR runs can publish versioned images/charts; NuGet publication and releases 
 
 - [Architecture](docs/architecture.md): containers, runtime host components, the code map and the
   execute-run scenario.
+- [Authentication](docs/authentication.md): caller identities, token-to-tenant mapping,
+  permissions, realtime call sign-in and the runtime's outbound credentials.
 - [Administration Frontend](docs/administration-frontend.md): how the browser client, the host and
   the administration API fit together, sign-in, and publish versus activate.
 - [High Availability](docs/high-availability.md): session ownership, definition freshness, failure

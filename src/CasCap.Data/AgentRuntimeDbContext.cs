@@ -66,11 +66,42 @@ public sealed partial class AgentRuntimeDbContext(
     /// <summary>Gets ordered per-run messages and tool activity.</summary>
     public DbSet<AgentRunActivityEntity> AgentRunActivities => Set<AgentRunActivityEntity>();
 
+    /// <summary>Gets leased realtime call ownership records and recently ended calls' summaries.</summary>
+    public DbSet<RealtimeCallEntity> RealtimeCalls => Set<RealtimeCallEntity>();
+
     /// <inheritdoc/>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         var schema = Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite" ? null : Schema;
         ConfigureDocumentIndexing(modelBuilder, schema);
+
+        modelBuilder.Entity<RealtimeCallEntity>(entity =>
+        {
+            entity.ToTable("realtime_calls", schema);
+            entity.HasKey(item => item.Id).HasName("pk_realtime_calls");
+            entity.Property(item => item.Id).HasColumnName("id").HasMaxLength(64);
+            entity.Property(item => item.TenantId).HasColumnName("tenant_id").HasMaxLength(200);
+            entity.Property(item => item.AgentName).HasColumnName("agent_name").HasMaxLength(200);
+            entity.Property(item => item.OwnerId).HasColumnName("owner_id").HasMaxLength(200);
+            entity.Property(item => item.Status).HasColumnName("status").HasMaxLength(20);
+            entity.Property(item => item.ProviderName).HasColumnName("provider_name").HasMaxLength(200);
+            entity.Property(item => item.Endpoint).HasColumnName("endpoint").HasMaxLength(2_000);
+            entity.Property(item => item.ProviderCallId).HasColumnName("provider_call_id").HasMaxLength(200);
+            entity.Property(item => item.StartedAtUtc).HasColumnName("started_at_utc");
+            entity.Property(item => item.LeaseExpiresAtUtc).HasColumnName("lease_expires_at_utc");
+            entity.Property(item => item.EndedAtUtc).HasColumnName("ended_at_utc");
+            entity.Property(item => item.UsageJson).HasColumnName("usage_json").HasColumnType("jsonb");
+            entity.Property(item => item.SummaryJson).HasColumnName("summary_json").HasColumnType("jsonb");
+            entity.HasIndex(item => new { item.Status, item.LeaseExpiresAtUtc })
+                .HasDatabaseName("ix_realtime_calls_status_lease_expires_at_utc");
+            if (Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite")
+            {
+                entity.Property(item => item.LeaseExpiresAtUtc).HasConversion(
+                    value => value.UtcTicks, value => new DateTimeOffset(value, TimeSpan.Zero));
+                entity.Property(item => item.EndedAtUtc).HasConversion(
+                    value => value!.Value.UtcTicks, value => new DateTimeOffset(value, TimeSpan.Zero));
+            }
+        });
 
         modelBuilder.Entity<DocumentSynchronizationEntity>(entity =>
         {
@@ -371,6 +402,8 @@ public sealed partial class AgentRuntimeDbContext(
             entity.Property(snapshot => snapshot.PublishedAtUtc).HasColumnName("published_at_utc").HasDefaultValueSql("NOW()");
             entity.Property(snapshot => snapshot.PublishedBy).HasColumnName("published_by").HasMaxLength(200);
             entity.Property(snapshot => snapshot.ChangeReason).HasColumnName("change_reason").HasMaxLength(2_000);
+            entity.Property(snapshot => snapshot.ArchivedAtUtc).HasColumnName("archived_at_utc");
+            entity.Property(snapshot => snapshot.ArchivedBy).HasColumnName("archived_by").HasMaxLength(200);
             entity.HasIndex(snapshot => new { snapshot.TenantId, snapshot.AgentName, snapshot.DefinitionVersion })
                 .IsUnique()
                 .HasDatabaseName("ux_agent_definition_snapshots_tenant_agent_version");

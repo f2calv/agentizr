@@ -170,6 +170,64 @@ public sealed class PostgresAgentDefinitionStoreTests : IAsyncLifetime
         Assert.Equal(3, (await store.GetActivationHistoryAsync("assistant", 10, CancellationToken.None)).Count);
     }
 
+    [Fact]
+    public async Task GetHistoryPageAsync_FiltersArchivedVersionsAndDescribesChanges()
+    {
+        var store = new PostgresAgentDefinitionStore(_dbContextFactory, new StaticTenantContext("tenant-a"), _timeProvider);
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await store.PublishAsync(CreateDefinition("v1", "model-v1"), 1, "operator", null, cancellationToken);
+        await store.PublishAsync(CreateDefinition("v2", "model-v2"), 1, "operator", null, cancellationToken);
+        var promptChange = CreateDefinition("v3", "model-v2") with
+        {
+            Agent = new AgentConfig { Provider = "provider", Name = "assistant", Description = "Test assistant", Prompt = "Changed" },
+        };
+        await store.PublishAsync(promptChange, 1, "operator", null, cancellationToken);
+        Assert.True(await store.ActivateAsync("assistant", "v3", "operator", null, cancellationToken));
+
+        Assert.Equal(AgentDefinitionVersionChangeResult.Active, await store.SetArchivedAsync("assistant", "v3", true, "operator", cancellationToken));
+        Assert.Equal(AgentDefinitionVersionChangeResult.Applied, await store.SetArchivedAsync("assistant", "v2", true, "operator", cancellationToken));
+        var current = await store.GetHistoryPageAsync("assistant", AgentDefinitionHistoryFilter.Current, 0, 1, cancellationToken);
+        var archived = await store.GetHistoryPageAsync("assistant", AgentDefinitionHistoryFilter.Archived, 0, 10, cancellationToken);
+        var all = await store.GetHistoryPageAsync("assistant", AgentDefinitionHistoryFilter.All, 0, 10, cancellationToken);
+
+        Assert.Equal(2, current.TotalCount);
+        var newest = Assert.Single(current.Items);
+        Assert.Equal("v3", newest.DefinitionVersion);
+        Assert.True(newest.IsActive);
+        Assert.True(newest.WasActivated);
+        Assert.Equal(["default prompt"], newest.ChangedProperties);
+        var archivedItem = Assert.Single(archived.Items);
+        Assert.Equal("v2", archivedItem.DefinitionVersion);
+        Assert.True(archivedItem.IsArchived);
+        Assert.False(archivedItem.WasActivated);
+        Assert.Equal(["model"], archivedItem.ChangedProperties);
+        Assert.Equal(["v3", "v2", "v1"], all.Items.Select(item => item.DefinitionVersion));
+        Assert.Equal([AgentDefinitionChanges.InitialVersion], all.Items[2].ChangedProperties);
+
+        Assert.Equal(AgentDefinitionVersionChangeResult.Applied, await store.SetArchivedAsync("assistant", "v2", false, "operator", cancellationToken));
+        Assert.Equal(0, (await store.GetHistoryPageAsync("assistant", AgentDefinitionHistoryFilter.Archived, 0, 10, cancellationToken)).TotalCount);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_RemovesOnlyInactiveNeverActivatedVersions()
+    {
+        var store = new PostgresAgentDefinitionStore(_dbContextFactory, new StaticTenantContext("tenant-a"), _timeProvider);
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await store.PublishAsync(CreateDefinition("v1", "model-v1"), 1, "operator", null, cancellationToken);
+        await store.PublishAsync(CreateDefinition("v2", "model-v2"), 1, "operator", null, cancellationToken);
+        await store.PublishAsync(CreateDefinition("v3", "model-v3"), 1, "operator", null, cancellationToken);
+        Assert.True(await store.ActivateAsync("assistant", "v1", "operator", null, cancellationToken));
+        Assert.True(await store.ActivateAsync("assistant", "v2", "operator", null, cancellationToken));
+
+        Assert.Equal(AgentDefinitionVersionChangeResult.Active, await store.DeleteAsync("assistant", "v2", cancellationToken));
+        Assert.Equal(AgentDefinitionVersionChangeResult.PreviouslyActivated, await store.DeleteAsync("assistant", "v1", cancellationToken));
+        Assert.Equal(AgentDefinitionVersionChangeResult.NotFound, await store.DeleteAsync("assistant", "v9", cancellationToken));
+        Assert.Equal(AgentDefinitionVersionChangeResult.Applied, await store.DeleteAsync("assistant", "v3", cancellationToken));
+
+        Assert.Null(await store.GetVersionAsync("assistant", "v3", cancellationToken));
+        Assert.Equal(["v2", "v1"], (await store.GetHistoryAsync("assistant", 10, cancellationToken)).Select(item => item.DefinitionVersion));
+    }
+
     private static AgentDefinition CreateDefinition(string version, string modelName, string name = "assistant") => new()
     {
         Name = name,

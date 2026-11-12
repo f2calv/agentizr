@@ -1,3 +1,4 @@
+using CasCap.Client.Models;
 using CasCap.Constants;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
@@ -49,11 +50,19 @@ internal sealed class AdministrationAccessService(
             && administratorIds.Contains(administratorId, StringComparer.OrdinalIgnoreCase);
     }
 
-    /// <summary>Gets the caller application identifiers permitted to run the app's agents.</summary>
-    public IReadOnlyList<string> GetCallerApplications(string appId) =>
-        tenantAuthenticationConfig.Value.TenantCallers.TryGetValue(appId, out var callerIds)
-            ? [.. callerIds.Order(StringComparer.OrdinalIgnoreCase)]
+    /// <summary>Gets the caller applications permitted to run the app's agents, with any configured display names.</summary>
+    public IReadOnlyList<CallerApplicationResponse> GetCallerApplications(string appId)
+    {
+        var config = tenantAuthenticationConfig.Value;
+        return config.TenantCallers.TryGetValue(appId, out var callerIds)
+            ? [.. callerIds.Order(StringComparer.OrdinalIgnoreCase).Select(id => new CallerApplicationResponse
+            {
+                Id = id,
+                Name = config.CallerApplicationNames
+                    .FirstOrDefault(name => string.Equals(name.Key, id, StringComparison.OrdinalIgnoreCase)).Value,
+            })]
             : [];
+    }
 
     private HashSet<string> GetKnownApps()
     {

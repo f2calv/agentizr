@@ -16,12 +16,13 @@ All tables live in the `agent_runtime` schema.
 
 | Table | Contents | Lifetime |
 | --- | --- | --- |
-| `agent_definition_snapshots` | Immutable, credential-free, schema-versioned definitions | Explicitly retained |
+| `agent_definition_snapshots` | Immutable, credential-free, schema-versioned definitions; only an administrative archive marker changes, and never-activated versions may be deleted | Explicitly retained |
 | `active_agent_definitions` | Current definition pointer per tenant/agent | Replaced on activation |
 | `agent_definition_activations` | Actor/reason activation and deactivation audit | Explicitly retained |
 | `agent_states` | Version-qualified sessions, named snapshots and overrides; opaque key, owning tenant/agent/session, revision and JSONB payload | Until explicitly deleted/replaced |
 | `agent_runs` | Opt-in turn identity, tenant/agent/session, definition/model, timestamps, status, safe error type and output/usage/event summary | Retained independently of session state |
 | `agent_run_activities` | Opt-in ordered user/model messages, tool arguments, results/failures and delegation depth, committed as execution proceeds | Retained independently of session state |
+| `realtime_calls` | Realtime call ownership: tenant/agent, owning instance, status, lease expiry, provider call id, last usage and end summary; no audio, transcripts or credentials | Deleted ten minutes after the call ends |
 
 State keys include tenant, agent, definition version and session (plus snapshot name where relevant).
 Activating a new definition therefore selects a separate state namespace. Returning to an old version

@@ -24,7 +24,7 @@ internal sealed class DocumentPreparationProvider(
                 plan.Definition.Provider.Endpoint!.GetLeftPart(UriPartial.Authority), StringComparer.OrdinalIgnoreCase))
             throw new InvalidDataException("The pinned preparation provider is not currently authorized for this tenant.");
         var credentials = ActivatorUtilities.CreateInstance<ConfigurationProviderCredentialStore>(
-            serviceProvider, new PreparationTenant(plan.TenantId));
+            serviceProvider, new FixedTenantContext(plan.TenantId));
         if (credentials.GetTokenCredential(plan.Definition.Agent.Provider) is null
             && string.IsNullOrWhiteSpace(await credentials.GetApiKeyAsync(plan.Definition.Agent.Provider, cancellationToken)))
             throw new InvalidDataException("The pinned preparation provider has no authorized credential.");
@@ -61,7 +61,7 @@ internal sealed class DocumentPreparationProvider(
                 ? request.PageNumber > request.Plan.Settings.MaximumPages
                 : !request.Plan.Settings.PhysicalPages.Contains(request.PageNumber)))
             throw new InvalidOperationException("The page execution is outside its admitted tenant/page authorization.");
-        var tenant = new PreparationTenant(request.TenantId);
+        var tenant = new FixedTenantContext(request.TenantId);
         var credentials = ActivatorUtilities.CreateInstance<ConfigurationProviderCredentialStore>(serviceProvider, tenant);
         var definitions = ActivatorUtilities.CreateInstance<PostgresAgentDefinitionStore>(serviceProvider, tenant);
         var builtIns = ActivatorUtilities.CreateInstance<AgentRuntimeBuiltInTools>(serviceProvider, tenant, definitions);
@@ -130,11 +130,6 @@ internal sealed class DocumentPreparationProvider(
         DocumentPreparationPlanService.Validate(plan.Definition, plan.Settings);
         if (plan.Settings.PhysicalPages.Length > 0 && !pages.Order().SequenceEqual(plan.Settings.PhysicalPages.Order()))
             throw new InvalidOperationException("The layout request differs from its admitted physical-page selection.");
-    }
-
-    private sealed class PreparationTenant(string tenantId) : ITenantContext
-    {
-        public string TenantId => tenantId;
     }
 
     private sealed class PreparationHttpClients(IHttpClientFactory factory) : IHttpClientFactory

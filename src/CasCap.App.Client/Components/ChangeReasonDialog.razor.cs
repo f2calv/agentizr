@@ -34,6 +34,10 @@ public partial class ChangeReasonDialog : ComponentBase
     [Parameter]
     public string? InitialReason { get; set; }
 
+    /// <summary>Gets or sets whether a reason must be entered; publish-time activation may omit it.</summary>
+    [Parameter]
+    public bool ReasonRequired { get; set; } = true;
+
     /// <summary>Gets or sets whether the administrator may supply fixture scenarios that must pass first.</summary>
     [Parameter]
     public bool ShowEvaluation { get; set; }
@@ -50,7 +54,7 @@ public partial class ChangeReasonDialog : ComponentBase
     private void Confirm()
     {
         _error = null;
-        if (string.IsNullOrWhiteSpace(_reason))
+        if (ReasonRequired && string.IsNullOrWhiteSpace(_reason))
         {
             _error = "Enter a reason.";
             return;
@@ -73,6 +77,7 @@ public partial class ChangeReasonDialog : ComponentBase
             _error = "This app requires a passing evaluation before activation.";
             return;
         }
-        MudDialog.Close(DialogResult.Ok(new ChangeReasonDialogResult(_reason.Trim(), evaluation)));
+        MudDialog.Close(DialogResult.Ok(new ChangeReasonDialogResult(
+            string.IsNullOrWhiteSpace(_reason) ? null : _reason.Trim(), evaluation)));
     }
 }

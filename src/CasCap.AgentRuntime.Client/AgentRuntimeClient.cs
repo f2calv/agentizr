@@ -151,6 +151,35 @@ public sealed class AgentRuntimeClient(HttpClient httpClient) : IAgentRuntimeCli
             BuildPath(agentName, AgentRuntimeRoutes.SessionInstructions, sessionId),
             cancellationToken);
 
+    /// <inheritdoc/>
+    public Task<RealtimeCallResponse?> CreateRealtimeCallAsync(
+        string agentName,
+        string sdpOffer,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sdpOffer);
+        return SendJsonAsync<CreateRealtimeCallRequest, RealtimeCallResponse>(
+            HttpMethod.Post,
+            BuildPath(agentName, AgentRuntimeRoutes.RealtimeCalls),
+            new CreateRealtimeCallRequest { SdpOffer = sdpOffer },
+            cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<RealtimeCallSummaryResponse?> EndRealtimeCallAsync(
+        string agentName,
+        string callId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(callId);
+        using var request = new HttpRequestMessage(
+            HttpMethod.Delete,
+            BuildPath(agentName, AgentRuntimeRoutes.RealtimeCall)
+                .Replace("{callId}", Uri.EscapeDataString(callId), StringComparison.Ordinal));
+        using var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        return await ReadResponseAsync<RealtimeCallSummaryResponse>(response, cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task<TResponse?> GetAsync<TResponse>(string path, CancellationToken cancellationToken)
     {
         using var response = await httpClient.GetAsync(path, cancellationToken).ConfigureAwait(false);
