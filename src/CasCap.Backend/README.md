@@ -894,6 +894,9 @@ and credentials:
       "Audience": "api://example-runtime",
       "TenantCallers": {
         "example-tenant": ["00000000-0000-0000-0000-000000000000"]
+      },
+      "CallerApplicationNames": {
+        "00000000-0000-0000-0000-000000000000": "Example host"
       }
     },
     "AdministrationConfig": {

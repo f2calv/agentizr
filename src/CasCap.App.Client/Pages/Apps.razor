@@ -38,7 +38,9 @@ else
                     <td>
                         @foreach (var caller in app.CallerApplications)
                         {
-                            <MudChip T="string" Size="Size.Small" @key="caller">@caller</MudChip>
+                            <MudTooltip Text="@caller.Id" @key="caller.Id">
+                                <MudChip T="string" Size="Size.Small">@(caller.Name ?? caller.Id)</MudChip>
+                            </MudTooltip>
                         }
                     </td>
                     <td>@app.AgentCount</td>

@@ -7,9 +7,8 @@ public sealed record AppSummaryResponse
     /// <example>contoso</example>
     public required string AppId { get; init; }
 
-    /// <summary>Gets the caller application identifiers permitted to run this app's agents.</summary>
-    /// <example>["00000000-0000-0000-0000-000000000000"]</example>
-    public required IReadOnlyList<string> CallerApplications { get; init; }
+    /// <summary>Gets the caller applications permitted to run this app's agents.</summary>
+    public required IReadOnlyList<CallerApplicationResponse> CallerApplications { get; init; }
 
     /// <summary>Gets how many agents have at least one published definition.</summary>
     /// <example>3</example>

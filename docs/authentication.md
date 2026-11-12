@@ -50,7 +50,9 @@ flowchart LR
 `Audience`. After validation the runtime reads the caller claim, `azp` by default, which carries the
 client ID of the application that requested the token. `TenantCallers` maps each tenant to the
 client IDs allowed to act for it, and a client ID can belong to exactly one tenant. The tenant is
-derived from that mapping only; request bodies and routes never carry it.
+derived from that mapping only; request bodies and routes never carry it. The optional
+`CallerApplicationNames` maps client IDs to display names for the administration apps page and has
+no effect on authorization.
 
 ```mermaid
 flowchart TD

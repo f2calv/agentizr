@@ -23,6 +23,9 @@ public sealed record TenantAuthenticationConfig : IAppConfig
     /// <summary>Gets allowed caller application identifiers keyed by logical tenant identifier.</summary>
     public Dictionary<string, string[]> TenantCallers { get; init; } = [];
 
+    /// <summary>Gets optional display names for caller application identifiers, shown to administrators.</summary>
+    public Dictionary<string, string> CallerApplicationNames { get; init; } = [];
+
     /// <summary>Gets whether metadata retrieval requires HTTPS.</summary>
     public bool HttpsMetadataRequired { get; init; } = true;
 }

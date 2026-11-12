@@ -40,6 +40,20 @@ public sealed class AdministrationAccessTests
         Assert.Empty(accessSvc.GetAdministeredApps(new ClaimsPrincipal(new ClaimsIdentity())));
     }
 
+    [Fact]
+    public void GetCallerApplications_AddsConfiguredNamesIgnoringCase()
+    {
+        var accessSvc = CreateAccessService(administrationEnabled: true, tenantAuthenticationEnabled: true, Environments.Production);
+
+        var caller = Assert.Single(accessSvc.GetCallerApplications("app-a"));
+        var unnamed = Assert.Single(accessSvc.GetCallerApplications("app-b"));
+
+        Assert.Equal("caller-a", caller.Id);
+        Assert.Equal("Caller A", caller.Name);
+        Assert.Equal("caller-b", unnamed.Id);
+        Assert.Null(unnamed.Name);
+    }
+
     [Theory]
     [InlineData(false, false, "Development", true)]
     [InlineData(true, false, "Development", false)]
@@ -107,6 +121,7 @@ public sealed class AdministrationAccessTests
                     ["app-a"] = ["caller-a"],
                     ["app-b"] = ["caller-b"],
                 },
+                CallerApplicationNames = new Dictionary<string, string> { ["CALLER-A"] = "Caller A" },
             }),
             Options.Create(new AgentRuntimeConfig()),
             new TestHostEnvironment(environmentName));
