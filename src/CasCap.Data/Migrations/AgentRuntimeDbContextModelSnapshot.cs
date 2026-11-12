@@ -163,6 +163,15 @@ namespace CasCap.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("agent_name");
 
+                    b.Property<DateTimeOffset?>("ArchivedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("archived_at_utc");
+
+                    b.Property<string>("ArchivedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("archived_by");
+
                     b.Property<string>("ChangeReason")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)")

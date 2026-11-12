@@ -1,8 +1,8 @@
 <MudDialog>
     <DialogContent>
         <MudText Class="mb-3">@Message</MudText>
-        <MudTextField T="string" @bind-Value="_reason" Label="Reason, recorded in the audit history" Required="true"
-                      Lines="2" MaxLength="2000" AutoFocus="true" />
+        <MudTextField T="string" @bind-Value="_reason" Required="ReasonRequired" Lines="2" MaxLength="2000" AutoFocus="true"
+                      Label="@(ReasonRequired ? "Reason, recorded in the audit history" : "Reason, recorded in the audit history (optional)")" />
         @if (ShowEvaluation)
         {
             <MudTextField T="string" @bind-Value="_evaluationJson" Lines="8" Class="mt-3"

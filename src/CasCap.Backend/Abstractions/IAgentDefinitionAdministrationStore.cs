@@ -28,6 +28,36 @@ public interface IAgentDefinitionAdministrationStore
         int limit,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Gets one newest-first page of the agent's versions with archive state, activation use and the properties
+    /// changed since the previously published version.
+    /// </summary>
+    /// <param name="agentName">The agent.</param>
+    /// <param name="filter">Which versions to list.</param>
+    /// <param name="skip">How many matching versions to skip.</param>
+    /// <param name="take">The maximum number of versions to return.</param>
+    /// <param name="cancellationToken">Cancels the query.</param>
+    public ValueTask<AgentDefinitionHistoryPage> GetHistoryPageAsync(
+        string agentName,
+        AgentDefinitionHistoryFilter filter,
+        int skip,
+        int take,
+        CancellationToken cancellationToken);
+
+    /// <summary>Archives or restores a version without changing its definition; the active version cannot be archived.</summary>
+    public ValueTask<AgentDefinitionVersionChangeResult> SetArchivedAsync(
+        string agentName,
+        string definitionVersion,
+        bool archived,
+        string? changedBy,
+        CancellationToken cancellationToken);
+
+    /// <summary>Permanently deletes a version that is not active and was never activated.</summary>
+    public ValueTask<AgentDefinitionVersionChangeResult> DeleteAsync(
+        string agentName,
+        string definitionVersion,
+        CancellationToken cancellationToken);
+
     /// <summary>Activates an existing immutable version and appends an audit event.</summary>
     /// <remarks>
     /// When <paramref name="expectedActive"/> is supplied, the active version is compared atomically with the

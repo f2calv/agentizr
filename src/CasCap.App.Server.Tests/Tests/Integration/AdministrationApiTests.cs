@@ -162,6 +162,54 @@ public sealed class AdministrationApiTests(AgentDefinitionAdministrationWebAppli
     }
 
     [Fact]
+    public async Task VersionHousekeeping_ArchivesAndDeletesOnlyEligibleVersions()
+    {
+        using var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        const string agentName = "housekeeping";
+        await AdministrationTestClient.PrepareAsync(client);
+        foreach (var version in new[] { "v1", "v2", "v3" })
+        {
+            using var published = await client.PostAsJsonAsync(
+                AdministrationRoutes.Format(AdministrationRoutes.Definitions, AppId, agentName),
+                AgentDefinitionTestData.CreatePublishRequest(version) with { ChangeReason = null },
+                cancellationToken);
+            Assert.Equal(HttpStatusCode.Created, published.StatusCode);
+        }
+        using var firstActivation = await PutActivationAsync(client, agentName, "v1", expectedActiveVersion: null);
+        using var secondActivation = await client.PutAsJsonAsync(
+            AdministrationRoutes.Format(AdministrationRoutes.DefinitionActivation, AppId, agentName, "v2"),
+            new AdministrationActivationRequest { ExpectedActiveVersion = "v1" },
+            cancellationToken);
+
+        using var archiveActive = await PostVersionAsync(client, AdministrationRoutes.DefinitionArchive, agentName, "v2");
+        using var archiveFormer = await PostVersionAsync(client, AdministrationRoutes.DefinitionArchive, agentName, "v1");
+        var current = await GetHistoryAsync(client, agentName, "filter=Current&pageSize=1");
+        var archived = await GetHistoryAsync(client, agentName, "filter=Archived");
+        using var deleteFormer = await client.DeleteAsync(
+            AdministrationRoutes.Format(AdministrationRoutes.DefinitionVersion, AppId, agentName, "v1"), cancellationToken);
+        using var deleteUnused = await client.DeleteAsync(
+            AdministrationRoutes.Format(AdministrationRoutes.DefinitionVersion, AppId, agentName, "v3"), cancellationToken);
+        using var restore = await PostVersionAsync(client, AdministrationRoutes.DefinitionRestore, agentName, "v1");
+        var all = await GetHistoryAsync(client, agentName, "filter=All");
+
+        Assert.Equal(HttpStatusCode.NoContent, secondActivation.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, archiveActive.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, archiveFormer.StatusCode);
+        Assert.Equal(2, current.TotalCount);
+        Assert.Equal("v3", Assert.Single(current.Items).DefinitionVersion);
+        var archivedItem = Assert.Single(archived.Items);
+        Assert.Equal("v1", archivedItem.DefinitionVersion);
+        Assert.True(archivedItem.IsArchived);
+        Assert.True(archivedItem.WasActivated);
+        Assert.Equal(HttpStatusCode.BadRequest, deleteFormer.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, deleteUnused.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, restore.StatusCode);
+        Assert.Equal(["v2", "v1"], all.Items.Select(item => item.DefinitionVersion));
+        Assert.All(all.Items, item => Assert.False(item.IsArchived));
+    }
+
+    [Fact]
     public async Task Mutation_RequiresAntiforgeryToken()
     {
         using var client = factory.CreateClient();
@@ -186,6 +234,24 @@ public sealed class AdministrationApiTests(AgentDefinitionAdministrationWebAppli
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
     }
+
+    private static Task<HttpResponseMessage> PostVersionAsync(
+        HttpClient client,
+        string template,
+        string agentName,
+        string definitionVersion) =>
+        client.PostAsync(
+            AdministrationRoutes.Format(template, AppId, agentName, definitionVersion),
+            content: null,
+            TestContext.Current.CancellationToken);
+
+    private static async Task<AdministrationDefinitionHistoryPageResponse> GetHistoryAsync(
+        HttpClient client,
+        string agentName,
+        string query) =>
+        (await client.GetFromJsonAsync<AdministrationDefinitionHistoryPageResponse>(
+            AdministrationRoutes.Format(AdministrationRoutes.Definitions, AppId, agentName) + "?" + query,
+            TestContext.Current.CancellationToken))!;
 
     private static Task<HttpResponseMessage> PutActivationAsync(
         HttpClient client,

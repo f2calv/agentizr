@@ -216,7 +216,7 @@ public partial class DefinitionEditor(
                         DefinitionVersion = version,
                         SchemaVersion = _catalogue.SupportedSchemaVersions.Max(),
                         Definition = payload,
-                        ChangeReason = _form.ChangeReason.Trim(),
+                        ChangeReason = string.IsNullOrWhiteSpace(_form.ChangeReason) ? null : _form.ChangeReason.Trim(),
                     },
                     cancellationToken);
                 switch (result.Status)
@@ -265,6 +265,7 @@ public partial class DefinitionEditor(
                 { component => component.Message, message },
                 { component => component.ConfirmText, "Publish and activate" },
                 { component => component.InitialReason, _form!.ChangeReason.Trim() },
+                { component => component.ReasonRequired, false },
                 { component => component.ShowEvaluation, true },
                 { component => component.EvaluationRequired, _catalogue!.EvaluationRequiredForActivation },
             });

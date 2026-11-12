@@ -20,7 +20,7 @@ the API fit together.
 | `/runtime-configuration` | Optional typed host logging editor, requiring explicit host-wide operator rights |
 | `/apps/{appId}` | Paged, searchable agents, including inactive and never-activated ones |
 | `/apps/{appId}/providers` | Provider registrations and the definition policy, read-only |
-| `/apps/{appId}/agents/{agentName}` | Versions, the selected snapshot, activation audit, activate, roll back and deactivate |
+| `/apps/{appId}/agents/{agentName}` | Paged, filtered versions with change summaries, the selected snapshot, activation audit, activate, roll back, deactivate, archive, restore and delete never-activated versions |
 | `/apps/{appId}/agents/{agentName}/edit?from={version}` | Copy a version, edit it and publish, with optional guarded activation |
 | `/apps/{appId}/new-agent` | Create an agent by publishing its first version, optionally activating it |
 | `/apps/{appId}/documents?collection={exactCollectionId}&page=1` | Admitted-source catalogue, current jobs and review links |
@@ -66,6 +66,8 @@ Debug uses the equivalent sibling-project reference.
 | [`ProviderCredentialSources`](Constants/ProviderCredentialSources.cs) | Wire values describing provider authentication without exposing credentials |
 | [`AdministrationSessionResponse`](Models/AdministrationSessionResponse.cs) | Sign-in state, display name and the antiforgery request token |
 | [`AppSummaryResponse`](Models/AppSummaryResponse.cs) | One app: the tenant boundary, its caller applications and agent count |
+| [`CallerApplicationResponse`](Models/CallerApplicationResponse.cs) | One caller application identifier and its configured display name |
+| [`AdministrationDefinitionHistoryPageResponse`](Models/AdministrationDefinitionHistoryPageResponse.cs) | One page of an agent's versions with archive state, activation use and changed properties |
 | [`AgentSummaryPageResponse`](Models/AgentSummaryPageResponse.cs) | One page of agent summaries |
 | [`ProviderCatalogueResponse`](Models/ProviderCatalogueResponse.cs) | Secret-free provider registrations, supported types and the definition policy |
 | [`BuiltInDefinitionTemplateResponse`](Models/BuiltInDefinitionTemplateResponse.cs) | Secret-free editable starting definition; discovery does not install or activate it |

@@ -53,6 +53,47 @@ internal sealed class ConfigurationAgentDefinitionStore(
     }
 
     /// <inheritdoc/>
+    public async ValueTask<AgentDefinitionHistoryPage> GetHistoryPageAsync(
+        string agentName,
+        AgentDefinitionHistoryFilter filter,
+        int skip,
+        int take,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(skip);
+        ArgumentOutOfRangeException.ThrowIfLessThan(take, 1);
+        // Configuration holds one never-archived version per agent.
+        IReadOnlyList<AgentDefinitionHistoryItem> items = filter == AgentDefinitionHistoryFilter.Archived
+            ? []
+            : await GetHistoryAsync(agentName, 1, cancellationToken);
+        return new AgentDefinitionHistoryPage(
+            [.. items.Skip(skip).Take(take).Select(item => item with
+            {
+                WasActivated = true,
+                ChangedProperties = [AgentDefinitionChanges.InitialVersion],
+            })],
+            items.Count);
+    }
+
+    /// <inheritdoc/>
+    public ValueTask<AgentDefinitionVersionChangeResult> SetArchivedAsync(
+        string agentName,
+        string definitionVersion,
+        bool archived,
+        string? changedBy,
+        CancellationToken cancellationToken) =>
+        ValueTask.FromException<AgentDefinitionVersionChangeResult>(new NotSupportedException(
+            "Configuration-backed definitions are read-only. Configure PostgreSQL to archive definitions."));
+
+    /// <inheritdoc/>
+    public ValueTask<AgentDefinitionVersionChangeResult> DeleteAsync(
+        string agentName,
+        string definitionVersion,
+        CancellationToken cancellationToken) =>
+        ValueTask.FromException<AgentDefinitionVersionChangeResult>(new NotSupportedException(
+            "Configuration-backed definitions are read-only. Configure PostgreSQL to delete definitions."));
+
+    /// <inheritdoc/>
     public async ValueTask<AgentDefinitionSnapshotItem?> GetActiveAsync(
         string agentName,
         CancellationToken cancellationToken) =>

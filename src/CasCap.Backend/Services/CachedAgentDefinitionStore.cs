@@ -90,6 +90,33 @@ internal sealed class CachedAgentDefinitionStore(
         innerStore.GetHistoryAsync(agentName, limit, cancellationToken);
 
     /// <inheritdoc/>
+    public ValueTask<AgentDefinitionHistoryPage> GetHistoryPageAsync(
+        string agentName,
+        AgentDefinitionHistoryFilter filter,
+        int skip,
+        int take,
+        CancellationToken cancellationToken) =>
+        innerStore.GetHistoryPageAsync(agentName, filter, skip, take, cancellationToken);
+
+    /// <inheritdoc/>
+    /// <remarks>Archive state never changes the active definition, so no cache entry is invalidated.</remarks>
+    public ValueTask<AgentDefinitionVersionChangeResult> SetArchivedAsync(
+        string agentName,
+        string definitionVersion,
+        bool archived,
+        string? changedBy,
+        CancellationToken cancellationToken) =>
+        innerStore.SetArchivedAsync(agentName, definitionVersion, archived, changedBy, cancellationToken);
+
+    /// <inheritdoc/>
+    /// <remarks>Only inactive versions are deleted, so no cache entry is invalidated.</remarks>
+    public ValueTask<AgentDefinitionVersionChangeResult> DeleteAsync(
+        string agentName,
+        string definitionVersion,
+        CancellationToken cancellationToken) =>
+        innerStore.DeleteAsync(agentName, definitionVersion, cancellationToken);
+
+    /// <inheritdoc/>
     public ValueTask<IAsyncDisposable> AcquireTenantActivationLockAsync(CancellationToken cancellationToken) =>
         innerStore.AcquireTenantActivationLockAsync(cancellationToken);
 

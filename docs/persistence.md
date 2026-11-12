@@ -16,7 +16,7 @@ All tables live in the `agent_runtime` schema.
 
 | Table | Contents | Lifetime |
 | --- | --- | --- |
-| `agent_definition_snapshots` | Immutable, credential-free, schema-versioned definitions | Explicitly retained |
+| `agent_definition_snapshots` | Immutable, credential-free, schema-versioned definitions; only an administrative archive marker changes, and never-activated versions may be deleted | Explicitly retained |
 | `active_agent_definitions` | Current definition pointer per tenant/agent | Replaced on activation |
 | `agent_definition_activations` | Actor/reason activation and deactivation audit | Explicitly retained |
 | `agent_states` | Version-qualified sessions, named snapshots and overrides; opaque key, owning tenant/agent/session, revision and JSONB payload | Until explicitly deleted/replaced |

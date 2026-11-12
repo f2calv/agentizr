@@ -402,6 +402,8 @@ public sealed partial class AgentRuntimeDbContext(
             entity.Property(snapshot => snapshot.PublishedAtUtc).HasColumnName("published_at_utc").HasDefaultValueSql("NOW()");
             entity.Property(snapshot => snapshot.PublishedBy).HasColumnName("published_by").HasMaxLength(200);
             entity.Property(snapshot => snapshot.ChangeReason).HasColumnName("change_reason").HasMaxLength(2_000);
+            entity.Property(snapshot => snapshot.ArchivedAtUtc).HasColumnName("archived_at_utc");
+            entity.Property(snapshot => snapshot.ArchivedBy).HasColumnName("archived_by").HasMaxLength(200);
             entity.HasIndex(snapshot => new { snapshot.TenantId, snapshot.AgentName, snapshot.DefinitionVersion })
                 .IsUnique()
                 .HasDatabaseName("ux_agent_definition_snapshots_tenant_agent_version");

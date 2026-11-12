@@ -49,6 +49,49 @@ internal sealed class AgentDefinitionAdministrationService(
         CancellationToken cancellationToken) =>
         administrationStore.GetActivationHistoryAsync(agentName, limit, cancellationToken);
 
+    /// <summary>Gets one newest-first page of versions with archive state, activation use and changed properties.</summary>
+    public ValueTask<AgentDefinitionHistoryPage> GetHistoryPageAsync(
+        string agentName,
+        AgentDefinitionHistoryFilter filter,
+        int skip,
+        int take,
+        CancellationToken cancellationToken) =>
+        administrationStore.GetHistoryPageAsync(agentName, filter, skip, take, cancellationToken);
+
+    /// <summary>Archives or restores a version and records the authenticated actor; the active version stays visible.</summary>
+    public async ValueTask<AgentDefinitionVersionChangeResult> SetArchivedAsync(
+        string agentName,
+        string definitionVersion,
+        bool archived,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await administrationStore.SetArchivedAsync(
+                agentName, definitionVersion, archived, actorContext.ActorId, cancellationToken);
+        }
+        catch (NotSupportedException)
+        {
+            return AgentDefinitionVersionChangeResult.NotSupported;
+        }
+    }
+
+    /// <summary>Permanently deletes a version that is not active and was never activated.</summary>
+    public async ValueTask<AgentDefinitionVersionChangeResult> DeleteAsync(
+        string agentName,
+        string definitionVersion,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await administrationStore.DeleteAsync(agentName, definitionVersion, cancellationToken);
+        }
+        catch (NotSupportedException)
+        {
+            return AgentDefinitionVersionChangeResult.NotSupported;
+        }
+    }
+
     /// <summary>Publishes one validated immutable definition snapshot without activating it.</summary>
     public async ValueTask<AgentDefinitionPublishOutcome> PublishAsync(
         string agentName,
