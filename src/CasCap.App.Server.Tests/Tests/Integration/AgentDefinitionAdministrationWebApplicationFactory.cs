@@ -39,7 +39,7 @@ public class AgentDefinitionAdministrationWebApplicationFactory : AgentizrWebApp
 
         private readonly Lock _lock = new();
         private readonly Dictionary<(string AgentName, string Version), AgentDefinitionSnapshotItem> _snapshots = [];
-        private readonly Dictionary<string, string> _activeVersions = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, string> _activeVersions = [with(comparer: StringComparer.Ordinal)];
         private readonly List<(string AgentName, AgentDefinitionActivationItem Item)> _activations = [];
         private readonly HashSet<(string AgentName, string Version)> _archived = [];
 

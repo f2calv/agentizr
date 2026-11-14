@@ -86,7 +86,7 @@ public sealed class DocumentPreparationLiveAcceptanceTests(ITestOutputHelper out
             Tenants = sources.ToDictionary(source => source.TenantId, _ => new TenantAgentConfig
             {
                 Providers = new() { [ProviderName] = provider },
-                EntraIdProviders = new(StringComparer.Ordinal) { ProviderName },
+                EntraIdProviders = [with(comparer: StringComparer.Ordinal), ProviderName],
             }),
         };
         Assert.Contains(provider.Endpoint.GetLeftPart(UriPartial.Authority), policy.AllowedProviderAuthorities, StringComparer.OrdinalIgnoreCase);
