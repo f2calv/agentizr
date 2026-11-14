@@ -1,6 +1,6 @@
 # CasCap.App.Server
 
-The .NET 10 ASP.NET Core entry host for agentizr. It composes the
+The .NET 11 ASP.NET Core entry host for agentizr. It composes the
 [application backend](../CasCap.Backend/README.md) and serves the
 [Blazor WebAssembly frontend](../CasCap.App.Client/README.md).
 

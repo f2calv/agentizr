@@ -7,7 +7,7 @@ Definition grading, sandbox and synthetic report coverage lives in
 
 ## Running
 
-The repository uses the .NET 10 native Microsoft.Testing.Platform runner. Debug builds need an
+The repository uses the SDK selected by `global.json` and Microsoft.Testing.Platform. Debug builds need an
 adjacent `CasCap.Common` checkout; Release uses published dependencies. From the repository root,
 when test execution is intended:
 

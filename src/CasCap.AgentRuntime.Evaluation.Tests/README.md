@@ -1,13 +1,13 @@
 # CasCap.AgentRuntime.Evaluation.Tests
 
-Offline .NET 10 tests for
+Offline .NET 11 tests for
 [definition evaluation](../CasCap.AgentRuntime.Evaluation/README.md): deterministic grading,
 fixture-backed tools and synthetic report data. Reporting, schema-override and reasoning-count
 helpers are internal to this suite, not production APIs or a live model runner.
 
 ## Running
 
-From the repository root, using the .NET 10 Microsoft.Testing.Platform runner:
+From the repository root, using the SDK selected by `global.json` and Microsoft.Testing.Platform:
 
 ```powershell
 dotnet test --project src\CasCap.AgentRuntime.Evaluation.Tests\CasCap.AgentRuntime.Evaluation.Tests.csproj --configuration Debug

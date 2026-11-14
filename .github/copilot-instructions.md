@@ -12,8 +12,8 @@ Everything below is specific to this repository.
 
 ## Current Baseline
 
-- This repository owns a public .NET 10 multi-tenant Agent Runtime, its versioned contracts, and its
-  typed client.
+- This repository owns a public .NET 11 multi-tenant Agent Runtime. Its versioned contracts and
+  typed client retain .NET 10 and .NET 11 targets.
 - Preserve the split `AppHost` bootstrap and the `WebApplicationFactory<Program>` test boundary.
 - Keep Debug references pointed at the adjacent `CasCap.Common` checkout and Release references on
   centrally versioned packages.
@@ -39,6 +39,15 @@ Everything below is specific to this repository.
   persistence integration tests.
 - Apply EF migrations externally. Never use `HasData` for runtime definitions or other mutable,
   tenant-owned data.
+
+## Provider Compatibility
+
+- Keep `Microsoft.EntityFrameworkCore`, its Design, Relational and Sqlite packages, the Data
+  Protection EF adapter and `dotnet-ef` on a coherent 10.x family with
+  `Npgsql.EntityFrameworkCore.PostgreSQL` 10.x. The PostgreSQL provider requires EF Core below 11;
+  .NET 11 application targets do not require EF Core 11. Reassess the family only when a stable
+  compatible PostgreSQL provider is available, validating both persistence adapters before a
+  dedicated major-family migration.
 
 ## Administration Frontend
 

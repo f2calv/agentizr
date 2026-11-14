@@ -1,6 +1,6 @@
 # CasCap.AgentRuntime.Client
 
-Typed HTTP execution and definition-administration clients for .NET 10 applications using the
+Typed HTTP execution and definition-administration clients for .NET 10 and .NET 11 applications using the
 CasCap multi-tenant Agent Runtime. The application owns authentication, resilience and presentation;
 the runtime owns agent execution and session state.
 
@@ -10,7 +10,8 @@ the runtime owns agent execution and session state.
 dotnet package add CasCap.AgentRuntime.Client
 ```
 
-The package targets `net10.0` and depends on `CasCap.AgentRuntime.Contracts`.
+The source targets `net10.0` and `net11.0` and depends on `CasCap.AgentRuntime.Contracts`.
+Use a stable .NET 11 SDK for source development; installed packages use their selected target's runtime.
 
 ## Usage
 

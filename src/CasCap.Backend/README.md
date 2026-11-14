@@ -1,6 +1,6 @@
 # CasCap.Backend
 
-The internal .NET 10 application backend for agentizr. It owns execution orchestration, definition
+The internal .NET 11 application backend for agentizr. It owns execution orchestration, definition
 administration, HTTP/MCP adapters, document processing, Development configuration adapters and
 persistence policy. The [server](../CasCap.App.Server/README.md) owns lifecycle and the browser shell;
 [Data](../CasCap.Data/README.md) owns the EF Core model and migrations.
@@ -159,7 +159,7 @@ loading stored conversation state or overrides.
 ## Offline PDF Preparation
 
 The [`PdfDocumentPreparationService`](Services/PdfDocumentPreparationService.cs)
-uses PdfPig 0.1.16 and Microsoft.ML.Tokenizers 2.0.1 with the packaged `cl100k_base` vocabulary.
+uses PdfPig 0.1.16 and Microsoft.ML.Tokenizers 3.0.0 with the packaged `cl100k_base` vocabulary.
 It accepts a borrowed readable stream from its current position, leaves it open and returns explicit
 preparation/rejection outcomes. It does not download Blobs, register an ingestion processor or make
 documents searchable.

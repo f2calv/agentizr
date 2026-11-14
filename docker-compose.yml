@@ -54,7 +54,7 @@ x-agentizr-environment: &agentizr-environment
   CasCap__AgentRuntimeConfig__Tenants__default__Agents__ollama__Instructions: You are a concise local development assistant.
 
 x-agentizr: &agentizr
-  image: mcr.microsoft.com/dotnet/sdk:10.0
+  image: mcr.microsoft.com/dotnet/sdk:11.0-resolute
   working_dir: /workspace/agentizr
   command:
     - /bin/sh

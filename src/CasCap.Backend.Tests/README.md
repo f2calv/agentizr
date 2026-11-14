@@ -1,6 +1,6 @@
 # CasCap.Backend.Tests
 
-.NET 10 xUnit v3/Microsoft.Testing.Platform coverage for
+.NET 11 xUnit v3/Microsoft.Testing.Platform coverage for
 [CasCap.Backend](../CasCap.Backend/README.md): application services, authorization, state,
 document processing and offline migration/model discovery. This project does not reference the
 server executable.
