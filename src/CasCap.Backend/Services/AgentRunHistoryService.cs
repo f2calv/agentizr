@@ -19,7 +19,7 @@ public sealed class AgentRunHistoryService(
     {
         Converters = { new OmittedBinaryConverter() },
     };
-    private readonly HashSet<string> _secrets = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _secrets = [with(comparer: StringComparer.Ordinal)];
     private readonly Lock _secretsLock = new();
 
     /// <summary>Adds an exact credential value to the redaction set without storing it.</summary>

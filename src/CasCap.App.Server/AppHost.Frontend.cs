@@ -21,8 +21,6 @@ public static partial class AppHost
             app.MapFallback(context => context.WriteAgentRuntimeFrontendUnavailableAsync());
             return;
         }
-        if (app.Environment.IsDevelopment())
-            app.UseWebAssemblyDebugging();
         app.MapStaticAssets();
         app.MapRazorComponents<App>()
             .AddInteractiveWebAssemblyRenderMode()

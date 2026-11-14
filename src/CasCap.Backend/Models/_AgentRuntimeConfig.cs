@@ -43,7 +43,7 @@ public sealed record AgentRuntimeConfig : IAppConfig, IValidatableObject
     public int MaximumRealtimeCallsPerInstance { get; init; } = 4;
 
     /// <summary>Gets optional token prices keyed by realtime deployment name, used to estimate call cost for debugging.</summary>
-    public Dictionary<string, RealtimeTokenPricing> RealtimePricing { get; init; } = new(StringComparer.Ordinal);
+    public Dictionary<string, RealtimeTokenPricing> RealtimePricing { get; init; } = [with(comparer: StringComparer.Ordinal)];
 
     /// <summary>Gets session compaction policies keyed by provider name, shared by every tenant.</summary>
     /// <remarks>
@@ -129,7 +129,7 @@ public sealed record TenantAgentConfig
     /// an API key, for Azure OpenAI resources with key authentication disabled.
     /// </summary>
     /// <remarks>Defaults to none; each tenant opts in explicitly so no tenant borrows the identity by accident.</remarks>
-    public HashSet<string> EntraIdProviders { get; init; } = new(StringComparer.Ordinal);
+    public HashSet<string> EntraIdProviders { get; init; } = [with(comparer: StringComparer.Ordinal)];
 
     /// <summary>
     /// Gets whether execution callers may read the effective instructions of this tenant's agents.

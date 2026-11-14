@@ -40,6 +40,15 @@ Everything below is specific to this repository.
 - Apply EF migrations externally. Never use `HasData` for runtime definitions or other mutable,
   tenant-owned data.
 
+## Provider Compatibility
+
+- Keep `Microsoft.EntityFrameworkCore`, its Design, Relational and Sqlite packages, the Data
+  Protection EF adapter and `dotnet-ef` on a coherent 10.x family with
+  `Npgsql.EntityFrameworkCore.PostgreSQL` 10.x. The PostgreSQL provider requires EF Core below 11;
+  .NET 11 application targets do not require EF Core 11. Reassess the family only when a stable
+  compatible PostgreSQL provider is available, validating both persistence adapters before a
+  dedicated major-family migration.
+
 ## Administration Frontend
 
 - The browser frontend is a co-hosted Blazor Web App with WebAssembly-only interactivity and no

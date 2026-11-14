@@ -9,7 +9,7 @@ namespace CasCap.Services;
 internal sealed class RealtimeToolDispatcher(IReadOnlyCollection<AIFunction> tools, TimeSpan toolTimeout, ILogger logger)
 {
     private readonly Dictionary<string, AIFunction> _tools = tools.ToDictionary(tool => tool.Name, StringComparer.Ordinal);
-    private readonly HashSet<string> _handledCallIds = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _handledCallIds = [with(comparer: StringComparer.Ordinal)];
 
     /// <summary>Invokes one function call, or returns <see langword="null"/> when this call id was already handled.</summary>
     /// <returns>The JSON output to return to the model.</returns>

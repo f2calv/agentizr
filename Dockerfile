@@ -9,7 +9,7 @@
 # Pinned to $BUILDPLATFORM and cross-compiles to $TARGETPLATFORM; emulating the target under QEMU
 # is often an order of magnitude slower.
 # ------------------------------------------------------------------------------
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0.100-rc.3-resolute AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0-resolute AS build
 WORKDIR /repo
 COPY ["Directory.Build.props", "Directory.Packages.props", "global.json", "./"]
 
@@ -71,7 +71,7 @@ EOF
 # Chiseled "extra" adds the ICU and tzdata that tenant time zones need; it has no shell or
 # package manager. Npgsql GSS probing is disabled in code, so no Kerberos library is required.
 # ------------------------------------------------------------------------------
-FROM mcr.microsoft.com/dotnet/aspnet:11.0.0-rc.3-resolute-chiseled-extra AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0-resolute-chiseled-extra AS runtime
 WORKDIR /app
 
 COPY --link --from=build /app/publish .

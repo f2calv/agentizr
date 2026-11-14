@@ -11,7 +11,8 @@ dotnet package add CasCap.AgentRuntime.Contracts
 ```
 
 The source targets `net10.0` and `net11.0`. Applications using `CasCap.AgentRuntime.Client` receive it
-transitively. The .NET 11 assets are prerelease and await publication after GA.
+transitively. Use a stable .NET 11 SDK for source development; installed packages use their selected
+target's runtime.
 
 The source also contains the browser-neutral
 [`RuntimeLoggingControls`](https://github.com/f2calv/agentizr/blob/main/src/CasCap.AgentRuntime.Contracts/RuntimeConfiguration/RuntimeLoggingControls.cs) contract used by the

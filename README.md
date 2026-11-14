@@ -41,9 +41,9 @@ Use `/runs/stream` for live events followed by the final response.
 
 ### Run from Source
 
-Use the .NET 11 SDK selected by [global.json](global.json). This source upgrade is prerelease;
-GA package alignment and final compatibility validation remain pending. Release builds use
-published dependencies and need no adjacent checkouts:
+Use a stable .NET 11 SDK and the test runner selected by [global.json](global.json). Release builds
+use published dependencies and need no adjacent checkouts. EF Core and its PostgreSQL provider remain
+on the compatible 10.x family while the application runs on .NET 11:
 
 ```powershell
 dotnet build agentizr.Release.slnx --configuration Release

@@ -11,7 +11,7 @@ dotnet package add CasCap.AgentRuntime.Client
 ```
 
 The source targets `net10.0` and `net11.0` and depends on `CasCap.AgentRuntime.Contracts`.
-The .NET 11 assets are prerelease and await publication after GA.
+Use a stable .NET 11 SDK for source development; installed packages use their selected target's runtime.
 
 ## Usage
 
