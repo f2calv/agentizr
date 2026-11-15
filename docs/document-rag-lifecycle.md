@@ -8,13 +8,15 @@ record; this guide does not accept or replace that proposal.
 **Current boundary:** admission, preparation, immutable review snapshots, saved chunk selections
 and document-level readiness assessments are deployed in the Debug workflow. Protected Azure-query
 search, source previews and the bounded A1 realtime knowledge tool are implemented and deployed
-in the default-disabled Debug image. Enabled retrieval and live grounded voice remain unaccepted.
+in the Debug image. One explicitly enabled A1 pilot has successful delegated retrieval and an
+operator-reported phone lesson; broader live acceptance remains incomplete. Tracked defaults
+remain disabled.
 Saving an assessment does not start indexing or make a document available to a model.
 
 Both Debug and Release now compile the same opt-in ingestion, review and indexing implementation.
 Release uses verified Common 5.1.0 and Azure 2.0.0 packages. This removes a build restriction only:
 the deployment evidence below remains Debug-specific, processing/indexing remain off by default,
-and live retrieval, general answering-model knowledge bindings and live GPU acceptance remain unfinished.
+and broader retrieval evaluation, general answering-model knowledge bindings and live GPU acceptance remain unfinished.
 
 **Deployed Azure indexing:** protected preflight, separately confirmed durable jobs, non-retrying
 Azure embeddings, durable pacing, native pgvector staging and guarded atomic publication are deployed
@@ -50,8 +52,8 @@ passages, then writes an answer. These models can come from different providers.
 | Embed documents | Convert each included passage into a semantic vector | Embedding model, for example `text-embedding-3-large` or the Qwen3 Embedding family |
 | Store | Keep vectors and their passage/source bindings | PostgreSQL with pgvector |
 | Embed a question | Convert the question into the **same embedding space** | The same pinned embedding model/profile |
-| Retrieve | Find nearby eligible vectors and return their passages | Protected exact pgvector search, deployed default-disabled; live acceptance pending |
-| Answer | Read the question plus retrieved passages and cite the evidence | Bounded A1 realtime tool deployed default-disabled; live grounding and general model integration remain pending |
+| Retrieve | Find nearby eligible vectors and return their passages | Protected exact pgvector search; one authorized A1 query and matching previews verified live |
+| Answer | Read the question plus retrieved passages and cite the evidence | Bounded A1 realtime tool; phone smoke reported, broader grounding and general model integration incomplete |
 
 For example, “How do I reset this device?” can match a passage describing a factory reset even if
 the wording differs. Vector similarity supplies candidates; it does not prove that the passage is
@@ -149,12 +151,13 @@ retrieval cases; 29 existing native indexing cases also passed. The
 [test evidence](../src/CasCap.App.Server.Tests/README.md#protected-knowledge-retrieval) distinguishes
 HTTP contract/policy checks from direct-service native ranking and fake Azure inference.
 Debug host composition and retained net10.0 Release client/contracts builds passed.
-Enabled authenticated HTTP retrieval, live Azure query inference and relevance/latency acceptance
-remain pending. The subsequent Debug rollout shipped the code without enabling the feature.
+The subsequent Debug rollout and explicitly authorized config-only enablement produced one
+successful delegated HTTP retrieval with real Azure query inference and matching protected
+previews, as recorded below. This is bounded evidence, not broad relevance/latency acceptance.
 
 ### Bounded A1 Realtime Pilot
 
-The local [call-owned knowledge tool](../src/CasCap.Backend/Services/RealtimeKnowledgeSession.cs)
+The deployed [call-owned knowledge tool](../src/CasCap.Backend/Services/RealtimeKnowledgeSession.cs)
 uses the existing protected search service, not another embedding implementation or a loop through
 the public HTTP endpoint. It sends at most one short-query embedding request per voice call.
 The model supplies only a topic, never a tenant, collection, model, CEFR level or result count.
@@ -170,8 +173,8 @@ include `search_document_knowledge` in `realtime.tools`, preserving its other in
 The authenticated voice caller needs **both** `agent.realtime` and `agent.knowledge.search`.
 No new Tutorizr MCP tool or realtime request field is needed. The local MAUI update accepts
 whitespace-separated scope entries in the existing `ApiScope` setting and splits them for MSAL,
-preserving single-scope settings. Install and configure that client, then verify both token claims
-before enabling the tutor tool; server registration alone is insufficient.
+preserving single-scope settings. Each caller still needs both permissions; server registration
+alone is insufficient.
 Six offline scope configuration cases passed and both MAUI Debug targets built cleanly; these are
 not evidence of installed-client sign-in or token claims.
 
@@ -207,7 +210,11 @@ These are illustrative merge fragments, not authorization to enable either featu
 ```
 
 Instructions tell the tutor to agree one lesson topic, retrieve once, treat passages as untrusted
-evidence, cite physical pages and abstain on missing/insufficient evidence. Topic/level changes
+evidence and abstain on missing/insufficient evidence. The active pilot definition
+`2026-11-15.2` requests no unsolicited sources, titles, page numbers or identifiers during normal
+tutoring, and an accurate physical PDF page only when the learner explicitly requests a source.
+This prompt-only refinement is not a deterministic output filter and still needs fresh-call verification.
+Topic/level changes
 require ending the call and starting another: the server rejects additional retrieval attempts,
 but does not semantically classify arbitrary speech as a topic change.
 This intentionally does **not** use Tutorizr's model-writable estimated level as an access grant.
@@ -221,11 +228,14 @@ speech-start, response-created and response-done events it checks the binding, a
 current cited sources without further embeddings. A failed check ends the controlled call as
 `ControlLost`; source/database unavailability is not permission to keep answering from old evidence.
 Passages and tool payloads are not added to durable call records, text-session history or logs.
+Knowledge-enabled calls are also excluded from opt-in durable voice conversation retention and
+true resume, including derived assistant history. Provider-side audio/transcripts are distinct
+from application retention; these checks do not prove immediate erasure of provider context.
 
 This is **not** preventive output validation: WebRTC audio flows directly from Azure and can already
 be in flight before a control event is processed. Previously spoken/derived text cannot be recalled.
-Strict lexical/grammar guarantees, immediate erasure of provider-side context and live grounding
-are not established. End a call before intentionally changing topic/level. The per-call allowance
+Strict lexical/grammar guarantees, immediate erasure of provider-side context and broad grounding
+acceptance are not established. End a call before intentionally changing topic/level. The per-call allowance
 does not cap repeated new calls or multi-replica aggregate spending. Realtime cost summaries still
 price only the realtime model; the embedding request has its own native usage and cost.
 
@@ -235,29 +245,40 @@ cited evidence, fresh-ID replay denial and all three revocation-event boundaries
 prove missing knowledge permission causes 403 before provider REST. They do not prove an enabled,
 authenticated live voice call, model obedience, citation relevance, injection resistance or latency.
 
-**Deployment handoff (2026-11-15):** the Debug source-reference image rolled out to both replicas
-at the expected registry digest. The deployment controller was Healthy/Synced with a successful
-operation; both replicas had zero restarts and no recent error/fatal events, and internal health
-returned HTTP 200 `Healthy` before and after stabilization. The corpus still has 65 published
-vectors; the active tutor still has its original eight tools, without the knowledge tool.
-No inference, permission change or knowledge enablement was performed.
+**Bounded live evidence (2026-11-15):**
 
-The subsequent authorized identity apply added `agent.knowledge.search` alongside `agent.realtime`
-and updated the mobile client's delegated consent. Live Graph reads verified both enabled scopes
-and tenant-wide consent; the refreshed Terraform plan returned no changes. Actual client sign-in
-and dual-permission token claims remain unverified. The existing certificate-backed application
-principal has an OpenAI role and the embedding deployment metadata is healthy; this is not proof
-of data-plane query access. No knowledge binding was present in the inspected deployment
-environment or mounted ConfigMap; read back the final provider-chain configuration before enabling
-it. The public ingress is voice-only; the runtime built-in calls the search service directly and
-does not require a new public knowledge endpoint.
+- Config-only enablement kept the same Debug image. The deployment controller reported
+  Healthy/Synced with a successful operation and both replicas healthy/ready.
+  The original 65 published vectors remain unchanged; no re-embedding occurred.
+- The authorized A1 binding is enabled with a 128-token query ceiling and a ten-minute
+  realtime cap, still bounded by the smaller definition duration.
+- Scope registration and delegated consent converged. One real delegated retrieval verified
+  both required permissions in memory: anonymous HTTP 401, authenticated search HTTP 200,
+  three A1 passages and three exact-match protected source previews. The request reported
+  four native embedding input tokens and took 7,377 ms. No token, query or passage content
+  is recorded here; one measurement is not a latency distribution or an invoice total.
+- Immutable definition `2026-11-15.1` enabled the knowledge tool while retaining the original
+  eight tools and `gpt-realtime`. The operator reported a successful fresh phone lesson with
+  a source-page citation. This is operator-reported smoke evidence, not an independently
+  captured full grounding, safeguard or cost evaluation.
+- Published/activated successor `2026-11-15.2` changes only the citation-prompt sentence described
+  above; the provider/model, nine tools, A1 boundary, duration and one-search allowance are
+  unchanged. The updated citation behaviour has not yet been verified in a fresh call.
+- A read-only call-record check found one recent call ended after 116 seconds with
+  `ProviderClosed`. Recorded usage was 22,518 total tokens: 18,524 input text, 1,652 input audio,
+  515 output text and 1,827 output audio; 16,384 cached input tokens are a subset, not an
+  additional total. The runtime estimated realtime-model cost was EUR 0.1686, not an actual
+  billed charge. It excludes the separate four-token query-embedding request above.
+  This aggregate record does not independently verify which spoken statements were grounded.
 
-**Next acceptance:** install/configure and verify the updated client's scope acquisition, configure
-the operator's authenticated A1 binding, publish an
-opted-in tutor definition, verify the existing protected Azure corpus with bounded queries, then
-run one authorized short voice lesson. Compare expected evidence, actual spoken answers,
-citations/abstention, topic restart, interruption, context disposal and cost/latency with a
-no-retrieval baseline before broader use. All feature flags and deployed definitions remain unchanged.
+The public ingress remains voice-only; the runtime built-in calls the search service directly
+and does not require a new public knowledge endpoint. Bounded query success does not authorize
+further inference or broader rollout.
+
+**Next acceptance:** verify the revised citation behaviour in a fresh, separately authorized
+call. Compare expected evidence, actual spoken answers, citations on request, abstention,
+topic restart, interruption, revocation, replay denial, context disposal and cost/latency with
+a no-retrieval baseline before broader use. These checks are not all observed yet.
 
 ## Data Flow
 
@@ -320,18 +341,20 @@ flowchart TD
         Activate -->|Complete and still eligible| Vectors
     end
 
-    subgraph consumption["5. Local retrieval and bounded realtime pilot"]
-        Request["Implemented: authenticated consumer search API"]
-        Scope["Implemented: operator binding, document CEFR and per-request limits"]
-        Query["Implemented: reuse existing Azure query embedding"]
-        Search["Implemented: fenced eligibility filters before exact ranking and limit"]
-        Evidence["Implemented: bounded passages and protected source previews"]
-        Model["Implemented: opt-in A1 realtime tool supplies call-owned evidence"]
+    subgraph consumption["5. Authorized retrieval and bounded realtime pilot"]
+        Request["Current: authenticated consumer search API"]
+        Scope["Current: operator binding, document CEFR and per-request limits"]
+        Query["Current: reuse existing Azure query embedding"]
+        Search["Current: fenced eligibility filters before exact ranking and limit"]
+        Evidence["Current: bounded passages and protected source previews"]
+        Model["Current: opt-in A1 realtime tool supplies call-owned evidence"]
         Validate["Planned: grounding checks and strict tutoring output validation"]
-        Answer(["Planned: answer delivered to the consumer"])
-        Unavailable["Implemented: explicit no-match or retrieval failure; model abstention planned"]
+        Answer(["Current: direct realtime audio; phone smoke reported"])
+        Unavailable["Current: explicit retrieval failure; live abstention acceptance pending"]
         Request --> Scope --> Query --> Search
-        Vectors --> Search --> Evidence --> Model --> Validate --> Answer
+        Vectors --> Search --> Evidence --> Model --> Answer
+        Model -.->|Future pre-delivery validation path| Validate
+        Validate -.-> Answer
         Search -->|No eligible matches or dependency failure| Unavailable
         Validate -->|Unsupported or invalid answer| Unavailable
     end
@@ -346,8 +369,8 @@ flowchart TD
     classDef implemented fill:#ede9fe,stroke:#7c3aed,color:#111111
     classDef blocked fill:#fff3e0,stroke:#a64b00,color:#111111
     class Upload,Blob,Event,Sync,Admission,Job,Prepare,Receipts,Snapshot,Selection,Assessment,Ready current
-    class BrowserUpload,Model,Validate,Answer planned
-    class Request,Scope,Query,Search,Evidence,Unavailable implemented
+    class BrowserUpload,Validate planned
+    class Request,Scope,Query,Search,Evidence,Model,Answer,Unavailable current
     class Policy,Manifest,Authorize,IndexJob,Staged,Activate,Vectors,Change current
     class Hold,PrepareFailure,IndexFailure blocked
 ```
@@ -369,8 +392,8 @@ it must not silently authorize paid processing or publication.
 | Indexing authorized | Trusted policy, exact revisions and separately confirmed logical request/token ceilings permit embedding. | Yes; worker gate remains separate |
 | Indexed | Every expected included chunk has a compatible vector in a validated generation. | Verified for the Azure vocabulary pilot |
 | Published | A complete generation was atomically selected; its current eligibility must still be checked. | Verified for the Azure pilot; not a search endpoint |
-| Searchable | An authorized query can obtain eligible passages. | Planned |
-| Available to a model | An opted-in agent has an authorized binding and successfully obtains eligible evidence. | Planned; never implied by upload or approval |
+| Searchable | An authorized query can obtain eligible passages. | One bounded A1 delegated retrieval verified live |
+| Available to a model | An opted-in agent has an authorized binding and successfully obtains eligible evidence. | A1 tool enabled; operator-reported phone smoke, broader acceptance incomplete |
 
 The two initial document assessments were reported to survive browser refresh. That confirms
 the user's persistence check, not that both documents passed readiness or that either is searchable.
@@ -787,8 +810,9 @@ telemetry. Use bounded, payload-free outcome/cost/latency diagnostics instead.
 ## Proposed Delivery Sequence
 
 Phases 1–3 are deployed and have bounded Azure storage/publication acceptance.
-Protected search and the bounded A1 realtime tool are deployed default-disabled after local validation.
-General model access and live retrieval-quality acceptance remain planned. GPU embedding is a separate follow-up, not a fallback
+Protected search and the bounded A1 realtime tool are deployed and enabled for one authorized pilot.
+One delegated retrieval and an operator-reported phone lesson succeeded. General model access and
+broader live retrieval-quality acceptance remain planned. GPU embedding is a separate follow-up, not a fallback
 or permission for further paid/live work.
 
 | Phase | Deliverable | Acceptance gate |
@@ -796,9 +820,9 @@ or permission for further paid/live work.
 | 1. Policy and profiles | Deployed preflight, exact manifests and confirmed request/token authorization | Classification bypass, exact revisions, cumulative CEFR, input ceilings and stale authorization checks pass locally; exact Azure replacement accepted live |
 | 2. Durable indexing | Deployed Azure job lifecycle, pacing, intent/receipts and inactive generations; Ollama/llama.cpp adapters locally validated | Five Azure batches completed within independent allowance; uncertain earlier intent stayed quarantined; concurrency/failure checks pass locally |
 | 3. Native pgvector | Deployed parameterized native vectors, additive migration and atomic publication; no ANN | Live Azure acceptance matched all 65 input hashes and vector dimensions; isolated checks cover schema, tenant constraints, competing publication and revocation |
-| 4. Protected search | Deployed default-disabled API with compatible query embedding, cumulative document CEFR and bounded cited results | Offline HTTP contracts/policies and native ranking, isolation, exclusions, citations and query-time revocation pass; enabled authenticated HTTP and live acceptance pending |
-| 5. Bounded retrieval pilot | Azure vocabulary embeddings published; default-disabled code rollout complete; enablement, bounded query inference and retrieval evaluation pending | Existing corpus publication verified; separately authorize live queries and measure real citation relevance/latency against agreed questions |
-| 6. Opt-in model use | Local A1 realtime pilot: explicit tool, one retrieval per call and turn-boundary reauthorization | Offline receive/dispatch/output and revocation tests pass; live grounding, abstention, prompt-injection resistance and trusted learner policy remain pending; strict tutoring separately gated on output validation |
+| 4. Protected search | Deployed opt-in API with compatible query embedding, cumulative document CEFR and bounded cited results | Offline/native checks pass; one delegated HTTP 200, anonymous 401 and three matching protected previews observed; broad live evaluation incomplete |
+| 5. Bounded retrieval pilot | Original 65 vectors retained; authorized A1 query returned three passages | Four native input tokens and 7,377 ms observed once; broader relevance/latency and cost comparison pending |
+| 6. Opt-in model use | Enabled A1 realtime pilot: explicit tool, one retrieval per call and turn-boundary reauthorization | Phone smoke reported; final citation-prompt refinement and broader grounding, abstention, replay/revocation and cost checks remain unverified; strict tutoring separately gated on output validation |
 
 Agree the profile/model, budget and evaluation thresholds before the live pilot. Proposed minimum
 checks include zero excluded/stale/cross-tenant chunks returned and exact agreement between the

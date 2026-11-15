@@ -395,8 +395,11 @@ vector table without an EF vector plugin. Apply it externally and upgrade all so
 before enabling processing. The Azure slice has bounded live storage/publication acceptance;
 the self-hosted adapters are offline-tested, without live GPU acceptance. There is no indexing browser control or
 general answering-model knowledge binding. Protected search and the bounded A1 realtime pilot
-are deployed in the default-disabled Debug image. Enabled retrieval and grounded voice acceptance
-remain pending; the image rollout does not grant inference or change the active tutor definition.
+are deployed, with one explicitly enabled A1 binding and an opted-in definition. One delegated
+retrieval and an operator-reported phone lesson succeeded; broader live acceptance remains
+incomplete. Tracked defaults remain disabled. See the
+[bounded pilot evidence](../../docs/document-rag-lifecycle.md#bounded-a1-realtime-pilot)
+for the observed limits and remaining checks.
 See the [lifecycle contract](../../docs/document-rag-lifecycle.md#local-durable-indexing-implementation)
 for policy authority, receipts, publication conflicts, retirement and logical-versus-financial
 budget limits.
