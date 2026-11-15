@@ -13,6 +13,24 @@ public sealed class RealtimeCallProtocolTests(RealtimeCallProtocolTests.Realtime
 {
     private const string Offer = "v=0 offer";
 
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task CreateRealtimeCall_UnavailableRetentionReturnsConflictBeforeProviderCalls(bool retain, bool resume)
+    {
+        using var httpClient = factory.CreateClient();
+        var before = factory.Handler.RequestCount;
+        using var response = await httpClient.PostAsJsonAsync("/api/v1/agents/tutor/realtime/calls",
+            new CreateRealtimeCallRequest
+            {
+                SdpOffer = Offer,
+                RetainConversation = retain,
+                ConversationId = resume ? Guid.NewGuid() : null,
+            }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(before, factory.Handler.RequestCount);
+    }
+
     [Fact]
     public async Task CreateRealtimeCall_KnowledgeRequiresItsOwnPermissionBeforeAnyProviderCall()
     {

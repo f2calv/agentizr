@@ -50,7 +50,8 @@ public sealed class RealtimeCallService
     /// offers no realtime calls.
     /// </summary>
     public async ValueTask<RealtimeCallOutcome?> CreateAsync(
-        string agentName, string sdpOffer, CancellationToken cancellationToken, ClaimsPrincipal? caller = null)
+        string agentName, string sdpOffer, CancellationToken cancellationToken, ClaimsPrincipal? caller = null,
+        Guid? conversationId = null, bool retainConversation = false)
     {
         var definition = await definitionStore.GetAsync(agentName, cancellationToken);
         if (definition?.Realtime is not { } realtime)
@@ -68,6 +69,9 @@ public sealed class RealtimeCallService
         }
         if (!registry.HasCapacity)
             return new RealtimeCallOutcome { IsAtCapacity = true };
+        if ((conversationId is not null && !retainConversation)
+            || (retainConversation && realtime.Tools.Contains(RealtimeKnowledgeSession.ToolName, StringComparer.Ordinal)))
+            return new() { IsConversationUnavailable = true };
 
         var logger = loggerFactory.CreateLogger<RealtimeCallService>();
         var credential = await RealtimeProviderCredential.ResolveAsync(credentialStore, realtime.Provider, cancellationToken);
@@ -83,6 +87,15 @@ public sealed class RealtimeCallService
         var transferred = false;
         try
         {
+            RealtimeConversationLease? conversation = null;
+            if (retainConversation)
+            {
+                conversation = await serviceProvider.GetRequiredService<RealtimeConversationStore>().OpenAsync(
+                    tenantContext.TenantId, agentName, definition.Version, caller, conversationId, cancellationToken);
+                if (conversation is null)
+                    return new() { IsConversationUnavailable = true };
+                toolLeases.Add(conversation);
+            }
             var tools = await LoadToolsAsync(definition, realtime, toolLeases, logger, cancellationToken, knowledge);
             var secret = await azure.CreateClientSecretAsync(
                 realtime.Endpoint,
@@ -105,6 +118,7 @@ public sealed class RealtimeCallService
                     MaximumDuration = knowledge is not null && knowledge.MaximumDuration < TimeSpan.FromMinutes(realtime.MaximumDurationMinutes)
                         ? knowledge.MaximumDuration : TimeSpan.FromMinutes(realtime.MaximumDurationMinutes),
                     Knowledge = knowledge,
+                    Conversation = conversation,
                     Pricing = runtimeConfig.Value.RealtimePricing.GetValueOrDefault(realtime.Deployment),
                 },
                 azure,
@@ -127,9 +141,26 @@ public sealed class RealtimeCallService
                 await HangUpUncontrolledAsync(call);
                 return new RealtimeCallOutcome { IsAtCapacity = true };
             }
+            if (conversation is not null)
+            {
+                try
+                {
+                    await call.Ready.WaitAsync(TimeSpan.FromSeconds(20), cancellationToken);
+                }
+                catch
+                {
+                    await call.EndAsync(RealtimeCallEndReason.ControlLost);
+                    throw;
+                }
+            }
             return new RealtimeCallOutcome
             {
-                Response = new RealtimeCallResponse { CallId = call.CallId, SdpAnswer = sdpAnswer },
+                Response = new RealtimeCallResponse
+                {
+                    CallId = call.CallId,
+                    SdpAnswer = sdpAnswer,
+                    ConversationId = conversation?.Id,
+                },
             };
         }
         catch (HttpRequestException ex)
@@ -137,6 +168,12 @@ public sealed class RealtimeCallService
             if (logger.IsEnabled(LogLevel.Warning))
                 logger.LogWarning(ex, "{ClassName} could not start a realtime call", nameof(RealtimeCallService));
             return new RealtimeCallOutcome { IsProviderUnavailable = true };
+        }
+        catch (TimeoutException ex)
+        {
+            if (logger.IsEnabled(LogLevel.Warning))
+                logger.LogWarning(ex, "{ClassName} resumed call did not become ready", nameof(RealtimeCallService));
+            return new() { IsProviderUnavailable = true };
         }
         finally
         {

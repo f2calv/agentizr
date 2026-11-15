@@ -55,8 +55,9 @@ WebSockets for client audio because it handles codecs, jitter and packet loss
   host shutdown. A call never continues without a controller.
 - **G6** No SDP, ephemeral keys, Azure call identifiers, transcripts or tool payloads in logs,
   metrics or traces.
-- Non-goals for this decision: sharing conversation state between realtime calls and text sessions,
-  persisting transcripts, SIP telephony, and providers other than Azure OpenAI.
+- Non-goals for this decision: sharing conversation state with text sessions, SIP telephony and
+  providers other than Azure OpenAI. Optional voice-to-voice text continuity is specified in
+  [Resumable Voice Conversations](realtime-conversations.md), with explicit retention and knowledge boundaries.
 - Backward compatibility is not required. Contracts, client methods and the definition schema may
   change in place; every consumer is upgraded together.
 
@@ -152,8 +153,10 @@ controller is not: its WebSocket lives in one pod.
 
 ### Session Isolation
 
-Realtime calls do not take the text session lock and do not change text session history. The
-consumer passes a session id dedicated to voice. Sharing context between voice and text is deferred.
+Realtime calls do not change text-session history. Non-retained calls have no resumable content;
+opt-in voice conversations reuse the durable state/lock infrastructure under a separate
+caller-qualified voice key, as specified in
+[Resumable Voice Conversations](realtime-conversations.md). Sharing context with text remains deferred.
 
 ## Consequences
 

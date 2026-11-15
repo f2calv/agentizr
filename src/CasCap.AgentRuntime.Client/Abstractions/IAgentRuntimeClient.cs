@@ -89,7 +89,9 @@ public interface IAgentRuntimeClient
     public Task<RealtimeCallResponse?> CreateRealtimeCallAsync(
         string agentName,
         string sdpOffer,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        Guid? conversationId = null,
+        bool retainConversation = false);
 
     /// <summary>
     /// Ends a realtime voice call and returns why it ended and what it used, or <see langword="null" /> when the call

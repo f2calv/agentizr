@@ -34,6 +34,7 @@ internal sealed class RealtimeCallRegistry(
     private readonly ConcurrentDictionary<string, RealtimeCallSession> _calls = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, Task> _completions = new(StringComparer.Ordinal);
     private readonly Lock _admission = new();
+    private DateTimeOffset _nextConversationSweep;
 
     /// <summary>Gets this instance's identity in call records.</summary>
     public string OwnerId { get; } = $"{Environment.MachineName}:{Guid.NewGuid():N}";
@@ -162,6 +163,13 @@ internal sealed class RealtimeCallRegistry(
         }
 
         await store.DeleteEndedBeforeAsync(now - EndedRetention, cancellationToken);
+        if (now >= _nextConversationSweep)
+        {
+            using var scope = scopeFactory.CreateScope();
+            if (scope.ServiceProvider.GetService<RealtimeConversationStore>() is { } conversations)
+                await conversations.PurgeAsync(cancellationToken);
+            _nextConversationSweep = now + TimeSpan.FromMinutes(1);
+        }
     }
 
     private async Task CompleteAsync(RealtimeCallSession call)

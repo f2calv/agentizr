@@ -173,13 +173,20 @@ public sealed class AgentRuntimeClient(HttpClient httpClient) : IAgentRuntimeCli
     public Task<RealtimeCallResponse?> CreateRealtimeCallAsync(
         string agentName,
         string sdpOffer,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? conversationId = null,
+        bool retainConversation = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sdpOffer);
         return SendJsonAsync<CreateRealtimeCallRequest, RealtimeCallResponse>(
             HttpMethod.Post,
             BuildPath(agentName, AgentRuntimeRoutes.RealtimeCalls),
-            new CreateRealtimeCallRequest { SdpOffer = sdpOffer },
+            new CreateRealtimeCallRequest
+            {
+                SdpOffer = sdpOffer,
+                ConversationId = conversationId,
+                RetainConversation = retainConversation,
+            },
             cancellationToken);
     }
 

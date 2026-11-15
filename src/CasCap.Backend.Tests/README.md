@@ -54,6 +54,7 @@ Document and logging cases run in both configurations; Release proves the publis
 | `TenantStateIsolationTests` | 2 | 2 |
 | `PersistenceModelTests` | 1 | 1 |
 | `RealtimeKnowledgeTests` | 10 | 25 |
+| `RealtimeConversationTests` | 7 | 8 |
 
 Observed focused Release verification passed 76 offline cases across realtime knowledge,
 existing call behavior, knowledge configuration and definition-store lifecycle. The knowledge
