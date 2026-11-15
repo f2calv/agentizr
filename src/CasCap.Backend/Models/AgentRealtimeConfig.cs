@@ -42,7 +42,7 @@ public sealed record AgentRealtimeConfig : IValidatableObject
     [Range(1, 120)]
     public int MaximumDurationMinutes { get; init; } = 30;
 
-    /// <summary>Gets the names of the agent's remote MCP tools that a call may execute.</summary>
+    /// <summary>Gets the explicitly allowlisted MCP or runtime built-in tool names; knowledge also requires its operator grant.</summary>
     public string[] Tools { get; init; } = [];
 
     /// <inheritdoc/>

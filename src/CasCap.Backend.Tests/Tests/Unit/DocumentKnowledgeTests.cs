@@ -28,6 +28,9 @@ public sealed class DocumentKnowledgeTests
     [InlineData("level", false)]
     [InlineData("tokens", false)]
     [InlineData("null", false)]
+    [InlineData("realtime", true)]
+    [InlineData("realtime-level", false)]
+    [InlineData("realtime-duration", false)]
     public void Configuration_RequiresExplicitUniqueBoundedGrants(string variation, bool valid)
     {
         var binding = new DocumentKnowledgeBindingConfig
@@ -35,8 +38,10 @@ public sealed class DocumentKnowledgeTests
             TenantId = "tenant-a",
             AgentName = "assistant",
             CollectionId = "collection-a",
-            MaximumCefrLevel = variation == "level" ? "Z9" : "A1",
+            MaximumCefrLevel = variation == "level" ? "Z9" : variation == "realtime-level" ? "A2" : "A1",
             MaximumQueryTokens = variation == "tokens" ? 513 : 128,
+            RealtimeEnabled = variation.StartsWith("realtime", StringComparison.Ordinal),
+            MaximumRealtimeDurationMinutes = variation == "realtime-duration" ? 31 : 10,
         };
         var config = new DocumentKnowledgeConfig
         {

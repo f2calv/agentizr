@@ -162,7 +162,7 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
         };
     }
 
-    private async Task ReceiveAsync(ClientWebSocket socket, CancellationToken cancellationToken)
+    internal async Task ReceiveAsync(WebSocket socket, CancellationToken cancellationToken)
     {
         var buffer = new ArrayBufferWriter<byte>(64 * 1024);
         while (true)
@@ -180,7 +180,11 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
 
             using var document = JsonDocument.Parse(buffer.WrittenMemory);
             var root = document.RootElement;
-            switch (root.GetProperty("type").GetString())
+            var eventType = root.GetProperty("type").GetString();
+            if (eventType is "input_audio_buffer.speech_started" or "response.created" or "response.done"
+                && _options.Knowledge is { } knowledge && !await knowledge.IsCurrentAsync(cancellationToken))
+                throw new InvalidOperationException("Realtime knowledge is no longer current; restart the call.");
+            switch (eventType)
             {
                 case "response.done":
                     var response = root.GetProperty("response");
@@ -197,7 +201,7 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
         }
     }
 
-    private async Task ExecuteFunctionCallsAsync(ClientWebSocket socket, JsonElement response, CancellationToken cancellationToken)
+    private async Task ExecuteFunctionCallsAsync(WebSocket socket, JsonElement response, CancellationToken cancellationToken)
     {
         if (!response.TryGetProperty("output", out var output) || output.ValueKind != JsonValueKind.Array)
             return;
@@ -230,7 +234,7 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
             await SendAsync(socket, new JsonObject { ["type"] = "response.create" }, cancellationToken);
     }
 
-    private async Task SendAsync(ClientWebSocket socket, JsonObject message, CancellationToken cancellationToken)
+    private async Task SendAsync(WebSocket socket, JsonObject message, CancellationToken cancellationToken)
     {
         var bytes = JsonSerializer.SerializeToUtf8Bytes(message);
         await _sendLock.WaitAsync(cancellationToken);

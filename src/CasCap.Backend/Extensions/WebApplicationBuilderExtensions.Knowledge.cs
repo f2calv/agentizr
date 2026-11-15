@@ -21,16 +21,22 @@ public static partial class WebApplicationBuilderExtensions
         AddDocumentEmbeddingTransport(builder);
         if (databaseEnabled)
             builder.Services.TryAddScoped<DocumentKnowledgeStore>();
-        builder.Services.AddScoped(services => new DocumentKnowledgeService(
+        builder.Services.TryAddSingleton<RealtimeKnowledgeSessionFactory>();
+        builder.Services.AddScoped(services => CreateDocumentKnowledgeService(services,
+            services.GetRequiredService<ITenantContext>(),
+            services.GetRequiredService<IAgentDefinitionStore>()));
+    }
+
+    internal static DocumentKnowledgeService CreateDocumentKnowledgeService(
+        IServiceProvider services, ITenantContext tenantContext, IAgentDefinitionStore definitionStore) => new(
             services.GetRequiredService<ILogger<DocumentKnowledgeService>>(),
             services.GetRequiredService<IOptions<DocumentKnowledgeConfig>>(),
-            services.GetRequiredService<ITenantContext>(),
-            services.GetRequiredService<IAgentDefinitionStore>(),
+            tenantContext,
+            definitionStore,
             services.GetService<IDbContextFactory<AgentRuntimeDbContext>>() is null
                 ? null : services.GetRequiredService<DocumentKnowledgeStore>(),
             services.GetRequiredService<DocumentEmbeddingProvider>(),
-            services.GetRequiredService<DocumentChunkingService>()));
-    }
+            services.GetRequiredService<DocumentChunkingService>());
 
     private static void AddDocumentEmbeddingTransport(WebApplicationBuilder builder)
     {

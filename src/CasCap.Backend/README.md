@@ -394,7 +394,8 @@ installed `vector` extension and adds durable jobs, receipts, publication pointe
 vector table without an EF vector plugin. Apply it externally and upgrade all source writers
 before enabling processing. The Azure slice has bounded live storage/publication acceptance;
 the local adapters are offline-tested, not deployed. There is no indexing browser control or
-answering-model knowledge binding. Protected search is implemented locally, not deployed.
+general answering-model knowledge binding. Protected search and the bounded A1 realtime pilot
+are implemented locally, not deployed.
 See the [lifecycle contract](../../docs/document-rag-lifecycle.md#local-durable-indexing-implementation)
 for policy authority, receipts, publication conflicts, retirement and logical-versus-financial
 budget limits.
@@ -422,8 +423,11 @@ documents the complete bounds, empty/failure behavior, citation resolution and r
 Searches revalidate source/review/policy eligibility under the existing PostgreSQL mutation fence
 after inference and before exact cosine ranking. Source previews reauthorize without inference.
 Passages are untrusted data and responses use `no-store`; no raw query text is persisted or logged.
-No new schema or infrastructure is required. Aggregate spending allowances, realtime tools,
-learner-profile binding and strict output-level vocabulary validation remain separate work.
+No new schema or infrastructure is required. The
+[bounded A1 realtime pilot](../../docs/document-rag-lifecycle.md#bounded-a1-realtime-pilot) adds a
+call-owned tool behind separate operator/definition opt-ins and caller permission. Aggregate
+spending allowances, trusted learner-profile binding and strict output-level vocabulary validation
+remain separate work.
 
 The [native HTTP acceptance](../CasCap.App.Server.Tests/Tests/Integration/PostgresAdministrationDocumentReviewTests.cs)
 verifies persisted JSONB source resolution, concurrent retries, ownership fences, source revocation,
@@ -679,7 +683,7 @@ for configuration-backed tenants, offers brokered WebRTC calls, as proposed in
 accepts a JSON `CreateRealtimeCallRequest` carrying the SDP offer and returns `201` with a
 `RealtimeCallResponse` (runtime call id and SDP answer) and a `Location` for ending the call.
 [`RealtimeCallService`](Services/RealtimeCallService.cs) builds the session from the definition's
-instructions and the allowlisted subset of its remote MCP tools, mints a client secret and negotiates the
+instructions and allowlisted remote MCP/runtime built-in tools, mints a client secret and negotiates the
 call with the client data channel filtered. [`RealtimeCallSession`](Services/RealtimeCallSession.cs)
 holds the server-side control connection, executes tool calls once per call id, sums the token usage of each
 `response.done` event and hangs up on `DELETE`, at `MaximumDurationMinutes`, on host shutdown or when control is lost.
@@ -696,7 +700,20 @@ estimate, which is the durable per-call record; it contains counts only, never t
 | `voice`, `turnDetection`, `eagerness` | Output voice and `semantic_vad` or `server_vad` turn detection |
 | `transcriptionModel`, `transcriptionLanguage` | Optional user-speech transcription |
 | `maximumDurationMinutes` | Hard ceiling from call start, 1 to 120 minutes; speech and tool activity do not extend it |
-| `tools` | Remote MCP tool names a call may execute; only tools the text agent exposes qualify |
+| `tools` | Explicit MCP/runtime built-in tool names; MCP tools must also be exposed by the text agent, while document knowledge requires its own operator and caller grants |
+
+`search_document_knowledge` is a local, opt-in A1 pilot. Both the definition's `realtime.tools`
+allowlist and its operator-owned knowledge binding must opt in, and call creation additionally
+requires `agent.knowledge.search`; missing permission returns 403 before any provider call.
+[`RealtimeKnowledgeSession`](Services/RealtimeKnowledgeSession.cs) permits one short-topic retrieval
+attempt per call, with at most three cited passages; failures cannot be replayed under a new tool-call id.
+The call ends at the shorter of the definition duration and the knowledge binding's
+`MaximumRealtimeDurationMinutes` (default 10, range 1-30).
+The singleton [factory](Services/RealtimeKnowledgeSessionFactory.cs) creates fresh async operation
+scopes with the captured tenant and checks the authoritative active definition and cited sources.
+Evidence stays in this call only, not text-session history or durable call records.
+See the [pilot contract](../../docs/document-rag-lifecycle.md#bounded-a1-realtime-pilot) for
+turn-boundary revocation, topic/level changes, cost boundaries and live acceptance prerequisites.
 
 `AgentRuntimeConfig.MaximumRealtimeCallsPerInstance` bounds concurrent calls per instance. The instance that
 starts a call holds its control connection and renews a 20-second lease on the call's record every 5 seconds;

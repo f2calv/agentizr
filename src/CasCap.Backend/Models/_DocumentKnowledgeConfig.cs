@@ -67,10 +67,21 @@ public sealed record DocumentKnowledgeBindingConfig : IValidatableObject
     [Range(1, 512)]
     public int MaximumQueryTokens { get; init; } = 128;
 
+    /// <summary>Gets whether an explicitly allowlisted realtime call may retrieve one A1 lesson topic.</summary>
+    // TODO: Replace the fixed A1 pilot with consumer-owned learner policy before multi-level sessions.
+    // A model-writable estimate cannot authorize scope; policy changes must retire old model context.
+    public bool RealtimeEnabled { get; init; }
+
+    /// <summary>Gets the maximum lifetime of a realtime call carrying retrieved evidence.</summary>
+    [Range(1, 30)]
+    public int MaximumRealtimeDurationMinutes { get; init; } = 10;
+
     /// <inheritdoc/>
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (!DocumentApprovalValues.CefrLevels.Contains(MaximumCefrLevel, StringComparer.Ordinal))
             yield return new("A supported maximum CEFR level is required.");
+        if (RealtimeEnabled && MaximumCefrLevel != "A1")
+            yield return new("The bounded realtime pilot requires an operator-owned A1 ceiling.");
     }
 }

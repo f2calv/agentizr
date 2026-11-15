@@ -1,7 +1,9 @@
 # ADR 0002: Broker And Control Realtime Voice Calls In Agentizr
 
 **Status:** Accepted; implemented and validated live, release pending.
-**Date:** 2026-11-10; updated 2026-11-12.
+**Date:** 2026-11-10; updated 2026-11-15.
+The bounded A1 knowledge extension is implemented and offline-tested locally, not deployed or
+live-accepted; its separate gates remain in [ADR 0001](adr-0001-centralized-document-rag.md).
 **Scope:** Live speech-to-speech agent calls: agent definition, call setup, server-side session
 control, tool execution, authorization and call lifecycle. Client media capture and playback belong
 to consuming applications.
@@ -44,7 +46,8 @@ WebSockets for client audio because it handles codecs, jitter and packet loss
 - **G1** The agent definition is the single owner of instructions, realtime model settings and the
   tools a call may use. Clients never supply or see them.
 - **G2** Provider and MCP credentials stay server-side; the client holds only its own Agentizr bearer token.
-- **G3** Agentizr executes every tool call through its existing MCP path. It enforces the definition's
+- **G3** Agentizr executes remote tools through its existing MCP path and runtime built-ins through
+  explicit server-owned grants. It enforces the definition's
   allowlist and handles repeated deliveries of one call without re-running non-idempotent tools.
 - **G4** Audio flows directly between the client and Azure. Agentizr never relays media.
 - **G5** Every call ends deterministically: on client request, maximum duration, controller loss or
@@ -78,10 +81,16 @@ version stays at 1. The section holds:
 - a logical provider name and deployment;
 - voice, turn detection settings, and transcription model and language;
 - maximum call duration;
-- a tool allowlist naming tools from the agent's existing MCP servers.
+- a tool allowlist naming existing MCP tools or explicitly granted runtime built-ins.
 
 Instructions are not duplicated: a call uses the definition's instructions. An agent without the
 section rejects realtime calls.
+
+The local [A1 knowledge pilot](document-rag-lifecycle.md#bounded-a1-realtime-pilot) optionally appends
+evidence-handling instructions and a `search_document_knowledge` tool. It additionally requires the
+caller's `agent.knowledge.search` grant and an operator-owned A1 binding. Its one-attempt,
+duration-bounded evidence is call-local, not shared with text sessions. These additions do not
+change ordinary calls and have no live acceptance yet.
 
 ### Contract (illustrative names)
 
@@ -102,7 +111,7 @@ section rejects realtime calls.
 
 1. Resolve the tenant, the active definition and its `realtime` section. Resolve the Azure endpoint
    and credential through the provider credential store.
-2. Discover the allowlisted tools from the agent's MCP servers and build the full session
+2. Discover allowlisted MCP/runtime built-in tools, enforce any additional knowledge grant and build the full session
    configuration: instructions, audio formats, voice, turn detection, transcription and tool schemas.
 3. Mint an ephemeral key with `POST /openai/v1/realtime/client_secrets`, then post the client's offer
    to `/openai/v1/realtime/calls?webrtcfilter=on`. The ephemeral key never leaves the server.
@@ -116,10 +125,14 @@ One controller per call owns the control WebSocket.
 
 - It applies the session configuration, so a client's own `session.update` is overwritten at
   controller readiness. With the event filter on, the client sees no instructions.
-- It executes `response.function_call_arguments.done` through the same MCP client path that text
-  runs use ([AgentExtensions.Mcp](../src/CasCap.AgentRuntime.Execution/Extensions/AgentExtensions.Mcp.cs)).
+- It dispatches function calls from `response.done` through the MCP path that text runs use
+  ([AgentExtensions.Mcp](../src/CasCap.AgentRuntime.Execution/Extensions/AgentExtensions.Mcp.cs))
+  or an explicitly granted runtime built-in.
   It rejects tools outside the allowlist and returns the result as a `function_call_output` item
   followed by `response.create`.
+- Knowledge-enabled calls reauthorize the operator grant, active definition and cited sources at
+  speech-start/response-created/response-done events and end on failure. Direct audio may already
+  be in flight; this is not pre-delivery vocabulary validation.
 - It records each handled tool call id and does not re-execute a repeated id.
 - It hangs up when the client ends the call, at the maximum duration, on host shutdown, or when the
   control connection or MCP access fails.

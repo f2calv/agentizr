@@ -91,6 +91,13 @@ bearer tenant authentication as well as an explicit collection binding. Executio
 permissions do not grant knowledge search. Provisioning the new scope/application role and granting
 it to a consumer is an external identity-registration step; adding its API policy does not create it.
 
+A definition allowlisting `search_document_knowledge` also requires the signed-in voice caller to
+carry `agent.knowledge.search` when creating the call. Missing permission returns 403 before Azure
+REST or MCP discovery, including in otherwise open Development. Ordinary voice calls still require
+only `agent.realtime`. The knowledge binding must separately opt in to the bounded A1 pilot;
+the model's own writable learner estimate is not an authorization grant. Configure the voice
+client to request both delegated scopes after the identity registration and consent are approved.
+
 ## Application Hosts
 
 A host, such as a Comms host that relays chat messages to an agent, has its own app registration

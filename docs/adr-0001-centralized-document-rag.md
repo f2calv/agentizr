@@ -8,7 +8,8 @@ job remains quarantined. The preferred self-hosted llama.cpp adapter and optiona
 adapter are implemented and offline-tested, not live GPU-accepted. Saved readiness does not authorize
 indexing. Device manuals remain blocked by the unimplemented verified visual-association gate.
 Protected Azure-query retrieval and source previews are implemented locally and default-disabled;
-rollout, answering-model knowledge bindings and end-to-end answering remain outstanding.
+the bounded A1 realtime knowledge tool is locally wired and offline-tested. Rollout, general
+answering-model knowledge bindings and end-to-end answering remain outstanding.
 Implementation progress does not change this ADR's Proposed decision status.
 Both build configurations now include the opt-in pipeline, using published Common 5.1.0 and Azure
 2.0.0 packages in Release. The deployment evidence remains Debug-specific; Release build support
@@ -2519,11 +2520,17 @@ details; [native Ollama constraints](document-rag-lifecycle.md#local-ollama-embe
    [validation evidence](../src/CasCap.App.Server.Tests/README.md#protected-knowledge-retrieval)
    separates disabled/invalid HTTP and authorization-policy checks from direct-service native
    search; enabled authenticated HTTP retrieval still requires acceptance.
-2. **Wire opt-in answering-model knowledge access.** Feed authorized passages to the realtime tutor
-   through explicitly allowlisted function execution; HTTP search registration alone does not add
-   a realtime tool. Use trusted learner level to narrow the operator's ceiling, retrieve at topic
-   boundaries rather than every prompt, and manage passage lifetime across turns/level changes.
-   Verify citations, abstention and quality/latency against a no-retrieval baseline.
+2. **Accept the bounded A1 realtime pilot live.** The
+   [local pilot](document-rag-lifecycle.md#bounded-a1-realtime-pilot) is wired through explicit
+   operator/definition opt-ins and the caller's additional knowledge permission. It allows one
+   short-topic retrieval per duration-bounded call, reuses evidence across turns and requires a
+   new call for topic/level changes. Turn-boundary checks reject revoked bindings, definitions and
+   cited sources. Local validation passed 76 offline and 39 host cases, including the actual
+   receive/dispatch/output loop with a scripted WebSocket; no live voice or embedding calls ran.
+   The selected fixed A1 ceiling deliberately avoids trusting the model-writable learner estimate.
+   Separately approve deployment, identity scope/consent and an opted-in definition, then verify
+   citations, abstention, context disposal and quality/latency against a no-retrieval baseline.
+   Trusted consumer-owned learner policy and broader text/delegated knowledge bindings remain open.
 3. **Gate broader enablement on aggregate budgets.** Per-request query limits and no automatic
    replay do not cap repeated requests across replicas or clients. The owning
    [service TODO](../src/CasCap.Backend/Services/DocumentKnowledgeService.cs) defers a durable allowance
@@ -2551,6 +2558,9 @@ do not reset or replay the original uncertain job to accelerate these steps.
 
 ### Phase 3: Integrate Agents And Onboard Consumers
 
+- [x] Locally wire and offline-verify the bounded A1 realtime pilot: separate permission and opt-ins,
+  one retrieval attempt per call, cited evidence delivery, turn-boundary reauthorization and fresh
+  calls for topic/level changes. This is not live grounding or strict output-policy acceptance.
 - [ ] Agents in both initial scenarios answer questions requiring indexed evidence, cite the correct
   document/version/page and abstain on unsupported questions. Measure answer quality and prompt
   tokens/latency against the no-retrieval baseline; reject irrelevant context stuffing (R4, R5).

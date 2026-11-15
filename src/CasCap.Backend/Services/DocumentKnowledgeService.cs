@@ -106,4 +106,7 @@ public sealed class DocumentKnowledgeService
             item.TenantId == _tenantContext.TenantId && item.AgentName == agentName);
         return binding is not null && await _definitionStore.GetAsync(agentName, token) is not null ? binding : null;
     }
+
+    internal async Task<bool> IsDefinitionCurrentAsync(string agentName, string version, CancellationToken token) =>
+        (await _definitionStore.GetAsync(agentName, token))?.Version == version;
 }

@@ -57,7 +57,7 @@ limits.
 | `AdministrationReplicaTests` | 1 | 1 | Against real PostgreSQL: an antiforgery token issued by one host replica is accepted by another through the shared Data Protection key ring |
 | `AgentizrMcpEndpointTests` | 3 | 3 | Verifies MCP discovery of only the read-only status tool, its structured result, and `Origin` rejection |
 | `AgentRuntimeProtocolTests` | 9 | 12 | Verifies typed-client execution, streaming, DTO/JSON validation problems, session controls and instruction disclosure |
-| `RealtimeCallProtocolTests` | 4 | 4 | Against a fake Azure realtime endpoint: 404 without a `realtime` section, setup with the runtime credential and definition instructions, hang-up after lost control reported as `ControlLost`, and 404 for an unknown call |
+| `RealtimeCallProtocolTests` | 5 | 5 | Against a fake Azure realtime endpoint: ordinary setup/hang-up, unknown calls, and 403 before any provider REST when an opted-in knowledge call lacks its separate permission |
 | `PostgresRealtimeCallStoreTests` | 4 | 4 | Against real PostgreSQL: lease renewal with usage, tenant-scoped end requests, one claimant among concurrent sweepers, an end through a non-owning registry, and a sweep that hangs up and is deleted after retention |
 | `AgentDefinitionAdministrationProtocolTests` | 13 | 23 | Verifies publication Location, evaluation/activation, rollback, deactivation, audit attribution, policy/credential rejection, conflicts and bounded query binding |
 | `TenantSecurityStartupTests` | 9 | 18 | Verifies anonymous rejection, policy separation on all runtime and administration controller actions, bearer-only machine policies including knowledge search, the setup page shown instead of an unusable frontend, required JWT/PostgreSQL and optional Redis in Production |
@@ -445,6 +445,21 @@ enabled authenticated HTTP retrieval and live Azure inference remain separate ac
 Debug host/test composition and retained net10.0 Release client/contracts builds passed with zero
 warnings/errors. Fixture-database cleanup returned zero matching databases, and the task-started
 PostgreSQL service was stopped without removing its volumes.
+
+#### Bounded Realtime Knowledge
+
+The local [A1 pilot](../../docs/document-rag-lifecycle.md#bounded-a1-realtime-pilot) passed a separate
+focused Release selection of **39 host cases**: realtime call protocol, endpoint metadata, tenant
+security startup and document knowledge protocol. An opted-in call without the extra knowledge
+permission returns 403 before any provider REST, including in otherwise open Development.
+The existing ordinary call path also passes. Backend.Tests separately passed **76 offline cases**,
+including a scripted WebSocket exercising the real tool dispatch/output and source-revocation
+boundaries. The Debug source-reference server build passed with zero warnings/errors after
+restoring for that configuration.
+
+These runs used no live inference, native database or deployed tutor. Authenticated enabled HTTP,
+live grounded speech/citations, injection resistance and topic/context lifetime remain acceptance
+gates. No feature flag, identity grant, active definition or deployment was changed.
 
 #### Indexing And Provider Coverage
 

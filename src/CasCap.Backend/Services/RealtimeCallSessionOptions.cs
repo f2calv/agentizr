@@ -32,6 +32,9 @@ internal sealed record RealtimeCallSessionOptions
     /// <summary>Gets the hard ceiling on call length, counted from call start.</summary>
     public required TimeSpan MaximumDuration { get; init; }
 
+    /// <summary>Gets call-owned evidence and reauthorization checks, never persisted with call records.</summary>
+    public RealtimeKnowledgeSession? Knowledge { get; init; }
+
     /// <summary>Gets the deployment's configured token prices, or <see langword="null"/> when cost is not estimated.</summary>
     public RealtimeTokenPricing? Pricing { get; init; }
 }

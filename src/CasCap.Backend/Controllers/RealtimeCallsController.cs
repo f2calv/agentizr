@@ -18,15 +18,18 @@ public sealed class RealtimeCallsController(RealtimeCallService realtimeCallSvc)
     [EndpointSummary("Starts a brokered realtime voice call from an SDP offer")]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status502BadGateway)]
     public async Task<Results<Created<RealtimeCallResponse>, NotFound, StatusCodeHttpResult>> CreateAsync(
         string agentName, [FromBody] CreateRealtimeCallRequest request, CancellationToken cancellationToken)
     {
-        var outcome = await realtimeCallSvc.CreateAsync(agentName, request.SdpOffer, cancellationToken);
+        var outcome = await realtimeCallSvc.CreateAsync(agentName, request.SdpOffer, cancellationToken, User);
         if (outcome is null)
             return TypedResults.NotFound();
         if (outcome.IsAtCapacity)
             return TypedResults.StatusCode(StatusCodes.Status429TooManyRequests);
+        if (outcome.IsKnowledgeForbidden)
+            return TypedResults.StatusCode(StatusCodes.Status403Forbidden);
         if (outcome.Response is not { } response)
             return TypedResults.StatusCode(StatusCodes.Status502BadGateway);
 
