@@ -2545,7 +2545,8 @@ See the [pilot handoff](document-rag-lifecycle.md#bounded-a1-realtime-pilot).
    are complete. The operator reported a successful phone lesson with a source-page citation.
    Definition `2026-11-15.2` changes only citation instructions: no unsolicited source details in
    normal tutoring; provide the accurate physical PDF page on an explicit source request.
-   Its prompt change still needs a fresh-call check; it is not an output-enforcement guarantee.
+   Publication, activation and active-version read-back are complete; the changed spoken citation
+   behaviour still needs a fresh-call check. Prompt instructions are not an output-enforcement guarantee.
    Verify abstention, revocation, replay denial, context disposal and quality/cost/latency against
    a no-retrieval baseline before broader acceptance.
    Trusted consumer-owned learner policy and broader text/delegated knowledge bindings remain open.

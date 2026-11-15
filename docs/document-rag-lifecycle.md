@@ -213,7 +213,8 @@ Instructions tell the tutor to agree one lesson topic, retrieve once, treat pass
 evidence and abstain on missing/insufficient evidence. The active pilot definition
 `2026-11-15.2` requests no unsolicited sources, titles, page numbers or identifiers during normal
 tutoring, and an accurate physical PDF page only when the learner explicitly requests a source.
-This prompt-only refinement is not a deterministic output filter and still needs fresh-call verification.
+Publication and activation are complete; the resulting spoken behaviour still needs fresh-call
+verification. This prompt-only refinement is not a deterministic output filter.
 Topic/level changes
 require ending the call and starting another: the server rejects additional retrieval attempts,
 but does not semantically classify arbitrary speech as a topic change.
@@ -263,7 +264,8 @@ authenticated live voice call, model obedience, citation relevance, injection re
   captured full grounding, safeguard or cost evaluation.
 - Published/activated successor `2026-11-15.2` changes only the citation-prompt sentence described
   above; the provider/model, nine tools, A1 boundary, duration and one-search allowance are
-  unchanged. The updated citation behaviour has not yet been verified in a fresh call.
+  unchanged. Active-version read-back verified activation; the updated citation behaviour has
+  not yet been verified in a fresh call.
 - A read-only call-record check found one recent call ended after 116 seconds with
   `ProviderClosed`. Recorded usage was 22,518 total tokens: 18,524 input text, 1,652 input audio,
   515 output text and 1,827 output audio; 16,384 cached input tokens are a subset, not an
@@ -822,7 +824,7 @@ or permission for further paid/live work.
 | 3. Native pgvector | Deployed parameterized native vectors, additive migration and atomic publication; no ANN | Live Azure acceptance matched all 65 input hashes and vector dimensions; isolated checks cover schema, tenant constraints, competing publication and revocation |
 | 4. Protected search | Deployed opt-in API with compatible query embedding, cumulative document CEFR and bounded cited results | Offline/native checks pass; one delegated HTTP 200, anonymous 401 and three matching protected previews observed; broad live evaluation incomplete |
 | 5. Bounded retrieval pilot | Original 65 vectors retained; authorized A1 query returned three passages | Four native input tokens and 7,377 ms observed once; broader relevance/latency and cost comparison pending |
-| 6. Opt-in model use | Enabled A1 realtime pilot: explicit tool, one retrieval per call and turn-boundary reauthorization | Phone smoke reported; final citation-prompt refinement and broader grounding, abstention, replay/revocation and cost checks remain unverified; strict tutoring separately gated on output validation |
+| 6. Opt-in model use | Enabled A1 realtime pilot: explicit tool, one retrieval per call and turn-boundary reauthorization | Phone smoke reported against `.1`; `.2` activation read back, spoken citation behaviour untested; broader grounding, abstention, replay/revocation and cost checks incomplete; strict tutoring separately gated on output validation |
 
 Agree the profile/model, budget and evaluation thresholds before the live pilot. Proposed minimum
 checks include zero excluded/stale/cross-tenant chunks returned and exact agreement between the

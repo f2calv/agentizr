@@ -4,7 +4,8 @@
 **Date:** 2026-11-10; updated 2026-11-15.
 The bounded A1 knowledge extension is deployed and explicitly enabled for one pilot, with a
 successful delegated retrieval and an operator-reported phone lesson. The active pilot definition
-is `2026-11-15.2`; its citation-prompt refinement has not yet been verified in a fresh call.
+is `2026-11-15.2`, with publication, activation and active-version read-back complete.
+Its revised spoken citation behaviour has not yet been verified in a fresh call.
 Broader live acceptance remains incomplete; its separate gates remain in
 [ADR 0001](adr-0001-centralized-document-rag.md).
 **Scope:** Live speech-to-speech agent calls: agent definition, call setup, server-side session
