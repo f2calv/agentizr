@@ -11,6 +11,24 @@ namespace CasCap.AgentRuntime.Client;
 public sealed class AgentRuntimeClient(HttpClient httpClient) : IAgentRuntimeClient
 {
     /// <inheritdoc/>
+    public Task<SearchKnowledgeResponse?> SearchKnowledgeAsync(
+        string agentName, SearchKnowledgeRequest request, CancellationToken cancellationToken) =>
+        SendJsonAsync<SearchKnowledgeRequest, SearchKnowledgeResponse>(
+            HttpMethod.Post, BuildPath(agentName, AgentRuntimeRoutes.KnowledgeSearch), request, cancellationToken);
+
+    /// <inheritdoc/>
+    public Task<KnowledgePassageResponse?> GetKnowledgePassageAsync(
+        string agentName, string indexJobId, int ordinal, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(indexJobId);
+        ArgumentOutOfRangeException.ThrowIfNegative(ordinal);
+        return GetAsync<KnowledgePassageResponse>(BuildPath(agentName, AgentRuntimeRoutes.KnowledgePassage)
+            .Replace("{indexJobId}", Uri.EscapeDataString(indexJobId), StringComparison.Ordinal)
+            .Replace("{ordinal}", ordinal.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal),
+            cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task<RunAgentResponse?> RunAgentAsync(
         string agentName,
         RunAgentRequest request,

@@ -45,21 +45,15 @@ public static partial class WebApplicationBuilderExtensions
         builder.Services.AddScoped<DocumentPreparationStoreService>();
         builder.Services.AddScoped<DocumentPreparationMarkdownStore>();
         builder.Services.AddScoped<DocumentPreparationOperationStore>();
-        builder.Services.AddScoped<DocumentPreparationModelVerifier>();
         builder.Services.AddScoped<IDocumentPreparationProvider, DocumentPreparationProvider>();
-        builder.Services.AddScoped<IDocumentEmbeddingProvider, DocumentEmbeddingProvider>();
-        builder.Services.AddScoped<DocumentOllamaEmbeddingProvider>();
-        builder.Services.AddScoped<DocumentLlamaCppEmbeddingProvider>();
+        if (!runtimeEnabled)
+            AddDocumentEmbeddingTransport(builder);
         builder.Services.TryAddScoped<DocumentIndexingStore>();
         builder.Services.AddScoped<DocumentIndexingProcessingService>();
-        builder.Services.AddHttpClient(nameof(DocumentEmbeddingProvider))
-            .RemoveAllLoggers().ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         builder.Services.AddScoped<HybridDocumentProcessor>();
         builder.Services.AddScoped<PdfDocumentProcessor>();
         builder.Services.TryAddScoped<IDocumentProcessor, DocumentPreparationProcessor>();
         builder.Services.AddHttpClient(nameof(DocumentPreparationProvider))
-            .RemoveAllLoggers().ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
-        builder.Services.AddHttpClient(nameof(DocumentPreparationModelVerifier))
             .RemoveAllLoggers().ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         builder.Services.AddSingleton<IDocumentIngestionEventQueue, AzureDocumentIngestionQueue>();
         builder.Services.AddSingleton<IDocumentBlobInventory, AzureDocumentBlobInventory>();

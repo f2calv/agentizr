@@ -53,6 +53,7 @@ public static partial class ServiceCollectionExtensions
             AddMachinePolicy(AgentRuntimePolicies.DefinitionPublish, AgentRuntimePermissions.DefinitionPublish, requireActor: true);
             AddMachinePolicy(AgentRuntimePolicies.DefinitionActivate, AgentRuntimePermissions.DefinitionActivate, requireActor: true);
             AddMachinePolicy(AgentRuntimePolicies.Realtime, AgentRuntimePermissions.Realtime);
+            AddMachinePolicy(AgentRuntimePolicies.KnowledgeSearch, AgentRuntimePermissions.KnowledgeSearch);
         });
         services.AddOptions<AuthorizationOptions>().Configure<IOptions<AdministrationConfig>>((options, administrationConfig) =>
         {

@@ -26,17 +26,22 @@ internal static class DocumentVectorStore
     }
 
     /// <summary>Checks exact included ordinals, input identities and native dimensions without reading vector values into diagnostics.</summary>
-    public static async Task ValidateAsync(AgentRuntimeDbContext db, DocumentIndexingClaim claim, CancellationToken token)
+    public static Task ValidateAsync(AgentRuntimeDbContext db, DocumentIndexingClaim claim, CancellationToken token) =>
+        ValidateAsync(db, claim.JobId, claim.Manifest, token);
+
+    /// <summary>Checks an already published generation without requiring an execution claim.</summary>
+    internal static async Task ValidateAsync(
+        AgentRuntimeDbContext db, string jobId, DocumentIndexingManifest manifest, CancellationToken token)
     {
         var rows = await db.Database.SqlQuery<DocumentVectorReceipt>($"""
             SELECT ordinal AS "Ordinal", input_sha256 AS "InputSha256", vector_dims(embedding) AS "Dimensions"
             FROM agent_runtime.document_index_vectors
-            WHERE tenant_id = {claim.Manifest.TenantId} AND job_id = {claim.JobId}
-            ORDER BY ordinal LIMIT {claim.Manifest.Inputs.Count + 1}
+            WHERE tenant_id = {manifest.TenantId} AND job_id = {jobId}
+            ORDER BY ordinal LIMIT {manifest.Inputs.Count + 1}
             """).ToArrayAsync(token);
-        if (rows.Length != claim.Manifest.Inputs.Count || !rows.Select(row => (row.Ordinal, row.InputSha256, row.Dimensions))
-            .SequenceEqual(claim.Manifest.Inputs.Select(input =>
-                (input.Chunk.Ordinal, input.InputSha256, claim.Manifest.Profile.Dimensions))))
+        if (rows.Length != manifest.Inputs.Count || !rows.Select(row => (row.Ordinal, row.InputSha256, row.Dimensions))
+            .SequenceEqual(manifest.Inputs.Select(input =>
+                (input.Chunk.Ordinal, input.InputSha256, manifest.Profile.Dimensions))))
             throw new InvalidDataException("The staged vector generation does not match its exact approved inputs.");
     }
 }

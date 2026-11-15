@@ -3,6 +3,14 @@ namespace CasCap.AgentRuntime.Client.Abstractions;
 /// <summary>Runs versioned agent turns through the remote Agent Runtime.</summary>
 public interface IAgentRuntimeClient
 {
+    /// <summary>Searches the agent's authorized document collection, or returns null when no binding is available.</summary>
+    public Task<SearchKnowledgeResponse?> SearchKnowledgeAsync(
+        string agentName, SearchKnowledgeRequest request, CancellationToken cancellationToken);
+
+    /// <summary>Reauthorizes a source passage without inference, or returns null when it is unavailable or withdrawn.</summary>
+    public Task<KnowledgePassageResponse?> GetKnowledgePassageAsync(
+        string agentName, string indexJobId, int ordinal, CancellationToken cancellationToken);
+
     /// <summary>Runs one agent turn, or returns <see langword="null" /> when the agent is unavailable to the tenant.</summary>
     public Task<RunAgentResponse?> RunAgentAsync(
         string agentName,

@@ -104,9 +104,11 @@ public sealed class TenantSecurityStartupTests
             ["DeactivateAgentDefinitionV1"] = AgentRuntimePolicies.DefinitionActivate,
             ["CreateRealtimeCallV1"] = AgentRuntimePolicies.Realtime,
             ["EndRealtimeCallV1"] = AgentRuntimePolicies.Realtime,
+            ["SearchAgentKnowledgeV1"] = AgentRuntimePolicies.KnowledgeSearch,
+            ["GetAgentKnowledgePassageV1"] = AgentRuntimePolicies.KnowledgeSearch,
         };
 
-        Assert.Equal(21, protectedEndpoints.Count(endpoint => !AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
+        Assert.Equal(23, protectedEndpoints.Count(endpoint => !AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
         Assert.Equal(25, protectedEndpoints.Count(endpoint => AdministrationAccessService.IsAdministrationEndpoint(endpoint.Metadata)));
         // Session description, sign-in and sign-out must be reachable before an administrator signs in.
         Assert.Equal(3, sessionEndpoints.Length);
@@ -135,6 +137,7 @@ public sealed class TenantSecurityStartupTests
     [InlineData(AgentRuntimePolicies.DefinitionPublish)]
     [InlineData(AgentRuntimePolicies.DefinitionActivate)]
     [InlineData(AgentRuntimePolicies.Realtime)]
+    [InlineData(AgentRuntimePolicies.KnowledgeSearch)]
     public async Task DevelopmentWithTenantAuthentication_MachinePoliciesAuthenticateBearerTokensOnly(string policyName)
     {
         // Bearer-only authentication is what makes these endpoints immune to cross-site request forgery.

@@ -387,7 +387,8 @@ public sealed partial class PostgresAdministrationDocumentReviewTests
     private static DocumentIndexingProcessingService Processor(DocumentIndexingStore store, EmbeddingProvider provider, DocumentIndexingConfig settings) =>
         new(NullLogger<DocumentIndexingProcessingService>.Instance, Options.Create(settings), store, provider);
 
-    private async Task<(HttpClient Http, AdministrationApiClient Client, string Id, DocumentIndexingConfig Settings, DocumentIndexingRequest Request)> AcceptedIndexingInputsAsync(bool local = false)
+    private async Task<(HttpClient Http, AdministrationApiClient Client, string Id, DocumentIndexingConfig Settings, DocumentIndexingRequest Request)> AcceptedIndexingInputsAsync(
+        bool local = false, bool excludeFirst = false, string cefrLevel = "A1")
     {
         var settings = DocumentIndexingTestData.ExecutionConfig(_source.TenantId, _source.CollectionId);
         if (local)
@@ -401,14 +402,15 @@ public sealed partial class PostgresAdministrationDocumentReviewTests
         Assert.True(stored.IsSuccess);
         var id = stored.Value!.GenerationId!;
         Assert.True((await client.RecordDocumentChunkReviewAsync("tenant-a", _source.CollectionId,
-            _source.DocumentId, _source.JobId, id, NativeSelectionRequest(), Token)).IsSuccess);
+            _source.DocumentId, _source.JobId, id,
+            NativeSelectionRequest() with { Exclusions = excludeFirst ? [new() { Ordinal = 0 }] : [] }, Token)).IsSuccess);
         Assert.True((await client.RecordDocumentApprovalAsync("tenant-a", _source.CollectionId,
-            _source.DocumentId, _source.JobId, id, NativeApprovalRequest(), Token)).IsSuccess);
+            _source.DocumentId, _source.JobId, id, NativeApprovalRequest() with { CefrLevel = cefrLevel }, Token)).IsSuccess);
         var preflight = await client.GetDocumentIndexingPreflightAsync("tenant-a", _source.CollectionId,
             _source.DocumentId, _source.JobId, id, Token);
-        Assert.True(preflight.Value!.Eligible);
+        Assert.True(preflight.Value!.Eligible, string.Join("; ", preflight.Value.Blockers));
         Assert.Null(preflight.Value.ObservedActiveJobId);
-        Assert.True(preflight.Value.IncludedChunkCount > 1);
+        Assert.True(preflight.Value.IncludedChunkCount > (excludeFirst ? 0 : 1));
         return (http, client, id, settings, new()
         {
             Confirmed = true,

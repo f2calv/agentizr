@@ -78,6 +78,7 @@ same policy accepts either form. Each endpoint group requires one permission:
 | `agent.definition.publish` | `DefinitionPublish` | Appending an inactive, immutable definition version |
 | `agent.definition.activate` | `DefinitionActivate` | Activating, rolling back or deactivating a version |
 | `agent.realtime` | `Realtime` | Starting and ending brokered realtime voice calls |
+| `agent.knowledge.search` | `KnowledgeSearch` | Explicit bounded document searches and current source previews for the agent's configured collection |
 
 The runtime API registration exposes `agent.realtime` as a delegated scope only, with no matching
 application role, so a realtime call always acts for a signed-in user. Publisher and activation
@@ -85,6 +86,10 @@ actor identities also come from validated claims, never from request bodies.
 
 Outside Development, startup fails unless authentication is enabled. In Development with
 authentication disabled, endpoints run for `AgentRuntimeConfig.DefaultTenantId` without a token.
+Protected knowledge retrieval is an exception to that development convenience: enabling it requires
+bearer tenant authentication as well as an explicit collection binding. Execution and realtime
+permissions do not grant knowledge search. Provisioning the new scope/application role and granting
+it to a consumer is an external identity-registration step; adding its API policy does not create it.
 
 ## Application Hosts
 

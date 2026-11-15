@@ -77,6 +77,13 @@ deactivation is a separate reason-bearing request.
 
 ## Documentation
 
+The current source also defines `SearchKnowledgeRequest`, `SearchKnowledgeResponse` and bounded
+passage/source-span DTOs for the separate `agent.knowledge.search` surface. Search requests cannot
+choose a tenant, collection or embedding profile. Matches contain reviewed text, document/generation/
+chunk identities, a source hash and physical-page/Markdown-block spans, not Blob URLs.
+These unpublished additions support explicit retrieval; they do not automatically ground agent
+runs or realtime calls.
+
 - [Endpoint and permission reference](https://github.com/f2calv/agentizr/blob/main/src/CasCap.App.Server/README.md#public-surface)
 - [Runtime source and project catalogue](https://github.com/f2calv/agentizr)
 - [License](https://github.com/f2calv/agentizr/blob/main/LICENSE)

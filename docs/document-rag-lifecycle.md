@@ -6,21 +6,22 @@ the remaining retrieval milestone. [ADR 0001](adr-0001-centralized-document-rag.
 record; this guide does not accept or replace that proposal.
 
 **Current boundary:** admission, preparation, immutable review snapshots, saved chunk selections
-and document-level readiness assessments are deployed in the Debug workflow. Knowledge search
-and model knowledge bindings are not implemented.
+and document-level readiness assessments are deployed in the Debug workflow. Protected Azure-query
+search and source previews are implemented locally, disabled by default and not deployed.
+Answering-model knowledge bindings are not implemented.
 Saving an assessment does not start indexing or make a document available to a model.
 
 Both Debug and Release now compile the same opt-in ingestion, review and indexing implementation.
 Release uses verified Common 5.1.0 and Azure 2.0.0 packages. This removes a build restriction only:
 the deployment evidence below remains Debug-specific, processing/indexing remain off by default,
-and protected retrieval, agent knowledge bindings and live GPU acceptance remain unfinished.
+and live retrieval, answering-model knowledge bindings and live GPU acceptance remain unfinished.
 
 **Deployed Azure indexing:** protected preflight, separately confirmed durable jobs, non-retrying
 Azure embeddings, durable pacing, native pgvector staging and guarded atomic publication are deployed
 in the Debug workflow. On 2026-11-05, a separately authorized full replacement published all 65 reviewed
 inputs as 3,072-dimensional vectors using five requests and 15,895 reported input tokens.
 Processing is back off; both gates still default off. The earlier uncertain job remains quarantined
-and unchanged. There is no indexing browser control or implemented search/model knowledge binding.
+and unchanged. There is no indexing browser control or answering-model knowledge binding.
 
 **Local GPU boundary:** llama.cpp is the preferred self-hosted runtime; the separate native Ollama
 adapter remains an optional alternative. Read-only discovery found llama.cpp with a chat model loaded and no advertised/configured
@@ -49,7 +50,7 @@ passages, then writes an answer. These models can come from different providers.
 | Embed documents | Convert each included passage into a semantic vector | Embedding model, for example `text-embedding-3-large` or the Qwen3 Embedding family |
 | Store | Keep vectors and their passage/source bindings | PostgreSQL with pgvector |
 | Embed a question | Convert the question into the **same embedding space** | The same pinned embedding model/profile |
-| Retrieve | Find nearby eligible vectors and return their passages | Authorized pgvector search, still planned |
+| Retrieve | Find nearby eligible vectors and return their passages | Protected exact pgvector search, implemented locally; rollout pending |
 | Answer | Read the question plus retrieved passages and cite the evidence | Chat model, for example the Qwen3.5 family; model binding still planned |
 
 For example, “How do I reset this device?” can match a passage describing a factory reset even if
@@ -73,13 +74,87 @@ before increasing it. The adapter requests unload after each embedding batch; th
 latency for lower idle GPU residency and does not control other callers.
 
 The Azure OpenAI, llama.cpp and Ollama bindings concern the embedding stage. PDF preparation may still use Azure services,
-manuals still require verified visual associations, and retrieval/answer integration remains future
-work. An implemented adapter does not mean that an end-to-end RAG application has been deployed.
+manuals still require verified visual associations, and retrieval rollout/answer integration remain
+future work. An implemented adapter does not mean that an end-to-end RAG application has been deployed.
+
+### Protected Search And Source Previews
+
+The local [knowledge service](../src/CasCap.Backend/Services/DocumentKnowledgeService.cs) reuses the
+existing Azure embedding transport, tenant credentials, deployment verification and strict response
+parser. It does not create an indexing job, deploy another model or re-embed the documents.
+The [typed client](../src/CasCap.AgentRuntime.Client/Abstractions/IAgentRuntimeClient.cs) exposes:
+
+- `SearchKnowledgeAsync`: `POST /api/v1/agents/{agentName}/knowledge/search`.
+- `GetKnowledgePassageAsync`: `GET /api/v1/agents/{agentName}/knowledge/sources/{indexJobId}/chunks/{ordinal}`.
+
+Both require `agent.knowledge.search`, distinct from execution/realtime permissions. Enabling
+`CasCap:DocumentKnowledgeConfig` requires PostgreSQL, bearer tenant authentication (also in
+Development), an existing Azure indexing profile and explicit operator-owned bindings. This is a
+merge fragment, not authorization to enable inference:
+
+```json
+{
+  "CasCap": {
+    "DocumentKnowledgeConfig": {
+      "Enabled": true,
+      "Bindings": [
+        {
+          "TenantId": "example-tenant",
+          "AgentName": "example-agent",
+          "CollectionId": "example-collection",
+          "MaximumCefrLevel": "A1"
+        }
+      ]
+    }
+  }
+}
+```
+
+Each agent has one configured collection; that collection's existing indexing policy chooses the
+profile. Requests contain only `query`, optional `maximumResults` (default 3, range 1-8) and optional
+`maximumCefrLevel`, which may narrow but never broaden the binding. The query has a 2,000-character
+limit and a captured-token ceiling of 128 by default (binding range 1-512), additionally capped by
+the profile. The complete search deadline defaults to 30 seconds (range 1-120).
+Empty eligible corpora do not invoke embeddings. A nonempty search submits one input once, without
+automatic retries; provider failures are explicit 502 responses and search deadline expiry is 504.
+Each response reports native embedding input tokens without persisting or logging query text.
+
+Retrieval is an explicit operation, **not an automatic step for every user prompt**. A tutor can
+retrieve a topic once and use bounded passages for several turns. Costs include the short query
+embedding and retrieved text supplied to the answering model; they are not a second full chat call.
+There is no query cache or aggregate durable spending allowance in this slice. The owning service
+TODO requires that allowance before unattended/broadly shared enablement; per-request limits do
+not cap aggregate requests, client retries or spend across replicas.
+
+The [knowledge store](../src/CasCap.Backend/Services/DocumentKnowledgeStore.cs) checks active pointers,
+current source/review/assessment/policy identity, exact included input hashes and vector dimensions.
+It releases the source mutation fence before HTTP, then reacquires it and revalidates the observed
+generations before ranking. Tenant, collection, profile and reviewed-document CEFR eligibility
+precede exact cosine top-k, not a filter over global results. This baseline supports at most
+32 active documents per collection; exceeding the bound fails rather than silently truncating.
+Only complete bodies up to 8,000 UTF-16 code units with 1-64 source spans are eligible for delivery.
+Over-limit passages are excluded before ranking, not truncated after selection.
+Source previews reauthorize the same generation and return 404 after withdrawal or replacement.
+Both surfaces emit `Cache-Control: no-store`; citations contain opaque identities, source hashes and
+physical-page/Markdown-block offsets, never signed URLs or internal endpoints.
+
+These are reviewed **document-level** CEFR filters, not word-level validation or a binding to the
+learner's progress profile. Passages remain untrusted data. Realtime tool execution, topic scheduling,
+learner-level enforcement, context lifetime, grounded answers and abstention are subsequent work.
+Direct realtime audio cannot satisfy pre-delivery lexical validation merely by adding RAG.
+
+Local Release verification passed 134 offline cases, 94 host/fake-provider cases and 18 native
+retrieval cases; 29 existing native indexing cases also passed. The
+[test evidence](../src/CasCap.App.Server.Tests/README.md#protected-knowledge-retrieval) distinguishes
+HTTP contract/policy checks from direct-service native ranking and fake Azure inference.
+Debug host composition and retained net10.0 Release client/contracts builds passed.
+Enabled authenticated HTTP retrieval, live Azure query inference and relevance/latency acceptance
+remain pending; no deployment or feature enablement occurred.
 
 ## Data Flow
 
 **Current** means deployed in the Debug workflow, subject to configuration and authorization,
-not enabled for every collection. **Planned** means unimplemented.
+not enabled for every collection. **Implemented** means local code whose rollout remains pending. **Planned** means unimplemented.
 **Blocked** means no downstream publication is permitted.
 Labels carry these distinctions independently of color.
 
@@ -136,16 +211,16 @@ flowchart TD
         Activate -->|Complete and still eligible| Vectors
     end
 
-    subgraph consumption["5. Proposed authorized retrieval and model use"]
-        Request["Planned: authenticated consumer or explicitly bound agent"]
-        Scope["Planned: resolve tenant, collection allowlist, CEFR and budgets"]
-        Query["Planned: compatible query embedding"]
-        Search["Planned: SQL eligibility filters before ranking and limit"]
-        Evidence["Planned: bounded passages and source citations"]
+    subgraph consumption["5. Local retrieval and proposed model use"]
+        Request["Implemented: authenticated consumer search API"]
+        Scope["Implemented: operator binding, document CEFR and per-request limits"]
+        Query["Implemented: reuse existing Azure query embedding"]
+        Search["Implemented: fenced eligibility filters before exact ranking and limit"]
+        Evidence["Implemented: bounded passages and protected source previews"]
         Model["Planned: model uses passages as untrusted evidence"]
         Validate["Planned: grounding checks and strict tutoring output validation"]
         Answer(["Planned: answer delivered to the consumer"])
-        Unavailable["Planned: explicit no-match, unavailable or abstention outcome"]
+        Unavailable["Implemented: explicit no-match or retrieval failure; model abstention planned"]
         Request --> Scope --> Query --> Search
         Vectors --> Search --> Evidence --> Model --> Validate --> Answer
         Search -->|No eligible matches or dependency failure| Unavailable
@@ -154,16 +229,18 @@ flowchart TD
 
     Change["Current: source, review or policy change invalidates indexing eligibility"]
     Vectors -.-> Change
-    Change -.->|Planned query-time checks must reject stale generations| Search
+    Change -.->|Implemented query-time checks reject stale generations| Search
     Change -.-> Hold
 
     classDef current fill:#e8f5e9,stroke:#2e7d32,color:#111111
     classDef planned fill:#e3f2fd,stroke:#1565c0,color:#111111,stroke-dasharray:5 5
+    classDef implemented fill:#ede9fe,stroke:#7c3aed,color:#111111
     classDef blocked fill:#fff3e0,stroke:#a64b00,color:#111111
     class Upload,Blob,Event,Sync,Admission,Job,Prepare,Receipts,Snapshot,Selection,Assessment,Ready current
-    class BrowserUpload,Request,Scope,Query,Search,Evidence,Model,Validate,Answer planned
+    class BrowserUpload,Model,Validate,Answer planned
+    class Request,Scope,Query,Search,Evidence,Unavailable implemented
     class Policy,Manifest,Authorize,IndexJob,Staged,Activate,Vectors,Change current
-    class Hold,PrepareFailure,IndexFailure,Unavailable blocked
+    class Hold,PrepareFailure,IndexFailure blocked
 ```
 
 The diagram is a lifecycle, not one uninterrupted automatic job. Human review, indexing
@@ -564,10 +641,14 @@ Application rollback must not implicitly reactivate stale corpus data.
 
 ## Proposed Retrieval And Model Gates
 
+The protected API now implements the bounded search/source portion below locally. Trusted learner
+policy, answering-model integration and end-to-end acceptance remain proposed.
+
 1. Authenticate the consumer and derive tenant context on the server. Add an explicit knowledge
    permission rather than treating agent execution permission as document-search authorization.
-2. Resolve a tenant-local collection allowlist, embedding profile, result/token budget and effective
-   CEFR from trusted consumer/session policy. Model arguments may narrow scope, never broaden it.
+2. Resolve the operator-owned tenant/agent collection binding, embedding profile and per-request
+   result/token/CEFR bounds. Arguments may narrow scope, never broaden it. Trusted learner/session
+   policy and aggregate spending allowances remain subsequent work.
 3. Generate a compatible query embedding. Apply tenant, allowed collections, current source,
    generation, approval/policy revisions, deletion status and CEFR predicates in SQL before
    ranking and `LIMIT`; do not fetch global top-k and filter afterward.
@@ -597,16 +678,17 @@ telemetry. Use bounded, payload-free outcome/cost/latency diagnostics instead.
 ## Proposed Delivery Sequence
 
 Phases 1–3 are deployed and have bounded Azure storage/publication acceptance.
-Search/model access and retrieval-quality acceptance remain planned. GPU embedding is a separate
-follow-up, not a fallback or permission for further paid/live work.
+Protected search is locally implemented and validated, not deployed. Model access and live
+retrieval-quality acceptance remain planned. GPU embedding is a separate follow-up, not a fallback
+or permission for further paid/live work.
 
 | Phase | Deliverable | Acceptance gate |
 | --- | --- | --- |
 | 1. Policy and profiles | Deployed preflight, exact manifests and confirmed request/token authorization | Classification bypass, exact revisions, cumulative CEFR, input ceilings and stale authorization checks pass locally; exact Azure replacement accepted live |
 | 2. Durable indexing | Deployed Azure job lifecycle, pacing, intent/receipts and inactive generations; Ollama/llama.cpp adapters locally validated | Five Azure batches completed within independent allowance; uncertain earlier intent stayed quarantined; concurrency/failure checks pass locally |
-| 3. Native pgvector | Deployed parameterized native vectors, additive migration and atomic publication; no ANN or search endpoint | Live Azure acceptance matched all 65 input hashes and vector dimensions; isolated checks cover schema, tenant constraints, competing publication and revocation |
-| 4. Protected search | Authorized API with compatible query embedding, cumulative CEFR and bounded cited results | Cross-tenant/collection denial, A1/A2/B1 boundary fixtures, no-match versus failure, citation/source authorization and no payload logging |
-| 5. Bounded retrieval pilot | Azure vocabulary embeddings published; query budget and retrieval evaluation still pending | Expected included chunks and excluded-chunk absence verified for storage; real citations and query-time revocation remain unverified |
+| 3. Native pgvector | Deployed parameterized native vectors, additive migration and atomic publication; no ANN | Live Azure acceptance matched all 65 input hashes and vector dimensions; isolated checks cover schema, tenant constraints, competing publication and revocation |
+| 4. Protected search | Locally implemented, default-disabled API with compatible query embedding, cumulative document CEFR and bounded cited results | Offline HTTP contracts/policies and native ranking, isolation, exclusions, citations and query-time revocation pass; enabled authenticated HTTP and live acceptance pending |
+| 5. Bounded retrieval pilot | Azure vocabulary embeddings published; deployment, bounded query inference and retrieval evaluation pending | Existing corpus publication verified; separately authorize live queries and measure real citation relevance/latency against agreed questions |
 | 6. Opt-in model use | Versioned knowledge bindings and evaluation through actual runtime paths | Grounding, abstention, prompt-injection resistance, history retention and streaming tested; strict tutoring separately gated on output validation |
 
 Agree the profile/model, budget and evaluation thresholds before the live pilot. Proposed minimum

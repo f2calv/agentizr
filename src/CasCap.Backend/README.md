@@ -380,7 +380,7 @@ by the same actor reuse the receipt; competing or stale writes return 409. Asses
 cascades with snapshot deletion. Apply this migration externally before rollout.
 Readiness never changes the job's `ReviewRequired` state, invokes providers or authorizes indexing.
 Trusted collection classification is checked separately by indexing preflight; retrieval-level
-CEFR enforcement remains future work.
+document-level CEFR enforcement is available through the separately enabled protected search.
 
 The local [indexing service](Services/DocumentIndexingAdministrationService.cs) owns the
 separate indexing authorization, never an assessment save. `DocumentIndexingConfig.Enabled`
@@ -393,8 +393,9 @@ The [native migration](../CasCap.Data/Migrations/20261030121900_DocumentVectorIn
 installed `vector` extension and adds durable jobs, receipts, publication pointers and a SQL-owned
 vector table without an EF vector plugin. Apply it externally and upgrade all source writers
 before enabling processing. The Azure slice has bounded live storage/publication acceptance;
-the local adapters are offline-tested, not deployed. There is no indexing browser control,
-search endpoint or model knowledge binding. See the [lifecycle contract](../../docs/document-rag-lifecycle.md#local-durable-indexing-implementation)
+the local adapters are offline-tested, not deployed. There is no indexing browser control or
+answering-model knowledge binding. Protected search is implemented locally, not deployed.
+See the [lifecycle contract](../../docs/document-rag-lifecycle.md#local-durable-indexing-implementation)
 for policy authority, receipts, publication conflicts, retirement and logical-versus-financial
 budget limits.
 The [Ollama contract](../../docs/document-rag-lifecycle.md#local-ollama-embeddings) uses installed
@@ -405,6 +406,24 @@ The [llama.cpp contract](../../docs/document-rag-lifecycle.md#local-llamacpp-emb
 credential-free `OpenAI` tenant registration and single-model endpoint, not a chat router. It reuses
 the same scoped provider dispatch and native publication guards; operator-verified immutable GGUF
 files and launch settings remain prerequisites, not claims inferred from an alias.
+
+### Protected Document Knowledge
+
+[`DocumentKnowledgeService`](Services/DocumentKnowledgeService.cs) reuses the existing Azure embedding
+transport for an explicit short-query search, not every agent prompt. It requires the separate
+`agent.knowledge.search` permission. Default-disabled
+[`DocumentKnowledgeConfig`](Models/_DocumentKnowledgeConfig.cs) grants one server-owned collection
+and reviewed-document CEFR ceiling per tenant/agent. Enabling requires PostgreSQL, bearer tenant
+authentication even in Development, and a compatible configured Azure indexing profile.
+The runtime-only role registers the shared transport without starting ingestion workers.
+
+The [configuration and retrieval contract](../../docs/document-rag-lifecycle.md#protected-search-and-source-previews)
+documents the complete bounds, empty/failure behavior, citation resolution and rollout prerequisites.
+Searches revalidate source/review/policy eligibility under the existing PostgreSQL mutation fence
+after inference and before exact cosine ranking. Source previews reauthorize without inference.
+Passages are untrusted data and responses use `no-store`; no raw query text is persisted or logged.
+No new schema or infrastructure is required. Aggregate spending allowances, realtime tools,
+learner-profile binding and strict output-level vocabulary validation remain separate work.
 
 The [native HTTP acceptance](../CasCap.App.Server.Tests/Tests/Integration/PostgresAdministrationDocumentReviewTests.cs)
 verifies persisted JSONB source resolution, concurrent retries, ownership fences, source revocation,
@@ -534,6 +553,8 @@ searchable-generation lifecycle remain prerequisites for broader use.
 | `/mcp` | Opt-in Streamable HTTP MCP endpoint (`CasCap:McpConfig:Enabled`, default off) serving the read-only `get_agentizr_status` tool: service name, version, commit and UTC time only. Requests carrying an `Origin` header are rejected with 403; when disabled the route does not exist |
 | `POST /api/v1/agents/{agentName}/runs` | Executes one tenant-scoped agent turn |
 | `POST /api/v1/agents/{agentName}/runs/stream` | Streams live execution events followed by the final response |
+| `POST /api/v1/agents/{agentName}/knowledge/search` | Explicit bounded Azure-query search of the agent's configured current document corpus; separate `agent.knowledge.search` permission |
+| `GET /api/v1/agents/{agentName}/knowledge/sources/{indexJobId}/chunks/{ordinal}` | Reauthorizes one current source passage without inference; same knowledge permission |
 | `GET/DELETE /api/v1/agents/{agentName}/sessions/{sessionId}` | Inspects or resets active session state |
 | `POST /api/v1/agents/{agentName}/sessions/{sessionId}/compact` | Compacts active session history |
 | `PUT/DELETE /api/v1/agents/{agentName}/sessions/{sessionId}/snapshots/{snapshotName}` | Saves or deletes a named snapshot |

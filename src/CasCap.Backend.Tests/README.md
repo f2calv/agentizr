@@ -31,6 +31,8 @@ Document and logging cases run in both configurations; Release proves the publis
 | `DocumentEmbeddingPacingTests` | 6 | 25 |
 | `DocumentIndexingConfigTests` | 6 | 51 |
 | `DocumentIndexingPlanTests` | 6 | 34 |
+| `DocumentKnowledgeTests` | 5 | 24 |
+| `DocumentKnowledgeClientTests` | 2 | 9 |
 | `DocumentIngestionAdmissionTests` | 9 | 20 |
 | `DocumentIngestionConfigTests` | 7 | 23 |
 | `DocumentLlamaCppEmbeddingProviderTests` | 2 | 19 |

@@ -48,7 +48,7 @@ limits.
 
 | Class | Method count | Test-case count | Description |
 | --- | ---: | ---: | --- |
-| `EndpointSmokeTests` | 6 | 10 | Verifies lifecycle timeout binding, status/health endpoints, the frontend shell without capturing API routes, disabled MCP, all 19 named runtime controller actions and inferred API response metadata |
+| `EndpointSmokeTests` | 6 | 10 | Verifies lifecycle timeout binding, status/health endpoints, the frontend shell without capturing API routes, disabled MCP, all 23 named runtime controller actions and inferred API response metadata |
 | `AdministrationApiTests` | 7 | 8 | Verifies open-Development app, agent and provider discovery including the built-in Azure OpenAI preparation definition, guarded activation conflicts, enum names, editor drafts that keep unedited fields, required antiforgery tokens and redirect-free rejection of unknown apps |
 | `AdministrationDefinitionUiTests` | 5 | 9 | Static component rendering against synthetic HTTP responses verifies template discovery without mutations, selected-version actions, active pointers outside history, suggested versions and opt-in activation; typed-client checks cover hidden version collisions and lookup errors |
 | `DefinitionVersionSuggestionTests` | 2 | 7 | Verifies unused UTC date-and-revision suggestions, occupied revisions, gaps, custom identifiers and culture independence |
@@ -60,7 +60,7 @@ limits.
 | `RealtimeCallProtocolTests` | 4 | 4 | Against a fake Azure realtime endpoint: 404 without a `realtime` section, setup with the runtime credential and definition instructions, hang-up after lost control reported as `ControlLost`, and 404 for an unknown call |
 | `PostgresRealtimeCallStoreTests` | 4 | 4 | Against real PostgreSQL: lease renewal with usage, tenant-scoped end requests, one claimant among concurrent sweepers, an end through a non-owning registry, and a sweep that hangs up and is deleted after retention |
 | `AgentDefinitionAdministrationProtocolTests` | 13 | 23 | Verifies publication Location, evaluation/activation, rollback, deactivation, audit attribution, policy/credential rejection, conflicts and bounded query binding |
-| `TenantSecurityStartupTests` | 9 | 17 | Verifies anonymous rejection, policy separation on all runtime and administration controller actions, bearer-only machine policies, the setup page shown instead of an unusable frontend, required JWT/PostgreSQL and optional Redis in Production |
+| `TenantSecurityStartupTests` | 9 | 18 | Verifies anonymous rejection, policy separation on all runtime and administration controller actions, bearer-only machine policies including knowledge search, the setup page shown instead of an unusable frontend, required JWT/PostgreSQL and optional Redis in Production |
 | `AgentSessionConflictTests` | 1 | 8 | Verifies all session mutation routes return HTTP 409 on overlap, including streaming before headers |
 | `PostgresAgentStateTests` | 8 | 8 | Durable state/cache recovery, isolation, revisions, connection-loss fencing, two-host contention and real-operation HA metric privacy/balance |
 | `AgentRunHistoryTests` | 4 | 7 | Durable messages/tools, redaction/binary exclusion, success/failure/cancellation, interruption recovery, opt-in and archive preservation after reset |
@@ -423,6 +423,31 @@ management authorization, semantic/visual approval, embedding, activation or dep
 
 ### Durable Indexing And Native Vectors
 
+#### Protected Knowledge Retrieval
+
+| Class or partial suite | Methods | Expanded cases |
+| --- | ---: | ---: |
+| [DocumentKnowledgeProtocolTests](Tests/Integration/DocumentKnowledgeProtocolTests.cs) | 2 | 6 |
+| [PostgresAdministrationDocumentReviewTests knowledge cases](Tests/Integration/PostgresAdministrationDocumentReviewTests.Knowledge.cs) and [query cases](Tests/Integration/PostgresAdministrationDocumentReviewTests.KnowledgeQueries.cs) | 6 | 18 |
+
+Observed focused Release results: **94 host/fake-provider cases** passed, covering knowledge HTTP
+validation and disabled/no-store responses, endpoint metadata, bearer-policy separation and the
+Azure/Ollama/llama.cpp transport regressions. All **18 native retrieval cases** passed against
+isolated PostgreSQL databases: exact ranking, tenant/collection denial, exclusions, bounded source
+citations, seven revocation/drift cases, mutation fencing, reviewed A1/A2 filtering and six
+query-to-vector-store scenarios with fake Azure HTTP. The existing **29 native indexing cases**
+also passed. Separate Backend.Tests validation passed **134 offline cases**.
+
+The native query cases verify one short-query submission, zero submissions for over-budget,
+broader-level or empty-corpus requests, explicit provider failure and source revocation during
+inference without holding the mutation fence over HTTP. They call the service/store directly;
+enabled authenticated HTTP retrieval and live Azure inference remain separate acceptance gates.
+Debug host/test composition and retained net10.0 Release client/contracts builds passed with zero
+warnings/errors. Fixture-database cleanup returned zero matching databases, and the task-started
+PostgreSQL service was stopped without removing its volumes.
+
+#### Indexing And Provider Coverage
+
 The [native indexing cases](Tests/Integration/PostgresAdministrationDocumentReviewTests.Embedding.cs)
 exercise durable confirmation/idempotency, multi-batch staging without partial activation,
 write-once receipts, exact vector round-trips, tenant foreign keys, competing publication,
@@ -437,7 +462,8 @@ only synthetic receipt timestamps to avoid real minute-long waits; the competing
 uses the local-provider profile to isolate publication concurrency from Azure quota admission.
 The [Azure HTTP cases](Tests/Integration/DocumentEmbeddingHttpTests.cs) use synthetic credentials
 and a fake handler to check exact ARM/deployment/input bindings, API-key/Entra paths and one
-non-retried submission. Its five expanded cases (one method) cover success, 429, 503 and unknown
+non-retried submission. Its nine expanded cases (one method) cover document and short-query reuse,
+success, 429, 503 and unknown
 transport outcomes, with status/Retry-After diagnostics and response-body/credential exclusion.
 [Offline pacing tests](../CasCap.Backend.Tests/Tests/Unit/DocumentEmbeddingPacingTests.cs) cover
 deployment identity, timing, fixed-batch token ceilings, unchanged manifest identity and safe header

@@ -7,12 +7,13 @@ reviews and assessments survived refresh. A separately authorized Azure replacem
 job remains quarantined. The preferred self-hosted llama.cpp adapter and optional native Ollama
 adapter are implemented and offline-tested, not live GPU-accepted. Saved readiness does not authorize
 indexing. Device manuals remain blocked by the unimplemented verified visual-association gate.
-Protected retrieval, citations, model knowledge bindings and end-to-end answering remain outstanding.
+Protected Azure-query retrieval and source previews are implemented locally and default-disabled;
+rollout, answering-model knowledge bindings and end-to-end answering remain outstanding.
 Implementation progress does not change this ADR's Proposed decision status.
 Both build configurations now include the opt-in pipeline, using published Common 5.1.0 and Azure
 2.0.0 packages in Release. The deployment evidence remains Debug-specific; Release build support
 does not establish a rollout, live GPU acceptance or end-to-end answering.
-**Date:** 2026-11-05.
+**Date:** 2026-11-15.
 **Scope:** Blazor document management, Azure Blob/Event Grid ingestion and tenant-isolated RAG.
 **Canonical record:** This document. Related issues are historical context or implementation tracking,
 not independently maintained copies of this proposal.
@@ -2504,18 +2505,29 @@ details; [native Ollama constraints](document-rag-lifecycle.md#local-ollama-embe
 
 **Remaining delivery order:**
 
-1. **Complete the separately authorized GPU pilot.** Select/verify a single-model llama.cpp
-   embedding endpoint and immutable model/pooling contract; approve any model setup or chat-model
-   eviction explicitly. Deploy the tested adapter through an explicitly approved build variant, authorize one new exact manifest/budget,
-   verify all native receipts/vectors and publish to a separate profile/corpus while preserving
-   the Azure generation. Close out processing and report measured GPU memory/latency.
-2. **Implement protected retrieval.** Bind query embeddings to the selected stored profile,
-   enforce tenant/collection/current-eligibility constraints in exact pgvector search, and return
-   bounded passages with resolvable source/version/page citations. Prove excluded-chunk absence,
-   profile mismatch rejection and revocation/deletion behavior before adding ANN tuning.
-3. **Wire opt-in agent knowledge bindings.** Feed authorized passages to answering agents without
-   changing unbound agents. Verify cited answers and abstention, multi-turn/compaction behavior and
-   a retrieval/answer-quality comparison against the no-retrieval baseline.
+1. **Accept protected Azure retrieval live.** The local
+   [search implementation](../src/CasCap.Backend/Services/DocumentKnowledgeService.cs) reuses the
+   existing Azure embedding endpoint for one short query and performs fenced exact pgvector search
+   against current publications. Operator-owned agent/collection/document-CEFR bindings, protected
+   source previews and per-request bounds are implemented; no rollout or live query inference has
+   occurred. Complete the [retrieval acceptance](document-rag-lifecycle.md#protected-search-and-source-previews),
+   authorize the deployment and bounded live probes separately, and verify workload identity access.
+   The existing corpus requires no replacement merely to add query embeddings.
+   Local verification passed 134 offline, 94 host/fake-provider and 18 native retrieval cases;
+   29 existing native indexing cases also passed. Debug host composition and retained net10.0
+   client/contracts builds are clean. The
+   [validation evidence](../src/CasCap.App.Server.Tests/README.md#protected-knowledge-retrieval)
+   separates disabled/invalid HTTP and authorization-policy checks from direct-service native
+   search; enabled authenticated HTTP retrieval still requires acceptance.
+2. **Wire opt-in answering-model knowledge access.** Feed authorized passages to the realtime tutor
+   through explicitly allowlisted function execution; HTTP search registration alone does not add
+   a realtime tool. Use trusted learner level to narrow the operator's ceiling, retrieve at topic
+   boundaries rather than every prompt, and manage passage lifetime across turns/level changes.
+   Verify citations, abstention and quality/latency against a no-retrieval baseline.
+3. **Gate broader enablement on aggregate budgets.** Per-request query limits and no automatic
+   replay do not cap repeated requests across replicas or clients. The owning
+   [service TODO](../src/CasCap.Backend/Services/DocumentKnowledgeService.cs) defers a durable allowance
+   rather than introducing an unapproved query ledger/schema migration in this slice.
 4. **Accept each consumer's gates.** Complete the Phase 3 language-level/lesson validation for
    learning use cases. Device manuals additionally require verified figure/caption/source
    associations and preparation fidelity; an Azure or GPU embedding success cannot bypass them.
@@ -2527,6 +2539,12 @@ details; [native Ollama constraints](document-rag-lifecycle.md#local-ollama-embe
 The Phase 3 checklist below remains the detailed consumer acceptance authority.
 [Azure AI Search and onboarding automation](#later-gates-optional-search-target-and-bootstrap)
 are later optional lanes, not prerequisites for the immediate pgvector pilot.
+The separately authorized GPU pilot is also optional for the immediate Azure-backed tutor.
+It still requires model/pooling/digest verification, explicit model setup/eviction authorization,
+separate corpus/profile and budget, native receipt acceptance and measured GPU memory/latency.
+Neither protected retrieval nor grounding guarantees that every spoken word meets lexical/grammar
+policy: the current direct realtime audio path needs a separate delivery design for preventive
+output validation before the strict tutoring gate can pass.
 Audited reconciliation tooling remains deliberately deferred under the owning
 [`ReconciliationRequired` TODO](../src/CasCap.Backend/Constants/DocumentIndexingStates.cs);
 do not reset or replay the original uncertain job to accelerate these steps.

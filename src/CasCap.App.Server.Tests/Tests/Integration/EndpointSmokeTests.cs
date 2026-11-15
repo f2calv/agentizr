@@ -86,6 +86,7 @@ public sealed class EndpointSmokeTests(AgentizrWebApplicationFactory factory)
             "GetActiveAgentDefinitionV1", "GetAgentDefinitionVersionV1", "EvaluateAgentDefinitionV1",
             "ActivateAgentDefinitionV1", "GetAgentDefinitionActivationHistoryV1", "DeactivateAgentDefinitionV1",
             "CreateRealtimeCallV1", "EndRealtimeCallV1",
+            "SearchAgentKnowledgeV1", "GetAgentKnowledgePassageV1",
         ];
 
         Assert.Equal(expectedNames.Order(StringComparer.Ordinal),
@@ -134,6 +135,8 @@ public sealed class EndpointSmokeTests(AgentizrWebApplicationFactory factory)
             ("DeactivateAgentDefinitionV1", 204, typeof(void)),
             ("CreateRealtimeCallV1", 201, typeof(RealtimeCallResponse)),
             ("EndRealtimeCallV1", 200, typeof(RealtimeCallSummaryResponse)),
+            ("SearchAgentKnowledgeV1", 200, typeof(SearchKnowledgeResponse)),
+            ("GetAgentKnowledgePassageV1", 200, typeof(KnowledgePassageResponse)),
         ];
         string[] noNotFound =
         [
