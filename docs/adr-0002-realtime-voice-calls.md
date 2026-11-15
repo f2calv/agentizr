@@ -2,8 +2,9 @@
 
 **Status:** Accepted; implemented and validated live, release pending.
 **Date:** 2026-11-10; updated 2026-11-15.
-The bounded A1 knowledge extension is implemented and offline-tested locally, not deployed or
-live-accepted; its separate gates remain in [ADR 0001](adr-0001-centralized-document-rag.md).
+The bounded A1 knowledge extension is implemented, offline-tested and deployed in the
+default-disabled Debug image, not live-accepted; its separate gates remain in
+[ADR 0001](adr-0001-centralized-document-rag.md).
 **Scope:** Live speech-to-speech agent calls: agent definition, call setup, server-side session
 control, tool execution, authorization and call lifecycle. Client media capture and playback belong
 to consuming applications.

@@ -393,9 +393,10 @@ The [native migration](../CasCap.Data/Migrations/20261030121900_DocumentVectorIn
 installed `vector` extension and adds durable jobs, receipts, publication pointers and a SQL-owned
 vector table without an EF vector plugin. Apply it externally and upgrade all source writers
 before enabling processing. The Azure slice has bounded live storage/publication acceptance;
-the local adapters are offline-tested, not deployed. There is no indexing browser control or
+the self-hosted adapters are offline-tested, without live GPU acceptance. There is no indexing browser control or
 general answering-model knowledge binding. Protected search and the bounded A1 realtime pilot
-are implemented locally, not deployed.
+are deployed in the default-disabled Debug image. Enabled retrieval and grounded voice acceptance
+remain pending; the image rollout does not grant inference or change the active tutor definition.
 See the [lifecycle contract](../../docs/document-rag-lifecycle.md#local-durable-indexing-implementation)
 for policy authority, receipts, publication conflicts, retirement and logical-versus-financial
 budget limits.

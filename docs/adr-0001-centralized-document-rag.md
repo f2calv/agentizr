@@ -7,9 +7,9 @@ reviews and assessments survived refresh. A separately authorized Azure replacem
 job remains quarantined. The preferred self-hosted llama.cpp adapter and optional native Ollama
 adapter are implemented and offline-tested, not live GPU-accepted. Saved readiness does not authorize
 indexing. Device manuals remain blocked by the unimplemented verified visual-association gate.
-Protected Azure-query retrieval and source previews are implemented locally and default-disabled;
-the bounded A1 realtime knowledge tool is locally wired and offline-tested. Rollout, general
-answering-model knowledge bindings and end-to-end answering remain outstanding.
+Protected Azure-query retrieval, source previews and the bounded A1 realtime knowledge tool are
+implemented, offline-tested and deployed in the default-disabled Debug image. Enabled retrieval,
+general answering-model knowledge bindings and end-to-end answering remain outstanding.
 Implementation progress does not change this ADR's Proposed decision status.
 Both build configurations now include the opt-in pipeline, using published Common 5.1.0 and Azure
 2.0.0 packages in Release. The deployment evidence remains Debug-specific; Release build support
@@ -2506,13 +2506,21 @@ details; [native Ollama constraints](document-rag-lifecycle.md#local-ollama-embe
 
 **Remaining delivery order:**
 
+The 2026-11-15 Debug source-reference rollout is complete: both replicas use the expected
+digest-qualified image, the deployment controller reports Healthy/Synced with a successful
+operation, and internal health returned HTTP 200 `Healthy` before and after stabilization.
+Both replicas had zero restarts and no recent error/fatal events. Read-only database checks still
+show 65 published vectors, the unchanged active tutor with eight tools and no knowledge tool,
+and the original uncertain job quarantined. No inference or knowledge enablement occurred.
+See the [pilot handoff](document-rag-lifecycle.md#bounded-a1-realtime-pilot).
+
 1. **Accept protected Azure retrieval live.** The local
    [search implementation](../src/CasCap.Backend/Services/DocumentKnowledgeService.cs) reuses the
    existing Azure embedding endpoint for one short query and performs fenced exact pgvector search
    against current publications. Operator-owned agent/collection/document-CEFR bindings, protected
-   source previews and per-request bounds are implemented; no rollout or live query inference has
-   occurred. Complete the [retrieval acceptance](document-rag-lifecycle.md#protected-search-and-source-previews),
-   authorize the deployment and bounded live probes separately, and verify workload identity access.
+   source previews and per-request bounds are deployed but remain disabled; no live query inference
+   has occurred. Complete the [retrieval acceptance](document-rag-lifecycle.md#protected-search-and-source-previews),
+   authorize enablement and bounded live probes separately, and verify application identity access.
    The existing corpus requires no replacement merely to add query embeddings.
    Local verification passed 134 offline, 94 host/fake-provider and 18 native retrieval cases;
    29 existing native indexing cases also passed. Debug host composition and retained net10.0
@@ -2528,9 +2536,14 @@ details; [native Ollama constraints](document-rag-lifecycle.md#local-ollama-embe
    cited sources. Local validation passed 76 offline and 39 host cases, including the actual
    receive/dispatch/output loop with a scripted WebSocket; no live voice or embedding calls ran.
    The selected fixed A1 ceiling deliberately avoids trusting the model-writable learner estimate.
-   Separately approve deployment, identity scope/consent and an opted-in definition, then verify
+   The default-disabled code rollout is complete. Separately approve identity scope/consent,
+   consumer token-scope acquisition, operator binding and an opted-in definition, then verify
    citations, abstention, context disposal and quality/latency against a no-retrieval baseline.
    Trusted consumer-owned learner policy and broader text/delegated knowledge bindings remain open.
+   The subsequent identity apply registered and consented both delegated scopes and converged
+   without further changes. Local MAUI scope-list handling is implemented; installation, sign-in
+   and actual dual-permission token claims remain unverified. Operator binding and tutor activation
+   are still pending.
 3. **Gate broader enablement on aggregate budgets.** Per-request query limits and no automatic
    replay do not cap repeated requests across replicas or clients. The owning
    [service TODO](../src/CasCap.Backend/Services/DocumentKnowledgeService.cs) defers a durable allowance
@@ -2561,6 +2574,9 @@ do not reset or replay the original uncertain job to accelerate these steps.
 - [x] Locally wire and offline-verify the bounded A1 realtime pilot: separate permission and opt-ins,
   one retrieval attempt per call, cited evidence delivery, turn-boundary reauthorization and fresh
   calls for topic/level changes. This is not live grounding or strict output-policy acceptance.
+- [x] Deploy the Debug code with knowledge still disabled and verify both replicas at the expected
+  image digest, controller convergence, stabilized health and unchanged corpus/tutor authority.
+  This does not approve identity grants, client changes, tool activation or live inference.
 - [ ] Agents in both initial scenarios answer questions requiring indexed evidence, cite the correct
   document/version/page and abstain on unsupported questions. Measure answer quality and prompt
   tokens/latency against the no-retrieval baseline; reject irrelevant context stuffing (R4, R5).

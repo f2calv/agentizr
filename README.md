@@ -61,7 +61,8 @@ The opt-in document-ingestion/review pipeline is also available in Release using
 5.1.0 and Azure 2.0.0 dependencies. Processing and indexing remain disabled by default; this build
 support does not complete live GPU acceptance or live RAG acceptance. Protected search and a bounded,
 opt-in [A1 realtime knowledge pilot](docs/document-rag-lifecycle.md#bounded-a1-realtime-pilot)
-are implemented locally, not deployed.
+are deployed in the default-disabled Debug image; enabled retrieval and live grounded speech
+remain unaccepted.
 Before running an agent, add the [Development configuration](src/CasCap.Backend/README.md#configuration-examples)
 and start its model provider. A health response does not verify provider, database or Redis readiness.
 Outside Development, PostgreSQL and JWT tenancy are mandatory; Redis is an optional cache.
