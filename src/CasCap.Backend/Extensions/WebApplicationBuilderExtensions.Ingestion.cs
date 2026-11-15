@@ -46,8 +46,7 @@ public static partial class WebApplicationBuilderExtensions
         builder.Services.AddScoped<DocumentPreparationMarkdownStore>();
         builder.Services.AddScoped<DocumentPreparationOperationStore>();
         builder.Services.AddScoped<IDocumentPreparationProvider, DocumentPreparationProvider>();
-        if (!runtimeEnabled)
-            AddDocumentEmbeddingTransport(builder);
+        AddDocumentEmbeddingTransport(builder);
         builder.Services.TryAddScoped<DocumentIndexingStore>();
         builder.Services.AddScoped<DocumentIndexingProcessingService>();
         builder.Services.AddScoped<HybridDocumentProcessor>();
