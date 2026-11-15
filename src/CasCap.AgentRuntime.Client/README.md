@@ -100,6 +100,21 @@ Do not automatically retry interrupted runs or streams: a provider or tool may a
 performed work. A stream that fails after its HTTP headers are sent terminates without a final
 response rather than changing its status code.
 
+## Document Knowledge
+
+The current source adds `SearchKnowledgeAsync` and `GetKnowledgePassageAsync` to
+[`IAgentRuntimeClient`](https://github.com/f2calv/agentizr/blob/main/src/CasCap.AgentRuntime.Client/Abstractions/IAgentRuntimeClient.cs). These require a caller-owned token
+with `agent.knowledge.search`, not merely `agent.execute` or `agent.realtime`. They return null on
+404 and throw for other non-success responses.
+
+Search sends one short query to the server's existing Azure embedding deployment only when an
+eligible corpus exists; it is not automatically invoked by `RunAgentAsync` or every prompt.
+Source previews do not invoke a model. Do not configure automatic retries for search: an uncertain
+embedding call may already have incurred usage. Tenant, collection and profile are server-owned.
+Responses contain bounded untrusted passages with protected generation/chunk references.
+The [retrieval contract](https://github.com/f2calv/agentizr/blob/main/docs/document-rag-lifecycle.md#protected-search-and-source-previews)
+describes limits and pending rollout/consumer gates. These additions are not yet a published package.
+
 ## Definition Administration
 
 Register [`IAgentDefinitionAdminClient`](https://github.com/f2calv/agentizr/blob/13aa4a19180b9dbd0f14fa08fbf95f67039b69f0/src/CasCap.AgentRuntime.Client/Abstractions/IAgentDefinitionAdminClient.cs)

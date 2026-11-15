@@ -1,5 +1,7 @@
 using CasCap.AgentRuntime.Contracts.V1;
+using CasCap.Constants;
 using Microsoft.Extensions.AI;
+using System.Security.Claims;
 
 namespace CasCap.Services;
 
@@ -47,13 +49,29 @@ public sealed class RealtimeCallService
     /// Starts a call from a client SDP offer, or returns <see langword="null"/> when the agent is unavailable or
     /// offers no realtime calls.
     /// </summary>
-    public async ValueTask<RealtimeCallOutcome?> CreateAsync(string agentName, string sdpOffer, CancellationToken cancellationToken)
+    public async ValueTask<RealtimeCallOutcome?> CreateAsync(
+        string agentName, string sdpOffer, CancellationToken cancellationToken, ClaimsPrincipal? caller = null,
+        Guid? conversationId = null, bool retainConversation = false)
     {
         var definition = await definitionStore.GetAsync(agentName, cancellationToken);
         if (definition?.Realtime is not { } realtime)
             return null;
+        RealtimeKnowledgeSession? knowledge = null;
+        if (realtime.Tools.Contains(RealtimeKnowledgeSession.ToolName, StringComparer.Ordinal))
+        {
+            if (caller?.Identity?.IsAuthenticated is not true
+                || !AgentRuntimeAuthorization.HasPermission(caller, AgentRuntimePermissions.KnowledgeSearch))
+                return new() { IsKnowledgeForbidden = true };
+            knowledge = serviceProvider.GetRequiredService<RealtimeKnowledgeSessionFactory>()
+                .Create(tenantContext.TenantId, definition);
+            if (knowledge is null)
+                return new() { IsProviderUnavailable = true };
+        }
         if (!registry.HasCapacity)
             return new RealtimeCallOutcome { IsAtCapacity = true };
+        if ((conversationId is not null && !retainConversation)
+            || (retainConversation && realtime.Tools.Contains(RealtimeKnowledgeSession.ToolName, StringComparer.Ordinal)))
+            return new() { IsConversationUnavailable = true };
 
         var logger = loggerFactory.CreateLogger<RealtimeCallService>();
         var credential = await RealtimeProviderCredential.ResolveAsync(credentialStore, realtime.Provider, cancellationToken);
@@ -69,11 +87,20 @@ public sealed class RealtimeCallService
         var transferred = false;
         try
         {
-            var tools = await LoadToolsAsync(definition, realtime, toolLeases, logger, cancellationToken);
+            RealtimeConversationLease? conversation = null;
+            if (retainConversation)
+            {
+                conversation = await serviceProvider.GetRequiredService<RealtimeConversationStore>().OpenAsync(
+                    tenantContext.TenantId, agentName, definition.Version, caller, conversationId, cancellationToken);
+                if (conversation is null)
+                    return new() { IsConversationUnavailable = true };
+                toolLeases.Add(conversation);
+            }
+            var tools = await LoadToolsAsync(definition, realtime, toolLeases, logger, cancellationToken, knowledge);
             var secret = await azure.CreateClientSecretAsync(
                 realtime.Endpoint,
                 credential,
-                RealtimeSessionConfiguration.Build(definition, tools, includeModel: true),
+                RealtimeSessionConfiguration.Build(definition, tools, includeModel: true, knowledge),
                 cancellationToken);
             var (sdpAnswer, providerCallId) = await azure.CreateCallAsync(realtime.Endpoint, secret, sdpOffer, cancellationToken);
 
@@ -87,8 +114,11 @@ public sealed class RealtimeCallService
                     Endpoint = realtime.Endpoint,
                     ProviderCallId = providerCallId,
                     Credential = credential,
-                    Session = RealtimeSessionConfiguration.Build(definition, tools, includeModel: false),
-                    MaximumDuration = TimeSpan.FromMinutes(realtime.MaximumDurationMinutes),
+                    Session = RealtimeSessionConfiguration.Build(definition, tools, includeModel: false, knowledge),
+                    MaximumDuration = knowledge is not null && knowledge.MaximumDuration < TimeSpan.FromMinutes(realtime.MaximumDurationMinutes)
+                        ? knowledge.MaximumDuration : TimeSpan.FromMinutes(realtime.MaximumDurationMinutes),
+                    Knowledge = knowledge,
+                    Conversation = conversation,
                     Pricing = runtimeConfig.Value.RealtimePricing.GetValueOrDefault(realtime.Deployment),
                 },
                 azure,
@@ -111,9 +141,26 @@ public sealed class RealtimeCallService
                 await HangUpUncontrolledAsync(call);
                 return new RealtimeCallOutcome { IsAtCapacity = true };
             }
+            if (conversation is not null)
+            {
+                try
+                {
+                    await call.Ready.WaitAsync(TimeSpan.FromSeconds(20), cancellationToken);
+                }
+                catch
+                {
+                    await call.EndAsync(RealtimeCallEndReason.ControlLost);
+                    throw;
+                }
+            }
             return new RealtimeCallOutcome
             {
-                Response = new RealtimeCallResponse { CallId = call.CallId, SdpAnswer = sdpAnswer },
+                Response = new RealtimeCallResponse
+                {
+                    CallId = call.CallId,
+                    SdpAnswer = sdpAnswer,
+                    ConversationId = conversation?.Id,
+                },
             };
         }
         catch (HttpRequestException ex)
@@ -121,6 +168,12 @@ public sealed class RealtimeCallService
             if (logger.IsEnabled(LogLevel.Warning))
                 logger.LogWarning(ex, "{ClassName} could not start a realtime call", nameof(RealtimeCallService));
             return new RealtimeCallOutcome { IsProviderUnavailable = true };
+        }
+        catch (TimeoutException ex)
+        {
+            if (logger.IsEnabled(LogLevel.Warning))
+                logger.LogWarning(ex, "{ClassName} resumed call did not become ready", nameof(RealtimeCallService));
+            return new() { IsProviderUnavailable = true };
         }
         finally
         {
@@ -155,12 +208,15 @@ public sealed class RealtimeCallService
         AgentRealtimeConfig realtime,
         List<IAsyncDisposable> toolLeases,
         ILogger logger,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        RealtimeKnowledgeSession? knowledge = null)
     {
         var allowed = realtime.Tools.ToHashSet(StringComparer.Ordinal);
         var tools = new List<AITool>();
         if (allowed.Count == 0)
             return [];
+        if (knowledge is not null)
+            tools.Add(knowledge.CreateTool());
 
         // Built-ins run after the setup request ends, so they bind the tenant now rather than reading the request.
         if (definition.Agent.IncludeRuntimeContext)
@@ -171,7 +227,7 @@ public sealed class RealtimeCallService
                 tools, await builtIns.CreateAsync(definition, cancellationToken), "runtime built-ins", logger);
         }
 
-        // A call can use only tools the text agent itself exposes, narrowed further by the realtime allowlist.
+        // Remote tools must also be exposed by the text agent; call-owned knowledge has its own operator grant.
         foreach (var source in definition.Agent.Tools.Where(source => source.Endpoint is not null))
         {
             CommonAgentExecutor.AddUniqueTools(

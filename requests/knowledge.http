@@ -1,0 +1,24 @@
+### Agentizr protected document knowledge
+### Requires agent.knowledge.search, a trusted tenant mapping and an explicitly enabled agent binding.
+
+@baseUrl = {{$dotenv AGENTIZR_BASE_URL}}
+@token = {{$dotenv AGENTIZR_KNOWLEDGE_TOKEN}}
+@agentName = {{$dotenv AGENTIZR_AGENT_NAME}}
+@indexJobId = {{$dotenv AGENTIZR_KNOWLEDGE_INDEX_JOB_ID}}
+@ordinal = 1
+
+### Explicit semantic search - expected 200, 400 invalid input, 404 unavailable, 502 provider failure or 504 timeout
+# @name searchKnowledge
+# @note Sends this short query to the configured Azure embedding provider and can incur usage. Approve inference first; never automatically retry an uncertain call.
+POST {{baseUrl}}/api/v1/agents/{{agentName}}/knowledge/search HTTP/1.1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{"query":"Everyday shopping vocabulary","maximumResults":3,"maximumCefrLevel":"A1"}
+
+### Reauthorize a source passage - expected 200, or 404 after withdrawal/replacement
+# @name getKnowledgePassage
+GET {{baseUrl}}/api/v1/agents/{{agentName}}/knowledge/sources/{{indexJobId}}/chunks/{{ordinal}} HTTP/1.1
+Authorization: Bearer {{token}}
+Accept: application/json

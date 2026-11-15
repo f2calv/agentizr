@@ -10,7 +10,9 @@ internal static class RealtimeSessionConfiguration
     /// <param name="definition">The active definition; its inline instructions become the session instructions.</param>
     /// <param name="tools">The allowlisted tools the call may execute.</param>
     /// <param name="includeModel">Whether to include the deployment, which only a client secret may set.</param>
-    public static JsonObject Build(AgentDefinition definition, IReadOnlyCollection<AIFunction> tools, bool includeModel)
+    /// <param name="knowledge">The explicitly granted call-owned evidence boundary, or null for unchanged calls.</param>
+    public static JsonObject Build(
+        AgentDefinition definition, IReadOnlyCollection<AIFunction> tools, bool includeModel, RealtimeKnowledgeSession? knowledge = null)
     {
         var realtime = definition.Realtime
             ?? throw new InvalidOperationException($"Agent '{definition.Name}' has no realtime configuration.");
@@ -36,7 +38,8 @@ internal static class RealtimeSessionConfiguration
         var session = new JsonObject { ["type"] = "realtime" };
         if (includeModel)
             session["model"] = realtime.Deployment;
-        session["instructions"] = definition.Agent.Instructions;
+        session["instructions"] = knowledge is null ? definition.Agent.Instructions
+            : definition.Agent.Instructions + "\n\n" + RealtimeKnowledgeSession.Instructions;
         session["output_modalities"] = new JsonArray("audio");
         session["audio"] = new JsonObject
         {

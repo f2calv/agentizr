@@ -118,6 +118,7 @@ public static partial class WebApplicationBuilderExtensions
         else
             builder.Services.AddSingleton<IRealtimeCallStore, InMemoryRealtimeCallStore>();
         builder.Services.AddSingleton<RealtimeCallRegistry>();
+        builder.Services.AddSingleton<RealtimeConversationStore>();
         builder.Services.AddHostedService(services => services.GetRequiredService<RealtimeCallRegistry>());
         builder.Services.AddScoped(services => new RealtimeCallService(
             services.GetRequiredService<IAgentDefinitionStore>(),

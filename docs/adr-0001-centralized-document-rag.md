@@ -7,12 +7,16 @@ reviews and assessments survived refresh. A separately authorized Azure replacem
 job remains quarantined. The preferred self-hosted llama.cpp adapter and optional native Ollama
 adapter are implemented and offline-tested, not live GPU-accepted. Saved readiness does not authorize
 indexing. Device manuals remain blocked by the unimplemented verified visual-association gate.
-Protected retrieval, citations, model knowledge bindings and end-to-end answering remain outstanding.
+Protected Azure-query retrieval, source previews and the bounded A1 realtime knowledge tool are
+implemented, offline-tested and deployed, with one explicitly enabled A1 pilot. One delegated
+retrieval and an operator-reported phone lesson succeeded; broader live grounding/abstention,
+revocation, cost evaluation and general answering-model knowledge bindings remain outstanding.
+Tracked defaults remain disabled.
 Implementation progress does not change this ADR's Proposed decision status.
 Both build configurations now include the opt-in pipeline, using published Common 5.1.0 and Azure
 2.0.0 packages in Release. The deployment evidence remains Debug-specific; Release build support
-does not establish a rollout, live GPU acceptance or end-to-end answering.
-**Date:** 2026-11-05.
+does not establish Release deployment or broader end-to-end acceptance.
+**Date:** 2026-11-15.
 **Scope:** Blazor document management, Azure Blob/Event Grid ingestion and tenant-isolated RAG.
 **Canonical record:** This document. Related issues are historical context or implementation tracking,
 not independently maintained copies of this proposal.
@@ -2504,18 +2508,55 @@ details; [native Ollama constraints](document-rag-lifecycle.md#local-ollama-embe
 
 **Remaining delivery order:**
 
-1. **Complete the separately authorized GPU pilot.** Select/verify a single-model llama.cpp
-   embedding endpoint and immutable model/pooling contract; approve any model setup or chat-model
-   eviction explicitly. Deploy the tested adapter through an explicitly approved build variant, authorize one new exact manifest/budget,
-   verify all native receipts/vectors and publish to a separate profile/corpus while preserving
-   the Azure generation. Close out processing and report measured GPU memory/latency.
-2. **Implement protected retrieval.** Bind query embeddings to the selected stored profile,
-   enforce tenant/collection/current-eligibility constraints in exact pgvector search, and return
-   bounded passages with resolvable source/version/page citations. Prove excluded-chunk absence,
-   profile mismatch rejection and revocation/deletion behavior before adding ANN tuning.
-3. **Wire opt-in agent knowledge bindings.** Feed authorized passages to answering agents without
-   changing unbound agents. Verify cited answers and abstention, multi-turn/compaction behavior and
-   a retrieval/answer-quality comparison against the no-retrieval baseline.
+The 2026-11-15 Debug rollout and subsequent config-only pilot enablement are complete, using the
+same image. Both replicas were healthy and ready; the deployment controller reported
+Healthy/Synced with a successful operation. The corpus remains the original 65 published vectors;
+no re-embedding occurred and the original uncertain job remains quarantined. The operator binding
+now permits A1 retrieval with a 128-token query ceiling and a ten-minute call cap.
+The active immutable tutor definition is `2026-11-15.2`, retaining `gpt-realtime` and all nine tools.
+See the [pilot handoff](document-rag-lifecycle.md#bounded-a1-realtime-pilot).
+
+1. **Extend bounded retrieval acceptance.** The
+   [search implementation](../src/CasCap.Backend/Services/DocumentKnowledgeService.cs) reuses the
+   existing Azure embedding endpoint for one short query and performs fenced exact pgvector search
+   against current publications. Operator-owned agent/collection/document-CEFR bindings, protected
+   source previews and per-request bounds are deployed and enabled for the pilot. A delegated
+   request with both permissions verified in memory returned HTTP 200 with three A1 passages;
+   all three protected previews matched exactly. Anonymous access returned HTTP 401.
+   Native embedding usage was four input tokens and the measured request took 7,377 ms.
+   Broader [retrieval acceptance](document-rag-lifecycle.md#protected-search-and-source-previews)
+   and relevance/latency evaluation remain incomplete; further live probes need separate authorization.
+   The existing corpus requires no replacement merely to add query embeddings.
+   Local verification passed 134 offline, 94 host/fake-provider and 18 native retrieval cases;
+   29 existing native indexing cases also passed. Debug host composition and retained net10.0
+   client/contracts builds are clean. The
+   [validation evidence](../src/CasCap.App.Server.Tests/README.md#protected-knowledge-retrieval)
+   separates disabled/invalid HTTP and authorization-policy checks from direct-service native
+   search; the subsequent bounded live request does not replace those cases or establish broad acceptance.
+2. **Extend bounded A1 voice acceptance.** The
+   [pilot](document-rag-lifecycle.md#bounded-a1-realtime-pilot) is wired through explicit
+   operator/definition opt-ins and the caller's additional knowledge permission. It allows one
+   short-topic retrieval per duration-bounded call, reuses evidence across turns and requires a
+   new call for topic/level changes. Turn-boundary checks reject revoked bindings, definitions and
+   cited sources. Local validation passed 76 offline and 39 host cases, including the actual
+   receive/dispatch/output loop with a scripted WebSocket; those tests used no live inference.
+   The selected fixed A1 ceiling deliberately avoids trusting the model-writable learner estimate.
+   Identity scope/consent, bounded delegated retrieval, operator binding and definition activation
+   are complete. The operator reported a successful phone lesson with a source-page citation.
+   Definition `2026-11-15.2` changes only citation instructions: no unsolicited source details in
+   normal tutoring; provide the accurate physical PDF page on an explicit source request.
+   Publication, activation and active-version read-back are complete; the changed spoken citation
+   behaviour still needs a fresh-call check. Prompt instructions are not an output-enforcement guarantee.
+   Verify abstention, revocation, replay denial, context disposal and quality/cost/latency against
+   a no-retrieval baseline before broader acceptance.
+   Trusted consumer-owned learner policy and broader text/delegated knowledge bindings remain open.
+   MAUI scope-list handling is implemented. Both delegated permissions were checked in memory for
+   the retrieval probe; no tokens or claims payloads are recorded here. Knowledge-enabled calls
+   remain excluded from durable conversation retention and true resume.
+3. **Gate broader enablement on aggregate budgets.** Per-request query limits and no automatic
+   replay do not cap repeated requests across replicas or clients. The owning
+   [service TODO](../src/CasCap.Backend/Services/DocumentKnowledgeService.cs) defers a durable allowance
+   rather than introducing an unapproved query ledger/schema migration in this slice.
 4. **Accept each consumer's gates.** Complete the Phase 3 language-level/lesson validation for
    learning use cases. Device manuals additionally require verified figure/caption/source
    associations and preparation fidelity; an Azure or GPU embedding success cannot bypass them.
@@ -2527,12 +2568,27 @@ details; [native Ollama constraints](document-rag-lifecycle.md#local-ollama-embe
 The Phase 3 checklist below remains the detailed consumer acceptance authority.
 [Azure AI Search and onboarding automation](#later-gates-optional-search-target-and-bootstrap)
 are later optional lanes, not prerequisites for the immediate pgvector pilot.
+The separately authorized GPU pilot is also optional for the immediate Azure-backed tutor.
+It still requires model/pooling/digest verification, explicit model setup/eviction authorization,
+separate corpus/profile and budget, native receipt acceptance and measured GPU memory/latency.
+Neither protected retrieval nor grounding guarantees that every spoken word meets lexical/grammar
+policy: the current direct realtime audio path needs a separate delivery design for preventive
+output validation before the strict tutoring gate can pass.
 Audited reconciliation tooling remains deliberately deferred under the owning
 [`ReconciliationRequired` TODO](../src/CasCap.Backend/Constants/DocumentIndexingStates.cs);
 do not reset or replay the original uncertain job to accelerate these steps.
 
 ### Phase 3: Integrate Agents And Onboard Consumers
 
+- [x] Locally wire and offline-verify the bounded A1 realtime pilot: separate permission and opt-ins,
+  one retrieval attempt per call, cited evidence delivery, turn-boundary reauthorization and fresh
+  calls for topic/level changes. This is not live grounding or strict output-policy acceptance.
+- [x] Deploy the Debug code with knowledge still disabled and verify both replicas at the expected
+  image digest, controller convergence, stabilized health and unchanged corpus/tutor authority.
+  This does not approve identity grants, client changes, tool activation or live inference.
+- [x] Subsequently enable one authorized A1 binding, verify one delegated retrieval and three
+  matching protected previews, and activate the nine-tool tutor without re-embedding.
+  The operator reported a successful phone lesson; this is bounded smoke evidence, not exhaustive acceptance.
 - [ ] Agents in both initial scenarios answer questions requiring indexed evidence, cite the correct
   document/version/page and abstain on unsupported questions. Measure answer quality and prompt
   tokens/latency against the no-retrieval baseline; reject irrelevant context stuffing (R4, R5).

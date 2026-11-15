@@ -10,6 +10,16 @@ internal sealed partial class DocumentChunkingService
     private readonly Lazy<TiktokenTokenizer> _tokenizer = new(() =>
         TiktokenTokenizer.CreateForEncoding(DocumentPreparationFormats.Cl100kBase));
 
+    /// <summary>Counts a short query using the same pinned tokenizer as the reviewed document inputs.</summary>
+    internal int CountQueryTokens(string text, DocumentEmbeddingProfileConfig profile)
+    {
+        if (profile.TokenizerEncoding != DocumentPreparationFormats.Cl100kBase
+            || profile.TokenizerVersion != typeof(TiktokenTokenizer).Assembly.GetName().Version!.ToString())
+            throw new InvalidDataException("The query tokenizer does not match the published embedding profile.");
+        lock (_tokenizer.Value)
+            return _tokenizer.Value.CountTokens(text, considerNormalization: false);
+    }
+
     /// <summary>Validates per-call settings and captures the libraries and algorithm used by this process.</summary>
     public DocumentPreparationProfile GetProfile(DocumentChunkingConfig settings)
     {

@@ -36,6 +36,12 @@ public static class AgentRuntimeRoutes
     /// <summary>Gets the route for ending one realtime voice call.</summary>
     public const string RealtimeCall = "/realtime/calls/{callId}";
 
+    /// <summary>Gets the route for bounded semantic search of the agent's authorized document collection.</summary>
+    public const string KnowledgeSearch = "/knowledge/search";
+
+    /// <summary>Gets the protected preview route for a current published source passage.</summary>
+    public const string KnowledgePassage = "/knowledge/sources/{indexJobId}/chunks/{ordinal}";
+
     /// <summary>Gets the route for publishing and listing immutable definitions.</summary>
     public const string Definitions = "/definitions";
 

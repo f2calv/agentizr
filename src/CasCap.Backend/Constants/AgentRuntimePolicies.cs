@@ -17,4 +17,7 @@ public static class AgentRuntimePolicies
 
     /// <summary>Allows starting and ending brokered realtime voice calls.</summary>
     public const string Realtime = nameof(Realtime);
+
+    /// <summary>Allows searching and resolving the agent's explicitly bound document knowledge.</summary>
+    public const string KnowledgeSearch = nameof(KnowledgeSearch);
 }

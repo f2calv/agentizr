@@ -13,6 +13,7 @@ public static partial class WebApplicationBuilderExtensions
                 "Enabled document synchronization requires valid ingestion source configuration.");
         builder.Services.TryAddSingleton<DocumentChunkingService>();
         AddDocumentIndexingConfiguration(builder);
+        AddDocumentKnowledge(builder, databaseEnabled);
         builder.Services.AddScoped(services => new DocumentIndexingAdministrationService(
             services.GetRequiredService<DocumentReviewAdministrationService>(),
             services.GetRequiredService<IActorContext>(),

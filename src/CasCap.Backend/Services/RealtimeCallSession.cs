@@ -1,6 +1,7 @@
 using CasCap.AgentRuntime.Contracts.V1;
 using System.Buffers;
 using System.Diagnostics;
+using System.Data.Common;
 using System.Net.WebSockets;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -30,6 +31,9 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
     private long _startedAt;
     private int _endReason = NoReason;
     private bool _providerClosed;
+    private readonly TaskCompletionSource _ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly HashSet<string> _pendingReplay = [];
+    private bool _sessionApplied;
 
     /// <summary>Initializes a call that has been answered by the provider but is not yet controlled.</summary>
     public RealtimeCallSession(
@@ -60,6 +64,9 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
 
     /// <summary>Gets a task that completes once the call has ended and its summary is set.</summary>
     public Task Completion => _run;
+
+    /// <summary>Gets when the control connection has sent its configuration and any retained context.</summary>
+    public Task Ready => _ready.Task;
 
     /// <summary>Gets the token usage reported so far.</summary>
     public RealtimeCallUsage CurrentUsage => _meter.ToUsage();
@@ -108,11 +115,7 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
             var (name, value) = await _options.Credential.GetHeaderAsync(cancellationToken);
             socket.Options.SetRequestHeader(name, value);
             await socket.ConnectAsync(AzureRealtimeClient.GetControlUri(_options.Endpoint, _options.ProviderCallId), cancellationToken);
-            await SendAsync(socket, new JsonObject
-            {
-                ["type"] = "session.update",
-                ["session"] = _options.Session.DeepClone(),
-            }, cancellationToken);
+            await InitializeAsync(socket, cancellationToken);
             if (_logger.IsEnabled(LogLevel.Information))
                 _logger.LogInformation("{ClassName} controls a realtime call", nameof(RealtimeCallSession));
             await ReceiveAsync(socket, cancellationToken);
@@ -123,7 +126,8 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
         {
             // Ended on request, at the maximum duration or on shutdown; the reason is already recorded.
         }
-        catch (Exception ex) when (ex is WebSocketException or HttpRequestException or InvalidOperationException or JsonException)
+        catch (Exception ex) when (ex is WebSocketException or HttpRequestException or InvalidOperationException
+            or JsonException or DbException)
         {
             Interlocked.CompareExchange(ref _endReason, (int)RealtimeCallEndReason.ControlLost, NoReason);
             if (_logger.IsEnabled(LogLevel.Warning))
@@ -131,6 +135,7 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
         }
         finally
         {
+            _ready.TrySetException(new HttpRequestException("The realtime control connection did not become ready."));
             _deadline?.Dispose();
             // A call the provider already closed does not answer a hang-up; it would only wait out the timeout.
             if (!_providerClosed)
@@ -162,7 +167,25 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
         };
     }
 
-    private async Task ReceiveAsync(ClientWebSocket socket, CancellationToken cancellationToken)
+    /// <summary>Sends server-owned configuration and any text-only replay before admitting client media.</summary>
+    internal async Task InitializeAsync(WebSocket socket, CancellationToken cancellationToken)
+    {
+        await SendAsync(socket, new JsonObject
+        {
+            ["type"] = "session.update",
+            ["session"] = _options.Session.DeepClone(),
+        }, cancellationToken);
+        if (_options.Conversation is { } conversation)
+            foreach (var item in conversation.Conversation.Replay())
+            {
+                _pendingReplay.Add(item["item"]!["id"]!.GetValue<string>());
+                await SendAsync(socket, item, cancellationToken);
+            }
+        else
+            _ready.TrySetResult();
+    }
+
+    internal async Task ReceiveAsync(WebSocket socket, CancellationToken cancellationToken)
     {
         var buffer = new ArrayBufferWriter<byte>(64 * 1024);
         while (true)
@@ -180,14 +203,47 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
 
             using var document = JsonDocument.Parse(buffer.WrittenMemory);
             var root = document.RootElement;
-            switch (root.GetProperty("type").GetString())
+            var eventType = root.GetProperty("type").GetString();
+            if (eventType is "input_audio_buffer.speech_started" or "response.created" or "response.done"
+                && _options.Knowledge is { } knowledge && !await knowledge.IsCurrentAsync(cancellationToken))
+                throw new InvalidOperationException("Realtime knowledge is no longer current; restart the call.");
+            switch (eventType)
             {
+                case "session.updated":
+                    _sessionApplied = true;
+                    TryCompleteReadiness();
+                    break;
+                case "conversation.item.created" or "conversation.item.added" or "conversation.item.done"
+                    when _options.Conversation is { } orderedConversation:
+                    var createdItem = root.GetProperty("item");
+                    _pendingReplay.Remove(createdItem.GetProperty("id").GetString()!);
+                    TryCompleteReadiness();
+                    if (eventType != "conversation.item.done" && createdItem.TryGetProperty("role", out var role))
+                        orderedConversation.Conversation.Observe(
+                            createdItem.GetProperty("id").GetString()!, role.GetString()!);
+                    break;
+                case "conversation.item.truncated" when _options.Conversation is { } truncatedConversation:
+                    await truncatedConversation.TruncateAsync(
+                        root.GetProperty("item_id").GetString()!, cancellationToken);
+                    break;
+                case "conversation.item.input_audio_transcription.completed" when _options.Conversation is { } conversation:
+                    await conversation.RecordAsync(
+                        root.GetProperty("item_id").GetString()!, "user",
+                        root.GetProperty("transcript").GetString()!, cancellationToken);
+                    break;
+                case "response.output_audio_transcript.done" when _options.Conversation is { } conversation:
+                    await conversation.RecordAsync(
+                        root.GetProperty("item_id").GetString()!, "assistant",
+                        root.GetProperty("transcript").GetString()!, cancellationToken);
+                    break;
                 case "response.done":
                     var response = root.GetProperty("response");
                     _meter.Add(response);
                     await ExecuteFunctionCallsAsync(socket, response, cancellationToken);
                     break;
                 case "error":
+                    if (!_ready.Task.IsCompleted)
+                        throw new InvalidOperationException("The provider rejected the resumed voice context.");
                     var code = root.GetProperty("error").TryGetProperty("code", out var codeElement) ? codeElement.GetString() : null;
                     if (_logger.IsEnabled(LogLevel.Warning))
                         _logger.LogWarning("{ClassName} realtime provider reported error {ErrorCode}",
@@ -197,7 +253,13 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
         }
     }
 
-    private async Task ExecuteFunctionCallsAsync(ClientWebSocket socket, JsonElement response, CancellationToken cancellationToken)
+    private void TryCompleteReadiness()
+    {
+        if (_sessionApplied && _pendingReplay.Count == 0)
+            _ready.TrySetResult();
+    }
+
+    private async Task ExecuteFunctionCallsAsync(WebSocket socket, JsonElement response, CancellationToken cancellationToken)
     {
         if (!response.TryGetProperty("output", out var output) || output.ValueKind != JsonValueKind.Array)
             return;
@@ -230,7 +292,7 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
             await SendAsync(socket, new JsonObject { ["type"] = "response.create" }, cancellationToken);
     }
 
-    private async Task SendAsync(ClientWebSocket socket, JsonObject message, CancellationToken cancellationToken)
+    private async Task SendAsync(WebSocket socket, JsonObject message, CancellationToken cancellationToken)
     {
         var bytes = JsonSerializer.SerializeToUtf8Bytes(message);
         await _sendLock.WaitAsync(cancellationToken);

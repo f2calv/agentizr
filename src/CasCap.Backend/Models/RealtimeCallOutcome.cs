@@ -13,4 +13,10 @@ public sealed record RealtimeCallOutcome
 
     /// <summary>Gets whether the realtime provider or its credential was unavailable.</summary>
     public bool IsProviderUnavailable { get; init; }
+
+    /// <summary>Gets whether an opted-in knowledge call lacks the additional bearer search grant.</summary>
+    public bool IsKnowledgeForbidden { get; init; }
+
+    /// <summary>Gets whether the requested retention or resume cannot be safely fulfilled.</summary>
+    public bool IsConversationUnavailable { get; init; }
 }

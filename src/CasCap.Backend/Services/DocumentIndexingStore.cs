@@ -134,7 +134,7 @@ internal sealed partial class DocumentIndexingStore(
         return null;
     }
 
-    private async Task<DocumentIndexingManifest?> CurrentManifestAsync(
+    internal async Task<DocumentIndexingManifest?> CurrentManifestAsync(
         AgentRuntimeDbContext db, DocumentIndexingJobEntity job, CancellationToken token)
     {
         if (job.ManifestJson is null || !config.Value.Enabled)

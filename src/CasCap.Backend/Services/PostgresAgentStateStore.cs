@@ -60,7 +60,8 @@ internal sealed class PostgresAgentStateStore(
     }
 
     /// <summary>Checks the durable revision, then reads its immutable cached payload or reloads PostgreSQL.</summary>
-    public async ValueTask<T?> GetAsync<T>(string key, CancellationToken cancellationToken) where T : class
+    public async ValueTask<T?> GetAsync<T>(
+        string key, CancellationToken cancellationToken, bool useCache = true) where T : class
     {
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         while (true)
@@ -74,7 +75,7 @@ internal sealed class PostgresAgentStateStore(
                 return null;
             }
             var cacheKey = cachingConfig.Value.FormatCacheKey($"{key}:{revision:N}");
-            if (remoteCache is not null)
+            if (useCache && remoteCache is not null)
             {
                 try
                 {
@@ -102,7 +103,8 @@ internal sealed class PostgresAgentStateStore(
                 continue; // A concurrent status read crossed a write or delete; resolve the new revision.
             }
             metrics.RecordHa(tenantContext.TenantId, "state.read", "postgres");
-            await FillCacheAsync(cacheKey, payload, cancellationToken);
+            if (useCache)
+                await FillCacheAsync(cacheKey, payload, cancellationToken);
             return payload.FromJson<T>();
         }
     }

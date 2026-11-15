@@ -11,14 +11,19 @@ namespace CasCap.Tests.Integration;
 public sealed class DocumentEmbeddingHttpTests
 {
     [Theory]
-    [InlineData(false, 200)]
-    [InlineData(true, 200)]
-    [InlineData(false, 503)]
-    [InlineData(false, 429)]
-    [InlineData(false, -1)]
-    public async Task AzureAdapterBindsTenantDeploymentExactInputsAndOneSubmission(bool entra, int status)
+    [InlineData(false, 200, false)]
+    [InlineData(true, 200, false)]
+    [InlineData(false, 503, false)]
+    [InlineData(false, 429, false)]
+    [InlineData(false, -1, false)]
+    [InlineData(false, 200, true)]
+    [InlineData(true, 200, true)]
+    [InlineData(false, 429, true)]
+    [InlineData(false, 503, true)]
+    public async Task AzureAdapterBindsTenantDeploymentExactInputsAndOneSubmission(bool entra, int status, bool query)
     {
         var settings = DocumentIndexingTestData.ExecutionConfig();
+        settings = settings with { Profiles = [settings.Profiles[0] with { MaximumBatchInputs = 2 }] };
         var manifest = DocumentIndexingPlanBuilder.Build(settings, DocumentIndexingTestData.Review()).Manifest!;
         var batch = new DocumentEmbeddingBatch(new("example-index", Guid.NewGuid(), DateTimeOffset.MaxValue, manifest),
             0, manifest.Inputs.Take(2).ToArray());
@@ -48,17 +53,24 @@ public sealed class DocumentEmbeddingHttpTests
             AllowedProviderAuthorities = [new Uri(DocumentIndexingTestData.Azure.Endpoint).GetLeftPart(UriPartial.Authority)],
         }));
         await using var container = services.BuildServiceProvider();
-        using var handler = new AzureHandler(batch, entra, status);
+        using var handler = new AzureHandler(batch, entra, status, query);
         var clients = new Clients(handler);
         var logger = new CaptureLogger();
         var adapter = new DocumentEmbeddingProvider(logger, TimeProvider.System, container, clients, new(clients, container.GetRequiredService<RuntimeEntraCredential>()),
             new(container, clients), new(container, clients));
-        await adapter.VerifyAsync(manifest, TestContext.Current.CancellationToken);
+        if (query)
+            await adapter.VerifyAzureAsync(manifest.TenantId, manifest.Profile, TestContext.Current.CancellationToken);
+        else
+            await adapter.VerifyAsync(manifest, TestContext.Current.CancellationToken);
+        Task<DocumentEmbeddingResult> GenerateAsync() => query
+            ? adapter.GenerateAzureAsync(manifest.TenantId, manifest.Profile, batch.Claim.ClaimId,
+                ["synthetic short query"], TestContext.Current.CancellationToken)
+            : adapter.GenerateAsync(batch, TestContext.Current.CancellationToken);
         Assert.Equal(2, handler.MetadataReads);
         Assert.Equal(0, handler.Submissions);
         if (status != 200)
         {
-            var error = await Assert.ThrowsAsync<HttpRequestException>(() => adapter.GenerateAsync(batch, TestContext.Current.CancellationToken));
+            var error = await Assert.ThrowsAsync<HttpRequestException>(GenerateAsync);
             Assert.Equal(status < 0 ? (HttpStatusCode?)null : (HttpStatusCode)status, error.StatusCode);
             Assert.DoesNotContain("private-response-body", error.Message, StringComparison.Ordinal);
             if (status > 0)
@@ -74,8 +86,8 @@ public sealed class DocumentEmbeddingHttpTests
         }
         else
         {
-            var result = await adapter.GenerateAsync(batch, TestContext.Current.CancellationToken);
-            Assert.Equal(batch.Inputs.Count, result.Vectors.Count);
+            var result = await GenerateAsync();
+            Assert.Equal(query ? 1 : batch.Inputs.Count, result.Vectors.Count);
             Assert.Equal(8, result.Vectors[0].Length);
             Assert.Equal(9, result.InputTokens);
         }
@@ -117,7 +129,7 @@ public sealed class DocumentEmbeddingHttpTests
             Func<TState, Exception?, string> formatter) => Entries.Add(formatter(state, exception));
     }
 
-    private sealed class AzureHandler(DocumentEmbeddingBatch batch, bool entra, int status) : HttpMessageHandler
+    private sealed class AzureHandler(DocumentEmbeddingBatch batch, bool entra, int status, bool query) : HttpMessageHandler
     {
         public int MetadataReads { get; private set; }
 
@@ -154,7 +166,7 @@ public sealed class DocumentEmbeddingHttpTests
             else
                 Assert.True(request.Headers.TryGetValues("api-key", out var keys) && keys.Single() == "synthetic-embedding-key");
             using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
-            Assert.Equal(batch.Inputs.Select(input => input.Chunk.EmbeddingText),
+            Assert.Equal(query ? ["synthetic short query"] : batch.Inputs.Select(input => input.Chunk.EmbeddingText),
                 body.RootElement.GetProperty("input").EnumerateArray().Select(input => input.GetString()));
             Assert.Equal(8, body.RootElement.GetProperty("dimensions").GetInt32());
             Assert.Equal("float", body.RootElement.GetProperty("encoding_format").GetString());
@@ -169,7 +181,8 @@ public sealed class DocumentEmbeddingHttpTests
             }
             return Response(JsonSerializer.Serialize(new
             {
-                data = batch.Inputs.Select((_, index) => new { index, embedding = new float[] { 1, 2, 3, 4, 5, 6, 7, 8 } }),
+                data = Enumerable.Range(0, query ? 1 : batch.Inputs.Count)
+                    .Select(index => new { index, embedding = new float[] { 1, 2, 3, 4, 5, 6, 7, 8 } }),
                 usage = new { prompt_tokens = 9, total_tokens = 9 },
             }));
         }

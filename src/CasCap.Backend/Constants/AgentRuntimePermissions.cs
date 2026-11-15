@@ -17,4 +17,7 @@ public static class AgentRuntimePermissions
 
     /// <summary>Allows starting and ending brokered realtime voice calls.</summary>
     public const string Realtime = "agent.realtime";
+
+    /// <summary>Allows searching and resolving the agent's explicitly bound document knowledge.</summary>
+    public const string KnowledgeSearch = "agent.knowledge.search";
 }

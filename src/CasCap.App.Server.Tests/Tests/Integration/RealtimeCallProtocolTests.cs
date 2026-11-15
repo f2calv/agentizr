@@ -13,6 +13,35 @@ public sealed class RealtimeCallProtocolTests(RealtimeCallProtocolTests.Realtime
 {
     private const string Offer = "v=0 offer";
 
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task CreateRealtimeCall_UnavailableRetentionReturnsConflictBeforeProviderCalls(bool retain, bool resume)
+    {
+        using var httpClient = factory.CreateClient();
+        var before = factory.Handler.RequestCount;
+        using var response = await httpClient.PostAsJsonAsync("/api/v1/agents/tutor/realtime/calls",
+            new CreateRealtimeCallRequest
+            {
+                SdpOffer = Offer,
+                RetainConversation = retain,
+                ConversationId = resume ? Guid.NewGuid() : null,
+            }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(before, factory.Handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task CreateRealtimeCall_KnowledgeRequiresItsOwnPermissionBeforeAnyProviderCall()
+    {
+        using var httpClient = factory.CreateClient();
+        var before = factory.Handler.RequestCount;
+        using var response = await httpClient.PostAsJsonAsync("/api/v1/agents/knowledge-tutor/realtime/calls",
+            new CreateRealtimeCallRequest { SdpOffer = Offer }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(before, factory.Handler.RequestCount);
+    }
+
     [Fact]
     public async Task CreateRealtimeCall_AgentWithoutRealtimeSectionReturnsNull()
     {
@@ -100,6 +129,15 @@ public sealed class RealtimeCallProtocolTests(RealtimeCallProtocolTests.Realtime
                     ["CasCap:AgentRuntimeConfig:Tenants:default:Realtime:tutor:Provider"] = "realtime",
                     ["CasCap:AgentRuntimeConfig:Tenants:default:Realtime:tutor:Endpoint"] = endpoint,
                     ["CasCap:AgentRuntimeConfig:Tenants:default:Realtime:tutor:Deployment"] = "gpt-realtime",
+                    ["CasCap:AgentRuntimeConfig:Tenants:default:Agents:knowledge-tutor:Provider"] = "test",
+                    ["CasCap:AgentRuntimeConfig:Tenants:default:Agents:knowledge-tutor:Name"] = "Knowledge tutor",
+                    ["CasCap:AgentRuntimeConfig:Tenants:default:Agents:knowledge-tutor:Description"] = "Synthetic tutor",
+                    ["CasCap:AgentRuntimeConfig:Tenants:default:Agents:knowledge-tutor:Prompt"] = "Test prompt",
+                    ["CasCap:AgentRuntimeConfig:Tenants:default:Agents:knowledge-tutor:Instructions"] = "Test instructions",
+                    ["CasCap:AgentRuntimeConfig:Tenants:default:Realtime:knowledge-tutor:Provider"] = "realtime",
+                    ["CasCap:AgentRuntimeConfig:Tenants:default:Realtime:knowledge-tutor:Endpoint"] = endpoint,
+                    ["CasCap:AgentRuntimeConfig:Tenants:default:Realtime:knowledge-tutor:Deployment"] = "gpt-realtime",
+                    ["CasCap:AgentRuntimeConfig:Tenants:default:Realtime:knowledge-tutor:Tools:0"] = "search_document_knowledge",
                 }));
             builder.ConfigureTestServices(services =>
                 services.AddHttpClient(nameof(AzureRealtimeClient)).ConfigurePrimaryHttpMessageHandler(() => Handler));
@@ -122,6 +160,9 @@ public sealed class RealtimeCallProtocolTests(RealtimeCallProtocolTests.Realtime
         public const string Answer = "v=0 answer";
 
         private readonly ConcurrentQueue<RecordedRequest> _requests = new();
+
+        /// <summary>Gets the number of fake REST calls, without exposing request content.</summary>
+        public int RequestCount => _requests.Count;
 
         /// <summary>Returns the most recent recorded request whose path and query contain the fragment.</summary>
         public RecordedRequest Latest(string fragment) =>

@@ -59,7 +59,11 @@ Both build configurations can embed the [typed runtime logging editor](docs/runt
 behind explicitly configured host-wide operator permissions.
 The opt-in document-ingestion/review pipeline is also available in Release using published Common
 5.1.0 and Azure 2.0.0 dependencies. Processing and indexing remain disabled by default; this build
-support does not complete live GPU acceptance, protected retrieval or agent knowledge bindings.
+support does not complete live GPU acceptance or live RAG acceptance. Protected search and a bounded,
+opt-in [A1 realtime knowledge pilot](docs/document-rag-lifecycle.md#bounded-a1-realtime-pilot)
+are deployed and explicitly enabled for one A1 pilot. One delegated retrieval and an
+operator-reported phone lesson succeeded; broader grounding, abstention, revocation and
+cost/latency acceptance remain incomplete. Tracked defaults remain disabled.
 Before running an agent, add the [Development configuration](src/CasCap.Backend/README.md#configuration-examples)
 and start its model provider. A health response does not verify provider, database or Redis readiness.
 Outside Development, PostgreSQL and JWT tenancy are mandatory; Redis is an optional cache.

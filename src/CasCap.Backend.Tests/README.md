@@ -31,6 +31,8 @@ Document and logging cases run in both configurations; Release proves the publis
 | `DocumentEmbeddingPacingTests` | 6 | 25 |
 | `DocumentIndexingConfigTests` | 6 | 51 |
 | `DocumentIndexingPlanTests` | 6 | 34 |
+| `DocumentKnowledgeTests` | 5 | 27 |
+| `DocumentKnowledgeClientTests` | 2 | 9 |
 | `DocumentIngestionAdmissionTests` | 9 | 20 |
 | `DocumentIngestionConfigTests` | 7 | 23 |
 | `DocumentLlamaCppEmbeddingProviderTests` | 2 | 19 |
@@ -51,6 +53,15 @@ Document and logging cases run in both configurations; Release proves the publis
 | `SessionCompactionConfigTests` | 3 | 6 |
 | `TenantStateIsolationTests` | 2 | 2 |
 | `PersistenceModelTests` | 1 | 1 |
+| `RealtimeKnowledgeTests` | 10 | 25 |
+| `RealtimeConversationTests` | 7 | 8 |
+
+Observed focused Release verification passed 76 offline cases across realtime knowledge,
+existing call behavior, knowledge configuration and definition-store lifecycle. The knowledge
+cases include a scripted WebSocket driving the real receive/dispatch/output loop: one cited
+retrieval, refusal of fresh-ID replay and all three source-revocation event boundaries.
+No Azure endpoint, PostgreSQL service, Redis, GPU or model was used. Live grounded answers remain
+a separate gate; instructions and fake evidence do not establish model obedience.
 
 `PersistenceModelTests` verifies the [Data assembly](../CasCap.Data/README.md) independently of
 backend controllers and initializes only design-time model/migration metadata: it does not connect
@@ -61,7 +72,7 @@ remain in [Server.Tests](../CasCap.App.Server.Tests/README.md).
 
 `Agent Runtime`, `Authorization`, `BlobDownload`, `Document Preparation`, `HybridPreparation`,
 `Indexing`, `Ingestion`, `Integration`, `MarkdownChunking`, `OfflineDocumentReview`,
-`PdfPreparation`, `Roles` and `Tenant Isolation`.
+`PdfPreparation`, `Realtime`, `Roles` and `Tenant Isolation`.
 
 ## Skipped Tests
 

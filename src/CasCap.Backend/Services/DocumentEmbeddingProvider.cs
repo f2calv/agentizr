@@ -29,14 +29,20 @@ internal sealed class DocumentEmbeddingProvider(
             await documentLlamaCppEmbeddingProvider.VerifyAsync(manifest, token);
             return;
         }
-        var azure = manifest.Profile.Azure ?? throw new InvalidDataException("The Azure embedding binding is absent.");
-        ValidateAuthority(manifest);
-        var credentials = Credentials(manifest);
-        if (credentials.GetTokenCredential(manifest.Profile.Provider) is null
-            && string.IsNullOrWhiteSpace(await credentials.GetApiKeyAsync(manifest.Profile.Provider, token)))
+        await VerifyAzureAsync(manifest.TenantId, manifest.Profile, token);
+    }
+
+    /// <summary>Verifies the same pinned Azure deployment for indexing and query inputs.</summary>
+    internal async Task VerifyAzureAsync(string tenantId, DocumentEmbeddingProfileConfig profile, CancellationToken token)
+    {
+        var azure = profile.Azure ?? throw new InvalidDataException("The Azure embedding binding is absent.");
+        ValidateAuthority(tenantId, profile);
+        var credentials = Credentials(tenantId);
+        if (credentials.GetTokenCredential(profile.Provider) is null
+            && string.IsNullOrWhiteSpace(await credentials.GetApiKeyAsync(profile.Provider, token)))
             throw new InvalidDataException("The embedding provider has no authorized tenant credential.");
         await documentPreparationModelVerifier.VerifyAsync(new Uri(azure.Endpoint), azure.DeploymentName,
-            azure.DeploymentResourceId, azure.ManagementEndpoint, manifest.Profile.Model, manifest.Profile.ModelRevision, token);
+            azure.DeploymentResourceId, azure.ManagementEndpoint, profile.Model, profile.ModelRevision, token);
     }
 
     public async Task<DocumentEmbeddingResult> GenerateAsync(DocumentEmbeddingBatch batch, CancellationToken token)
@@ -45,16 +51,26 @@ internal sealed class DocumentEmbeddingProvider(
             return await documentOllamaEmbeddingProvider.GenerateAsync(batch, token);
         if (batch.Claim.Manifest.Profile.LlamaCpp is not null)
             return await documentLlamaCppEmbeddingProvider.GenerateAsync(batch, token);
-        ValidateAuthority(batch.Claim.Manifest);
-        var profile = batch.Claim.Manifest.Profile;
+        return await GenerateAzureAsync(batch.Claim.Manifest.TenantId, batch.Claim.Manifest.Profile,
+            batch.Claim.ClaimId, batch.Inputs.Select(input => input.Chunk.EmbeddingText).ToArray(), token);
+    }
+
+    /// <summary>Sends bounded text through the existing Azure transport without inventing an indexing job.</summary>
+    internal async Task<DocumentEmbeddingResult> GenerateAzureAsync(
+        string tenantId, DocumentEmbeddingProfileConfig profile, Guid requestId, IReadOnlyList<string> inputs, CancellationToken token)
+    {
+        ValidateAuthority(tenantId, profile);
+        if (inputs.Count is < 1 || inputs.Count > profile.MaximumBatchInputs
+            || inputs.Any(string.IsNullOrWhiteSpace))
+            throw new ArgumentException("Embedding inputs must be nonempty and within the profile batch limit.", nameof(inputs));
         var azure = profile.Azure ?? throw new InvalidDataException("The Azure embedding binding is absent.");
-        var credentials = Credentials(batch.Claim.Manifest);
+        var credentials = Credentials(tenantId);
         using var client = httpClientFactory.CreateClient(nameof(DocumentEmbeddingProvider));
         client.BaseAddress = new Uri(azure.Endpoint);
         client.Timeout = Timeout.InfiniteTimeSpan;
         using var request = new HttpRequestMessage(HttpMethod.Post,
             $"openai/deployments/{Uri.EscapeDataString(azure.DeploymentName)}/embeddings?api-version=2024-10-21");
-        request.Headers.Add("x-ms-client-request-id", batch.Claim.ClaimId.ToString("D"));
+        request.Headers.Add("x-ms-client-request-id", requestId.ToString("D"));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         if (credentials.GetTokenCredential(profile.Provider) is { } credential)
         {
@@ -70,7 +86,7 @@ internal sealed class DocumentEmbeddingProvider(
         }
         request.Content = JsonContent.Create(new
         {
-            input = batch.Inputs.Select(input => input.Chunk.EmbeddingText).ToArray(),
+            input = inputs,
             dimensions = profile.Dimensions,
             encoding_format = "float",
         });
@@ -83,7 +99,7 @@ internal sealed class DocumentEmbeddingProvider(
             throw new HttpRequestException("The embedding submission did not return a valid receipt.", null, response.StatusCode);
         }
         using var json = await DocumentProviderJson.ReadAsync(response, 16 * 1024 * 1024, token);
-        return Parse(json.RootElement, batch.Inputs.Count, profile.Dimensions);
+        return Parse(json.RootElement, inputs.Count, profile.Dimensions);
     }
 
     internal static TimeSpan? RetryAfter(HttpResponseMessage response, DateTimeOffset now)
@@ -167,24 +183,24 @@ internal sealed class DocumentEmbeddingProvider(
         return client;
     }
 
-    private void ValidateAuthority(DocumentIndexingManifest manifest)
+    private void ValidateAuthority(string tenantId, DocumentEmbeddingProfileConfig profile)
     {
-        var azure = manifest.Profile.Azure ?? throw new InvalidDataException("The Azure embedding binding is absent.");
-        if (!manifest.Profile.HasExecutionBinding)
+        var azure = profile.Azure ?? throw new InvalidDataException("The Azure embedding binding is absent.");
+        if (!profile.HasExecutionBinding)
             throw new InvalidDataException("The embedding provider binding is ambiguous.");
         Validator.ValidateObject(azure, new ValidationContext(azure), validateAllProperties: true);
         var endpoint = new Uri(azure.Endpoint);
         var runtime = serviceProvider.GetRequiredService<IOptions<AgentRuntimeConfig>>().Value;
         var policy = serviceProvider.GetRequiredService<IOptions<AgentDefinitionPolicyConfig>>().Value;
-        if (!runtime.Tenants.TryGetValue(manifest.TenantId, out var tenant)
-            || !tenant.Providers.TryGetValue(manifest.Profile.Provider, out var provider) || provider.Type != AgentType.AzureOpenAI
+        if (!runtime.Tenants.TryGetValue(tenantId, out var tenant)
+            || !tenant.Providers.TryGetValue(profile.Provider, out var provider) || provider.Type != AgentType.AzureOpenAI
             || provider.Endpoint != endpoint
             || !policy.AllowedProviderAuthorities.Contains(endpoint.GetLeftPart(UriPartial.Authority), StringComparer.OrdinalIgnoreCase))
             throw new InvalidDataException("The exact Azure embedding endpoint/provider is not authorized for this tenant.");
     }
 
-    private ConfigurationProviderCredentialStore Credentials(DocumentIndexingManifest manifest) =>
-        ActivatorUtilities.CreateInstance<ConfigurationProviderCredentialStore>(serviceProvider, new EmbeddingTenant(manifest.TenantId));
+    private ConfigurationProviderCredentialStore Credentials(string tenantId) =>
+        ActivatorUtilities.CreateInstance<ConfigurationProviderCredentialStore>(serviceProvider, new EmbeddingTenant(tenantId));
 
     private sealed class EmbeddingTenant(string tenantId) : ITenantContext
     {

@@ -22,6 +22,7 @@ secret. Do not weaken authorization to make an example work.
 | Collection | Surface | Required delegated scope or application role |
 | --- | --- | --- |
 | [runtime.http](runtime.http) | Run/stream, sessions, compaction, snapshots, overrides and instructions | `agent.execute` |
+| [knowledge.http](knowledge.http) | Explicit bounded semantic search and protected current source previews | `agent.knowledge.search` |
 | [definitions.http](definitions.http) | Immutable publication/history, evaluation, activation/rollback and deactivation | `agent.definition.read`, `agent.definition.publish` or `agent.definition.activate`, per action |
 | [document-reviews.http](document-reviews.http) | Catalogue, synchronization, source preview, immutable snapshots, chunk selection and readiness assessments | Assigned app administrator's session cookie, plus antiforgery on POST/PUT; machine scopes do not qualify |
 
@@ -56,6 +57,11 @@ does not enable processing, call paid providers or make documents searchable.
 Separate token variables support least-privilege identities. Publish/activate also require a
 validated actor identifier. An invalid or missing identity is not a resource-not-found result;
 distinguish 401/403 from 404. Tenancy and audit actors come from validated claims, never JSON fields.
+
+Knowledge search is default-disabled and requires an operator-owned agent/collection binding plus
+an existing published Azure-profile corpus. It can incur embedding usage, so approve it separately.
+It is not a request for every conversational turn. Source previews do not invoke embeddings.
+Set the generation/chunk reference from an authorized search result; withdrawn passages return 404.
 
 Definition writes require PostgreSQL; configuration-backed definitions are read-only and return
 501 for unsupported writes. The publication example uses a secret-free OpenAI definition with no

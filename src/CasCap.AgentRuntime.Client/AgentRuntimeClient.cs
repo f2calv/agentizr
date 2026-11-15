@@ -11,6 +11,24 @@ namespace CasCap.AgentRuntime.Client;
 public sealed class AgentRuntimeClient(HttpClient httpClient) : IAgentRuntimeClient
 {
     /// <inheritdoc/>
+    public Task<SearchKnowledgeResponse?> SearchKnowledgeAsync(
+        string agentName, SearchKnowledgeRequest request, CancellationToken cancellationToken) =>
+        SendJsonAsync<SearchKnowledgeRequest, SearchKnowledgeResponse>(
+            HttpMethod.Post, BuildPath(agentName, AgentRuntimeRoutes.KnowledgeSearch), request, cancellationToken);
+
+    /// <inheritdoc/>
+    public Task<KnowledgePassageResponse?> GetKnowledgePassageAsync(
+        string agentName, string indexJobId, int ordinal, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(indexJobId);
+        ArgumentOutOfRangeException.ThrowIfNegative(ordinal);
+        return GetAsync<KnowledgePassageResponse>(BuildPath(agentName, AgentRuntimeRoutes.KnowledgePassage)
+            .Replace("{indexJobId}", Uri.EscapeDataString(indexJobId), StringComparison.Ordinal)
+            .Replace("{ordinal}", ordinal.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal),
+            cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task<RunAgentResponse?> RunAgentAsync(
         string agentName,
         RunAgentRequest request,
@@ -155,13 +173,20 @@ public sealed class AgentRuntimeClient(HttpClient httpClient) : IAgentRuntimeCli
     public Task<RealtimeCallResponse?> CreateRealtimeCallAsync(
         string agentName,
         string sdpOffer,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? conversationId = null,
+        bool retainConversation = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sdpOffer);
         return SendJsonAsync<CreateRealtimeCallRequest, RealtimeCallResponse>(
             HttpMethod.Post,
             BuildPath(agentName, AgentRuntimeRoutes.RealtimeCalls),
-            new CreateRealtimeCallRequest { SdpOffer = sdpOffer },
+            new CreateRealtimeCallRequest
+            {
+                SdpOffer = sdpOffer,
+                ConversationId = conversationId,
+                RetainConversation = retainConversation,
+            },
             cancellationToken);
     }
 
