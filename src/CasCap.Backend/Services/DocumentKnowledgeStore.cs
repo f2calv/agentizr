@@ -115,19 +115,12 @@ internal sealed class DocumentKnowledgeStore(
             var manifest = await indexingStore.CurrentManifestAsync(db, job, token);
             if (manifest is null)
                 continue;
-            var approval = await db.DocumentApprovals.AsNoTracking()
+            var assessmentJson = await db.DocumentApprovals.AsNoTracking()
                 .Where(item => item.TenantId == binding.TenantId && item.GenerationId == manifest.GenerationId
                     && item.Revision == manifest.AssessmentRevision)
-                .Select(item => new { item.AssessmentJson, item.RecordedAtUtc }).SingleAsync(token);
-            var assessment = JsonSerializer.Deserialize<DocumentApprovalRequest>(approval.AssessmentJson, JsonSerializerOptions.Web)
+                .Select(item => item.AssessmentJson).SingleAsync(token);
+            var assessment = JsonSerializer.Deserialize<DocumentApprovalRequest>(assessmentJson, JsonSerializerOptions.Web)
                 ?? throw new InvalidDataException("The saved document assessment is empty.");
-            if (policy.Access == DocumentCollectionAccess.PublicReference
-                && (!assessment.PublicReference || await db.DocumentMarkdownGenerations
-                    .Where(other => other.TenantId == job.TenantId && other.CollectionId == job.CollectionId
-                        && other.DocumentId == job.DocumentId && other.Id != manifest.GenerationId)
-                    .AnyAsync(other => db.DocumentApprovals.Any(newer => newer.TenantId == job.TenantId
-                        && newer.GenerationId == other.Id && newer.RecordedAtUtc >= approval.RecordedAtUtc), token)))
-                continue;
             if (assessment.CefrLevel is not { } level || !AllowsLevel(binding.MaximumCefrLevel, level))
                 continue;
             if (validateVectors)

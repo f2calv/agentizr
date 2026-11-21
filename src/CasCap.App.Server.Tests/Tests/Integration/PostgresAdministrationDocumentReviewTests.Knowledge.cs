@@ -5,45 +5,28 @@ namespace CasCap.IntegrationTests;
 
 public sealed partial class PostgresAdministrationDocumentReviewTests
 {
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Knowledge_PublicReferenceRequiresDocumentOptInAndRevocationChangesCorpusIdentity(bool differentSnapshot)
+    [Fact]
+    public async Task Knowledge_PublicReferenceInheritsCollectionAccessAndWithdrawalsChangeCorpusIdentity()
     {
-        var (store, binding, observed) = await PublishedKnowledgeAsync(access: DocumentCollectionAccess.PublicReference, publicReference: true);
+        var (store, binding, observed) = await PublishedKnowledgeAsync(access: DocumentCollectionAccess.PublicReference);
         var generation = Assert.Single(observed);
         var ordinal = generation.Manifest.Inputs[0].Chunk.Ordinal;
         var initialCorpus = await store.PublicCorpusIdAsync(binding, Token);
         Assert.NotNull(await store.ReadPassageAsync(binding, generation.JobId, ordinal, Token));
+        Assert.Single(await store.SearchAsync(binding, observed, [1, 2, 3, 4, 5, 6, 7, 8], 1, Token));
 
-        using var http = await ClientAsync(_host);
-        var client = new CasCap.Client.Services.AdministrationApiClient(http, new());
-        var targetGeneration = generation.Manifest.GenerationId;
-        if (differentSnapshot)
+        await using (var db = await _database.DbContextFactory.CreateDbContextAsync(Token))
         {
-            var snapshot = await client.StoreDocumentReviewAsync("tenant-a", _source.CollectionId, _source.DocumentId,
-                _source.JobId, Request() with { TargetTokensPerChunk = 128 }, Token);
-            Assert.True(snapshot.IsSuccess);
-            targetGeneration = snapshot.Value!.GenerationId!;
-            Assert.NotEqual(generation.Manifest.GenerationId, targetGeneration);
-            Assert.True((await client.RecordDocumentChunkReviewAsync("tenant-a", _source.CollectionId, _source.DocumentId,
-                _source.JobId, targetGeneration, NativeSelectionRequest(), Token)).IsSuccess);
+            await using var transaction = await db.Database.BeginTransactionAsync(Token);
+            await DocumentIngestionTransactions.LockAsync(db, Token);
+            (await db.KnowledgeDocuments.SingleAsync(Token)).Status = DocumentIngestionStates.Deleted;
+            await db.SaveChangesAsync(Token);
+            await transaction.CommitAsync(Token);
         }
-        var saved = await client.RecordDocumentApprovalAsync("tenant-a", _source.CollectionId, _source.DocumentId, _source.JobId,
-            targetGeneration, NativeApprovalRequest() with { ExpectedRevision = differentSnapshot ? 0 : 1 }, Token);
 
-        Assert.True(saved.IsSuccess);
-        Assert.False(saved.Value!.Approval!.Assessment.PublicReference);
         Assert.NotEqual(initialCorpus, await store.PublicCorpusIdAsync(binding, Token));
         Assert.Empty(await store.SearchAsync(binding, observed, [1, 2, 3, 4, 5, 6, 7, 8], 3, Token));
         Assert.Null(await store.ReadPassageAsync(binding, generation.JobId, ordinal, Token));
-    }
-
-    [Fact]
-    public async Task Knowledge_PublicReferenceCollectionExcludesAPublishedPrivateDocument()
-    {
-        var (_, _, observed) = await PublishedKnowledgeAsync(access: DocumentCollectionAccess.PublicReference);
-        Assert.Empty(observed);
     }
 
     [Fact]
@@ -191,10 +174,10 @@ public sealed partial class PostgresAdministrationDocumentReviewTests
     private async Task<(DocumentKnowledgeStore Store, DocumentKnowledgeBindingConfig Binding,
         IReadOnlyList<DocumentKnowledgeGeneration> Generations)> PublishedKnowledgeAsync(
         string reviewedLevel = "A1", bool excludeFirst = false,
-        DocumentCollectionAccess access = DocumentCollectionAccess.Private, bool publicReference = false)
+        DocumentCollectionAccess access = DocumentCollectionAccess.Private)
     {
         var (http, client, id, settings, request) = await AcceptedIndexingInputsAsync(
-            excludeFirst: excludeFirst, cefrLevel: reviewedLevel, access: access, publicReference: publicReference);
+            excludeFirst: excludeFirst, cefrLevel: reviewedLevel, access: access);
         using (http)
         {
             Assert.True((await client.RequestDocumentIndexingAsync("tenant-a", _source.CollectionId,
@@ -215,7 +198,7 @@ public sealed partial class PostgresAdministrationDocumentReviewTests
                 MaximumCefrLevel = reviewedLevel,
             };
             var generations = await store.ReadAsync(binding, Token);
-            Assert.Equal(access == DocumentCollectionAccess.PublicReference && !publicReference ? 0 : 1, generations.Count);
+            Assert.Single(generations);
             return (store, binding, generations);
         }
     }

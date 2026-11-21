@@ -33,10 +33,6 @@ public sealed record DocumentApprovalRequest : IValidatableObject
     [Required, MaxLength(40)]
     public required string DocumentType { get; init; }
 
-    /// <summary>Gets whether this reviewed source is approved for public-reference retrieval.</summary>
-    /// <example>false</example>
-    public bool PublicReference { get; init; }
-
     /// <summary>Gets an optional edition identifier.</summary>
     /// <example>Example edition</example>
     [MaxLength(200)]

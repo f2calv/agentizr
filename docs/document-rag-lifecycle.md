@@ -785,13 +785,11 @@ tenants. Realtime uses the same process-lifetime collection policy as the knowle
 restart affected runtimes to apply a classification change. Advance the collection revision and
 run the existing publication workflow before relying on the changed policy for retrieval.
 
-In **Document Review → Document assessment and readiness**, set **Document access** to
-**Private** or **Public reference**, then save the assessment. Existing and unassessed documents
-default to Private. A public-reference collection only returns documents with current, explicitly
-public-reference assessments and eligible published indexes. Saving a new assessment withdraws
-the previous publication from retrieval; saving does not reindex or republish. Private collections
-keep their existing protected retrieval path. This setting does not change access to the original
-file. Update every serving runtime before relying on this gate; older runtimes ignore it.
+Set `Access: "PublicReference"` once in the operator-owned `DocumentIndexingConfig.Collections`
+entry for a dedicated reference corpus. All current and future documents in that collection
+inherit its access policy; there is no per-document access setting. Normal preparation, quality
+review, and publication still determine whether a document is searchable. Private collections
+keep their existing protected retrieval path.
 
 The protected API now implements the bounded search/source portion below locally. Trusted learner
 policy, answering-model integration and end-to-end acceptance remain proposed.

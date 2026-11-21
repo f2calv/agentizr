@@ -26,7 +26,6 @@ public sealed class DocumentApprovalUiTests
         {
             Assert.Contains("No checkbox can bypass", html, StringComparison.Ordinal);
             Assert.Contains("Highest reviewed CEFR", html, StringComparison.Ordinal);
-            Assert.Contains("Document access", html, StringComparison.Ordinal);
         }
         if (saved)
         {
@@ -39,21 +38,6 @@ public sealed class DocumentApprovalUiTests
         else
             Assert.Contains("No document assessment has been saved", html, StringComparison.Ordinal);
         Assert.Equal(0, handler.RequestCount);
-    }
-
-    [Theory]
-    [InlineData(false, "Private")]
-    [InlineData(true, "Public reference")]
-    public async Task SavedAssessment_DisplaysDocumentAccess(bool publicReference, string label)
-    {
-        using var handler = new ReadOnlyHandler();
-        var review = DocumentApprovalTestData.Review(true, true, current: true, approved: true);
-        var saved = review.Approval!;
-        review = review with { Approval = saved with { Assessment = saved.Assessment with { PublicReference = publicReference } } };
-
-        var html = await RenderAsync<DocumentApproval>(handler, new() { [nameof(DocumentApproval.Review)] = review }, string.Empty);
-
-        Assert.Contains($"<th scope=\"row\">Document access</th><td>{label}</td>", html, StringComparison.Ordinal);
     }
 
     [Theory]
