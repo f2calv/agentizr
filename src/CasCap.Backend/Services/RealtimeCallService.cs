@@ -81,11 +81,13 @@ public sealed class RealtimeCallService
         RealtimeKnowledgeSession? knowledge = null;
         if (knowledgeToolsEnabled)
         {
-            if (caller?.Identity?.IsAuthenticated is not true
-                || !AgentRuntimeAuthorization.HasPermission(caller, AgentRuntimePermissions.KnowledgeSearch))
+            if (caller?.Identity?.IsAuthenticated is not true)
                 return new() { IsKnowledgeForbidden = true };
             knowledge = serviceProvider.GetRequiredService<RealtimeKnowledgeSessionFactory>()
                 .Create(tenantContext.TenantId, definition);
+            if (knowledge?.PublicReferencePolicy is null
+                && !AgentRuntimeAuthorization.HasPermission(caller, AgentRuntimePermissions.KnowledgeSearch))
+                return new() { IsKnowledgeForbidden = true };
             if (knowledge is null)
                 return new() { IsProviderUnavailable = true };
         }

@@ -33,8 +33,13 @@ public sealed class DocumentKnowledgeService
     }
 
     /// <summary>Embeds at most one short query and returns only currently authorized exact cosine matches.</summary>
-    public async Task<DocumentKnowledgeOutcome> SearchAsync(
-        string agentName, SearchKnowledgeRequest request, CancellationToken token)
+    public Task<DocumentKnowledgeOutcome> SearchAsync(
+        string agentName, SearchKnowledgeRequest request, CancellationToken token) =>
+        SearchBoundAsync(agentName, request, null, token);
+
+    /// <summary>Searches only if the configured binding still matches the one authorized for the call.</summary>
+    internal async Task<DocumentKnowledgeOutcome> SearchBoundAsync(
+        string agentName, SearchKnowledgeRequest request, DocumentKnowledgeBindingConfig? expectedBinding, CancellationToken token)
     {
         Validator.ValidateObject(request, new ValidationContext(request), validateAllProperties: true);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -42,7 +47,7 @@ public sealed class DocumentKnowledgeService
         try
         {
             var binding = await BindingAsync(agentName, deadline.Token);
-            if (binding is null)
+            if (binding is null || (expectedBinding is not null && binding != expectedBinding))
                 return new();
             var originalBinding = binding;
             if (request.MaximumCefrLevel is { } level)
@@ -89,14 +94,28 @@ public sealed class DocumentKnowledgeService
     }
 
     /// <summary>Reauthorizes a citation without inference or disclosure of internal storage coordinates.</summary>
-    public async Task<KnowledgePassageResponse?> ReadPassageAsync(
-        string agentName, string indexJobId, int ordinal, CancellationToken token)
+    public Task<KnowledgePassageResponse?> ReadPassageAsync(
+        string agentName, string indexJobId, int ordinal, CancellationToken token) =>
+        ReadBoundPassageAsync(agentName, indexJobId, ordinal, null, token);
+
+    /// <summary>Reads a passage only within the originally authorized binding when one is supplied.</summary>
+    internal async Task<KnowledgePassageResponse?> ReadBoundPassageAsync(
+        string agentName, string indexJobId, int ordinal, DocumentKnowledgeBindingConfig? expectedBinding, CancellationToken token)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
         deadline.CancelAfter(TimeSpan.FromSeconds(_config.Value.TimeoutSeconds));
         var binding = await BindingAsync(agentName, deadline.Token);
-        return binding is null ? null : await _store!.ReadPassageAsync(binding, indexJobId, ordinal, deadline.Token);
+        return binding is null || (expectedBinding is not null && binding != expectedBinding)
+            ? null : await _store!.ReadPassageAsync(binding, indexJobId, ordinal, deadline.Token);
     }
+
+    /// <summary>Checks the active definition and binding together for a realtime call.</summary>
+    internal async Task<bool> IsCurrentAsync(
+        string agentName, string version, DocumentKnowledgeBindingConfig binding, CancellationToken token) =>
+        _config.Value.Enabled && _store is not null
+        && _config.Value.Bindings.SingleOrDefault(item => item.TenantId == _tenantContext.TenantId
+            && item.AgentName == agentName) == binding
+        && (await _definitionStore.GetAsync(agentName, token))?.Version == version;
 
     private async Task<DocumentKnowledgeBindingConfig?> BindingAsync(string agentName, CancellationToken token)
     {
@@ -107,6 +126,4 @@ public sealed class DocumentKnowledgeService
         return binding is not null && await _definitionStore.GetAsync(agentName, token) is not null ? binding : null;
     }
 
-    internal async Task<bool> IsDefinitionCurrentAsync(string agentName, string version, CancellationToken token) =>
-        (await _definitionStore.GetAsync(agentName, token))?.Version == version;
 }

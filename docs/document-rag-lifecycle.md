@@ -170,11 +170,13 @@ tenant/agent binding. That binding's `MaximumCefrLevel` must be `A1`; other leve
 this pilot. `MaximumRealtimeDurationMinutes` defaults to 10 (range 1-30), and the smaller of this
 limit and the definition's duration ends the call. The immutable active definition must separately
 include `search_document_knowledge` in `realtime.tools`, preserving its other intended tool names.
-The authenticated voice caller needs **both** `agent.realtime` and `agent.knowledge.search`.
+The authenticated caller needs `agent.realtime`. Private or unclassified collections also require
+`agent.knowledge.search`; an explicitly public-reference collection does not require the extra
+permission for in-call search. Standalone knowledge search and citation preview still require
+`agent.knowledge.search`, regardless of classification.
 No new Tutorizr MCP tool or realtime request field is needed. The local MAUI update accepts
 whitespace-separated scope entries in the existing `ApiScope` setting and splits them for MSAL,
-preserving single-scope settings. Each caller still needs both permissions; server registration
-alone is insufficient.
+preserving single-scope settings.
 Six offline scope configuration cases passed and both MAUI Debug targets built cleanly; these are
 not evidence of installed-client sign-in or token claims.
 
@@ -778,9 +780,10 @@ Application rollback must not implicitly reactivate stale corpus data.
 Collection indexing policies can declare `Access` as `Private` (the default) or
 `PublicReference`. Use `PublicReference` only for a collection whose entire contents are
 approved for reference use without individual document grants. Public availability alone does
-not establish reuse rights. This designation does not publish storage or change search
-permissions or voice retention. A classification change is a collection policy change: advance
-its revision and run the existing publication workflow before relying on it for retrieval.
+not establish reuse rights. This designation does not publish storage or grant access across
+tenants. Realtime uses the same process-lifetime collection policy as the knowledge store;
+restart affected runtimes to apply a classification change. Advance the collection revision and
+run the existing publication workflow before relying on the changed policy for retrieval.
 
 The protected API now implements the bounded search/source portion below locally. Trusted learner
 policy, answering-model integration and end-to-end acceptance remain proposed.

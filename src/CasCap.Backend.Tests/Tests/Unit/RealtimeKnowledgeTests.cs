@@ -214,7 +214,7 @@ public sealed class RealtimeKnowledgeTests
         var monitor = new KnowledgeOptionsMonitor(new() { Enabled = variation != "disabled", Bindings = [binding] });
         await using var container = new ServiceCollection().BuildServiceProvider();
         var factory = new RealtimeKnowledgeSessionFactory(container.GetRequiredService<IServiceScopeFactory>(),
-            monitor, NullLogger<RealtimeKnowledgeSessionFactory>.Instance);
+            monitor, Options.Create(new DocumentIndexingConfig()), NullLogger<RealtimeKnowledgeSessionFactory>.Instance);
         var session = factory.Create("tenant-a", Definition());
         Assert.Equal(available, session is not null);
         if (session is not null)
@@ -223,6 +223,36 @@ public sealed class RealtimeKnowledgeTests
             monitor.Value = monitor.Value with { Enabled = false };
             Assert.False(await session.IsCurrentAsync(Token));
         }
+    }
+
+    [Theory]
+    [InlineData("tenant-a", "collection-a", DocumentCollectionAccess.PublicReference, true)]
+    [InlineData("tenant-b", "collection-a", DocumentCollectionAccess.PublicReference, false)]
+    [InlineData("tenant-a", "collection-b", DocumentCollectionAccess.PublicReference, false)]
+    [InlineData("tenant-a", "collection-a", DocumentCollectionAccess.Private, false)]
+    public async Task Factory_SelectsPublicPolicyOnlyForTheExactTenantAndBoundCollection(
+        string tenant, string collection, DocumentCollectionAccess access, bool isPublic)
+    {
+        var definition = Definition();
+        var binding = new DocumentKnowledgeBindingConfig
+        {
+            TenantId = "tenant-a",
+            AgentName = definition.Name,
+            CollectionId = "collection-a",
+            RealtimeEnabled = true,
+            MaximumCefrLevel = "A1",
+        };
+        var policy = new DocumentIndexingCollectionConfig { TenantId = tenant, CollectionId = collection, Access = access };
+        var monitor = new KnowledgeOptionsMonitor(new() { Enabled = true, Bindings = [binding] });
+        await using var container = new ServiceCollection().BuildServiceProvider();
+        var factory = new RealtimeKnowledgeSessionFactory(container.GetRequiredService<IServiceScopeFactory>(),
+            monitor, Options.Create(new DocumentIndexingConfig { Enabled = true, Collections = [policy] }),
+            NullLogger<RealtimeKnowledgeSessionFactory>.Instance);
+
+        var session = Assert.IsType<RealtimeKnowledgeSession>(factory.Create(binding.TenantId, definition));
+        Assert.Equal(isPublic ? policy : null, session.PublicReferencePolicy);
+        monitor.Value = monitor.Value with { Bindings = [binding with { CollectionId = "replacement" }] };
+        Assert.False(await session.IsCurrentAsync(Token));
     }
 
     [Theory]
