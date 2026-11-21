@@ -5,6 +5,7 @@ namespace CasCap.IntegrationTests.Local;
 
 /// <summary>Exercises a complete running Agent Runtime through its published client.</summary>
 [Trait("Category", "Integration")]
+[Trait("Category", "Live")]
 [Trait("Category", "Local Agent Runtime")]
 public sealed class LiveAgentRuntimeSmokeTests
 {

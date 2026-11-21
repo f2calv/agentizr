@@ -18,6 +18,7 @@ namespace CasCap.Tests.Integration;
 
 /// <summary>Opt-in real-document acceptance through the production worker/provider with a retained, local-only paid ledger.</summary>
 [Trait("Category", "Integration")]
+[Trait("Category", "Live")]
 [Trait("Category", "PostgreSQL")]
 [Trait("Category", "LiveDocumentPreparation")]
 public sealed class DocumentPreparationLiveAcceptanceTests(ITestOutputHelper output)

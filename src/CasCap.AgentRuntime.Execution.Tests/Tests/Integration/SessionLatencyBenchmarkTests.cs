@@ -12,6 +12,7 @@ namespace CasCap.AgentRuntime.Execution.Tests.Integration;
 /// Output is capped so the measured time is dominated by prompt processing rather than generation.
 /// </remarks>
 [Trait("Category", "Integration")]
+[Trait("Category", "Live")]
 [Trait("Category", "Session Latency")]
 public sealed class SessionLatencyBenchmarkTests(ITestOutputHelper output)
 {

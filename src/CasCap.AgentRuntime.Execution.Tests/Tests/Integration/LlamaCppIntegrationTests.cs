@@ -2,6 +2,7 @@ namespace CasCap.AgentRuntime.Execution.Tests.Integration;
 
 /// <summary>Exercises real OpenAI-compatible llama.cpp inference on an explicitly configured local endpoint.</summary>
 [Trait("Category", "Integration")]
+[Trait("Category", "Live")]
 [Trait("Category", "Local llama.cpp")]
 public sealed class LlamaCppIntegrationTests
 {

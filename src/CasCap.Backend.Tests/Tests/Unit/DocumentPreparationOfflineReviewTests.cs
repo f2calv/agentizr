@@ -110,6 +110,8 @@ public sealed class DocumentPreparationOfflineReviewTests(ITestOutputHelper outp
         Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => ValidateProjection(changed, result, TiktokenTokenizer.CreateForEncoding("cl100k_base")));
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Category", "Live")]
     [Fact(SkipUnless = nameof(Enabled), Skip = "Requires explicit approval and retained local review input plus a fresh private output directory.")]
     public async Task RetainedCandidatesToChunks()
     {

@@ -12,6 +12,7 @@ namespace CasCap.IntegrationTests;
 
 /// <summary>Opt-in HTTP acceptance over retained real-document receipts; never downloads or invokes preparation.</summary>
 [Trait("Category", "Integration")]
+[Trait("Category", "Live")]
 [Trait("Category", "PostgreSQL")]
 [Trait("Category", "RetainedDocumentReview")]
 [Collection(HostIntegrationCollection.Name)]
