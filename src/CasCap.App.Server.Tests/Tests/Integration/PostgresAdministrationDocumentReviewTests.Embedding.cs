@@ -242,7 +242,7 @@ public sealed partial class PostgresAdministrationDocumentReviewTests
             var foreignTenant = "other-tenant";
             var hash = new string('0', 64);
             var vector = "[1,2,3,4,5,6,7,8]";
-            var error = await Assert.ThrowsAsync<Npgsql.PostgresException>(() => db.Database.ExecuteSqlInterpolatedAsync($"""
+            var error = await Assert.ThrowsAsync<Npgsql.PostgresException>(() => db.Database.ExecuteSqlAsync($"""
                 INSERT INTO agent_runtime.document_index_vectors (tenant_id, job_id, ordinal, input_sha256, embedding)
                 VALUES ({foreignTenant}, {accepted.Value!.Id}, 0, {hash}, CAST({vector} AS vector))
                 """, Token));

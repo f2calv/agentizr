@@ -11,7 +11,7 @@ internal static class DocumentIngestionTransactions
     public static async Task LockAsync(AgentRuntimeDbContext db, CancellationToken cancellationToken)
     {
         if (db.Database.IsNpgsql())
-            await db.Database.ExecuteSqlInterpolatedAsync(
+            await db.Database.ExecuteSqlAsync(
                 $"SELECT pg_advisory_xact_lock(hashtextextended({"agent_runtime:document_ingestion:admission"}, 0))",
                 cancellationToken);
     }

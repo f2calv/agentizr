@@ -37,7 +37,7 @@ public sealed partial class PostgresAdministrationDocumentReviewTests
         Assert.True(generation.Manifest.Inputs.Count > 1);
         var target = generation.Manifest.Inputs[^1].Chunk.Ordinal;
         await using var db = _database.DbContextFactory.CreateDbContext();
-        await db.Database.ExecuteSqlInterpolatedAsync($"""
+        await db.Database.ExecuteSqlAsync($"""
             UPDATE agent_runtime.document_index_vectors
             SET embedding = CASE WHEN ordinal = {target} THEN '[1,0,0,0,0,0,0,0]'::vector
                 ELSE '[0,1,0,0,0,0,0,0]'::vector END WHERE job_id = {generation.JobId}

@@ -297,7 +297,7 @@ public sealed class PostgresDocumentMarkdownGenerationTests : IAsyncLifetime
         await using var previous = new PostgreSqlFixture { InitialMigration = BaselineMigration };
         await previous.InitializeAsync();
         await using var db = previous.DbContextFactory.CreateDbContext();
-        await db.Database.ExecuteSqlInterpolatedAsync($"""
+        await db.Database.ExecuteSqlAsync($"""
             INSERT INTO agent_runtime.knowledge_documents
                 (id, tenant_id, collection_id, blob_uri, sequencer, etag, status, updated_at_utc)
             VALUES ({document.Id}, {document.TenantId}, {document.CollectionId}, {document.BlobUri},
@@ -312,7 +312,7 @@ public sealed class PostgresDocumentMarkdownGenerationTests : IAsyncLifetime
                 {job.LastFailureCode}, CAST({job.PreparationPlanJson} AS jsonb));
             """, Token);
         foreach (var receipt in receipts)
-            await db.Database.ExecuteSqlInterpolatedAsync($"""
+            await db.Database.ExecuteSqlAsync($"""
                 INSERT INTO agent_runtime.document_preparation_operations
                     (id, job_id, tenant_id, collection_id, document_id, source_sha256, plan_sha256,
                      request_sha256, derived_pdf_sha256, stage, page_number, submission_claim_id,

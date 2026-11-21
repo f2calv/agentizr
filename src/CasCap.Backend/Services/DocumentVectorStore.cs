@@ -16,7 +16,7 @@ internal static class DocumentVectorStore
             input_sha256 = input.InputSha256,
             vector_text = JsonSerializer.Serialize(result.Vectors[index]),
         }));
-        var rows = await db.Database.ExecuteSqlInterpolatedAsync($"""
+        var rows = await db.Database.ExecuteSqlAsync($"""
             INSERT INTO agent_runtime.document_index_vectors (tenant_id, job_id, ordinal, input_sha256, embedding)
             SELECT {batch.Claim.Manifest.TenantId}, {batch.Claim.JobId}, item.ordinal, item.input_sha256, CAST(item.vector_text AS vector)
             FROM jsonb_to_recordset(CAST({payload} AS jsonb)) AS item(ordinal integer, input_sha256 text, vector_text text)

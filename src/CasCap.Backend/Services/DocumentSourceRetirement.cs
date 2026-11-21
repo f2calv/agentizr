@@ -16,7 +16,7 @@ internal static class DocumentSourceRetirement
         await db.ActiveDocumentIndexes.Where(item => item.TenantId == document.TenantId
             && item.CollectionId == document.CollectionId && item.DocumentId == document.Id).ExecuteDeleteAsync(token);
         if (db.Database.IsNpgsql())
-            await db.Database.ExecuteSqlInterpolatedAsync($"""
+            await db.Database.ExecuteSqlAsync($"""
                 DELETE FROM agent_runtime.document_index_vectors WHERE tenant_id = {document.TenantId}
                 AND job_id IN (SELECT id FROM agent_runtime.document_indexing_jobs
                     WHERE tenant_id = {document.TenantId} AND collection_id = {document.CollectionId} AND document_id = {document.Id})

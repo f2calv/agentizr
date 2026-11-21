@@ -342,7 +342,7 @@ internal sealed class PostgresAgentDefinitionStore(
         try
         {
             await dbContext.Database.OpenConnectionAsync(cancellationToken);
-            await dbContext.Database.ExecuteSqlInterpolatedAsync(
+            await dbContext.Database.ExecuteSqlAsync(
                 $"SELECT pg_advisory_lock(hashtextextended({lockKey}, 0))",
                 cancellationToken);
         }
@@ -587,7 +587,7 @@ internal sealed class PostgresAgentDefinitionStore(
             return;
         var lockKey = $"{tenantContext.TenantId.Length}:{tenantContext.TenantId}"
             + $"{agentName.Length}:{agentName}";
-        await dbContext.Database.ExecuteSqlInterpolatedAsync(
+        await dbContext.Database.ExecuteSqlAsync(
             $"SELECT pg_advisory_xact_lock(hashtextextended({lockKey}, 0))",
             cancellationToken);
     }
@@ -628,7 +628,7 @@ internal sealed class PostgresAgentDefinitionStore(
         {
             try
             {
-                await dbContext.Database.ExecuteSqlInterpolatedAsync(
+                await dbContext.Database.ExecuteSqlAsync(
                     $"SELECT pg_advisory_unlock(hashtextextended({lockKey}, 0))");
             }
             finally
