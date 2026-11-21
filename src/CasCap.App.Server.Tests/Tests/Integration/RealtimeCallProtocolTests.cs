@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Text.Json;
 
@@ -73,6 +74,62 @@ public sealed class RealtimeCallProtocolTests(RealtimeCallProtocolTests.Realtime
             new CreateRealtimeCallRequest { SdpOffer = Offer }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Equal(before, factory.Handler.RequestCount);
+    }
+
+    [Theory]
+    [InlineData(DocumentCollectionAccess.PublicReference, true)]
+    [InlineData(DocumentCollectionAccess.Private, false)]
+    public async Task Capabilities_ReportsRetentionForTheConfiguredCollection(DocumentCollectionAccess access, bool retention)
+    {
+        using var configured = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            // The metadata probe needs neither PostgreSQL nor a working embedding provider.
+            services.AddSingleton(provider => new RealtimeKnowledgeSessionFactory(
+                provider.GetRequiredService<IServiceScopeFactory>(), new CapabilityKnowledgeOptions(),
+                Options.Create(new DocumentIndexingConfig
+                {
+                    Enabled = true,
+                    Collections =
+                    [
+                        new() { TenantId = "default", CollectionId = "reference", Access = access, ProfileId = "example-profile" },
+                    ],
+                    Profiles = [new() { Id = "example-profile", Azure = new() }],
+                }),
+                provider.GetRequiredService<ILogger<RealtimeKnowledgeSessionFactory>>()));
+        }));
+        using var httpClient = configured.CreateClient();
+        var before = factory.Handler.RequestCount;
+
+        using var response = await httpClient.GetAsync(
+            "/api/v1/agents/knowledge-tutor/realtime/capabilities", TestContext.Current.CancellationToken);
+        response.EnsureSuccessStatusCode();
+        var capabilities = await response.Content.ReadFromJsonAsync<RealtimeCapabilitiesResponse>(TestContext.Current.CancellationToken);
+        Assert.NotNull(capabilities);
+        Assert.True(capabilities.KnowledgeToolsEnabled);
+        Assert.Equal(retention, capabilities.RetentionAllowed);
+        Assert.Equal(before, factory.Handler.RequestCount);
+    }
+
+    private sealed class CapabilityKnowledgeOptions : IOptionsMonitor<DocumentKnowledgeConfig>
+    {
+        public DocumentKnowledgeConfig CurrentValue { get; } = new()
+        {
+            Enabled = true,
+            Bindings =
+            [
+                new()
+                {
+                    TenantId = "default",
+                    AgentName = "knowledge-tutor",
+                    CollectionId = "reference",
+                    RealtimeEnabled = true,
+                    MaximumCefrLevel = "A1",
+                },
+            ],
+        };
+
+        public DocumentKnowledgeConfig Get(string? name) => CurrentValue;
+        public IDisposable? OnChange(Action<DocumentKnowledgeConfig, string?> listener) => null;
     }
 
     [Fact]

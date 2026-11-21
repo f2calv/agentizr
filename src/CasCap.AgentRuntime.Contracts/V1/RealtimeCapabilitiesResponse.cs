@@ -1,6 +1,6 @@
 namespace CasCap.AgentRuntime.Contracts.V1;
 
-/// <summary>Reports the active agent definition's realtime policy, not provider or session health.</summary>
+/// <summary>Reports configured realtime policy for the active agent, not provider or session health.</summary>
 public sealed record RealtimeCapabilitiesResponse
 {
     /// <summary>Gets whether the agent is configured for realtime voice.</summary>
@@ -11,7 +11,7 @@ public sealed record RealtimeCapabilitiesResponse
     /// <example>true</example>
     public required bool KnowledgeToolsEnabled { get; init; }
 
-    /// <summary>Gets whether the realtime definition allows opt-in text retention.</summary>
+    /// <summary>Gets whether configured voice and collection policy allow opt-in text retention.</summary>
     /// <example>false</example>
     public required bool RetentionAllowed { get; init; }
 }

@@ -92,9 +92,10 @@ Instructions are not duplicated: a call uses the definition's instructions. An a
 section rejects realtime calls.
 
 The local [A1 knowledge pilot](document-rag-lifecycle.md#bounded-a1-realtime-pilot) optionally appends
-evidence-handling instructions and a `search_document_knowledge` tool. It additionally requires the
-caller's `agent.knowledge.search` grant and an operator-owned A1 binding. Its one-attempt,
-duration-bounded evidence is call-local, not shared with text sessions. These additions do not
+evidence-handling instructions and a `search_document_knowledge` tool. It requires an operator-owned
+A1 binding, and the caller's `agent.knowledge.search` grant unless the collection is approved for
+public reference. Only the public-reference path allows opt-in retention with this tool. Its
+one-attempt, duration-bounded evidence is call-local, not shared with text sessions. These additions do not
 change ordinary calls and have no live acceptance yet.
 
 ### Contract (illustrative names)

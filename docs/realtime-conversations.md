@@ -11,8 +11,9 @@ The [realtime architecture decision](adr-0002-realtime-voice-calls.md) owns call
 policy. It reports `voiceEnabled`, `knowledgeToolsEnabled` and `retentionAllowed` for the
 active definition in the caller's tenant, or 404 if there is no active definition. A known agent
 without voice returns all three flags as false. The response is not cacheable and the check does
-not start a call or invoke any provider or tool. The flags describe definition policy, not provider
-readiness, knowledge-search authorization, durable storage, or a specific conversation's eligibility.
+not start a call or invoke any provider or tool. The retention flag also considers the configured
+collection binding. It does not verify current publications, provider readiness, knowledge-search
+authorization, durable storage, or a specific conversation's eligibility.
 
 `POST /api/v1/agents/{agentName}/realtime/calls` accepts the existing `sdpOffer`, an opt-in
 `retainConversation` boolean (default false) and an optional `conversationId` GUID from an earlier

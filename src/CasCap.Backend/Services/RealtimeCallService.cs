@@ -55,16 +55,23 @@ public sealed class RealtimeCallService
 
         var voiceEnabled = definition.Realtime is not null;
         var knowledgeToolsEnabled = definition.Realtime is { } realtime && HasKnowledgeTools(realtime);
+        var knowledge = knowledgeToolsEnabled ? CreateKnowledgeSession(definition) : null;
         return new()
         {
             VoiceEnabled = voiceEnabled,
             KnowledgeToolsEnabled = knowledgeToolsEnabled,
-            RetentionAllowed = voiceEnabled && !knowledgeToolsEnabled,
+            RetentionAllowed = voiceEnabled && AllowsRetention(knowledgeToolsEnabled, knowledge),
         };
     }
 
     private static bool HasKnowledgeTools(AgentRealtimeConfig realtime) =>
         realtime.Tools.Contains(RealtimeKnowledgeSession.ToolName, StringComparer.Ordinal);
+
+    private RealtimeKnowledgeSession? CreateKnowledgeSession(AgentDefinition definition) =>
+        serviceProvider.GetRequiredService<RealtimeKnowledgeSessionFactory>().Create(tenantContext.TenantId, definition);
+
+    private static bool AllowsRetention(bool knowledgeToolsEnabled, RealtimeKnowledgeSession? knowledge) =>
+        !knowledgeToolsEnabled || knowledge?.RetentionPolicyId is not null;
 
     /// <summary>
     /// Starts a call from a client SDP offer, or returns <see langword="null"/> when the agent is unavailable or
@@ -83,8 +90,7 @@ public sealed class RealtimeCallService
         {
             if (caller?.Identity?.IsAuthenticated is not true)
                 return new() { IsKnowledgeForbidden = true };
-            knowledge = serviceProvider.GetRequiredService<RealtimeKnowledgeSessionFactory>()
-                .Create(tenantContext.TenantId, definition);
+            knowledge = CreateKnowledgeSession(definition);
             if (knowledge?.RetentionPolicyId is null
                 && !AgentRuntimeAuthorization.HasPermission(caller, AgentRuntimePermissions.KnowledgeSearch))
                 return new() { IsKnowledgeForbidden = true };
@@ -94,8 +100,8 @@ public sealed class RealtimeCallService
         if (!registry.HasCapacity)
             return new RealtimeCallOutcome { IsAtCapacity = true };
         if ((conversationId is not null && !retainConversation)
-            || (retainConversation && knowledgeToolsEnabled
-                && (knowledge?.RetentionPolicyId is null || !await knowledge.IsCurrentAsync(cancellationToken))))
+            || (retainConversation && (!AllowsRetention(knowledgeToolsEnabled, knowledge)
+                || (knowledge is not null && !await knowledge.IsCurrentAsync(cancellationToken)))))
             return new() { IsConversationUnavailable = true };
 
         var logger = loggerFactory.CreateLogger<RealtimeCallService>();
