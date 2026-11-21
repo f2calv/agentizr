@@ -32,6 +32,7 @@ public sealed class DocumentIndexingConfigTests
     [InlineData("no-budget")]
     [InlineData("no-policy-revision")]
     [InlineData("type")]
+    [InlineData("access")]
     [InlineData("cefr")]
     [InlineData("null-profile")]
     [InlineData("null-policy")]
@@ -58,6 +59,7 @@ public sealed class DocumentIndexingConfigTests
             "no-budget" => config with { Profiles = [config.Profiles[0] with { MaximumTotalTokens = 0 }] },
             "no-policy-revision" => config with { Collections = [config.Collections[0] with { Revision = 0 }] },
             "type" => config with { Collections = [config.Collections[0] with { DocumentType = "Other" }] },
+            "access" => config with { Collections = [config.Collections[0] with { Access = (DocumentCollectionAccess)99 }] },
             "cefr" => config with { Collections = [config.Collections[0] with { MaximumCefrLevel = null }] },
             "null-profile" => config with { Profiles = [null!] },
             "null-policy" => config with { Collections = [null!] },
@@ -70,6 +72,23 @@ public sealed class DocumentIndexingConfigTests
             _ => config with { Profiles = [config.Profiles[0] with { Azure = DocumentIndexingTestData.Azure with { ManagementEndpoint = "https://untrusted.example.com/" } }] },
         };
         Assert.NotEmpty(Validate(config));
+    }
+
+    [Fact]
+    public void Indexing_KeepPrivatePolicyJsonCompatibleAndPersistExplicitPublicReference()
+    {
+        var config = DocumentIndexingTestData.Config();
+        var policy = config.Collections[0];
+        Assert.Equal(DocumentCollectionAccess.Private, policy.Access);
+        var privateJson = JsonSerializer.Serialize(policy, JsonSerializerOptions.Web);
+        Assert.DoesNotContain("\"access\"", privateJson, StringComparison.Ordinal);
+        Assert.Equal(policy, JsonSerializer.Deserialize<DocumentIndexingCollectionConfig>(privateJson, JsonSerializerOptions.Web));
+
+        var reference = policy with { Access = DocumentCollectionAccess.PublicReference };
+        Assert.Empty(Validate(config with { Collections = [reference] }));
+        var referenceJson = JsonSerializer.Serialize(reference, JsonSerializerOptions.Web);
+        Assert.Contains("\"access\":\"PublicReference\"", referenceJson, StringComparison.Ordinal);
+        Assert.Equal(reference, JsonSerializer.Deserialize<DocumentIndexingCollectionConfig>(referenceJson, JsonSerializerOptions.Web));
     }
 
     private static List<ValidationResult> Validate(DocumentIndexingConfig config)

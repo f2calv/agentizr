@@ -232,6 +232,12 @@ public sealed record DocumentIndexingCollectionConfig : IValidatableObject
     [Required, StringLength(200, MinimumLength = 1)]
     public string CollectionId { get; init; } = string.Empty;
 
+    /// <summary>Gets the operator-approved access classification; existing collections remain private.</summary>
+    // Keep existing private manifest hashes stable when the classification is omitted.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    [JsonConverter(typeof(JsonStringEnumConverter<DocumentCollectionAccess>))]
+    public DocumentCollectionAccess Access { get; init; }
+
     /// <summary>Gets the operator-maintained policy revision, also bound to a complete content hash.</summary>
     [Range(1, int.MaxValue)]
     public int Revision { get; init; }
@@ -255,6 +261,8 @@ public sealed record DocumentIndexingCollectionConfig : IValidatableObject
     /// <inheritdoc/>
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
+        if (!Enum.IsDefined(Access))
+            yield return new("A supported document collection access classification is required.");
         if (!DocumentApprovalValues.DocumentTypes.Contains(DocumentType, StringComparer.Ordinal))
             yield return new("A supported trusted document classification is required.");
         if (MaximumCefrLevel is not null

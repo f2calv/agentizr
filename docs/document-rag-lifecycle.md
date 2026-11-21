@@ -775,6 +775,13 @@ Application rollback must not implicitly reactivate stale corpus data.
 
 ## Proposed Retrieval And Model Gates
 
+Collection indexing policies can declare `Access` as `Private` (the default) or
+`PublicReference`. Use `PublicReference` only for a collection whose entire contents are
+approved for reference use without individual document grants. Public availability alone does
+not establish reuse rights. This designation does not publish storage or change search
+permissions or voice retention. A classification change is a collection policy change: advance
+its revision and run the existing publication workflow before relying on it for retrieval.
+
 The protected API now implements the bounded search/source portion below locally. Trusted learner
 policy, answering-model integration and end-to-end acceptance remain proposed.
 
