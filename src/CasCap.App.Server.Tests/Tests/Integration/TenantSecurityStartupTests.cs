@@ -211,7 +211,7 @@ public sealed class TenantSecurityStartupTests
         };
         var previous = startupEnvironment.Keys.ToDictionary(key => key, Environment.GetEnvironmentVariable, StringComparer.Ordinal);
         // Initialize the one-time bootstrap logger first so RunAsync cannot replace the capturing logger.
-        Serilog.SerilogExtensions.GetBootstrapLogger();
+        CasCap.Common.Extensions.SerilogExtensions.GetBootstrapLogger();
         var sink = new FatalEventSink();
         Serilog.Log.Logger = new Serilog.LoggerConfiguration().WriteTo.Sink(sink).CreateLogger();
         // A failure after Build() is logged by the host's own Serilog console pipeline, which replaces the
