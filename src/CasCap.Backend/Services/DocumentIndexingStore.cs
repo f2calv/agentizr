@@ -38,7 +38,7 @@ internal sealed partial class DocumentIndexingStore(
             || request.MaximumInputTokens > manifest.Profile.MaximumTotalTokens)
             return new() { ValidationError = "The confirmed request and input-token ceilings do not cover the exact bounded generation." };
         var policyHash = PolicyHash(manifest);
-        if (await HasNewerPolicyAsync(db, manifest, policyHash, token))
+        if (await HasNewerPolicyAsync(db, manifest.Policy, policyHash, token))
             return new() { IsConflict = true };
         var id = DocumentPreparationIdentity.Digest("document-index-v1", source.TenantId, generationId, request.ManifestSha256);
         var existing = await db.DocumentIndexingJobs.SingleOrDefaultAsync(item => item.Id == id && item.TenantId == source.TenantId, token);
@@ -149,7 +149,7 @@ internal sealed partial class DocumentIndexingStore(
             || persisted.JobId != job.PreparationJobId || persisted.GenerationId != job.GenerationId
             || persisted.Policy.Revision != job.PolicyRevision || PolicyHash(persisted) != job.PolicySha256)
             throw new InvalidDataException("The saved indexing manifest has inconsistent identity or ownership.");
-        if (await HasNewerPolicyAsync(db, persisted, job.PolicySha256, token))
+        if (await HasNewerPolicyAsync(db, persisted.Policy, job.PolicySha256, token))
             return null;
         var pair = await db.DocumentIngestionJobs.AsNoTracking()
             .Where(item => item.Id == job.PreparationJobId && item.TenantId == job.TenantId
@@ -198,11 +198,17 @@ internal sealed partial class DocumentIndexingStore(
     };
 
     private static string PolicyHash(DocumentIndexingManifest manifest) =>
-        DocumentPreparationIdentity.Hash(JsonSerializer.Serialize(new { manifest.Policy, manifest.Profile }, JsonSerializerOptions.Web));
+        PolicyHash(manifest.Policy, manifest.Profile);
 
-    private static Task<bool> HasNewerPolicyAsync(AgentRuntimeDbContext db, DocumentIndexingManifest manifest, string hash, CancellationToken token) =>
-        db.DocumentIndexingJobs.AnyAsync(item => item.TenantId == manifest.TenantId && item.CollectionId == manifest.CollectionId
-            && (item.PolicyRevision > manifest.Policy.Revision || item.PolicyRevision == manifest.Policy.Revision && item.PolicySha256 != hash), token);
+    /// <summary>Computes the policy and profile identity shared with persisted indexing manifests.</summary>
+    internal static string PolicyHash(DocumentIndexingCollectionConfig policy, DocumentEmbeddingProfileConfig profile) =>
+        DocumentPreparationIdentity.Hash(JsonSerializer.Serialize(new { Policy = policy, Profile = profile }, JsonSerializerOptions.Web));
+
+    /// <summary>Detects a superseding or conflicting persisted revision for this exact collection.</summary>
+    internal static Task<bool> HasNewerPolicyAsync(
+        AgentRuntimeDbContext db, DocumentIndexingCollectionConfig policy, string hash, CancellationToken token) =>
+        db.DocumentIndexingJobs.AnyAsync(item => item.TenantId == policy.TenantId && item.CollectionId == policy.CollectionId
+            && (item.PolicyRevision > policy.Revision || item.PolicyRevision == policy.Revision && item.PolicySha256 != hash), token);
 
     private static Task<ActiveDocumentIndexEntity?> ActiveAsync(AgentRuntimeDbContext db, DocumentIndexingManifest manifest, CancellationToken token) =>
         db.ActiveDocumentIndexes.SingleOrDefaultAsync(item => item.TenantId == manifest.TenantId

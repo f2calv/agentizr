@@ -21,8 +21,8 @@ with retention enabled. Call IDs remain distinct and continue to identify hang-u
 
 The endpoint returns an explicit 409 for unavailable retention, missing/expired/foreign history,
 definition changes, overlapping use or a conversation reference submitted without retention.
-Ordinary calls retain their existing contract, including 403 for a knowledge call without its
-additional search grant. Retention requires PostgreSQL plus authenticated issuer and user claims;
+Ordinary calls retain their existing contract, including 403 for a private knowledge call without
+its additional search grant. Retention requires PostgreSQL plus authenticated issuer and user claims;
 the in-memory development adapter does not pretend to provide durable resumption.
 
 Retained setup waits up to twenty seconds for `session.updated` and acknowledgement of every
@@ -77,13 +77,18 @@ Do not treat this feature as an unlimited transcript archive.
 
 ## Knowledge Boundary
 
-Calls whose active definition allows `search_document_knowledge` cannot opt into retention or
-resume. Previous grounded answers can contain evidence with separate allowance, expiry and
-revocation requirements; replaying them as ordinary conversation would bypass that boundary.
-Non-retained knowledge calls keep their existing controls unchanged.
+Only calls bound to an approved `PublicReference` collection can combine document knowledge with
+opt-in retention. Private or unclassified collections remain ineligible: their text could repeat
+evidence that requires a separate grant. A retained public-reference answer can repeat approved
+material, but raw passages and tool payloads are not retained.
 
-An evidence-aware extension would need to reauthorize retained sources and invalidate dependent
-context. Until that is designed, the call-creation boundary refuses the combination explicitly.
+The retained conversation records an identity tied to the tenant/agent binding, collection policy
+revision and embedding profile. Resume rejects a different identity. The runtime rechecks current
+policy before replay and at conversation events, and ends the call on a detected change. A newer
+persisted indexing policy also invalidates the earlier one. These are checks at event boundaries,
+not instantaneous revocation of text already sent to the voice provider. To invalidate replay of
+withdrawn public-reference material, advance the collection policy revision; deleting a source alone
+does not remove words already present in a retained transcript.
 
 ## Verification
 

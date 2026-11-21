@@ -88,6 +88,30 @@ public sealed class RealtimeConversationStoreTests(PostgreSqlFixture postgres) :
         Assert.NotNull(stillOriginal);
     }
 
+    [Fact]
+    public async Task Resume_PublicReferenceRequiresTheOriginalPolicy()
+    {
+        var clock = new VoiceClock();
+        await using var services = CreateServices(clock);
+        var store = CreateStore(services, clock);
+        var tenant = Guid.NewGuid().ToString("N");
+        var caller = Caller("synthetic-owner");
+        const string policy = "reference-policy-v1";
+        Guid id;
+        await using (var first = await store.OpenAsync(tenant, "tutor", "v1", caller, null, Token, policy))
+        {
+            Assert.NotNull(first);
+            id = first.Id;
+            await first.RecordAsync("item_assistant", "assistant", "Synthetic reference answer", Token);
+        }
+
+        Assert.Null(await store.OpenAsync(tenant, "tutor", "v1", caller, id, Token, "reference-policy-v2"));
+        Assert.Null(await store.OpenAsync(tenant, "tutor", "v1", caller, id, Token));
+        await using var resumed = await store.OpenAsync(tenant, "tutor", "v1", caller, id, Token, policy);
+        Assert.NotNull(resumed);
+        Assert.Single(resumed.Conversation.Replay());
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

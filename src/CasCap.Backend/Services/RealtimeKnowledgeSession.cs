@@ -35,8 +35,8 @@ internal sealed class RealtimeKnowledgeSession(
         (Func<string, CancellationToken, Task<JsonObject>>)SearchAsync,
         ToolName, "Retrieves cited, reviewed A1 vocabulary evidence once per voice call, at the start of one lesson topic. No retries; reuse the evidence across turns.");
 
-    /// <summary>Gets the opted-in public-reference policy, if any, for this call's exact binding.</summary>
-    public DocumentIndexingCollectionConfig? PublicReferencePolicy { get; init; }
+    /// <summary>Gets the stable identity of the approved public-reference binding, or null for protected calls.</summary>
+    public string? RetentionPolicyId { get; init; }
 
     public Task<bool> IsCurrentAsync(CancellationToken token) => revalidate(_passages, token);
 

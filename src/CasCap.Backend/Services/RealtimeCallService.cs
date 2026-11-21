@@ -85,7 +85,7 @@ public sealed class RealtimeCallService
                 return new() { IsKnowledgeForbidden = true };
             knowledge = serviceProvider.GetRequiredService<RealtimeKnowledgeSessionFactory>()
                 .Create(tenantContext.TenantId, definition);
-            if (knowledge?.PublicReferencePolicy is null
+            if (knowledge?.RetentionPolicyId is null
                 && !AgentRuntimeAuthorization.HasPermission(caller, AgentRuntimePermissions.KnowledgeSearch))
                 return new() { IsKnowledgeForbidden = true };
             if (knowledge is null)
@@ -93,7 +93,9 @@ public sealed class RealtimeCallService
         }
         if (!registry.HasCapacity)
             return new RealtimeCallOutcome { IsAtCapacity = true };
-        if ((conversationId is not null && !retainConversation) || (retainConversation && knowledgeToolsEnabled))
+        if ((conversationId is not null && !retainConversation)
+            || (retainConversation && knowledgeToolsEnabled
+                && (knowledge?.RetentionPolicyId is null || !await knowledge.IsCurrentAsync(cancellationToken))))
             return new() { IsConversationUnavailable = true };
 
         var logger = loggerFactory.CreateLogger<RealtimeCallService>();
@@ -114,7 +116,8 @@ public sealed class RealtimeCallService
             if (retainConversation)
             {
                 conversation = await serviceProvider.GetRequiredService<RealtimeConversationStore>().OpenAsync(
-                    tenantContext.TenantId, agentName, definition.Version, caller, conversationId, cancellationToken);
+                    tenantContext.TenantId, agentName, definition.Version, caller, conversationId, cancellationToken,
+                    knowledge?.RetentionPolicyId);
                 if (conversation is null)
                     return new() { IsConversationUnavailable = true };
                 toolLeases.Add(conversation);

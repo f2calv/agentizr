@@ -242,15 +242,31 @@ public sealed class RealtimeKnowledgeTests
             RealtimeEnabled = true,
             MaximumCefrLevel = "A1",
         };
-        var policy = new DocumentIndexingCollectionConfig { TenantId = tenant, CollectionId = collection, Access = access };
+        var profile = new DocumentEmbeddingProfileConfig { Id = "example-profile", Azure = new() };
+        var policy = new DocumentIndexingCollectionConfig
+        {
+            TenantId = tenant,
+            CollectionId = collection,
+            Access = access,
+            ProfileId = profile.Id,
+        };
         var monitor = new KnowledgeOptionsMonitor(new() { Enabled = true, Bindings = [binding] });
         await using var container = new ServiceCollection().BuildServiceProvider();
         var factory = new RealtimeKnowledgeSessionFactory(container.GetRequiredService<IServiceScopeFactory>(),
-            monitor, Options.Create(new DocumentIndexingConfig { Enabled = true, Collections = [policy] }),
+            monitor, Options.Create(new DocumentIndexingConfig
+            {
+                Enabled = true,
+                Collections = [policy],
+                Profiles = [profile],
+            }),
             NullLogger<RealtimeKnowledgeSessionFactory>.Instance);
 
         var session = Assert.IsType<RealtimeKnowledgeSession>(factory.Create(binding.TenantId, definition));
-        Assert.Equal(isPublic ? policy : null, session.PublicReferencePolicy);
+        Assert.Equal(isPublic, session.RetentionPolicyId is not null);
+        Assert.Equal(session.RetentionPolicyId, factory.Create(binding.TenantId, definition)?.RetentionPolicyId);
+        monitor.Value = monitor.Value with { Bindings = [binding with { MaximumRealtimeDurationMinutes = 6 }] };
+        if (isPublic)
+            Assert.NotEqual(session.RetentionPolicyId, factory.Create(binding.TenantId, definition)?.RetentionPolicyId);
         monitor.Value = monitor.Value with { Bindings = [binding with { CollectionId = "replacement" }] };
         Assert.False(await session.IsCurrentAsync(Token));
     }

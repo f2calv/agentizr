@@ -170,6 +170,9 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
     /// <summary>Sends server-owned configuration and any text-only replay before admitting client media.</summary>
     internal async Task InitializeAsync(WebSocket socket, CancellationToken cancellationToken)
     {
+        if (_options.Conversation is not null && _options.Knowledge is { } knowledge
+            && !await knowledge.IsCurrentAsync(cancellationToken))
+            throw new InvalidOperationException("Realtime knowledge is no longer current; restart the call.");
         await SendAsync(socket, new JsonObject
         {
             ["type"] = "session.update",
@@ -204,7 +207,9 @@ internal sealed class RealtimeCallSession : IAsyncDisposable
             using var document = JsonDocument.Parse(buffer.WrittenMemory);
             var root = document.RootElement;
             var eventType = root.GetProperty("type").GetString();
-            if (eventType is "input_audio_buffer.speech_started" or "response.created" or "response.done"
+            if ((eventType is "input_audio_buffer.speech_started" or "response.created" or "response.done"
+                    || (_options.Conversation is not null && eventType is
+                        "conversation.item.input_audio_transcription.completed" or "response.output_audio_transcript.done"))
                 && _options.Knowledge is { } knowledge && !await knowledge.IsCurrentAsync(cancellationToken))
                 throw new InvalidOperationException("Realtime knowledge is no longer current; restart the call.");
             switch (eventType)

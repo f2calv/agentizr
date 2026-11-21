@@ -28,7 +28,7 @@ internal sealed class RealtimeConversationStore(IServiceScopeFactory scopeFactor
     /// <summary>Opens a new context or resumes only an unexpired context owned by this tenant, agent and caller.</summary>
     public async Task<RealtimeConversationLease?> OpenAsync(
         string tenantId, string agentName, string definitionVersion, ClaimsPrincipal? caller,
-        Guid? conversationId, CancellationToken cancellationToken)
+        Guid? conversationId, CancellationToken cancellationToken, string? retentionPolicyId = null)
     {
         var id = conversationId ?? Guid.NewGuid();
         if (id == Guid.Empty || GetSessionId(caller, id) is not { } sessionId)
@@ -47,13 +47,14 @@ internal sealed class RealtimeConversationStore(IServiceScopeFactory scopeFactor
             var key = AgentStateKey.CreateRedis(StateKind, tenantId, agentName, SchemaVersion, sessionId);
             var context = await stateStore.GetAsync<RealtimeConversation>(key, cancellationToken, useCache: false);
             if (conversationId is not null && (context is null || context.ExpiresAt <= timeProvider.GetUtcNow()
-                || context.DefinitionVersion != definitionVersion))
+                || context.DefinitionVersion != definitionVersion || context.RetentionPolicyId != retentionPolicyId))
                 return null;
             if (context is null)
             {
                 context = new RealtimeConversation
                 {
                     DefinitionVersion = definitionVersion,
+                    RetentionPolicyId = retentionPolicyId,
                     ExpiresAt = timeProvider.GetUtcNow() + Retention,
                 };
                 await stateStore.WriteAsync(agentName, sessionId, key, context, cancellationToken);

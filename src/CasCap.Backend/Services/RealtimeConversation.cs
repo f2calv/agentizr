@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 
 namespace CasCap.Services;
 
@@ -9,6 +10,10 @@ internal sealed class RealtimeConversation
 
     /// <summary>Gets the definition under which this conversation started.</summary>
     public required string DefinitionVersion { get; init; }
+
+    /// <summary>Gets the original reference policy, or null for a call without document knowledge.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RetentionPolicyId { get; init; }
 
     /// <summary>Gets or sets the absolute expiry, extended by a completed utterance only.</summary>
     public DateTimeOffset ExpiresAt { get; set; }

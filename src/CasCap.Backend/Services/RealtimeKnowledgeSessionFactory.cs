@@ -1,5 +1,6 @@
 using CasCap.AgentRuntime.Contracts.V1;
 using CasCap.Extensions;
+using Microsoft.EntityFrameworkCore;
 using System.Data.Common;
 using System.Text.Json;
 
@@ -17,9 +18,14 @@ internal sealed class RealtimeKnowledgeSessionFactory(
         var binding = Binding(tenantId, definition.Name);
         if (binding is not { RealtimeEnabled: true, MaximumCefrLevel: "A1" })
             return null;
+        var policy = PublicReferencePolicy(binding);
+        var profile = policy is null ? null : indexing.Value.Profiles.SingleOrDefault(item => item.Id == policy.ProfileId);
+        var policyHash = policy is not null && profile is { Azure: not null, HasExecutionBinding: true }
+            ? DocumentIndexingStore.PolicyHash(policy, profile) : null;
         return new(TimeSpan.FromMinutes(binding.MaximumRealtimeDurationMinutes), SearchAsync, RevalidateAsync)
         {
-            PublicReferencePolicy = PublicReferencePolicy(binding),
+            RetentionPolicyId = policyHash is null ? null : DocumentPreparationIdentity.Digest(
+                "voice-public-reference-v1", policyHash, JsonSerializer.Serialize(binding, JsonSerializerOptions.Web)),
         };
 
         async Task<DocumentKnowledgeOutcome> SearchAsync(SearchKnowledgeRequest request, CancellationToken token)
@@ -43,6 +49,13 @@ internal sealed class RealtimeKnowledgeSessionFactory(
                 var service = CreateService(scope.ServiceProvider, tenantId);
                 if (!await service.IsCurrentAsync(definition.Name, definition.Version, binding, deadline.Token))
                     return false;
+                if (policyHash is not null)
+                {
+                    var dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AgentRuntimeDbContext>>();
+                    await using var db = await dbFactory.CreateDbContextAsync(deadline.Token);
+                    if (await DocumentIndexingStore.HasNewerPolicyAsync(db, policy!, policyHash, deadline.Token))
+                        return false;
+                }
                 foreach (var passage in passages)
                 {
                     var current = await service.ReadBoundPassageAsync(
