@@ -87,9 +87,10 @@ The retained conversation records an identity tied to the tenant/agent binding, 
 revision and embedding profile. Resume rejects a different identity. The runtime rechecks current
 policy before replay and at conversation events, and ends the call on a detected change. A newer
 persisted indexing policy also invalidates the earlier one. These are checks at event boundaries,
-not instantaneous revocation of text already sent to the voice provider. To invalidate replay of
-withdrawn public-reference material, advance the collection policy revision; deleting a source alone
-does not remove words already present in a retained transcript.
+not instantaneous revocation of text already sent to the voice provider. Retained public-reference
+calls are also bound to the eligible published corpus. A document withdrawal, reclassification, or
+republication that changes that corpus prevents replay; it does not erase stored transcript text.
+Older public-reference conversations without a corpus identity cannot be resumed.
 
 ## Verification
 

@@ -9,6 +9,9 @@ public sealed class DocumentApprovalDraft(DocumentReviewGenerationResponse revie
     /// <summary>Gets or sets the explicitly selected document classification.</summary>
     public string DocumentType { get; set; } = review.Approval?.Assessment.DocumentType ?? string.Empty;
 
+    /// <summary>Gets or sets whether the reviewed source is approved for public reference.</summary>
+    public bool PublicReference { get; set; } = review.Approval?.Assessment.PublicReference ?? false;
+
     /// <summary>Gets or sets the optional edition.</summary>
     public string? Edition { get; set; } = review.Approval?.Assessment.Edition;
 
@@ -39,6 +42,7 @@ public sealed class DocumentApprovalDraft(DocumentReviewGenerationResponse revie
         ChunkReviewRevision = review.ChunkReview?.Revision ?? 0,
         Language = Language,
         DocumentType = DocumentType,
+        PublicReference = PublicReference,
         Edition = string.IsNullOrWhiteSpace(Edition) ? null : Edition.Trim(),
         CefrLevel = string.IsNullOrWhiteSpace(CefrLevel) ? null : CefrLevel,
         ApprovalRequested = ApprovalRequested,

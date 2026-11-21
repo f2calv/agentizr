@@ -388,9 +388,11 @@ public sealed partial class PostgresAdministrationDocumentReviewTests
         new(NullLogger<DocumentIndexingProcessingService>.Instance, Options.Create(settings), store, provider);
 
     private async Task<(HttpClient Http, AdministrationApiClient Client, string Id, DocumentIndexingConfig Settings, DocumentIndexingRequest Request)> AcceptedIndexingInputsAsync(
-        bool local = false, bool excludeFirst = false, string cefrLevel = "A1")
+        bool local = false, bool excludeFirst = false, string cefrLevel = "A1",
+        DocumentCollectionAccess access = DocumentCollectionAccess.Private, bool publicReference = false)
     {
         var settings = DocumentIndexingTestData.ExecutionConfig(_source.TenantId, _source.CollectionId);
+        settings = settings with { Collections = [settings.Collections[0] with { Access = access }] };
         if (local)
             settings = settings with { Profiles = [DocumentIndexingTestData.OllamaConfig().Profiles[0] with { MaximumBatchInputs = 1 }] };
         await _host.DisposeAsync();
@@ -405,7 +407,11 @@ public sealed partial class PostgresAdministrationDocumentReviewTests
             _source.DocumentId, _source.JobId, id,
             NativeSelectionRequest() with { Exclusions = excludeFirst ? [new() { Ordinal = 0 }] : [] }, Token)).IsSuccess);
         Assert.True((await client.RecordDocumentApprovalAsync("tenant-a", _source.CollectionId,
-            _source.DocumentId, _source.JobId, id, NativeApprovalRequest() with { CefrLevel = cefrLevel }, Token)).IsSuccess);
+            _source.DocumentId, _source.JobId, id, NativeApprovalRequest() with
+            {
+                CefrLevel = cefrLevel,
+                PublicReference = publicReference,
+            }, Token)).IsSuccess);
         var preflight = await client.GetDocumentIndexingPreflightAsync("tenant-a", _source.CollectionId,
             _source.DocumentId, _source.JobId, id, Token);
         Assert.True(preflight.Value!.Eligible, string.Join("; ", preflight.Value.Blockers));

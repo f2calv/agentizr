@@ -121,9 +121,13 @@ public sealed class RealtimeCallService
             RealtimeConversationLease? conversation = null;
             if (retainConversation)
             {
+                var retentionIdentity = knowledge?.RetentionPolicyId;
+                if (knowledge?.CapturePublicCorpusAsync is { } capture)
+                    retentionIdentity = DocumentPreparationIdentity.Digest("voice-reference-corpus-v1",
+                        retentionIdentity, await capture(cancellationToken));
                 conversation = await serviceProvider.GetRequiredService<RealtimeConversationStore>().OpenAsync(
                     tenantContext.TenantId, agentName, definition.Version, caller, conversationId, cancellationToken,
-                    knowledge?.RetentionPolicyId);
+                    retentionIdentity);
                 if (conversation is null)
                     return new() { IsConversationUnavailable = true };
                 toolLeases.Add(conversation);

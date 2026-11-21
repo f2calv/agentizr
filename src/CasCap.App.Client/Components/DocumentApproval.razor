@@ -32,6 +32,7 @@
             <tbody>
                 <tr><th scope="row">Assessed chunk-review revision</th><td>@saved.Assessment.ChunkReviewRevision</td></tr>
                 <tr><th scope="row">Reviewed document type</th><td>@saved.Assessment.DocumentType</td></tr>
+                <tr><th scope="row">Document access</th><td>@(saved.Assessment.PublicReference ? "Public reference" : "Private")</td></tr>
                 <tr><th scope="row">Reviewed language</th><td>@saved.Assessment.Language</td></tr>
                 <tr><th scope="row">Highest CEFR content level</th><td>@(saved.Assessment.CefrLevel ?? "Not specified")</td></tr>
                 <tr><th scope="row">Edition</th><td>@(saved.Assessment.Edition ?? "Not specified")</td></tr>
@@ -87,6 +88,15 @@ else if (_context is not null && _draft is not null)
                 <MudSelectItem Value="@type" @key="type">@type</MudSelectItem>
             }
         </MudSelect>
+        <MudSelect T="bool" Label="Document access" @bind-Value="_draft.PublicReference" @bind-Value:after="ChangedAsync" For="() => _draft.PublicReference" Disabled="Disabled">
+            <MudSelectItem Value="false">Private</MudSelectItem>
+            <MudSelectItem Value="true">Public reference</MudSelectItem>
+        </MudSelect>
+        <MudText Typo="Typo.body2">
+            Choose Public reference only for material approved for retrieval and retained answers.
+            It requires a public-reference collection and a current index; it does not make the file public.
+            Saving a new assessment makes the previous publication ineligible until republished.
+        </MudText>
         <MudTextField T="string" Label="Edition (optional)" @bind-Value="_draft.Edition" @bind-Value:after="ChangedAsync" For="() => _draft.Edition" Disabled="Disabled" MaxLength="200" />
         <MudSelect T="string" Label="Highest reviewed CEFR content level" @bind-Value="_draft.CefrLevel" @bind-Value:after="ChangedAsync" For="() => _draft.CefrLevel" Disabled="Disabled" Clearable="true">
             @foreach (var level in CasCap.Client.Constants.DocumentApprovalValues.CefrLevels)

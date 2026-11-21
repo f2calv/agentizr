@@ -81,8 +81,18 @@ internal sealed class DocumentKnowledgeStore(
         return generation is not null && chunk is not null && CanReturn(chunk) ? Passage(generation, chunk) : null;
     }
 
+    /// <summary>Identifies the current public-reference corpus without reading vectors or sending content externally.</summary>
+    public async Task<string> PublicCorpusIdAsync(DocumentKnowledgeBindingConfig binding, CancellationToken token)
+    {
+        await using var db = await dbContextFactory.CreateDbContextAsync(token);
+        await using var transaction = await db.Database.BeginTransactionAsync(token);
+        await DocumentIngestionTransactions.LockAsync(db, token);
+        var current = await CurrentAsync(db, binding, token, validateVectors: false);
+        return DocumentPreparationIdentity.Digest(current.Select(item => item.JobId).ToArray());
+    }
+
     private async Task<IReadOnlyList<DocumentKnowledgeGeneration>> CurrentAsync(
-        AgentRuntimeDbContext db, DocumentKnowledgeBindingConfig binding, CancellationToken token)
+        AgentRuntimeDbContext db, DocumentKnowledgeBindingConfig binding, CancellationToken token, bool validateVectors = true)
     {
         if (!db.Database.IsNpgsql())
             throw new InvalidOperationException("Knowledge retrieval requires native PostgreSQL vector storage.");
@@ -105,15 +115,23 @@ internal sealed class DocumentKnowledgeStore(
             var manifest = await indexingStore.CurrentManifestAsync(db, job, token);
             if (manifest is null)
                 continue;
-            var assessmentJson = await db.DocumentApprovals.AsNoTracking()
+            var approval = await db.DocumentApprovals.AsNoTracking()
                 .Where(item => item.TenantId == binding.TenantId && item.GenerationId == manifest.GenerationId
                     && item.Revision == manifest.AssessmentRevision)
-                .Select(item => item.AssessmentJson).SingleAsync(token);
-            var assessment = JsonSerializer.Deserialize<DocumentApprovalRequest>(assessmentJson, JsonSerializerOptions.Web)
+                .Select(item => new { item.AssessmentJson, item.RecordedAtUtc }).SingleAsync(token);
+            var assessment = JsonSerializer.Deserialize<DocumentApprovalRequest>(approval.AssessmentJson, JsonSerializerOptions.Web)
                 ?? throw new InvalidDataException("The saved document assessment is empty.");
+            if (policy.Access == DocumentCollectionAccess.PublicReference
+                && (!assessment.PublicReference || await db.DocumentMarkdownGenerations
+                    .Where(other => other.TenantId == job.TenantId && other.CollectionId == job.CollectionId
+                        && other.DocumentId == job.DocumentId && other.Id != manifest.GenerationId)
+                    .AnyAsync(other => db.DocumentApprovals.Any(newer => newer.TenantId == job.TenantId
+                        && newer.GenerationId == other.Id && newer.RecordedAtUtc >= approval.RecordedAtUtc), token)))
+                continue;
             if (assessment.CefrLevel is not { } level || !AllowsLevel(binding.MaximumCefrLevel, level))
                 continue;
-            await DocumentVectorStore.ValidateAsync(db, job.Id, manifest, token);
+            if (validateVectors)
+                await DocumentVectorStore.ValidateAsync(db, job.Id, manifest, token);
             result.Add(new(job.Id, manifest, level));
         }
         return result;

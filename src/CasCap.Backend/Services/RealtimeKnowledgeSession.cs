@@ -38,6 +38,9 @@ internal sealed class RealtimeKnowledgeSession(
     /// <summary>Gets the stable identity of the approved public-reference binding, or null for protected calls.</summary>
     public string? RetentionPolicyId { get; init; }
 
+    /// <summary>Captures the eligible corpus for replay and enables corpus revalidation for this retained call.</summary>
+    internal Func<CancellationToken, Task<string>>? CapturePublicCorpusAsync { get; init; }
+
     public Task<bool> IsCurrentAsync(CancellationToken token) => revalidate(_passages, token);
 
     private async Task<JsonObject> SearchAsync(

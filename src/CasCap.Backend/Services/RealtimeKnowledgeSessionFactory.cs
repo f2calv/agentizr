@@ -22,11 +22,30 @@ internal sealed class RealtimeKnowledgeSessionFactory(
         var profile = policy is null ? null : indexing.Value.Profiles.SingleOrDefault(item => item.Id == policy.ProfileId);
         var policyHash = policy is not null && profile is { Azure: not null, HasExecutionBinding: true }
             ? DocumentIndexingStore.PolicyHash(policy, profile) : null;
+        string? retainedCorpusId = null;
         return new(TimeSpan.FromMinutes(binding.MaximumRealtimeDurationMinutes), SearchAsync, RevalidateAsync)
         {
             RetentionPolicyId = policyHash is null ? null : DocumentPreparationIdentity.Digest(
                 "voice-public-reference-v1", policyHash, JsonSerializer.Serialize(binding, JsonSerializerOptions.Web)),
+            CapturePublicCorpusAsync = policyHash is null ? null : CapturePublicCorpusAsync,
         };
+
+        async Task<string> CapturePublicCorpusAsync(CancellationToken token)
+        {
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+            deadline.CancelAfter(TimeSpan.FromSeconds(config.CurrentValue.TimeoutSeconds));
+            await using var scope = scopeFactory.CreateAsyncScope();
+            try
+            {
+                retainedCorpusId = await scope.ServiceProvider.GetRequiredService<DocumentKnowledgeStore>()
+                    .PublicCorpusIdAsync(binding, deadline.Token);
+                return retainedCorpusId;
+            }
+            catch (OperationCanceledException exception) when (!token.IsCancellationRequested)
+            {
+                throw new TimeoutException("The current reference corpus could not be verified before the deadline.", exception);
+            }
+        }
 
         async Task<DocumentKnowledgeOutcome> SearchAsync(SearchKnowledgeRequest request, CancellationToken token)
         {
@@ -56,6 +75,9 @@ internal sealed class RealtimeKnowledgeSessionFactory(
                     if (await DocumentIndexingStore.HasNewerPolicyAsync(db, policy!, policyHash, deadline.Token))
                         return false;
                 }
+                if (retainedCorpusId is not null && retainedCorpusId != await scope.ServiceProvider
+                    .GetRequiredService<DocumentKnowledgeStore>().PublicCorpusIdAsync(binding, deadline.Token))
+                    return false;
                 foreach (var passage in passages)
                 {
                     var current = await service.ReadBoundPassageAsync(
