@@ -24,9 +24,9 @@ public sealed class AdministrationApiClient(HttpClient httpClient, Administratio
         GetAsync<IReadOnlyList<AppSummaryResponse>>(AdministrationRoutes.Apps, cancellationToken);
 
     /// <summary>Reads the fixed runtime logging destination after host-wide operator authorization.</summary>
-    public Task<ApiResult<CasCap.Common.Configuration.Management.Contracts.Models.RuntimeConfigurationDestination>>
+    public Task<ApiResult<RuntimeConfigurationDestination>>
         GetRuntimeLoggingDestinationAsync(CancellationToken cancellationToken) =>
-        GetAsync<CasCap.Common.Configuration.Management.Contracts.Models.RuntimeConfigurationDestination>(
+        GetAsync<RuntimeConfigurationDestination>(
             RuntimeLoggingRoutes.Destination, cancellationToken);
 
     /// <summary>Lists one bounded page of admitted sources and their current jobs, optionally within one exact collection.</summary>

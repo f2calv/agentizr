@@ -7,7 +7,7 @@ builder.Services.AddMudServices();
 builder.Services.AddScoped<AdministrationSessionState>();
 builder.Services.AddHttpClient<AdministrationApiClient>(client =>
     client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
-builder.Services.AddHttpClient<CasCap.Common.Configuration.Blazor.Services.RuntimeConfigurationClient<
+builder.Services.AddHttpClient<CasCap.Common.Services.RuntimeConfigurationClient<
     CasCap.AgentRuntime.Contracts.RuntimeConfiguration.RuntimeLoggingControls>>(client =>
     client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
 

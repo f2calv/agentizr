@@ -1,5 +1,3 @@
-using CasCap.Common.Configuration.Management.Contracts.Models;
-
 namespace CasCap.Client.Pages;
 
 /// <summary>Embeds the shared typed logging editor behind the host's immutable authorized destination.</summary>

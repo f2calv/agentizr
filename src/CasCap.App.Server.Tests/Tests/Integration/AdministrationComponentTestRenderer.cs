@@ -26,7 +26,7 @@ internal static class AdministrationComponentTestRenderer
         services.AddSingleton(httpClient);
         services.AddSingleton<AdministrationSessionState>();
         services.AddSingleton<AdministrationApiClient>();
-        services.AddSingleton<CasCap.Common.Configuration.Blazor.Services.RuntimeConfigurationClient<
+        services.AddSingleton<CasCap.Common.Services.RuntimeConfigurationClient<
             CasCap.AgentRuntime.Contracts.RuntimeConfiguration.RuntimeLoggingControls>>();
         await using var provider = services.BuildServiceProvider();
         await using var renderer = new HtmlRenderer(provider, provider.GetRequiredService<ILoggerFactory>());

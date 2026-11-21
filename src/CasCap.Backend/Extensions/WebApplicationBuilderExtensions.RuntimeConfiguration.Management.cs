@@ -1,5 +1,5 @@
-using CasCap.Common.Configuration.Management.Contracts.Constants;
-using CasCap.Common.Configuration.Management.Extensions;
+using CasCap.Common.Constants;
+using CasCap.Common.Extensions;
 using CasCap.Constants;
 using CasCap.RuntimeConfiguration.Services;
 using Microsoft.AspNetCore.Authorization;

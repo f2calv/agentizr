@@ -1,6 +1,5 @@
 using CasCap.Client.Constants;
-using CasCap.Common.Configuration.Management.Contracts.Constants;
-using CasCap.Common.Configuration.Management.Contracts.Models;
+using CasCap.Common.Constants;
 using CasCap.RuntimeConfiguration.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;

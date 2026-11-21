@@ -1,4 +1,4 @@
-using Serilog;
+using CasCap.Common.Extensions;
 
 namespace CasCap.Extensions;
 

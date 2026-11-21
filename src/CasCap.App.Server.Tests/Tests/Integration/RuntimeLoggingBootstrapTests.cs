@@ -1,5 +1,4 @@
 using CasCap.AgentRuntime.Contracts.RuntimeConfiguration;
-using CasCap.Common.Configuration.Runtime.Models;
 using CasCap.IntegrationTests;
 using CasCap.Models;
 using CasCap.RuntimeConfiguration.Models;

@@ -3,4 +3,5 @@ global using CasCap.Client.Components;
 global using CasCap.Client.Constants;
 global using CasCap.Client.Models;
 global using CasCap.Client.Services;
+global using CasCap.Common.Models;
 global using System.ComponentModel.DataAnnotations;

@@ -1,4 +1,3 @@
-using CasCap.Common.Configuration.Runtime.Models;
 using CasCap.Constants;
 using CasCap.RuntimeConfiguration.Models;
 using CasCap.RuntimeConfiguration.Services;

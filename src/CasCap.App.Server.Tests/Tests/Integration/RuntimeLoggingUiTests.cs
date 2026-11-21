@@ -1,7 +1,6 @@
 using CasCap.AgentRuntime.Contracts.RuntimeConfiguration;
 using CasCap.Client.Constants;
 using CasCap.Client.Pages;
-using CasCap.Common.Configuration.Management.Contracts.Models;
 using System.Net;
 using System.Text.Json;
 using static CasCap.Tests.Integration.AdministrationComponentTestRenderer;

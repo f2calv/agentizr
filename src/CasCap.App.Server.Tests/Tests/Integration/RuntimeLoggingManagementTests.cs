@@ -1,9 +1,7 @@
 using CasCap.AgentRuntime.Contracts.RuntimeConfiguration;
 using CasCap.Client.Constants;
-using CasCap.Common.Configuration.Management.Contracts.Constants;
-using CasCap.Common.Configuration.Management.Contracts.Models;
-using CasCap.Common.Configuration.Runtime.Abstractions;
-using CasCap.Common.Configuration.Runtime.Models;
+using CasCap.Common.Abstractions;
+using CasCap.Common.Constants;
 using CasCap.Constants;
 using CasCap.IntegrationTests;
 using CasCap.RuntimeConfiguration.Models;

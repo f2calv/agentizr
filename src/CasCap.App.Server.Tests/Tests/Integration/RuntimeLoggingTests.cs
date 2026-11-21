@@ -1,6 +1,7 @@
-using CasCap.Common.Configuration.PostgreSql;
 using CasCap.AgentRuntime.Contracts.RuntimeConfiguration;
-using CasCap.Common.Configuration.PostgreSql.Services;
+using CasCap.Common.Configuration.PostgreSql;
+using CasCap.Common.Extensions;
+using CasCap.Common.Services;
 using CasCap.IntegrationTests;
 using CasCap.RuntimeConfiguration.Models;
 using CasCap.RuntimeConfiguration.Services;

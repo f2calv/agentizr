@@ -1,5 +1,4 @@
-using CasCap.Common.Configuration.PostgreSql.Extensions;
-using CasCap.Common.Configuration.Runtime.Models;
+using CasCap.Common.Extensions;
 using CasCap.RuntimeConfiguration.Services;
 using Serilog.Core;
 using Serilog.Events;
