@@ -85,7 +85,7 @@ public sealed class EndpointSmokeTests(AgentizrWebApplicationFactory factory)
             "GetAgentInstructionsV1", "PublishAgentDefinitionV1", "GetAgentDefinitionHistoryV1",
             "GetActiveAgentDefinitionV1", "GetAgentDefinitionVersionV1", "EvaluateAgentDefinitionV1",
             "ActivateAgentDefinitionV1", "GetAgentDefinitionActivationHistoryV1", "DeactivateAgentDefinitionV1",
-            "CreateRealtimeCallV1", "EndRealtimeCallV1",
+            "CreateRealtimeCallV1", "EndRealtimeCallV1", "GetRealtimeCapabilitiesV1",
             "SearchAgentKnowledgeV1", "GetAgentKnowledgePassageV1",
         ];
 
@@ -135,6 +135,7 @@ public sealed class EndpointSmokeTests(AgentizrWebApplicationFactory factory)
             ("DeactivateAgentDefinitionV1", 204, typeof(void)),
             ("CreateRealtimeCallV1", 201, typeof(RealtimeCallResponse)),
             ("EndRealtimeCallV1", 200, typeof(RealtimeCallSummaryResponse)),
+            ("GetRealtimeCapabilitiesV1", 200, typeof(RealtimeCapabilitiesResponse)),
             ("SearchAgentKnowledgeV1", 200, typeof(SearchKnowledgeResponse)),
             ("GetAgentKnowledgePassageV1", 200, typeof(KnowledgePassageResponse)),
         ];

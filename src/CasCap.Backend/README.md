@@ -681,6 +681,9 @@ and definition publication rejects embedded API keys.
 
 ### Realtime Voice Calls
 
+Use the [read-only capability endpoint](../../docs/realtime-conversations.md#contract) to check
+the active definition's voice, document knowledge and retention policy before starting a call.
+
 An agent definition's optional `realtime` section, or `AgentRuntimeConfig.Tenants:<tenant>:Realtime:<agent>`
 for configuration-backed tenants, offers brokered WebRTC calls, as proposed in
 [ADR 0002](../../docs/adr-0002-realtime-voice-calls.md). [`RealtimeCallsController`](Controllers/RealtimeCallsController.cs)

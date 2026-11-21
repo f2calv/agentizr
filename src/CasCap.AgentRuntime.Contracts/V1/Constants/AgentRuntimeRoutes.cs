@@ -33,6 +33,9 @@ public static class AgentRuntimeRoutes
     /// <summary>Gets the route for starting a brokered realtime voice call with an SDP offer.</summary>
     public const string RealtimeCalls = "/realtime/calls";
 
+    /// <summary>Gets the route for inspecting the active agent's realtime capabilities.</summary>
+    public const string RealtimeCapabilities = "/realtime/capabilities";
+
     /// <summary>Gets the route for ending one realtime voice call.</summary>
     public const string RealtimeCall = "/realtime/calls/{callId}";
 

@@ -45,6 +45,27 @@ public sealed class RealtimeCallService
         this.loggerFactory = loggerFactory;
     }
 
+    /// <summary>Reads realtime policy for the active tenant-scoped agent without starting a call.</summary>
+    public async ValueTask<RealtimeCapabilitiesResponse?> GetCapabilitiesAsync(
+        string agentName, CancellationToken cancellationToken)
+    {
+        var definition = await definitionStore.GetAsync(agentName, cancellationToken);
+        if (definition is null)
+            return null;
+
+        var voiceEnabled = definition.Realtime is not null;
+        var knowledgeToolsEnabled = definition.Realtime is { } realtime && HasKnowledgeTools(realtime);
+        return new()
+        {
+            VoiceEnabled = voiceEnabled,
+            KnowledgeToolsEnabled = knowledgeToolsEnabled,
+            RetentionAllowed = voiceEnabled && !knowledgeToolsEnabled,
+        };
+    }
+
+    private static bool HasKnowledgeTools(AgentRealtimeConfig realtime) =>
+        realtime.Tools.Contains(RealtimeKnowledgeSession.ToolName, StringComparer.Ordinal);
+
     /// <summary>
     /// Starts a call from a client SDP offer, or returns <see langword="null"/> when the agent is unavailable or
     /// offers no realtime calls.
@@ -56,8 +77,9 @@ public sealed class RealtimeCallService
         var definition = await definitionStore.GetAsync(agentName, cancellationToken);
         if (definition?.Realtime is not { } realtime)
             return null;
+        var knowledgeToolsEnabled = HasKnowledgeTools(realtime);
         RealtimeKnowledgeSession? knowledge = null;
-        if (realtime.Tools.Contains(RealtimeKnowledgeSession.ToolName, StringComparer.Ordinal))
+        if (knowledgeToolsEnabled)
         {
             if (caller?.Identity?.IsAuthenticated is not true
                 || !AgentRuntimeAuthorization.HasPermission(caller, AgentRuntimePermissions.KnowledgeSearch))
@@ -69,8 +91,7 @@ public sealed class RealtimeCallService
         }
         if (!registry.HasCapacity)
             return new RealtimeCallOutcome { IsAtCapacity = true };
-        if ((conversationId is not null && !retainConversation)
-            || (retainConversation && realtime.Tools.Contains(RealtimeKnowledgeSession.ToolName, StringComparer.Ordinal)))
+        if ((conversationId is not null && !retainConversation) || (retainConversation && knowledgeToolsEnabled))
             return new() { IsConversationUnavailable = true };
 
         var logger = loggerFactory.CreateLogger<RealtimeCallService>();

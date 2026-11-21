@@ -14,6 +14,39 @@ public sealed class RealtimeCallProtocolTests(RealtimeCallProtocolTests.Realtime
     private const string Offer = "v=0 offer";
 
     [Theory]
+    [InlineData("assistant", false, false, false)]
+    [InlineData("tutor", true, false, true)]
+    [InlineData("knowledge-tutor", true, true, false)]
+    public async Task GetRealtimeCapabilities_ReportsDefinitionPolicyWithoutCallingProvider(
+        string agentName, bool voice, bool knowledge, bool retention)
+    {
+        using var httpClient = factory.CreateClient();
+        var before = factory.Handler.RequestCount;
+        using var response = await httpClient.GetAsync(
+            $"/api/v1/agents/{agentName}/realtime/capabilities", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(response.Headers.CacheControl?.NoStore is true);
+        var result = await response.Content.ReadFromJsonAsync<RealtimeCapabilitiesResponse>(TestContext.Current.CancellationToken);
+        Assert.Equal(new RealtimeCapabilitiesResponse
+        {
+            VoiceEnabled = voice,
+            KnowledgeToolsEnabled = knowledge,
+            RetentionAllowed = retention,
+        }, result);
+        Assert.Equal(before, factory.Handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task GetRealtimeCapabilities_ReturnsNotFoundForUnknownAgent()
+    {
+        using var httpClient = factory.CreateClient();
+        using var response = await httpClient.GetAsync(
+            "/api/v1/agents/missing-agent/realtime/capabilities", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Theory]
     [InlineData(true, false)]
     [InlineData(false, true)]
     public async Task CreateRealtimeCall_UnavailableRetentionReturnsConflictBeforeProviderCalls(bool retain, bool resume)

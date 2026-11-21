@@ -22,6 +22,7 @@ secret. Do not weaken authorization to make an example work.
 | Collection | Surface | Required delegated scope or application role |
 | --- | --- | --- |
 | [runtime.http](runtime.http) | Run/stream, sessions, compaction, snapshots, overrides and instructions | `agent.execute` |
+| [realtime.http](realtime.http) | Inspect active definition policy without starting a call | `agent.realtime` |
 | [knowledge.http](knowledge.http) | Explicit bounded semantic search and protected current source previews | `agent.knowledge.search` |
 | [definitions.http](definitions.http) | Immutable publication/history, evaluation, activation/rollback and deactivation | `agent.definition.read`, `agent.definition.publish` or `agent.definition.activate`, per action |
 | [document-reviews.http](document-reviews.http) | Catalogue, synchronization, source preview, immutable snapshots, chunk selection and readiness assessments | Assigned app administrator's session cookie, plus antiforgery on POST/PUT; machine scopes do not qualify |

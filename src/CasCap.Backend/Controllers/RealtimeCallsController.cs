@@ -13,6 +13,16 @@ namespace CasCap.Controllers;
 [Authorize(Policy = AgentRuntimePolicies.Realtime)]
 public sealed class RealtimeCallsController(RealtimeCallService realtimeCallSvc) : ControllerBase
 {
+    /// <inheritdoc cref="RealtimeCallService.GetCapabilitiesAsync"/>
+    [HttpGet(AgentRuntimeRoutes.AgentGroup + AgentRuntimeRoutes.RealtimeCapabilities, Name = "GetRealtimeCapabilitiesV1")]
+    [EndpointSummary("Reports the active agent's realtime voice, knowledge tools and retention policy")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<Results<Ok<RealtimeCapabilitiesResponse>, NotFound>> GetCapabilitiesAsync(
+        string agentName, CancellationToken cancellationToken) =>
+        await realtimeCallSvc.GetCapabilitiesAsync(agentName, cancellationToken) is { } capabilities
+            ? TypedResults.Ok(capabilities)
+            : TypedResults.NotFound();
+
     /// <summary>Exchanges a WebRTC SDP offer for an answer; the runtime controls the call until it ends.</summary>
     [HttpPost(AgentRuntimeRoutes.AgentGroup + AgentRuntimeRoutes.RealtimeCalls, Name = "CreateRealtimeCallV1")]
     [EndpointSummary("Starts a brokered realtime voice call from an SDP offer")]

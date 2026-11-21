@@ -1,0 +1,11 @@
+### Agentizr realtime capabilities (read-only)
+
+@baseUrl = {{$dotenv AGENTIZR_BASE_URL}}
+@token = {{$dotenv AGENTIZR_REALTIME_TOKEN}}
+@agentName = {{$dotenv AGENTIZR_AGENT_NAME}}
+
+### Inspect active definition policy - expected 200 JSON, 401/403 or 404
+# @name getRealtimeCapabilities
+GET {{baseUrl}}/api/v1/agents/{{agentName}}/realtime/capabilities HTTP/1.1
+Authorization: Bearer {{token}}
+Accept: application/json
