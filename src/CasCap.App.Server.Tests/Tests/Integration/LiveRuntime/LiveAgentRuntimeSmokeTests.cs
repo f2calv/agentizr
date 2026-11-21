@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 namespace CasCap.IntegrationTests.Local;
 
 /// <summary>Exercises a complete running Agent Runtime through its published client.</summary>
+[Trait("Category", "Integration")]
 [Trait("Category", "Local Agent Runtime")]
 public sealed class LiveAgentRuntimeSmokeTests
 {

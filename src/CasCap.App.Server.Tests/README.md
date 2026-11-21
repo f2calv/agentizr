@@ -979,8 +979,8 @@ only when testing a local runtime with authentication disabled.
 
 ```text
 Tests/
-├── Integration/   # Real host, frontend, PostgreSQL/Redis and provider coverage
-├── Local/         # Explicitly enabled deployed-runtime smoke tests
+├── Integration/     # Real host, frontend, PostgreSQL/Redis and provider coverage
+│   └── LiveRuntime/ # Explicitly enabled deployed-runtime smoke tests
 └── Unit/          # Browser drafts: version suggestion, approval and chunk selection
 ```
 
